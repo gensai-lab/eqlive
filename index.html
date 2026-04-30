@@ -26,9 +26,8 @@
             font-family: 'UDKakugoLarge', sans-serif;
             color: var(--text-white);
             display: grid;
-            /* グリッド配分を微調整：下部エリアの高さを300pxに広げる */
             grid-template-columns: 1280px 640px;
-            grid-template-rows: 780px 300px;
+            grid-template-rows: 840px 240px;
         }
 
         .main-content {
@@ -84,20 +83,19 @@
             background-color: rgba(26, 35, 126, 0.9);
         }
 
-        /* 下部エリア：padding-bottomを増やして位置を上に調整 */
+        /* 下部エリアの調整 */
         .bottom-ticker-container {
             grid-column: 1;
             grid-row: 2;
             display: flex;
             align-items: flex-end;
-            /* 下からの余白を120pxに設定（さらに上げたい場合は数値を大きくしてください） */
-            padding-bottom: 120px; 
+            padding-bottom: 40px; /* 位置を調整 */
         }
 
         .title-frame {
             width: 100%;
-            /* サブボックスとメインボックスを収めるのに十分な高さ（250px） */
-            height: 250px; 
+            /* コンテンツがちょうど収まる高さに縮小して余白をカット */
+            height: 162px; 
             border: none;
             background: transparent;
             overflow: hidden;
