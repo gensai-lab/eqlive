@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kactuif 配信司令塔</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f0f0f0; color: #333; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { color: #d32f2f; text-align: center; }
+        label { font-weight: bold; display: block; margin-top: 15px; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 15px; background: #d32f2f; color: white; border: none; font-size: 18px; font-weight: bold; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        button:active { background: #b71c1c; }
+    </style>
+</head>
+<body>
+    <h2>Kactuif 配信管理</h2>
+
+    <div class="card">
+        <label>配信ステータス（左上）</label>
+        <select id="statusText">
+            <option value="Botによる配信">Botによる配信</option>
+            <option value="管理人による配信">管理人による配信</option>
+            <option value="自動巡回中">自動巡回中</option>
+            <option value="緊急放送中">緊急放送中</option>
+        </select>
+    </div>
+
+    <div class="card">
+        <label>ニュース見出し（メイン）</label>
+        <input type="text" id="tickerMain" placeholder="例：北海道・青森に津波警報">
+        
+        <label>ニュース見出し（サブ）</label>
+        <input type="text" id="tickerSub" placeholder="例：青森で震度5強">
+    </div>
+
+    <button onclick="updateBroadcast()">画面を更新する</button>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+            authDomain: "mgl-eqlive.firebaseapp.com",
+            databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+            projectId: "mgl-eqlive",
+            storageBucket: "mgl-eqlive.firebasestorage.app",
+            messagingSenderId: "1060231327645",
+            appId: "1:1060231327645:web:642684f4640bbc21d5c974",
+            measurementId: "G-BK3MJJ0VR7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        window.updateBroadcast = function() {
+            const status = document.getElementById('statusText').value;
+            const main = document.getElementById('tickerMain').value;
+            const sub = document.getElementById('tickerSub').value;
+
+            set(ref(db, 'broadcast/current'), {
+                statusText: status,
+                tickerMain: main,
+                tickerSub: sub,
+                updatedAt: Date.now()
+            }).then(() => {
+                alert("送信完了！配信画面を確認してください。");
+            }).catch((err) => {
+                alert("エラーが発生しました: " + err.message);
+            });
+        };
+    </script>
+</body>
+</html>
