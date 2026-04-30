@@ -63,29 +63,28 @@
             gap: 20px;
         }
 
-        /* 時計のスタイル修正 */
+        /* 時計のスタイル修正：ウェイトB、影なし、外側縁取り */
         .clock {
             font-size: 85px;
-            font-weight: bold; /* ウェイトをBに変更 */
+            font-weight: bold; /* ウェイトをBに設定 */
             color: var(--text-white);
             
-            /* 枠線の設定 */
-            -webkit-text-stroke: 12px var(--clock-stroke);
+            /* 縁取りの設定 */
+            -webkit-text-stroke: 12px var(--clock-stroke); 
             stroke-linejoin: round;
+            
+            /* 縁取りを背面に配置 */
             paint-order: stroke fill;
             
-            /* 影の設定（枠線の外側につくように強めに設定） */
-            text-shadow: 6px 6px 12px rgba(0, 0, 0, 0.9);
-            
             line-height: 1;
-            font-feature-settings: "palt";
+            font-feature-settings: "palt"; /* プロポーショナルメトリクス適用 */
+            text-shadow: none; /* 影をなしに設定 */
             letter-spacing: 0.05em;
         }
 
         .distributor-banner img {
             height: 75px;
             display: block;
-            filter: drop-shadow(4px 4px 6px rgba(0,0,0,0.7));
         }
 
         /* サイドパネル */
@@ -173,7 +172,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Firebase設定
         const firebaseConfig = {
             apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
             authDomain: "mgl-eqlive.firebaseapp.com",
@@ -188,7 +186,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // 時計更新ロジック（全角コロンを使用）
+        // 時計更新ロジック（コロンを全角に変更）
         function updateClock() {
             const now = new Date();
             const hours = now.getHours().toString().padStart(2, '0');
@@ -198,7 +196,7 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // 配信ステータス同期
+        // Firebase同期
         onValue(ref(db, 'broadcast/current'), (snapshot) => {
             const data = snapshot.val();
             if (data) {
