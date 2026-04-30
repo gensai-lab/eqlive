@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kactuif 配信司令塔</title>
+    <title>Kactuif 配信管理</title>
     <style>
         body { font-family: sans-serif; padding: 20px; background: #f0f0f0; color: #333; }
         .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
@@ -11,19 +11,16 @@
         label { font-weight: bold; display: block; margin-top: 15px; }
         input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 16px; }
         button { width: 100%; padding: 15px; background: #d32f2f; color: white; border: none; font-size: 18px; font-weight: bold; border-radius: 5px; cursor: pointer; margin-top: 10px; }
-        button:active { background: #b71c1c; }
     </style>
 </head>
 <body>
     <h2>Kactuif 配信管理</h2>
 
     <div class="card">
-        <label>配信ステータス（左上）</label>
-        <select id="statusText">
-            <option value="Botによる配信">Botによる配信</option>
-            <option value="管理人による配信">管理人による配信</option>
-            <option value="自動巡回中">自動巡回中</option>
-            <option value="緊急放送中">緊急放送中</option>
+        <label>配信モード（バナー切替）</label>
+        <select id="statusType">
+            <option value="bot">Botによる配信</option>
+            <option value="ningen">人間による配信</option>
         </select>
     </div>
 
@@ -56,19 +53,19 @@
         const db = getDatabase(app);
 
         window.updateBroadcast = function() {
-            const status = document.getElementById('statusText').value;
+            const type = document.getElementById('statusType').value;
             const main = document.getElementById('tickerMain').value;
             const sub = document.getElementById('tickerSub').value;
 
             set(ref(db, 'broadcast/current'), {
-                statusText: status,
+                statusType: type,
                 tickerMain: main,
                 tickerSub: sub,
                 updatedAt: Date.now()
             }).then(() => {
-                alert("送信完了！配信画面を確認してください。");
+                alert("送信完了！");
             }).catch((err) => {
-                alert("エラーが発生しました: " + err.message);
+                alert("エラー: " + err.message);
             });
         };
     </script>
