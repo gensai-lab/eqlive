@@ -5,167 +5,97 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>みんなの減災ラボ - 放送システム</title>
     <style>
-        /* フォント定義 */
-        @font-face {
-            font-family: 'UDKakugoLarge';
-            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-M.otf') format('opentype');
-            font-weight: normal;
-        }
+        /* 前回のフォント・変数定義を継承 */
         @font-face {
             font-family: 'UDKakugoLarge';
             src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
             font-weight: bold;
         }
-        @font-face {
-            font-family: 'UDKakugoLarge';
-            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-E.otf') format('opentype');
-            font-weight: 800;
-        }
 
         :root {
             --warning-red: #d32f2f;
             --navy-blue: #1a237e;
-            --clock-stroke: #003EB3; /* 枠線の色 */
+            --clock-stroke: #003EB3;
             --text-white: #ffffff;
             --bg-dark: #121212;
         }
 
         body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
+            margin: 0; padding: 0; overflow: hidden;
             background-color: var(--bg-dark);
             font-family: 'UDKakugoLarge', sans-serif;
             color: var(--text-white);
-            width: 1920px;
-            height: 1080px;
+            width: 1920px; height: 1080px;
             display: grid;
             grid-template-columns: 1380px 540px;
             grid-template-rows: 930px 150px;
         }
 
+        /* 映像表示エリア */
         .main-content {
-            grid-column: 1;
-            grid-row: 1;
+            grid-column: 1; grid-row: 1;
             position: relative;
-            background: #222;
+            background: #000;
+            overflow: hidden;
         }
 
-        /* 時計とバナーのレイアウト */
+        #mainVideoDisplay {
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+
+        #imageDisplay {
+            width: 100%; height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+
+        /* 時計とバナーのオーバーレイ */
         .video-overlay {
             position: absolute;
-            top: 40px;
-            left: 40px;
+            top: 40px; left: 40px;
             z-index: 10;
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            gap: 20px;
+            display: flex; flex-direction: row; align-items: center; gap: 20px;
         }
 
-        /* 時計のスタイル修正：ウェイトB、影なし、外側縁取り */
         .clock {
-            font-size: 85px;
-            font-weight: bold; /* ウェイトをBに設定 */
-            color: var(--text-white);
-            
-            /* 縁取りの設定 */
-            -webkit-text-stroke: 12px var(--clock-stroke); 
-            stroke-linejoin: round;
-            
-            /* 縁取りを背面に配置 */
-            paint-order: stroke fill;
-            
-            line-height: 1;
-            font-feature-settings: "palt"; /* プロポーショナルメトリクス適用 */
-            text-shadow: none; /* 影をなしに設定 */
-            letter-spacing: 0.05em;
+            font-size: 85px; font-weight: bold; color: var(--text-white);
+            -webkit-text-stroke: 12px var(--clock-stroke);
+            stroke-linejoin: round; paint-order: stroke fill;
+            line-height: 1; font-feature-settings: "palt";
+            text-shadow: none; letter-spacing: 0.05em;
         }
 
-        .distributor-banner img {
-            height: 75px;
-            display: block;
-        }
+        .distributor-banner img { height: 75px; display: block; }
 
-        /* サイドパネル */
-        .side-panel {
-            grid-column: 2;
-            grid-row: 1 / 3;
-            background-color: var(--bg-dark);
-            display: flex;
-            flex-direction: column;
-            border-left: 2px solid #333;
-        }
-
-        .urgent-warning {
-            background-color: var(--warning-red);
-            font-size: 72px;
-            font-weight: 800;
-            text-align: center;
-            padding: 20px 0;
-            letter-spacing: 0.1em;
-        }
-
-        .latest-info .info-header {
-            background-color: var(--navy-blue);
-            text-align: center;
-            font-size: 32px;
-            padding: 10px;
-            font-weight: bold;
-        }
-
-        /* 下部テロップ */
-        .bottom-ticker {
-            grid-column: 1;
-            grid-row: 2;
-            background-color: var(--warning-red);
-            padding-left: 40px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .ticker-sub {
-            background-color: white;
-            color: var(--warning-red);
-            display: inline-block;
-            padding: 2px 20px;
-            font-size: 36px;
-            font-weight: 800;
-            width: fit-content;
-            border-radius: 4px;
-        }
-
-        .ticker-main {
-            font-size: 84px;
-            font-weight: 800;
-            margin-top: 5px;
-            white-space: nowrap;
-        }
+        /* サイド・テロップ */
+        .side-panel { grid-column: 2; grid-row: 1 / 3; background-color: var(--bg-dark); border-left: 2px solid #333; }
+        .urgent-warning { background-color: var(--warning-red); font-size: 72px; font-weight: 800; text-align: center; padding: 20px 0; }
+        .bottom-ticker { grid-column: 1; grid-row: 2; background-color: var(--warning-red); padding-left: 40px; display: flex; flex-direction: column; justify-content: center; }
+        .ticker-main { font-size: 84px; font-weight: 800; }
     </style>
 </head>
 <body>
     <main class="main-content">
+        <!-- 映像用 -->
+        <video id="mainVideoDisplay" autoplay playsinline muted></video>
+        <!-- 画像用 -->
+        <img id="imageDisplay" src="" alt="投影画像">
+
         <div class="video-overlay">
             <div class="clock" id="liveClock">00：00</div>
             <div class="distributor-banner">
-                <img id="distributorImg" src="assets/banner/distributor/bot.png" alt="配信ステータス">
+                <img id="distributorImg" src="assets/banner/distributor/bot.png">
             </div>
         </div>
-        <div id="map-container"></div>
     </main>
 
     <aside class="side-panel">
         <div class="urgent-warning">津波！逃げて！</div>
-        <div class="latest-info">
-            <div class="info-header">最 新 情 報</div>
-            <div id="info-list-area"></div>
-        </div>
     </aside>
 
     <footer class="bottom-ticker">
-        <div class="ticker-sub" id="tickerSub">速報</div>
-        <div class="ticker-main" id="tickerMain">最新の地震情報を確認中</div>
+        <div class="ticker-main" id="tickerMain">最新情報を確認中</div>
     </footer>
 
     <script type="module">
@@ -179,36 +109,59 @@
             projectId: "mgl-eqlive",
             storageBucket: "mgl-eqlive.firebasestorage.app",
             messagingSenderId: "1060231327645",
-            appId: "1:1060231327645:web:642684f4640bbc21d5c974",
-            measurementId: "G-BK3MJJ0VR7"
+            appId: "1:1060231327645:web:642684f4640bbc21d5c974"
         };
-
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // 時計更新ロジック（コロンを全角に変更）
+        // 時計更新
         function updateClock() {
             const now = new Date();
-            const hours = now.getHours().toString().padStart(2, '0');
-            const minutes = now.getMinutes().toString().padStart(2, '0');
-            document.getElementById('liveClock').innerText = `${hours}：${minutes}`;
+            document.getElementById('liveClock').innerText = 
+                `${now.getHours().toString().padStart(2, '0')}：${now.getMinutes().toString().padStart(2, '0')}`;
         }
-        setInterval(updateClock, 1000);
-        updateClock();
+        setInterval(updateClock, 1000); updateClock();
 
-        // Firebase同期
-        onValue(ref(db, 'broadcast/current'), (snapshot) => {
+        // 映像ソースの制御
+        const videoElem = document.getElementById('mainVideoDisplay');
+        const imgElem = document.getElementById('imageDisplay');
+        let currentStream = null;
+
+        onValue(ref(db, 'broadcast/current'), async (snapshot) => {
             const data = snapshot.val();
-            if (data) {
-                const imgElement = document.getElementById('distributorImg');
-                imgElement.src = data.statusType === 'ningen' 
-                    ? 'assets/banner/distributor/ningen.png' 
-                    : 'assets/banner/distributor/bot.png';
-                
-                document.getElementById('tickerMain').innerText = data.tickerMain;
-                document.getElementById('tickerSub').innerText = data.tickerSub;
+            if (!data) return;
+
+            // テロップ・バナー更新
+            document.getElementById('tickerMain').innerText = data.tickerMain;
+            document.getElementById('distributorImg').src = data.statusType === 'ningen' ? 'assets/banner/distributor/ningen.png' : 'assets/banner/distributor/bot.png';
+
+            // ソース切り替え
+            if (data.sourceType === 'camera') {
+                imgElem.style.display = 'none';
+                videoElem.style.display = 'block';
+                setupCamera();
+            } else if (data.sourceType === 'screen') {
+                imgElem.style.display = 'none';
+                videoElem.style.display = 'block';
+                setupScreenShare();
+            } else if (data.sourceType === 'image') {
+                videoElem.style.display = 'none';
+                imgElem.style.display = 'block';
+                imgElem.src = data.mediaUrl || '';
             }
         });
+
+        async function setupCamera() {
+            if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+            currentStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1920, height: 1080 } });
+            videoElem.srcObject = currentStream;
+        }
+
+        async function setupScreenShare() {
+            if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+            currentStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+            videoElem.srcObject = currentStream;
+        }
     </script>
 </body>
 </html>
