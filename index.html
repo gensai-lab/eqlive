@@ -2,64 +2,185 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>みんなの減災ラボ - 自動配信システム</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>みんなの減災ラボ - 放送システム</title>
+    <style>
+        /* 全体のレイアウト設定 */
+        :root {
+            --warning-red: #d32f2f;
+            --navy-blue: #1a237e;
+            --text-white: #ffffff;
+            --bg-dark: #121212;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            /* フォントはユーザー指定のUD新ゴを優先 */
+            font-family: "A-OTF UD新ゴ PrN", "UD Shin Go", sans-serif;
+            color: var(--text-white);
+            width: 1920px;
+            height: 1080px;
+            display: grid;
+            grid-template-columns: 1380px 540px;
+            grid-template-rows: 930px 150px;
+        }
+
+        /* メインエリア（地図や中継映像） */
+        .main-content {
+            grid-column: 1;
+            grid-row: 1;
+            position: relative;
+            background: #222; /* 映像がない時の背景 */
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            z-index: 10;
+        }
+
+        .clock {
+            font-size: 80px;
+            font-weight: bold;
+            text-shadow: 4px 4px 10px rgba(0,0,0,0.8);
+            line-height: 1;
+        }
+
+        .status-badge {
+            display: inline-block;
+            background: #ff6d00;
+            color: white;
+            padding: 5px 15px;
+            font-size: 28px;
+            font-weight: bold;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        /* 右側サイドパネル */
+        .side-panel {
+            grid-column: 2;
+            grid-row: 1 / 3;
+            background-color: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            border-left: 2px solid #333;
+        }
+
+        .urgent-warning {
+            background-color: var(--warning-red);
+            font-size: 72px;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px 0;
+            letter-spacing: 0.1em;
+        }
+
+        .latest-info .info-header {
+            background-color: var(--navy-blue);
+            text-align: center;
+            font-size: 32px;
+            padding: 10px;
+        }
+
+        /* 下部テロップエリア */
+        .bottom-ticker {
+            grid-column: 1;
+            grid-row: 2;
+            background-color: var(--warning-red);
+            padding-left: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .ticker-sub {
+            background-color: white;
+            color: var(--warning-red);
+            display: inline-block;
+            padding: 2px 20px;
+            font-size: 36px;
+            font-weight: bold;
+            width: fit-content;
+            border-radius: 4px;
+        }
+
+        .ticker-main {
+            font-size: 84px;
+            font-weight: bold;
+            margin-top: 5px;
+            white-space: nowrap;
+        }
+    </style>
 </head>
-<body class="broadcast-layout">
-    <!-- メイン映像エリア -->
+<body>
     <main class="main-content">
         <div class="video-overlay">
-            <div class="clock">12:34</div>
+            <div class="clock" id="liveClock">00:00</div>
             <div class="status-badge">Botによる配信</div>
-            <div class="location-badge">中継 岩手 花巻空港</div>
         </div>
-        <!-- ここに Leaflet などの地図やカメラ映像を配置 -->
-        <div id="map-or-video"></div>
+        <!-- 地震マップ等の埋め込み用エリア -->
+        <div id="map-container"></div>
     </main>
 
-    <!-- 右側サイドパネル -->
     <aside class="side-panel">
         <div class="urgent-warning">津波！逃げて！</div>
-        
         <div class="latest-info">
             <div class="info-header">最 新 情 報</div>
-            <div class="info-body">
-                <p class="source">東電福島第一・第二原発</p>
-                <p class="detail">異常がないか確認中</p>
-            </div>
-        </div>
-
-        <div class="tsunami-list-container">
-            <table class="tsunami-table">
-                <thead>
-                    <tr>
-                        <th>津波警報</th>
-                        <th>到達予想</th>
-                        <th>高さ</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- ここはJavaScriptで動的に追加 -->
-                    <tr><td>北海道太平洋沿岸中部</td><td>22日 22:22</td><td>3m</td></tr>
-                    <tr><td>北海道太平洋沿岸中部</td><td>22日 22:22</td><td>3m</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="mini-map-container">
-            <!-- 以前作成された津波マップをここに統合 -->
-            <div id="tsunami-map"></div>
-            <div class="map-legend">
-                <p><span class="legend-red"></span>津波警報</p>
-                <p><span class="legend-yellow"></span>津波注意報</p>
+            <div id="info-list-area">
+                <!-- ここに情報を追加していく -->
             </div>
         </div>
     </aside>
 
-    <!-- 下部テロップ -->
     <footer class="bottom-ticker">
-        <div class="ticker-sub">青森で震度5強</div>
-        <div class="ticker-main">北海道・青森・岩手に津波警報</div>
+        <div class="ticker-sub">速報</div>
+        <div class="ticker-main">最新の地震情報を確認中</div>
     </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // ユーザー提供の Firebase 設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+            authDomain: "mgl-eqlive.firebaseapp.com",
+            databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+            projectId: "mgl-eqlive",
+            storageBucket: "mgl-eqlive.firebasestorage.app",
+            messagingSenderId: "1060231327645",
+            appId: "1:1060231327645:web:642684f4640bbc21d5c974",
+            measurementId: "G-BK3MJJ0VR7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // 時計の更新
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.getHours().toString().padStart(2, '0') + ':' + 
+                          now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('liveClock').innerText = timeStr;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Firebase データの同期
+        const broadcastRef = ref(db, 'broadcast/current');
+        onValue(broadcastRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                document.querySelector('.status-badge').innerText = data.statusText;
+                document.querySelector('.ticker-main').innerText = data.tickerMain;
+                document.querySelector('.ticker-sub').innerText = data.tickerSub;
+            }
+        });
+    </script>
 </body>
 </html>
