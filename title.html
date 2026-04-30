@@ -7,12 +7,12 @@
         @font-face {
             font-family: 'UDKakugoLarge';
             src: url('./assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
-            font-weight: 400;
+            font-weight: 600;
         }
         @font-face {
             font-family: 'UDKakugoLarge';
             src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
-            font-weight: 400;
+            font-weight: bold;
         }
 
         :root {
@@ -37,49 +37,87 @@
             padding-bottom: 5px;
         }
 
-        /* サブボックス: サイズを52pxに拡大 */
         .subtitle-box {
             background-color: var(--text-white);
             color: var(--warning-red);
             font-size: 52px; 
             font-weight: 600;
-            padding: 8px 25px 8px 25px; /* 下側に少し余裕を持たせる */
+            padding: 0px 25px 4px 25px;
             border-radius: 8px 8px 0px 0px; 
             white-space: nowrap;
             font-feature-settings: "palt";
             margin-bottom: 0;
             margin-left: var(--main-text-indent);
             line-height: 1.1;
+            /* 初期状態では非表示（データが来たら表示） */
+            display: none; 
         }
 
         .main-title-box {
             background-color: var(--warning-red);
             color: var(--text-white);
             font-size: 96px;
-            font-weight: 400;
-            padding: 15px 50px;
+            font-weight: bold;
+            padding: 12px 45px;
             border-radius: 0px 8px 8px 0px; 
             white-space: nowrap;
             font-feature-settings: "palt";
             line-height: 1.1;
             position: relative;
-        }
-
-        .main-title-box::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 8px;
-            background-color: rgba(255, 255, 255, 0);
+            /* 初期状態では非表示 */
+            display: none;
         }
     </style>
 </head>
 <body>
     <div class="title-container">
-        <div class="subtitle-box" id="displaySubtitle">青森で震度5強</div>
-        <div class="main-title-box" id="displayMainTitle">北海道・青森・岩手に津波警報</div>
+        <div class="subtitle-box" id="displaySubtitle"></div>
+        <div class="main-title-box" id="displayMainTitle"></div>
     </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // Firebase設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+            authDomain: "mgl-eqlive.firebaseapp.com",
+            databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+            projectId: "mgl-eqlive",
+            storageBucket: "mgl-eqlive.firebasestorage.app",
+            messagingSenderId: "1060231327645",
+            appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Firebaseのデータを監視してリアルタイム更新
+        const titleRef = ref(db, 'broadcast/current');
+        onValue(titleRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const subEl = document.getElementById('displaySubtitle');
+                const mainEl = document.getElementById('displayMainTitle');
+
+                // サブテキストの更新
+                if (data.subtitle) {
+                    subEl.innerText = data.subtitle;
+                    subEl.style.display = 'block';
+                } else {
+                    subEl.style.display = 'none';
+                }
+
+                // メインタイトルの更新
+                if (data.mainTitle) {
+                    mainEl.innerText = data.mainTitle;
+                    mainEl.style.display = 'block';
+                } else {
+                    mainEl.style.display = 'none';
+                }
+            }
+        });
+    </script>
 </body>
 </html>
