@@ -34,22 +34,22 @@
             flex-direction: column;
             align-items: flex-start;
             padding: 0;
-            /* 下の見切れを防ぐためにコンテナ自体にわずかなマージンを確保 */
             padding-bottom: 5px;
         }
 
+        /* サブボックス: サイズを52pxに拡大 */
         .subtitle-box {
             background-color: var(--text-white);
             color: var(--warning-red);
-            font-size: 42px;
+            font-size: 52px; 
             font-weight: 600;
-            padding: 2px 25px;
+            padding: 0px 25px 4px 25px; /* 下側に少し余裕を持たせる */
             border-radius: 8px 8px 0px 0px; 
             white-space: nowrap;
             font-feature-settings: "palt";
             margin-bottom: 0;
             margin-left: var(--main-text-indent);
-            line-height: 1.2;
+            line-height: 1.1;
         }
 
         .main-title-box {
