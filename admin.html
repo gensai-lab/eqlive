@@ -7,110 +7,19 @@
     <style>
         :root {
             --primary-blue: #1a237e;
-            --accent-red: #de080a;
             --bg-gray: #f4f4f9;
-            --text-dark: #333;
         }
-
-        body {
-            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
-            background-color: var(--bg-gray);
-            color: var(--text-dark);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-        }
-
-        .admin-container {
-            width: 100%;
-            max-width: 800px;
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        }
-
-        h1 {
-            font-size: 24px;
-            color: var(--primary-blue);
-            border-bottom: 2px solid var(--primary-blue);
-            padding-bottom: 10px;
-            margin-top: 0;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 8px;
-        }
-
-        input[type="text"], select, textarea {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            box-sizing: border-box; /* パディングを含めた幅計算 */
-            font-size: 16px; /* モバイルでのズーム防止 */
-        }
-
-        .btn-group {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        button {
-            padding: 15px;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-
-        .btn-update {
-            background-color: var(--primary-blue);
-            color: white;
-        }
-
-        .btn-reset {
-            background-color: #666;
-            color: white;
-        }
-
-        button:hover {
-            opacity: 0.8;
-        }
-
-        /* レスポンシブ調整 */
-        @media (max-width: 600px) {
-            body {
-                padding: 10px;
-            }
-
-            .admin-container {
-                padding: 20px;
-            }
-
-            h1 {
-                font-size: 20px;
-            }
-
-            .btn-group {
-                grid-template-columns: 1fr; /* スマホではボタンを縦に並べる */
-            }
-
-            input[type="text"], select, textarea {
-                font-size: 14px;
-            }
-        }
+        body { font-family: sans-serif; background-color: var(--bg-gray); padding: 20px; display: flex; justify-content: center; }
+        .admin-container { width: 100%; max-width: 600px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        h1 { font-size: 20px; color: var(--primary-blue); border-bottom: 2px solid var(--primary-blue); padding-bottom: 10px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; }
+        input[type="text"], select, textarea { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        button { padding: 15px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn-update { background-color: var(--primary-blue); color: white; }
+        .btn-reset { background-color: #666; color: white; }
+        @media (max-width: 480px) { .btn-group { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -127,13 +36,13 @@
     </div>
 
     <div class="form-group">
-        <label for="subtitle">サブテキスト（例：震源地、震度など）</label>
-        <input type="text" id="subtitle" placeholder="青森で震度5強">
+        <label for="subtitle">サブテキスト</label>
+        <input type="text" id="subtitle" placeholder="例：青森で震度5強">
     </div>
 
     <div class="form-group">
-        <label for="mainTitle">メインタイトル（テロップ内容）</label>
-        <textarea id="mainTitle" rows="3" placeholder="北海道・青森・岩手に津波警報"></textarea>
+        <label for="mainTitle">メインタイトル</label>
+        <textarea id="mainTitle" rows="3" placeholder="例：北海道・青森・岩手に津波警報"></textarea>
     </div>
 
     <div class="btn-group">
@@ -144,7 +53,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, set, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
@@ -159,28 +68,23 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const updateBtn = document.getElementById('updateBtn');
-    const statusType = document.getElementById('statusType');
-    const subtitle = document.getElementById('subtitle');
-    const mainTitle = document.getElementById('mainTitle');
-
-    updateBtn.addEventListener('click', () => {
+    document.getElementById('updateBtn').addEventListener('click', () => {
         const data = {
-            statusType: statusType.value,
-            subtitle: subtitle.value,
-            mainTitle: mainTitle.value,
+            statusType: document.getElementById('statusType').value,
+            subtitle: document.getElementById('subtitle').value,
+            mainTitle: document.getElementById('mainTitle').value,
             updatedAt: Date.now()
         };
 
         update(ref(db, 'broadcast/current'), data)
-            .then(() => alert('設定を更新しました！'))
-            .catch((error) => alert('エラーが発生しました: ' + error.message));
+            .then(() => alert('設定を反映しました！'))
+            .catch((e) => alert('エラー: ' + e.message));
     });
 
     document.getElementById('resetBtn').addEventListener('click', () => {
-        if(confirm('入力をリセットしますか？')) {
-            subtitle.value = '';
-            mainTitle.value = '';
+        if(confirm('リセットしますか？')) {
+            document.getElementById('subtitle').value = '';
+            document.getElementById('mainTitle').value = '';
         }
     });
 </script>
