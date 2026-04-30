@@ -33,7 +33,9 @@
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            padding: 0; /* パディングを0pxに変更 */
+            padding: 0;
+            /* 下の見切れを防ぐためにコンテナ自体にわずかなマージンを確保 */
+            padding-bottom: 5px;
         }
 
         .subtitle-box {
