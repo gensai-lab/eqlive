@@ -25,6 +25,7 @@
         :root {
             --warning-red: #d32f2f;
             --navy-blue: #1a237e;
+            --clock-blue: #003EB3;
             --text-white: #ffffff;
             --bg-dark: #121212;
         }
@@ -43,7 +44,6 @@
             grid-template-rows: 930px 150px;
         }
 
-        /* メインエリア */
         .main-content {
             grid-column: 1;
             grid-row: 1;
@@ -51,31 +51,37 @@
             background: #222;
         }
 
-        /* 時計とバナーを横並びにする設定 */
+        /* 時計とバナーのレイアウト */
         .video-overlay {
             position: absolute;
             top: 40px;
             left: 40px;
             z-index: 10;
             display: flex;
-            flex-direction: row; /* 横並び */
-            align-items: center; /* 上下中央揃え */
-            gap: 20px; /* 時計と画像の間の隙間 */
+            flex-direction: row;
+            align-items: center;
+            gap: 15px;
         }
 
+        /* 時計のスタイル修正 */
         .clock {
-            font-size: 95px;
+            font-size: 72px; /* 少し小さめに調整 */
             font-weight: bold;
-            text-shadow: 4px 4px 10px rgba(0,0,0,0.8);
-            line-height: 1;
+            background-color: rgba(0, 0, 0, 0.6); /* 背景を少し暗くして文字を浮かせる */
+            padding: 5px 20px;
+            border: 4px solid var(--clock-blue); /* 指定の枠線色 */
+            border-radius: 8px;
+            line-height: 1.1;
+            font-feature-settings: "palt"; /* プロポーショナルメトリクス適用 */
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
 
         .distributor-banner img {
-            height: 75px; /* バナーの高さ調整 */
+            height: 65px; /* 時計のサイズに合わせて微調整 */
             display: block;
         }
 
-        /* サイドパネル */
+        /* サイドパネル・テロップ等は変更なし */
         .side-panel {
             grid-column: 2;
             grid-row: 1 / 3;
@@ -102,7 +108,6 @@
             font-weight: bold;
         }
 
-        /* 下部テロップ */
         .bottom-ticker {
             grid-column: 1;
             grid-row: 2;
@@ -135,7 +140,7 @@
 <body>
     <main class="main-content">
         <div class="video-overlay">
-            <div class="clock" id="liveClock">00:00</div>
+            <div class="clock" id="liveClock">00：00</div>
             <div class="distributor-banner">
                 <img id="distributorImg" src="assets/banner/distributor/bot.png" alt="配信ステータス">
             </div>
@@ -160,7 +165,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Firebase設定
         const firebaseConfig = {
             apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
             authDomain: "mgl-eqlive.firebaseapp.com",
@@ -175,28 +179,23 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // 時計更新
+        // 時計更新ロジック（コロンを全角に変更）
         function updateClock() {
             const now = new Date();
-            document.getElementById('liveClock').innerText = 
-                now.getHours().toString().padStart(2, '0') + ':' + 
-                now.getMinutes().toString().padStart(2, '0');
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('liveClock').innerText = `${hours}：${minutes}`;
         }
         setInterval(updateClock, 1000);
         updateClock();
 
-        // Firebase同期：画像の切り替えとテキストの更新
-        const broadcastRef = ref(db, 'broadcast/current');
-        onValue(broadcastRef, (snapshot) => {
+        onValue(ref(db, 'broadcast/current'), (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 const imgElement = document.getElementById('distributorImg');
-                // statusTypeに合わせて画像パスを変更
-                if (data.statusType === 'ningen') {
-                    imgElement.src = 'assets/banner/distributor/ningen.png';
-                } else {
-                    imgElement.src = 'assets/banner/distributor/bot.png';
-                }
+                imgElement.src = data.statusType === 'ningen' 
+                    ? 'assets/banner/distributor/ningen.png' 
+                    : 'assets/banner/distributor/bot.png';
                 
                 document.getElementById('tickerMain').innerText = data.tickerMain;
                 document.getElementById('tickerSub').innerText = data.tickerSub;
