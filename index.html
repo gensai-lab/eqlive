@@ -60,26 +60,33 @@
             display: flex;
             flex-direction: row;
             align-items: center;
-            gap: 15px;
+            gap: 20px;
         }
 
-        /* 時計のスタイル修正：文字自体に枠線をつける */
+        /* 時計のスタイル修正：外側への太い丸縁取り */
         .clock {
-            font-size: 80px; /* サイズを微調整 */
-            font-weight: bold;
+            font-size: 85px;
+            font-weight: 900; /* より太いウェイトを指定 */
             color: var(--text-white);
-            /* 文字の縁取り設定 */
-            -webkit-text-stroke: 4px var(--clock-stroke); 
-            paint-order: stroke fill; /* 縁取りを文字の下に配置して読みやすくする */
+            
+            /* 縁取りの設定 */
+            -webkit-text-stroke: 12px var(--clock-stroke); /* 6pt相当の太さ(外側に広がる分を考慮) */
+            stroke-linejoin: round; /* 角を丸くする */
+            
+            /* 重要：縁取りを文字の「背面」に描画することで、文字が細くならないようにする */
+            paint-order: stroke fill;
             
             line-height: 1;
             font-feature-settings: "palt"; /* プロポーショナルメトリクス適用 */
-            text-shadow: 4px 4px 8px rgba(0,0,0,0.8); /* 影を強めて浮き立たせる */
+            text-shadow: 4px 4px 10px rgba(0,0,0,0.8);
+            letter-spacing: 0.05em;
         }
 
         .distributor-banner img {
-            height: 70px;
+            height: 75px;
             display: block;
+            /* バナーに少しだけドロップシャドウをつけて時計との親和性を高める */
+            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.5));
         }
 
         /* サイドパネル */
