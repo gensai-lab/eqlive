@@ -2,90 +2,67 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <title>Kactuif 配信管理</title>
     <style>
-        /* フォント定義 */
-        @font-face {
-            font-family: 'UDKakugoLarge';
-            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
-            font-weight: bold;
-        }
-
-        :root {
-            --warning-red: #d32f2f;
-            --text-white: #ffffff;
-        }
-
-        body {
-            margin: 0;
-            padding: 100px; /* 確認用に余白を広げています */
-            background-color: #222;
-            font-family: 'UDKakugoLarge', sans-serif;
-        }
-
-        /* タイトル全体のコンテナ */
-        .title-container {
-            position: relative;
-            display: inline-block;
-            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.4));
-        }
-
-        /* サブボックス（白）: 右下・左下 0px / 右上・左上 8px */
-        .subtitle-box {
-            position: absolute;
-            top: -55px;
-            left: 0;
-            background-color: var(--text-white);
-            color: var(--warning-red);
-            font-size: 48px;
-            font-weight: bold;
-            padding: 4px 25px;
-            /* 角丸設定 */
-            border-radius: 8px 8px 0px 0px; 
-            z-index: 2;
-            white-space: nowrap;
-            font-feature-settings: "palt";
-        }
-
-        /* メインボックス（赤）: 左上・左下 0px / 右上・右下 8px */
-        .main-title-box {
-            position: relative;
-            background-color: var(--warning-red);
-            color: var(--text-white);
-            font-size: 96px;
-            font-weight: bold;
-            padding: 12px 45px;
-            /* 角丸設定 */
-            border-radius: 0px 8px 8px 0px; 
-            z-index: 1;
-            white-space: nowrap;
-            font-feature-settings: "palt";
-            line-height: 1.1;
-        }
-
-        /* 左側の白いライン装飾 */
-        .main-title-box::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 8px;
-            background-color: rgba(255,255,255,0.3);
-        }
+        body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
+        .card { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        select, input, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
+        button { background: #d32f2f; color: white; font-weight: bold; cursor: pointer; border: none; }
     </style>
 </head>
 <body>
+    <h2>Kactuif 配信ソース管理</h2>
 
-    <div class="title-container">
-        <!-- サブボックス -->
-        <div class="subtitle-box" id="displaySubtitle">
-            青森で震度5強
-        </div>
-        <!-- メインボックス -->
-        <div class="main-title-box" id="displayMainTitle">
-            北海道・青森・岩手に津波警報
-        </div>
+    <div class="card">
+        <label>① 配信ソース選択</label>
+        <select id="sourceType">
+            <option value="camera">ライブカメラ / 情報カメラ</option>
+            <option value="screen">画面共有 (シミュレーター等)</option>
+            <option value="image">画像・指定映像 (URL指定)</option>
+        </select>
+        
+        <label>② メディアURL (画像/映像投影時のみ)</label>
+        <input type="text" id="mediaUrl" placeholder="assets/media/sample.jpg 等">
     </div>
 
+    <div class="card">
+        <label>配信モード</label>
+        <select id="statusType">
+            <option value="bot">Botによる配信</option>
+            <option value="ningen">人間による配信</option>
+        </select>
+
+        <label>メインテロップ</label>
+        <input type="text" id="tickerMain" value="最新の地震情報を確認中">
+    </div>
+
+    <button onclick="updateBroadcast()">設定を反映する</button>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+            authDomain: "mgl-eqlive.firebaseapp.com",
+            databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+            projectId: "mgl-eqlive",
+            storageBucket: "mgl-eqlive.firebasestorage.app",
+            messagingSenderId: "1060231327645",
+            appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        window.updateBroadcast = function() {
+            set(ref(db, 'broadcast/current'), {
+                sourceType: document.getElementById('sourceType').value,
+                mediaUrl: document.getElementById('mediaUrl').value,
+                statusType: document.getElementById('statusType').value,
+                tickerMain: document.getElementById('tickerMain').value,
+                updatedAt: Date.now()
+            }).then(() => alert("更新しました"));
+        };
+    </script>
 </body>
 </html>
