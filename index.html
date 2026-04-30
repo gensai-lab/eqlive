@@ -13,11 +13,8 @@
         }
 
         :root {
-            --warning-red: #d32f2f;
-            --navy-blue: #1a237e;
-            --clock-stroke: #003EB3; /* ご指定の色 */
+            --clock-stroke: #003EB3;
             --text-white: #ffffff;
-            --bg-dark: #121212;
         }
 
         body {
@@ -31,21 +28,21 @@
             font-family: 'UDKakugoLarge', sans-serif;
             color: var(--text-white);
             display: grid;
-            grid-template-columns: 1280px 640px; /* 右側パネルを少し広めに設定 */
+            grid-template-columns: 1280px 640px;
             grid-template-rows: 840px 240px;
         }
 
-        /* 映像投影エリア（少し浮かせるデザイン） */
+        /* 映像投影エリア */
         .main-content {
             grid-column: 1;
             grid-row: 1;
-            padding: 40px 0 0 40px; /* 左と上に余白 */
+            padding: 40px 0 0 40px;
             position: relative;
         }
 
         .video-container {
             width: 1200px;
-            height: 675px; /* 16:9 */
+            height: 675px;
             background: #000;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             position: relative;
@@ -58,7 +55,7 @@
             object-fit: cover;
         }
 
-        /* 時計とバナー（映像の上に配置） */
+        /* 時計レイヤー */
         .video-overlay {
             position: absolute;
             top: 40px;
@@ -71,14 +68,14 @@
 
         .clock {
             font-size: 90px;
-            font-weight: bold; /* ウェイトB */
+            font-weight: bold;
             color: var(--text-white);
-            -webkit-text-stroke: 12px var(--clock-stroke); /* 外側6pt相当の縁取り */
+            -webkit-text-stroke: 12px var(--clock-stroke);
             stroke-linejoin: round;
             paint-order: stroke fill;
             line-height: 1;
-            font-feature-settings: "palt"; /* 文字詰め */
-            text-shadow: none; /* 影なし */
+            font-feature-settings: "palt";
+            text-shadow: none;
         }
 
         .distributor-banner img {
@@ -86,72 +83,39 @@
             display: block;
         }
 
-        /* サイドパネル（右側） */
+        /* サイドパネル */
         .side-panel {
             grid-column: 2;
             grid-row: 1 / 3;
-            background-color: rgba(26, 35, 126, 0.9); /* 紺色ベースの半透明 */
+            background-color: rgba(26, 35, 126, 0.9);
             display: flex;
             flex-direction: column;
         }
 
-        .urgent-warning {
-            background-color: var(--warning-red);
-            font-size: 80px;
-            font-weight: bold;
-            text-align: center;
-            padding: 30px 0;
-            line-height: 1.2;
-        }
-
-        .info-header {
-            background-color: #f0f0f0;
-            color: var(--navy-blue);
-            text-align: center;
-            font-size: 36px;
-            padding: 10px;
-            font-weight: bold;
-        }
-
-        /* 下部テロップエリア */
-        .bottom-ticker {
+        /* 下部タイトルエリア（iframe埋め込み用） */
+        .bottom-ticker-container {
             grid-column: 1;
             grid-row: 2;
             display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            padding: 0 0 40px 40px;
+            align-items: flex-end; /* 下端に寄せる */
+            padding-bottom: 40px; /* 画面下からの距離 */
         }
 
-        .ticker-sub {
-            background-color: white;
-            color: var(--warning-red);
-            font-size: 48px;
-            font-weight: bold;
-            padding: 5px 30px;
-            width: fit-content;
-            border-radius: 5px 5px 0 0;
-        }
-
-        .ticker-main {
-            background-color: var(--warning-red);
-            font-size: 100px;
-            font-weight: bold;
-            padding: 10px 40px;
-            white-space: nowrap;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        .title-frame {
+            width: 100%;
+            height: 200px; /* タイトルの高さに合わせて調整 */
+            border: none;
+            overflow: hidden;
         }
     </style>
 </head>
 <body>
     <main class="main-content">
-        <!-- 映像レイヤー -->
         <div class="video-container">
             <video id="mainVideoDisplay" autoplay playsinline muted></video>
             <img id="imageDisplay" src="" alt="" style="display:none;">
         </div>
 
-        <!-- 時計レイヤー -->
         <div class="video-overlay">
             <div class="clock" id="liveClock">00：00</div>
             <div class="distributor-banner">
@@ -161,14 +125,12 @@
     </main>
 
     <aside class="side-panel">
-        <div class="urgent-warning">津波！逃げて！</div>
-        <div class="info-header">最 新 情 報</div>
-        <!-- ここに地震情報などのコンテンツが入る -->
+        <!-- サイドコンテンツ（津波情報など） -->
     </aside>
 
-    <footer class="bottom-ticker">
-        <div class="ticker-sub" id="tickerSub">速報</div>
-        <div class="ticker-main" id="tickerMain">最新の地震情報を確認中</div>
+    <!-- タイトルパーツをiframeで読み込み -->
+    <footer class="bottom-ticker-container">
+        <iframe src="title.html" class="title-frame" scrolling="no"></iframe>
     </footer>
 
     <script type="module">
@@ -187,7 +149,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // 時計更新（コロン全角）
+        // 時計更新
         function updateClock() {
             const now = new Date();
             const h = now.getHours().toString().padStart(2, '0');
@@ -196,34 +158,15 @@
         }
         setInterval(updateClock, 1000); updateClock();
 
-        // 映像・情報制御
-        const videoElem = document.getElementById('mainVideoDisplay');
-        const imgElem = document.getElementById('imageDisplay');
-        let currentStream = null;
-
+        // Firebase監視（映像ソースなどの制御用）
         onValue(ref(db, 'broadcast/current'), async (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
 
-            document.getElementById('tickerMain').innerText = data.tickerMain;
-            document.getElementById('tickerSub').innerText = data.tickerSub || '速報';
             document.getElementById('distributorImg').src = data.statusType === 'ningen' ? 'assets/banner/distributor/ningen.png' : 'assets/banner/distributor/bot.png';
-
-            // ソース切替ロジック
-            if (data.sourceType === 'camera') {
-                imgElem.style.display = 'none'; videoElem.style.display = 'block';
-                if (!currentStream) {
-                    currentStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1920, height: 1080 } });
-                    videoElem.srcObject = currentStream;
-                }
-            } else if (data.sourceType === 'screen') {
-                imgElem.style.display = 'none'; videoElem.style.display = 'block';
-                currentStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-                videoElem.srcObject = currentStream;
-            } else if (data.sourceType === 'image') {
-                videoElem.style.display = 'none'; imgElem.style.display = 'block';
-                imgElem.src = data.mediaUrl;
-            }
+            
+            // 注: iframe内のテキストを書き換える場合は、postMessageを使うか
+            // iframe内のスクリプトで直接Firebaseを監視させるのがスムーズです。
         });
     </script>
 </body>
