@@ -3,40 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kactuif 配信管理</title>
+    <title>みんなの減災ラボ - 放送システム</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f0f0f0; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h2 { color: #d32f2f; text-align: center; }
-        label { font-weight: bold; display: block; margin-top: 15px; }
-        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 16px; }
-        button { width: 100%; padding: 15px; background: #d32f2f; color: white; border: none; font-size: 18px; font-weight: bold; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        @font-face {
+            font-family: 'UDKakugoLarge';
+            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-M.otf') format('opentype');
+            font-weight: normal;
+        }
+        @font-face {
+            font-family: 'UDKakugoLarge';
+            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
+            font-weight: bold;
+        }
+        @font-face {
+            font-family: 'UDKakugoLarge';
+            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-E.otf') format('opentype');
+            font-weight: 800;
+        }
+
+        :root {
+            --warning-red: #d32f2f;
+            --navy-blue: #1a237e;
+            --text-white: #ffffff;
+            --bg-dark: #121212;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'UDKakugoLarge', sans-serif;
+            color: var(--text-white);
+            width: 1920px;
+            height: 1080px;
+            display: grid;
+            grid-template-columns: 1380px 540px;
+            grid-template-rows: 930px 150px;
+        }
+
+        .main-content {
+            grid-column: 1;
+            grid-row: 1;
+            position: relative;
+            background: #222;
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .clock {
+            font-size: 90px;
+            font-weight: bold;
+            text-shadow: 4px 4px 10px rgba(0,0,0,0.8);
+            line-height: 1;
+        }
+
+        .side-panel {
+            grid-column: 2;
+            grid-row: 1 / 3;
+            background-color: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            border-left: 2px solid #333;
+        }
+
+        .urgent-warning {
+            background-color: var(--warning-red);
+            font-size: 72px;
+            font-weight: 800;
+            text-align: center;
+            padding: 20px 0;
+            letter-spacing: 0.1em;
+        }
+
+        .latest-info .info-header {
+            background-color: var(--navy-blue);
+            text-align: center;
+            font-size: 32px;
+            padding: 10px;
+            font-weight: bold;
+        }
+
+        .bottom-ticker {
+            grid-column: 1;
+            grid-row: 2;
+            background-color: var(--warning-red);
+            padding-left: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .ticker-sub {
+            background-color: white;
+            color: var(--warning-red);
+            display: inline-block;
+            padding: 2px 20px;
+            font-size: 36px;
+            font-weight: 800;
+            width: fit-content;
+            border-radius: 4px;
+        }
+
+        .ticker-main {
+            font-size: 84px;
+            font-weight: 800;
+            margin-top: 5px;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
-    <h2>Kactuif 配信管理</h2>
+    <main class="main-content">
+        <div class="video-overlay">
+            <div class="clock" id="liveClock">00:00</div>
+            <img id="distributorImg" src="assets/banner/distributor/bot.png" alt="配信者" style="height: 65px; margin-top: 15px;">
+        </div>
+    </main>
 
-    <div class="card">
-        <label>配信モード（バナー切替）</label>
-        <select id="statusType">
-            <option value="bot">Botによる配信</option>
-            <option value="ningen">人間による配信</option>
-        </select>
-    </div>
+    <aside class="side-panel">
+        <div class="urgent-warning">津波！逃げて！</div>
+        <div class="latest-info">
+            <div class="info-header">最 新 情 報</div>
+            <div id="info-list-area"></div>
+        </div>
+    </aside>
 
-    <div class="card">
-        <label>ニュース見出し（メイン）</label>
-        <input type="text" id="tickerMain" placeholder="例：北海道・青森に津波警報">
-        
-        <label>ニュース見出し（サブ）</label>
-        <input type="text" id="tickerSub" placeholder="例：青森で震度5強">
-    </div>
-
-    <button onclick="updateBroadcast()">画面を更新する</button>
+    <footer class="bottom-ticker">
+        <div class="ticker-sub" id="tickerSub">速報</div>
+        <div class="ticker-main" id="tickerMain">最新の地震情報を確認中</div>
+    </footer>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
@@ -52,22 +160,27 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        window.updateBroadcast = function() {
-            const type = document.getElementById('statusType').value;
-            const main = document.getElementById('tickerMain').value;
-            const sub = document.getElementById('tickerSub').value;
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('liveClock').innerText = 
+                now.getHours().toString().padStart(2, '0') + ':' + 
+                now.getMinutes().toString().padStart(2, '0');
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
 
-            set(ref(db, 'broadcast/current'), {
-                statusType: type,
-                tickerMain: main,
-                tickerSub: sub,
-                updatedAt: Date.now()
-            }).then(() => {
-                alert("送信完了！");
-            }).catch((err) => {
-                alert("エラー: " + err.message);
-            });
-        };
+        onValue(ref(db, 'broadcast/current'), (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const imgElement = document.getElementById('distributorImg');
+                imgElement.src = data.statusType === 'ningen' 
+                    ? 'assets/banner/distributor/ningen.png' 
+                    : 'assets/banner/distributor/bot.png';
+                
+                document.getElementById('tickerMain').innerText = data.tickerMain;
+                document.getElementById('tickerSub').innerText = data.tickerSub;
+            }
+        });
     </script>
 </body>
 </html>
