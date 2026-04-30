@@ -6,11 +6,13 @@
     <script src="https://unpkg.com/topojson@3"></script>
     <style>
         :root {
-            --major-warning: #c800ff; /* 大津波警報 */
-            --warning: #ff2800;       /* 津波警報 */
-            --advisory: #fff100;      /* 津波注意報 */
+            /* 指定されたカラーコード */
+            --major-warning: #C91EFB; /* 大津波警報 */
+            --warning: #DE080A;       /* 津波警報 */
+            --advisory: #FEDC00;      /* 津波注意報 */
+            --land: #BFBFBF;          /* 陸地 */
+            
             --none: #00266e;          /* 予報なし（海） */
-            --land: #1a1a1a;          /* 陸地 */
             --map-bg: #001233;        /* 背景（深い海） */
         }
 
@@ -34,7 +36,7 @@
         /* 陸地のスタイル */
         .land {
             fill: var(--land);
-            stroke: #444;
+            stroke: #888;
             stroke-width: 0.2;
         }
 
@@ -42,26 +44,28 @@
         .tsunami-area {
             fill: var(--none);
             stroke: #ffffff;
-            stroke-width: 0.3;
+            stroke-width: 0.4;
             transition: fill 0.5s;
         }
 
+        /* 凡例 */
         .legend {
             position: absolute;
-            bottom: 15px;
-            right: 15px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            border-radius: 5px;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 12px;
+            border-radius: 4px;
             color: white;
-            font-size: 12px;
-            font-family: sans-serif;
+            font-size: 14px;
+            font-family: 'UDKakugoLarge', sans-serif;
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 8px;
+            border: 1px solid #555;
         }
-        .legend-item { display: flex; align-items: center; gap: 8px; }
-        .dot { width: 14px; height: 14px; border-radius: 2px; }
+        .legend-item { display: flex; align-items: center; gap: 10px; }
+        .dot { width: 16px; height: 16px; border-radius: 2px; }
     </style>
 </head>
 <body>
@@ -77,7 +81,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Firebase設定
         const firebaseConfig = {
             apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
             authDomain: "mgl-eqlive.firebaseapp.com",
@@ -90,26 +93,22 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-
         const svg = d3.select("#map").append("svg")
             .attr("viewBox", `0 0 800 800`);
 
         const projection = d3.geoMercator()
             .center([138, 38])
-            .scale(1500)
+            .scale(1600)
             .translate([400, 400]);
 
         const path = d3.geoPath().projection(projection);
 
-        // JSON読み込み
         Promise.all([
             d3.json("assets/json/todoufuken.json"),
             d3.json("assets/json/tsunami.json")
         ]).then(([landData, tsunamiData]) => {
             
-            // 陸地を描画
+            // 陸地を描画 (todoufuken.json)
             svg.append("g")
                 .selectAll("path")
                 .data(topojson.feature(landData, landData.objects.japan).features)
@@ -117,20 +116,20 @@
                 .attr("class", "land")
                 .attr("d", path);
 
-            // 津波予報区を描画
+            // 津波予報区を描画 (tsunami.json)
             const areas = svg.append("g")
                 .selectAll("path")
                 .data(topojson.feature(tsunamiData, tsunamiData.objects.tsunami_area).features)
                 .enter().append("path")
                 .attr("class", "tsunami-area")
-                .attr("id", d => `area-${d.properties.code}`) // JSON内の予報区コードを使用
+                .attr("id", d => `area-${d.properties.code}`)
                 .attr("d", path);
 
-            // Firebase監視開始
+            // Firebaseの津波情報を監視
             onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
                 const status = snapshot.val() || {};
                 areas.style("fill", d => {
-                    const level = status[d.properties.code]; // JSONのコードとFirebaseのキーを紐付け
+                    const level = status[d.properties.code]; 
                     if (level === 'major') return "var(--major-warning)";
                     if (level === 'warning') return "var(--warning)";
                     if (level === 'advisory') return "var(--advisory)";
