@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>みんなの減災ラボ - 放送システム</title>
     <style>
+        /* フォント定義 */
         @font-face {
             font-family: 'UDKakugoLarge';
             src: url('./assets/fonts/FOT-UDKakugo_LargePr6-M.otf') format('opentype');
@@ -42,6 +43,7 @@
             grid-template-rows: 930px 150px;
         }
 
+        /* メインエリア */
         .main-content {
             grid-column: 1;
             grid-row: 1;
@@ -49,23 +51,31 @@
             background: #222;
         }
 
+        /* 時計とバナーを横並びにする設定 */
         .video-overlay {
             position: absolute;
             top: 40px;
             left: 40px;
             z-index: 10;
             display: flex;
-            flex-direction: column;
-            align-items: flex-start;
+            flex-direction: row; /* 横並び */
+            align-items: center; /* 上下中央揃え */
+            gap: 20px; /* 時計と画像の間の隙間 */
         }
 
         .clock {
-            font-size: 90px;
+            font-size: 95px;
             font-weight: bold;
             text-shadow: 4px 4px 10px rgba(0,0,0,0.8);
             line-height: 1;
         }
 
+        .distributor-banner img {
+            height: 75px; /* バナーの高さ調整 */
+            display: block;
+        }
+
+        /* サイドパネル */
         .side-panel {
             grid-column: 2;
             grid-row: 1 / 3;
@@ -92,6 +102,7 @@
             font-weight: bold;
         }
 
+        /* 下部テロップ */
         .bottom-ticker {
             grid-column: 1;
             grid-row: 2;
@@ -125,8 +136,11 @@
     <main class="main-content">
         <div class="video-overlay">
             <div class="clock" id="liveClock">00:00</div>
-            <img id="distributorImg" src="assets/banner/distributor/bot.png" alt="配信者" style="height: 65px; margin-top: 15px;">
+            <div class="distributor-banner">
+                <img id="distributorImg" src="assets/banner/distributor/bot.png" alt="配信ステータス">
+            </div>
         </div>
+        <div id="map-container"></div>
     </main>
 
     <aside class="side-panel">
@@ -146,6 +160,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+        // Firebase設定
         const firebaseConfig = {
             apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
             authDomain: "mgl-eqlive.firebaseapp.com",
@@ -160,6 +175,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
+        // 時計更新
         function updateClock() {
             const now = new Date();
             document.getElementById('liveClock').innerText = 
@@ -169,13 +185,18 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        onValue(ref(db, 'broadcast/current'), (snapshot) => {
+        // Firebase同期：画像の切り替えとテキストの更新
+        const broadcastRef = ref(db, 'broadcast/current');
+        onValue(broadcastRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 const imgElement = document.getElementById('distributorImg');
-                imgElement.src = data.statusType === 'ningen' 
-                    ? 'assets/banner/distributor/ningen.png' 
-                    : 'assets/banner/distributor/bot.png';
+                // statusTypeに合わせて画像パスを変更
+                if (data.statusType === 'ningen') {
+                    imgElement.src = 'assets/banner/distributor/ningen.png';
+                } else {
+                    imgElement.src = 'assets/banner/distributor/bot.png';
+                }
                 
                 document.getElementById('tickerMain').innerText = data.tickerMain;
                 document.getElementById('tickerSub').innerText = data.tickerSub;
