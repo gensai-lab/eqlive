@@ -5,7 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>みんなの減災ラボ - 放送システム</title>
     <style>
-        /* 全体のレイアウト設定 */
+        /* フォント読み込み設定 */
+        @font-face {
+            font-family: 'UDKakugoLarge';
+            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-M.otf') format('opentype');
+            font-weight: normal;
+        }
+        @font-face {
+            font-family: 'UDKakugoLarge';
+            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
+            font-weight: bold;
+        }
+        @font-face {
+            font-family: 'UDKakugoLarge';
+            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-E.otf') format('opentype');
+            font-weight: 800;
+        }
+
         :root {
             --warning-red: #d32f2f;
             --navy-blue: #1a237e;
@@ -18,8 +34,7 @@
             padding: 0;
             overflow: hidden;
             background-color: var(--bg-dark);
-            /* フォントはユーザー指定のUD新ゴを優先 */
-            font-family: "A-OTF UD新ゴ PrN", "UD Shin Go", sans-serif;
+            font-family: 'UDKakugoLarge', sans-serif;
             color: var(--text-white);
             width: 1920px;
             height: 1080px;
@@ -28,12 +43,12 @@
             grid-template-rows: 930px 150px;
         }
 
-        /* メインエリア（地図や中継映像） */
+        /* メインエリア */
         .main-content {
             grid-column: 1;
             grid-row: 1;
             position: relative;
-            background: #222; /* 映像がない時の背景 */
+            background: #222;
         }
 
         .video-overlay {
@@ -44,8 +59,8 @@
         }
 
         .clock {
-            font-size: 80px;
-            font-weight: bold;
+            font-size: 90px;
+            font-weight: bold; /* Bを使用 */
             text-shadow: 4px 4px 10px rgba(0,0,0,0.8);
             line-height: 1;
         }
@@ -53,15 +68,14 @@
         .status-badge {
             display: inline-block;
             background: #ff6d00;
-            color: white;
             padding: 5px 15px;
             font-size: 28px;
             font-weight: bold;
             border-radius: 5px;
-            margin-top: 10px;
+            margin-top: 15px;
         }
 
-        /* 右側サイドパネル */
+        /* サイドパネル */
         .side-panel {
             grid-column: 2;
             grid-row: 1 / 3;
@@ -74,7 +88,7 @@
         .urgent-warning {
             background-color: var(--warning-red);
             font-size: 72px;
-            font-weight: bold;
+            font-weight: 800; /* Eを使用 */
             text-align: center;
             padding: 20px 0;
             letter-spacing: 0.1em;
@@ -85,9 +99,10 @@
             text-align: center;
             font-size: 32px;
             padding: 10px;
+            font-weight: bold;
         }
 
-        /* 下部テロップエリア */
+        /* 下部テロップ */
         .bottom-ticker {
             grid-column: 1;
             grid-row: 2;
@@ -104,26 +119,26 @@
             display: inline-block;
             padding: 2px 20px;
             font-size: 36px;
-            font-weight: bold;
+            font-weight: 800; /* Eを使用 */
             width: fit-content;
             border-radius: 4px;
         }
 
         .ticker-main {
             font-size: 84px;
-            font-weight: bold;
+            font-weight: 800; /* Eを使用 */
             margin-top: 5px;
             white-space: nowrap;
         }
     </style>
 </head>
 <body>
+    <!-- JavaScript部分は前回のFirebase処理をそのまま継続 -->
     <main class="main-content">
         <div class="video-overlay">
             <div class="clock" id="liveClock">00:00</div>
             <div class="status-badge">Botによる配信</div>
         </div>
-        <!-- 地震マップ等の埋め込み用エリア -->
         <div id="map-container"></div>
     </main>
 
@@ -131,22 +146,19 @@
         <div class="urgent-warning">津波！逃げて！</div>
         <div class="latest-info">
             <div class="info-header">最 新 情 報</div>
-            <div id="info-list-area">
-                <!-- ここに情報を追加していく -->
-            </div>
+            <div id="info-list-area"></div>
         </div>
     </aside>
 
     <footer class="bottom-ticker">
-        <div class="ticker-sub">速報</div>
-        <div class="ticker-main">最新の地震情報を確認中</div>
+        <div class="ticker-sub" id="tickerSub">速報</div>
+        <div class="ticker-main" id="tickerMain">最新の地震情報を確認中</div>
     </footer>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // ユーザー提供の Firebase 設定
         const firebaseConfig = {
             apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
             authDomain: "mgl-eqlive.firebaseapp.com",
@@ -161,24 +173,23 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // 時計の更新
+        // 時計更新
         function updateClock() {
             const now = new Date();
-            const timeStr = now.getHours().toString().padStart(2, '0') + ':' + 
-                          now.getMinutes().toString().padStart(2, '0');
-            document.getElementById('liveClock').innerText = timeStr;
+            document.getElementById('liveClock').innerText = 
+                now.getHours().toString().padStart(2, '0') + ':' + 
+                now.getMinutes().toString().padStart(2, '0');
         }
         setInterval(updateClock, 1000);
         updateClock();
 
-        // Firebase データの同期
-        const broadcastRef = ref(db, 'broadcast/current');
-        onValue(broadcastRef, (snapshot) => {
+        // Firebase同期
+        onValue(ref(db, 'broadcast/current'), (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 document.querySelector('.status-badge').innerText = data.statusText;
-                document.querySelector('.ticker-main').innerText = data.tickerMain;
-                document.querySelector('.ticker-sub').innerText = data.tickerSub;
+                document.getElementById('tickerMain').innerText = data.tickerMain;
+                document.getElementById('tickerSub').innerText = data.tickerSub;
             }
         });
     </script>
