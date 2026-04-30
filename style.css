@@ -1,4 +1,29 @@
-/* 全体の設定 */
+/* フォント定義 */
+@font-face {
+    font-family: 'UDKakugoLarge';
+    src: url('./assets/fonts/FOT-UDKakugo_LargePr6-M.otf') format('opentype');
+    font-weight: normal;
+}
+
+@font-face {
+    font-family: 'UDKakugoLarge';
+    src: url('./assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
+    font-weight: 600;
+}
+
+@font-face {
+    font-family: 'UDKakugoLarge';
+    src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
+    font-weight: bold;
+}
+
+@font-face {
+    font-family: 'UDKakugoLarge';
+    src: url('./assets/fonts/FOT-UDKakugo_LargePr6-E.otf') format('opentype');
+    font-weight: 800; /* 極太 */
+}
+
+/* 全体に適用 */
 :root {
     --warning-red: #d32f2f;
     --navy-blue: #1a237e;
@@ -11,66 +36,11 @@ body {
     padding: 0;
     overflow: hidden;
     background-color: var(--bg-dark);
-    font-family: "A-OTF UD新ゴ Pr6N", "UD Shin Go", sans-serif; /* 指定のフォント */
+    font-family: 'UDKakugoLarge', sans-serif; /* 追加したフォントを優先 */
     color: var(--text-white);
     width: 1920px;
     height: 1080px;
     display: grid;
-    grid-template-columns: 1380px 540px; /* メインとサイドの比率 */
-    grid-template-rows: 930px 150px;    /* 下部テロップの高さ */
-}
-
-/* 右側：サイドパネル */
-.side-panel {
-    grid-column: 2;
-    grid-row: 1 / 3;
-    background-color: var(--bg-dark);
-    display: flex;
-    flex-direction: column;
-    border-left: 2px solid #333;
-}
-
-.urgent-warning {
-    background-color: var(--warning-red);
-    font-size: 72px;
-    font-weight: bold;
-    text-align: center;
-    padding: 20px 0;
-    letter-spacing: 0.1em;
-}
-
-.latest-info .info-header {
-    background-color: var(--navy-blue);
-    text-align: center;
-    font-size: 32px;
-    padding: 10px;
-}
-
-/* 下部：テロップエリア */
-.bottom-ticker {
-    grid-column: 1;
-    grid-row: 2;
-    background-color: var(--warning-red);
-    position: relative;
-    padding-left: 40px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.ticker-sub {
-    background-color: white;
-    color: var(--warning-red);
-    display: inline-block;
-    padding: 2px 20px;
-    font-size: 36px;
-    font-weight: bold;
-    width: fit-content;
-    border-radius: 4px;
-}
-
-.ticker-main {
-    font-size: 84px;
-    font-weight: bold;
-    margin-top: 5px;
+    grid-template-columns: 1380px 540px;
+    grid-template-rows: 930px 150px;
 }
