@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        /* フォント定義 */
+        @font-face {
+            font-family: 'UDKakugoLarge';
+            /* 実際のパスに合わせて調整してください */
+            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
+            font-weight: bold;
+        }
+
+        :root {
+            --warning-red: #d32f2f;
+            --text-white: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            padding: 50px;
+            background-color: #222; /* 確認用に背景を暗くしています */
+            font-family: 'UDKakugoLarge', sans-serif;
+        }
+
+        /* タイトル全体のコンテナ */
+        .title-container {
+            position: relative;
+            display: inline-block;
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.4));
+        }
+
+        /* 左上のサブタイトル（青森で震度5強 など） */
+        .subtitle-box {
+            position: absolute;
+            top: -55px; /* メインタイトルの上に少し被せる */
+            left: 0;
+            background-color: var(--text-white);
+            color: var(--warning-red);
+            font-size: 48px;
+            font-weight: bold;
+            padding: 4px 25px;
+            border-radius: 6px 6px 0 0;
+            z-index: 2;
+            white-space: nowrap;
+            /* 文字詰め設定 */
+            font-feature-settings: "palt";
+        }
+
+        /* メインタイトル（北海道・青森・岩手に津波警報 など） */
+        .main-title-box {
+            position: relative;
+            background-color: var(--warning-red);
+            color: var(--text-white);
+            font-size: 96px;
+            font-weight: bold;
+            padding: 12px 45px;
+            z-index: 1;
+            white-space: nowrap;
+            /* 文字詰め設定 */
+            font-feature-settings: "palt";
+            line-height: 1.1;
+        }
+
+        /* 装飾用のエッジ（必要に応じて） */
+        .main-title-box::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 8px;
+            background-color: rgba(255,255,255,0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="title-container">
+        <!-- サブタイトルエリア -->
+        <div class="subtitle-box" id="displaySubtitle">
+            青森で震度5強
+        </div>
+        <!-- メインタイトルエリア -->
+        <div class="main-title-box" id="displayMainTitle">
+            北海道・青森・岩手に津波警報
+        </div>
+    </div>
+
+    <script>
+        // 外部（Firebaseなど）から文字を書き換えるための関数例
+        function updateTitle(main, sub) {
+            document.getElementById('displayMainTitle').innerText = main;
+            document.getElementById('displaySubtitle').innerText = sub;
+        }
+        
+        // テスト用：3秒後に内容を書き換える
+        // setTimeout(() => updateTitle("三陸沖で地震発生", "緊急地震速報"), 3000);
+    </script>
+</body>
+</html>
