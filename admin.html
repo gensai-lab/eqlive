@@ -2,37 +2,41 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kactuif 配信管理</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f0f0f0; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h2 { color: #d32f2f; text-align: center; }
-        label { font-weight: bold; display: block; margin-top: 15px; }
-        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 16px; }
-        button { width: 100%; padding: 15px; background: #d32f2f; color: white; border: none; font-size: 18px; font-weight: bold; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
+        .card { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        select, input, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
+        button { background: #d32f2f; color: white; font-weight: bold; cursor: pointer; border: none; }
     </style>
 </head>
 <body>
-    <h2>Kactuif 配信管理</h2>
+    <h2>Kactuif 配信ソース管理</h2>
 
     <div class="card">
-        <label>配信モード（バナー切替）</label>
+        <label>① 配信ソース選択</label>
+        <select id="sourceType">
+            <option value="camera">ライブカメラ / 情報カメラ</option>
+            <option value="screen">画面共有 (シミュレーター等)</option>
+            <option value="image">画像・指定映像 (URL指定)</option>
+        </select>
+        
+        <label>② メディアURL (画像/映像投影時のみ)</label>
+        <input type="text" id="mediaUrl" placeholder="assets/media/sample.jpg 等">
+    </div>
+
+    <div class="card">
+        <label>配信モード</label>
         <select id="statusType">
             <option value="bot">Botによる配信</option>
             <option value="ningen">人間による配信</option>
         </select>
+
+        <label>メインテロップ</label>
+        <input type="text" id="tickerMain" value="最新の地震情報を確認中">
     </div>
 
-    <div class="card">
-        <label>ニュース見出し（メイン）</label>
-        <input type="text" id="tickerMain" placeholder="例：北海道・青森に津波警報">
-        
-        <label>ニュース見出し（サブ）</label>
-        <input type="text" id="tickerSub" placeholder="例：青森で震度5強">
-    </div>
-
-    <button onclick="updateBroadcast()">画面を更新する</button>
+    <button onclick="updateBroadcast()">設定を反映する</button>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -45,28 +49,19 @@
             projectId: "mgl-eqlive",
             storageBucket: "mgl-eqlive.firebasestorage.app",
             messagingSenderId: "1060231327645",
-            appId: "1:1060231327645:web:642684f4640bbc21d5c974",
-            measurementId: "G-BK3MJJ0VR7"
+            appId: "1:1060231327645:web:642684f4640bbc21d5c974"
         };
-
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
         window.updateBroadcast = function() {
-            const type = document.getElementById('statusType').value;
-            const main = document.getElementById('tickerMain').value;
-            const sub = document.getElementById('tickerSub').value;
-
             set(ref(db, 'broadcast/current'), {
-                statusType: type,
-                tickerMain: main,
-                tickerSub: sub,
+                sourceType: document.getElementById('sourceType').value,
+                mediaUrl: document.getElementById('mediaUrl').value,
+                statusType: document.getElementById('statusType').value,
+                tickerMain: document.getElementById('tickerMain').value,
                 updatedAt: Date.now()
-            }).then(() => {
-                alert("送信完了！");
-            }).catch((err) => {
-                alert("エラー: " + err.message);
-            });
+            }).then(() => alert("更新しました"));
         };
     </script>
 </body>
