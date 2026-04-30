@@ -11,13 +11,15 @@
         }
 
         :root {
-            --warning-red: #DE080A; /* 指定の色に変更 */
+            --warning-red: #DE080A;
             --text-white: #ffffff;
+            /* 左端の装飾ライン(8px) + テキストのパディング(45px) = 53px */
+            --main-text-indent: 53px;
         }
 
         body {
             margin: 0;
-            padding: 0; /* 画面端に密着させるため0に設定 */
+            padding: 0;
             background-color: #222;
             font-family: 'UDKakugoLarge', sans-serif;
         }
@@ -27,14 +29,13 @@
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            /* 影（filter: drop-shadow）を削除 */
-            margin-top: 100px; /* 上方向の余白（表示位置調整用） */
+            margin-top: 100px;
         }
 
         /* サブボックス（白） */
         .subtitle-box {
             background-color: var(--text-white);
-            color: var(--warning-red); /* 文字色を #DE080A に変更 */
+            color: var(--warning-red);
             font-size: 48px;
             font-weight: bold;
             padding: 4px 25px;
@@ -42,14 +43,17 @@
             white-space: nowrap;
             font-feature-settings: "palt";
             margin-bottom: 0;
+            /* メインボックスのテキスト位置に合わせるためのマージン */
+            margin-left: var(--main-text-indent);
         }
 
         /* メインボックス（赤） */
         .main-title-box {
-            background-color: var(--warning-red); /* 背景色を #DE080A に変更 */
+            background-color: var(--warning-red);
             color: var(--text-white);
             font-size: 96px;
             font-weight: bold;
+            /* 左右のパディングを45pxに設定 */
             padding: 12px 45px;
             border-radius: 0px 8px 8px 0px; 
             white-space: nowrap;
@@ -58,7 +62,7 @@
             position: relative;
         }
 
-        /* 左側の白いライン装飾 */
+        /* 左側の白いライン装飾 (8px) */
         .main-title-box::before {
             content: "";
             position: absolute;
