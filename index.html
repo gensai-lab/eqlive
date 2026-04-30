@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>みんなの減災ラボ - 放送システム</title>
     <style>
-        /* (フォント・root・body設定は省略せず全文生成ルールに基づき維持) */
         @font-face {
             font-family: 'UDKakugoLarge';
             src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
@@ -27,8 +26,9 @@
             font-family: 'UDKakugoLarge', sans-serif;
             color: var(--text-white);
             display: grid;
+            /* グリッド配分を微調整：下部エリアの高さを300pxに広げる */
             grid-template-columns: 1280px 640px;
-            grid-template-rows: 840px 240px;
+            grid-template-rows: 780px 300px;
         }
 
         .main-content {
@@ -84,20 +84,20 @@
             background-color: rgba(26, 35, 126, 0.9);
         }
 
-        /* 下部エリアの調整 */
+        /* 下部エリア：padding-bottomを増やして位置を上に調整 */
         .bottom-ticker-container {
             grid-column: 1;
             grid-row: 2;
             display: flex;
             align-items: flex-end;
-            /* 画面下端からの距離を調整（見切れ防止） */
-            padding-bottom: 60px; 
+            /* 下からの余白を120pxに設定（さらに上げたい場合は数値を大きくしてください） */
+            padding-bottom: 120px; 
         }
 
         .title-frame {
             width: 100%;
-            /* サブボックスとメインボックスを収めるのに十分な高さ */
-            height: 180px; 
+            /* サブボックスとメインボックスを収めるのに十分な高さ（250px） */
+            height: 250px; 
             border: none;
             background: transparent;
             overflow: hidden;
@@ -121,7 +121,6 @@
     <aside class="side-panel"></aside>
 
     <footer class="bottom-ticker-container">
-        <!-- allowtransparencyで背景透過を確実に適用 -->
         <iframe src="title.html" class="title-frame" scrolling="no" allowtransparency="true"></iframe>
     </footer>
 
