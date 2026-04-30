@@ -83,19 +83,18 @@
             background-color: rgba(26, 35, 126, 0.9);
         }
 
-        /* 下部エリアの調整 */
         .bottom-ticker-container {
             grid-column: 1;
             grid-row: 2;
             display: flex;
             align-items: flex-end;
-            padding-bottom: 40px; /* 位置を調整 */
+            padding-bottom: 40px; 
         }
 
         .title-frame {
             width: 100%;
-            /* コンテンツがちょうど収まる高さに縮小して余白をカット */
-            height: 162px; 
+            /* 162pxから180pxに拡大して見切れを解消 */
+            height: 180px; 
             border: none;
             background: transparent;
             overflow: hidden;
