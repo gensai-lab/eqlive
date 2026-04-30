@@ -6,6 +6,12 @@
         /* フォント定義 */
         @font-face {
             font-family: 'UDKakugoLarge';
+            /* DBウェイトのフォントパスを指定してください */
+            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
+            font-weight: 600;
+        }
+        @font-face {
+            font-family: 'UDKakugoLarge';
             src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
             font-weight: bold;
         }
@@ -13,7 +19,7 @@
         :root {
             --warning-red: #DE080A;
             --text-white: #ffffff;
-            /* 左端の装飾ライン(8px) + テキストのパディング(45px) = 53px */
+            /* 左端のライン(8px) + テキストのパディング(45px) = 53px */
             --main-text-indent: 53px;
         }
 
@@ -32,19 +38,19 @@
             margin-top: 100px;
         }
 
-        /* サブボックス（白） */
+        /* サブボックス（白）: 高さを小さくし、フォントをDBに */
         .subtitle-box {
             background-color: var(--text-white);
             color: var(--warning-red);
-            font-size: 48px;
-            font-weight: bold;
-            padding: 4px 25px;
+            font-size: 42px; /* 高さを抑えるため少しサイズダウン */
+            font-weight: 600; /* DB相当 */
+            padding: 2px 25px; /* 上下のパディングを縮小 */
             border-radius: 8px 8px 0px 0px; 
             white-space: nowrap;
             font-feature-settings: "palt";
             margin-bottom: 0;
-            /* メインボックスのテキスト位置に合わせるためのマージン */
             margin-left: var(--main-text-indent);
+            line-height: 1.2;
         }
 
         /* メインボックス（赤） */
@@ -52,8 +58,7 @@
             background-color: var(--warning-red);
             color: var(--text-white);
             font-size: 96px;
-            font-weight: bold;
-            /* 左右のパディングを45pxに設定 */
+            font-weight: bold; /* B相当 */
             padding: 12px 45px;
             border-radius: 0px 8px 8px 0px; 
             white-space: nowrap;
@@ -62,7 +67,7 @@
             position: relative;
         }
 
-        /* 左側の白いライン装飾 (8px) */
+        /* 左側のライン装飾: 透明度を0%に設定 */
         .main-title-box::before {
             content: "";
             position: absolute;
@@ -70,7 +75,7 @@
             top: 0;
             bottom: 0;
             width: 8px;
-            background-color: rgba(255,255,255,0.3);
+            background-color: rgba(255, 255, 255, 0); /* 透明度0% */
         }
     </style>
 </head>
