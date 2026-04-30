@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>みんなの減災ラボ - 自動配信システム</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="broadcast-layout">
+    <!-- メイン映像エリア -->
+    <main class="main-content">
+        <div class="video-overlay">
+            <div class="clock">12:34</div>
+            <div class="status-badge">Botによる配信</div>
+            <div class="location-badge">中継 岩手 花巻空港</div>
+        </div>
+        <!-- ここに Leaflet などの地図やカメラ映像を配置 -->
+        <div id="map-or-video"></div>
+    </main>
+
+    <!-- 右側サイドパネル -->
+    <aside class="side-panel">
+        <div class="urgent-warning">津波！逃げて！</div>
+        
+        <div class="latest-info">
+            <div class="info-header">最 新 情 報</div>
+            <div class="info-body">
+                <p class="source">東電福島第一・第二原発</p>
+                <p class="detail">異常がないか確認中</p>
+            </div>
+        </div>
+
+        <div class="tsunami-list-container">
+            <table class="tsunami-table">
+                <thead>
+                    <tr>
+                        <th>津波警報</th>
+                        <th>到達予想</th>
+                        <th>高さ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- ここはJavaScriptで動的に追加 -->
+                    <tr><td>北海道太平洋沿岸中部</td><td>22日 22:22</td><td>3m</td></tr>
+                    <tr><td>北海道太平洋沿岸中部</td><td>22日 22:22</td><td>3m</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mini-map-container">
+            <!-- 以前作成された津波マップをここに統合 -->
+            <div id="tsunami-map"></div>
+            <div class="map-legend">
+                <p><span class="legend-red"></span>津波警報</p>
+                <p><span class="legend-yellow"></span>津波注意報</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 下部テロップ -->
+    <footer class="bottom-ticker">
+        <div class="ticker-sub">青森で震度5強</div>
+        <div class="ticker-main">北海道・青森・岩手に津波警報</div>
+    </footer>
+</body>
+</html>
