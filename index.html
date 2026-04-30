@@ -25,7 +25,7 @@
         :root {
             --warning-red: #d32f2f;
             --navy-blue: #1a237e;
-            --clock-blue: #003EB3;
+            --clock-stroke: #003EB3; /* 枠線の色 */
             --text-white: #ffffff;
             --bg-dark: #121212;
         }
@@ -63,25 +63,26 @@
             gap: 15px;
         }
 
-        /* 時計のスタイル修正 */
+        /* 時計のスタイル修正：文字自体に枠線をつける */
         .clock {
-            font-size: 72px; /* 少し小さめに調整 */
+            font-size: 80px; /* サイズを微調整 */
             font-weight: bold;
-            background-color: rgba(0, 0, 0, 0.6); /* 背景を少し暗くして文字を浮かせる */
-            padding: 5px 20px;
-            border: 4px solid var(--clock-blue); /* 指定の枠線色 */
-            border-radius: 8px;
-            line-height: 1.1;
+            color: var(--text-white);
+            /* 文字の縁取り設定 */
+            -webkit-text-stroke: 4px var(--clock-stroke); 
+            paint-order: stroke fill; /* 縁取りを文字の下に配置して読みやすくする */
+            
+            line-height: 1;
             font-feature-settings: "palt"; /* プロポーショナルメトリクス適用 */
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            text-shadow: 4px 4px 8px rgba(0,0,0,0.8); /* 影を強めて浮き立たせる */
         }
 
         .distributor-banner img {
-            height: 65px; /* 時計のサイズに合わせて微調整 */
+            height: 70px;
             display: block;
         }
 
-        /* サイドパネル・テロップ等は変更なし */
+        /* サイドパネル */
         .side-panel {
             grid-column: 2;
             grid-row: 1 / 3;
@@ -108,6 +109,7 @@
             font-weight: bold;
         }
 
+        /* 下部テロップ */
         .bottom-ticker {
             grid-column: 1;
             grid-row: 2;
@@ -179,7 +181,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // 時計更新ロジック（コロンを全角に変更）
         function updateClock() {
             const now = new Date();
             const hours = now.getHours().toString().padStart(2, '0');
