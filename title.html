@@ -11,13 +11,13 @@
         }
 
         :root {
-            --warning-red: #d32f2f;
+            --warning-red: #DE080A; /* 指定の色に変更 */
             --text-white: #ffffff;
         }
 
         body {
             margin: 0;
-            padding: 100px;
+            padding: 0; /* 画面端に密着させるため0に設定 */
             background-color: #222;
             font-family: 'UDKakugoLarge', sans-serif;
         }
@@ -25,34 +25,32 @@
         /* タイトル全体のコンテナ */
         .title-container {
             display: flex;
-            flex-direction: column; /* 縦に並べる */
-            align-items: flex-start; /* 左寄せで揃える */
-            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.4));
+            flex-direction: column;
+            align-items: flex-start;
+            /* 影（filter: drop-shadow）を削除 */
+            margin-top: 100px; /* 上方向の余白（表示位置調整用） */
         }
 
-        /* サブボックス（白）: 食い込みなし、真上に配置 */
+        /* サブボックス（白） */
         .subtitle-box {
             background-color: var(--text-white);
-            color: var(--warning-red);
+            color: var(--warning-red); /* 文字色を #DE080A に変更 */
             font-size: 48px;
             font-weight: bold;
             padding: 4px 25px;
-            /* 角丸：上が丸く、下は直線 */
             border-radius: 8px 8px 0px 0px; 
             white-space: nowrap;
             font-feature-settings: "palt";
-            /* 下のメインボックスとの隙間をゼロにする */
-            margin-bottom: 0; 
+            margin-bottom: 0;
         }
 
         /* メインボックス（赤） */
         .main-title-box {
-            background-color: var(--warning-red);
+            background-color: var(--warning-red); /* 背景色を #DE080A に変更 */
             color: var(--text-white);
             font-size: 96px;
             font-weight: bold;
             padding: 12px 45px;
-            /* 角丸：左側は直線でつなげ、右側だけ丸く */
             border-radius: 0px 8px 8px 0px; 
             white-space: nowrap;
             font-feature-settings: "palt";
@@ -60,7 +58,7 @@
             position: relative;
         }
 
-        /* 左側の白いライン装飾（お好みで。不要なら削除してください） */
+        /* 左側の白いライン装飾 */
         .main-title-box::before {
             content: "";
             position: absolute;
