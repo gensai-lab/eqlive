@@ -17,52 +17,50 @@
 
         body {
             margin: 0;
-            padding: 100px; /* 確認用に余白を広げています */
+            padding: 100px;
             background-color: #222;
             font-family: 'UDKakugoLarge', sans-serif;
         }
 
         /* タイトル全体のコンテナ */
         .title-container {
-            position: relative;
-            display: inline-block;
+            display: flex;
+            flex-direction: column; /* 縦に並べる */
+            align-items: flex-start; /* 左寄せで揃える */
             filter: drop-shadow(0 10px 15px rgba(0,0,0,0.4));
         }
 
-        /* サブボックス（白）: 右下・左下 0px / 右上・左上 8px */
+        /* サブボックス（白）: 食い込みなし、真上に配置 */
         .subtitle-box {
-            position: absolute;
-            top: -55px;
-            left: 0;
             background-color: var(--text-white);
             color: var(--warning-red);
             font-size: 48px;
             font-weight: bold;
             padding: 4px 25px;
-            /* 角丸設定 */
+            /* 角丸：上が丸く、下は直線 */
             border-radius: 8px 8px 0px 0px; 
-            z-index: 2;
             white-space: nowrap;
             font-feature-settings: "palt";
+            /* 下のメインボックスとの隙間をゼロにする */
+            margin-bottom: 0; 
         }
 
-        /* メインボックス（赤）: 左上・左下 0px / 右上・右下 8px */
+        /* メインボックス（赤） */
         .main-title-box {
-            position: relative;
             background-color: var(--warning-red);
             color: var(--text-white);
             font-size: 96px;
             font-weight: bold;
             padding: 12px 45px;
-            /* 角丸設定 */
+            /* 角丸：左側は直線でつなげ、右側だけ丸く */
             border-radius: 0px 8px 8px 0px; 
-            z-index: 1;
             white-space: nowrap;
             font-feature-settings: "palt";
             line-height: 1.1;
+            position: relative;
         }
 
-        /* 左側の白いライン装飾 */
+        /* 左側の白いライン装飾（お好みで。不要なら削除してください） */
         .main-title-box::before {
             content: "";
             position: absolute;
