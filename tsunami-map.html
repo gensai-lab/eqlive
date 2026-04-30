@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root {
+            --major-warning: #c800ff; /* 大津波警報：紫 */
+            --warning: #ff2800;       /* 津波警報：赤 */
+            --advisory: #fff100;      /* 津波注意報：黄 */
+            --none: #333333;          /* 予報なし：暗灰色 */
+            --map-bg: #1a237e;        /* 海：紺色 */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--map-bg);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            color: white;
+            font-family: sans-serif;
+        }
+
+        .map-container {
+            width: 90%;
+            height: 85%;
+            position: relative;
+        }
+
+        /* 予報区の基本スタイル */
+        .tsunami-area {
+            fill: var(--none);
+            stroke: #ffffff;
+            stroke-width: 0.5;
+            transition: fill 0.3s;
+        }
+
+        /* 凡例 */
+        .legend {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            display: flex;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 12px; height: 12px; border-radius: 2px; }
+    </style>
+</head>
+<body>
+
+    <div class="map-container" id="mapSvgContainer">
+        <!-- ここに日本地図のSVGパスが入ります -->
+        <!-- 簡易的なプレースホルダー画像またはSVGパスを想定 -->
+        <svg viewBox="0 0 800 600" id="japanMap">
+            <!-- 例: 北海道太平洋沿岸東部 -->
+            <path id="hokkaido_east" class="tsunami-area" d="M..." />
+            <!-- 他の予報区も同様に配置 -->
+        </svg>
+
+        <div class="legend">
+            <div class="legend-item"><div class="dot" style="background:var(--major-warning)"></div>大津波警報</div>
+            <div class="legend-item"><div class="dot" style="background:var(--warning)"></div>津波警報</div>
+            <div class="legend-item"><div class="dot" style="background:var(--advisory)"></div>津波注意報</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+            authDomain: "mgl-eqlive.firebaseapp.com",
+            databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+            projectId: "mgl-eqlive",
+            storageBucket: "mgl-eqlive.firebasestorage.app",
+            messagingSenderId: "1060231327645",
+            appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // 津波情報の更新を監視
+        onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
+            const status = snapshot.val(); // { area_id: 'level', ... } 形式
+            if (!status) return;
+
+            Object.entries(status).forEach(([areaId, level]) => {
+                const element = document.getElementById(areaId);
+                if (element) {
+                    if (level === 'major') element.style.fill = 'var(--major-warning)';
+                    else if (level === 'warning') element.style.fill = 'var(--warning)';
+                    else if (level === 'advisory') element.style.fill = 'var(--advisory)';
+                    else element.style.fill = 'var(--none)';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
