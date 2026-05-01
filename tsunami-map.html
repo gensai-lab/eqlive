@@ -9,9 +9,14 @@
         #main-canvas { width: var(--canvas-width); height: 100vh; position: relative; display: flex; align-items: center; justify-content: flex-start; overflow: hidden; }
         #background-cover { position: absolute; top: 0; left: 0; width: var(--canvas-width); height: 100%; z-index: -1; object-fit: cover; }
         #map-container { width: 85%; height: 90%; position: relative; margin-left: -70px; display: flex; justify-content: center; align-items: center; }
+        
         svg { position: absolute; width: 100% !important; height: 100% !important; top: 0; left: 0; object-fit: contain; }
-        .pref-path { fill: #BFBFBF; stroke: #444; stroke-width: 0.2px; }
-        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.15); stroke-width: 2px; transition: stroke 0.5s, stroke-width 0.5s; }
+        
+        /* 都道府県の境界線を陸地（#BFBFBF）と同じ色に設定 */
+        .pref-path { fill: #BFBFBF; stroke: #BFBFBF; stroke-width: 0.5px; }
+        
+        /* 津波予報線の初期状態（さらに視認性を上げるため少し不透明度アップ） */
+        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.3); stroke-width: 4px; transition: stroke 0.5s, stroke-width 0.5s; }
     </style>
 </head>
 <body>
@@ -22,7 +27,7 @@
 </div>
 
 <script type="module">
-    // テスト用データ（提示された構文をそのまま使用）
+    // テスト用データ
     const testData = [
         {
             "areas": [
@@ -40,36 +45,41 @@
     ];
 
     async function runTest(tsunamiSvg) {
-        console.log("テストデータを反映します...");
-        
+        console.log("テストデータを適用中...");
         const latestTsunami = testData[0];
         
-        // 全初期化
+        // 全パスをリセット
         tsunamiSvg.selectAll("path")
-            .style("stroke", "rgba(255,255,255,0.15)")
-            .style("stroke-width", "2px");
+            .style("stroke", "rgba(255,255,255,0.3)")
+            .style("stroke-width", "4px");
 
         if (latestTsunami.cancelled) return;
 
         latestTsunami.areas.forEach(area => {
-            const areaName = area.name;
+            const areaName = area.name.trim(); // 空白対策
             const grade = area.grade;
 
-            let color = "rgba(255,255,255,0.15)";
-            let width = "2px";
+            let color = "rgba(255,255,255,0.3)";
+            let width = "4px";
 
-            // 色判定
-            if (grade === "MajorWarning") { color = "#C91EFB"; width = "14px"; }
-            else if (grade === "Warning") { color = "#DE080A"; width = "10px"; }
-            else if (grade === "Watch") { color = "#FEDC00"; width = "7px"; }
+            // ご要望に合わせてさらに太く設定
+            if (grade === "MajorWarning") { color = "#C91EFB"; width = "25px"; }
+            else if (grade === "Warning") { color = "#DE080A"; width = "18px"; }
+            else if (grade === "Watch") { color = "#FEDC00"; width = "12px"; }
 
-            // 反映
-            tsunamiSvg.select(`path[id="${areaName}"]`)
-                .style("stroke", color)
-                .style("stroke-width", width)
-                .raise();
+            // IDとの照合
+            const targetPath = tsunamiSvg.select(`path[id="${areaName}"]`);
+            
+            if (!targetPath.empty()) {
+                targetPath
+                    .style("stroke", color)
+                    .style("stroke-width", width)
+                    .style("stroke-linecap", "round") // 角を丸くして繋がりを自然に
+                    .raise(); // 最前面へ
+            } else {
+                console.warn(`予報区「${areaName}」がSVG内で見つかりません。IDを確認してください。`);
+            }
         });
-        console.log("テストデータの反映が完了しました。");
     }
 
     async function init() {
@@ -81,7 +91,8 @@
         const container = d3.select("#map-container");
         const prefSvg = container.append(() => prefXml.documentElement);
         const tsunamiSvg = container.append(() => tsunamiXml.documentElement);
-        tsunamiSvg.style("position", "absolute");
+        
+        tsunamiSvg.style("position", "absolute").style("z-index", "10");
 
         prefSvg.selectAll("path").classed("pref-path", true);
         tsunamiSvg.selectAll("path").classed("tsunami-path", true);
@@ -98,10 +109,8 @@
         setTimeout(() => {
             autoFit(prefSvg.node());
             autoFit(tsunamiSvg.node());
-            
-            // 実際のAPIの代わりにテスト関数を実行
             runTest(tsunamiSvg);
-        }, 150);
+        }, 200);
     }
 
     init();
