@@ -4,30 +4,45 @@
     <meta charset="UTF-8">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        :root { --canvas-width: 1857.03px; }
-        body { margin: 0; background: #000; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; position: relative; }
-        #main-canvas { width: var(--canvas-width); height: 100vh; position: relative; display: flex; align-items: center; justify-content: flex-start; overflow: hidden; }
-        #background-cover { position: absolute; top: 0; left: 0; width: var(--canvas-width); height: 100%; z-index: -1; object-fit: cover; }
-        #map-container { width: 85%; height: 90%; position: relative; margin-left: -70px; display: flex; justify-content: center; align-items: center; }
+        body { 
+            margin: 0; 
+            background: transparent; /* iframeとして埋め込むため背景透過 */
+            width: 100vw; 
+            height: 100vh; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            overflow: hidden; 
+        }
         
-        svg { position: absolute; width: 100% !important; height: 100% !important; top: 0; left: 0; object-fit: contain; }
+        #map-container { 
+            width: auto;   /* 横幅は自動 */
+            height: 100%;  /* 縦幅を100%に固定 */
+            position: relative; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+        }
         
-        /* 陸地と都道府県境界：一体感のあるグレーに設定 */
+        svg { 
+            height: 100% !important; /* 縦幅を基準にする */
+            width: auto !important;   /* 横幅はアスペクト比を維持 */
+            display: block;
+        }
+        
+        /* 陸地と都道府県境界 */
         .pref-path { fill: #BFBFBF; stroke: #BFBFBF; stroke-width: 0.5px; }
         
-        /* 津波線の基本設定：初期状態は透明にして影をなくす */
-        .tsunami-path { fill: none; stroke: none; transition: stroke 0.3s, stroke-width 0.3s; }
+        /* 津波線（初期状態は透明） */
+        .tsunami-path { fill: none; stroke: none; }
     </style>
 </head>
 <body>
 
-<div id="main-canvas">
-    <img id="background-cover" src="assets/cover/tsunami_cover.png" alt="background">
-    <div id="map-container"></div>
-</div>
+<div id="map-container"></div>
 
 <script type="module">
-    // テスト用データ（スクリーンショットの状態を再現）
+    // テスト用データ
     const testData = [
         {
             "areas": [
@@ -36,57 +51,36 @@
                 { "grade": "Warning", "name": "岩手県" },
                 { "grade": "Watch", "name": "宮城県" },
                 { "grade": "Watch", "name": "福島県" }
-                // 必要に応じて "MajorWarning" もテストしてください
             ],
             "cancelled": false
         }
     ];
 
     async function applyTsunamiData(tsunamiSvg, data) {
-        // 全リセット（影の原因となる線をクリア）
-        tsunamiSvg.selectAll("path")
-            .style("stroke", "none")
-            .style("stroke-width", "0");
+        tsunamiSvg.selectAll("path").style("stroke", "none").style("stroke-width", "0");
 
         if (data.cancelled) return;
 
+        const baseWidth = 14; 
         data.areas.forEach(area => {
             const areaName = area.name.trim();
             const grade = area.grade;
-
-            // 基本の太さ（警報・注意報）
-            const baseWidth = 14; 
             
             let color = "none";
             let width = "0px";
 
-            // グレード別の設定
-            if (grade === "MajorWarning") { 
-                color = "#C91EFB"; // 大津波警報：紫
-                width = `${baseWidth * 2}px`; // 2倍の太さ
-            } 
-            else if (grade === "Warning") { 
-                color = "#DE080A"; // 津波警報：赤
-                width = `${baseWidth}px`; 
-            } 
-            else if (grade === "Watch") { 
-                color = "#FEDC00"; // 津波注意報：黄
-                width = `${baseWidth}px`; 
-            }
+            // 「みんなの減災ラボ」カラーパレット
+            if (grade === "MajorWarning") { color = "#C91EFB"; width = `${baseWidth * 2}px`; } 
+            else if (grade === "Warning") { color = "#DE080A"; width = `${baseWidth}px`; } 
+            else if (grade === "Watch") { color = "#FEDC00"; width = `${baseWidth}px`; }
 
-            // IDまたは部分一致でパスを選択
             const target = tsunamiSvg.selectAll("path").filter(function() {
                 const id = d3.select(this).attr("id");
                 return id && (id === areaName || id.includes(areaName));
             });
 
             if (!target.empty()) {
-                target
-                    .style("stroke", color)
-                    .style("stroke-width", width)
-                    .style("stroke-linecap", "round")
-                    .style("stroke-linejoin", "round")
-                    .raise(); // 重なり順を上にする
+                target.style("stroke", color).style("stroke-width", width).style("stroke-linecap", "round").style("stroke-linejoin", "round").raise();
             }
         });
     }
@@ -102,14 +96,15 @@
             const prefSvg = container.append(() => prefXml.documentElement);
             const tsunamiSvg = container.append(() => tsunamiXml.documentElement);
             
-            tsunamiSvg.style("position", "absolute").style("z-index", "10");
+            tsunamiSvg.style("position", "absolute");
             prefSvg.selectAll("path").classed("pref-path", true);
             tsunamiSvg.selectAll("path").classed("tsunami-path", true);
 
             const autoFit = (svgNode) => {
                 const bbox = svgNode.getBBox();
-                const margin = 10;
+                const margin = 5;
                 svgNode.setAttribute("viewBox", `${bbox.x - margin} ${bbox.y - margin} ${bbox.width + margin * 2} ${bbox.height + margin * 2}`);
+                // width/height属性を削除し、CSS側（100%）に任せる
                 svgNode.removeAttribute("width");
                 svgNode.removeAttribute("height");
                 svgNode.setAttribute("preserveAspectRatio", "xMidYMid meet");
@@ -119,13 +114,12 @@
                 autoFit(prefSvg.node());
                 autoFit(tsunamiSvg.node());
                 applyTsunamiData(tsunamiSvg, testData[0]);
-            }, 300);
+            }, 100);
 
         } catch (error) {
-            console.error("読み込みに失敗しました:", error);
+            console.error("SVG読み込み失敗:", error);
         }
     }
-
     init();
 </script>
 </body>
