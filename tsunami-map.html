@@ -4,39 +4,14 @@
     <meta charset="UTF-8">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body {
-            margin: 0;
-            background: #000;
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-        }
-
+        body { margin: 0; background: #000; overflow: hidden; }
         #map-container {
-            width: 100vw;
-            height: 100vh;
-            position: relative;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
         }
-
-        /* SVGのサイズ指定をCSSで完全に支配する */
-        svg {
-            position: absolute;
-            width: 100% !important;
-            height: 100% !important;
-            top: 0;
-            left: 0;
-            /* 縦横比を維持しつつ、はみ出さないように収める */
-            object-fit: contain; 
-        }
-        
+        svg { width: 100%; height: 100%; object-fit: contain; }
         .pref-path { fill: #BFBFBF; stroke: #444; stroke-width: 0.2px; }
-        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 2px; transition: stroke 0.3s; }
+        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 2px; }
     </style>
 </head>
 <body>
@@ -54,7 +29,7 @@
     };
     const db = getDatabase(initializeApp(config));
 
-    async function loadMaps() {
+    async function loadAndFixMaps() {
         const [prefXml, tsunamiXml] = await Promise.all([
             d3.xml("assets/svg/pref.svg"),
             d3.xml("assets/svg/tsunami_id.svg")
@@ -62,33 +37,39 @@
 
         const container = d3.select("#map-container");
 
-        const processSvg = (xmlDoc) => {
-            const svgElement = xmlDoc.documentElement;
-            // SVGタグに直接書かれている width/height が悪さをしないよう削除
-            svgElement.removeAttribute("width");
-            svgElement.removeAttribute("height");
-            // アスペクト比を維持するための設定を念のため追加
-            svgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
-            return svgElement;
-        };
+        // 1. レイヤーを順番に追加
+        const prefSvg = container.append(() => prefXml.documentElement);
+        const tsunamiSvg = container.append(() => tsunamiXml.documentElement);
+        tsunamiSvg.style("position", "absolute");
 
-        // 都道府県レイヤー
-        const prefSvg = container.append(() => processSvg(prefXml));
+        // 2. クラス付与
         prefSvg.selectAll("path").classed("pref-path", true);
-
-        // 津波レイヤー
-        const tsunamiSvg = container.append(() => processSvg(tsunamiXml));
         tsunamiSvg.selectAll("path").classed("tsunami-path", true);
 
-        // Firebase監視
+        // 3. 【最重要】SVGの描画範囲を強制的に再計算する関数
+        const autoFit = (svgNode) => {
+            // SVG内部のパス全体のバウンディングボックスを取得
+            const bbox = svgNode.getBBox();
+            // バウンディングボックスに合わせてviewBoxを再設定（少し余白を追加）
+            const margin = 20;
+            svgNode.setAttribute("viewBox", `${bbox.x - margin} ${bbox.y - margin} ${bbox.width + margin * 2} ${bbox.height + margin * 2}`);
+            svgNode.removeAttribute("width");
+            svgNode.removeAttribute("height");
+        };
+
+        // 描画を待ってから実行（重要）
+        setTimeout(() => {
+            autoFit(prefSvg.node());
+            autoFit(tsunamiSvg.node());
+        }, 100);
+
+        // 4. Firebase監視
         onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
             const data = snapshot.val() || {};
             tsunamiSvg.selectAll("path").each(function() {
                 const code = d3.select(this).attr("id");
                 const level = data[code];
-                
-                let color = "rgba(255,255,255,0.2)";
-                let width = "2px";
+                let color = "rgba(255,255,255,0.2)", width = "2px";
 
                 if (level === 'major') { color = "#C91EFB"; width = "12px"; }
                 else if (level === 'warning') { color = "#DE080A"; width = "9px"; }
@@ -99,7 +80,7 @@
         });
     }
 
-    loadMaps();
+    loadAndFixMaps();
 </script>
 </body>
 </html>
