@@ -4,64 +4,13 @@
     <meta charset="UTF-8">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        :root {
-            --canvas-width: 1857.03px;
-        }
-
-        body {
-            margin: 0;
-            background: #000;
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-            position: relative;
-        }
-
-        #main-canvas {
-            width: var(--canvas-width);
-            height: 100vh;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            overflow: hidden;
-        }
-
-        #background-cover {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: var(--canvas-width);
-            height: 100%;
-            z-index: -1;
-            object-fit: cover;
-        }
-
-        #map-container {
-            width: 85%;  
-            height: 90%; 
-            position: relative;
-            margin-left: -70px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: transparent;
-        }
-
-        svg {
-            position: absolute;
-            width: 100% !important;
-            height: 100% !important;
-            top: 0;
-            left: 0;
-            object-fit: contain;
-        }
-        
+        :root { --canvas-width: 1857.03px; }
+        body { margin: 0; background: #000; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; position: relative; }
+        #main-canvas { width: var(--canvas-width); height: 100vh; position: relative; display: flex; align-items: center; justify-content: flex-start; overflow: hidden; }
+        #background-cover { position: absolute; top: 0; left: 0; width: var(--canvas-width); height: 100%; z-index: -1; object-fit: cover; }
+        #map-container { width: 85%; height: 90%; position: relative; margin-left: -70px; display: flex; justify-content: center; align-items: center; }
+        svg { position: absolute; width: 100% !important; height: 100% !important; top: 0; left: 0; object-fit: contain; }
         .pref-path { fill: #BFBFBF; stroke: #444; stroke-width: 0.2px; }
-        /* 初期状態の予報線は透明に近い白 */
         .tsunami-path { fill: none; stroke: rgba(255,255,255,0.15); stroke-width: 2px; transition: stroke 0.5s, stroke-width 0.5s; }
     </style>
 </head>
@@ -79,45 +28,44 @@
         try {
             const response = await fetch(API_URL);
             const history = await response.json();
-            if (history.length === 0) return;
+            if (!history || history.length === 0) return;
 
             const latestTsunami = history[0];
-            const areas = latestTsunami.areas || [];
-
-            // 全てのパスを一旦初期化
+            
+            // 全てのパスを初期状態（白）に戻す
             tsunamiSvg.selectAll("path")
                 .style("stroke", "rgba(255,255,255,0.15)")
                 .style("stroke-width", "2px");
 
-            // 取得したエリア情報を地図に反映
+            // 解除されている場合はここで終了
+            if (latestTsunami.cancelled) {
+                console.log("津波予報は解除されています");
+                return;
+            }
+
+            const areas = latestTsunami.areas || [];
+
             areas.forEach(area => {
-                const code = area.code;
-                const grade = area.grade; // 大津波警報, 津波警報, 津波注意報
+                const areaName = area.name; // APIの"name"（例：岩手県）
+                const grade = area.grade;   // 大津波警報, 津波警報, 津波注意報
 
                 let color = "rgba(255,255,255,0.15)";
                 let width = "2px";
 
-                // P2P地震情報のgradeに基づいた判定
-                if (grade === "MajorWarning") { // 大津波警報
-                    color = "#C91EFB"; 
-                    width = "14px";
-                } else if (grade === "Warning") { // 津波警報
-                    color = "#DE080A"; 
-                    width = "10px";
-                } else if (grade === "Watch") { // 津波注意報
-                    color = "#FEDC00"; 
-                    width = "7px";
-                }
+                if (grade === "MajorWarning") { color = "#C91EFB"; width = "14px"; }
+                else if (grade === "Warning") { color = "#DE080A"; width = "10px"; }
+                else if (grade === "Watch") { color = "#FEDC00"; width = "7px"; }
 
-                // IDが一致するパスの色を更新
-                tsunamiSvg.select(`path[id="${code}"]`)
+                // SVG内のID属性とAPIのnameが一致する要素を選択して更新
+                tsunamiSvg.select(`path[id="${areaName}"]`)
                     .style("stroke", color)
-                    .style("stroke-width", width);
+                    .style("stroke-width", width)
+                    .raise(); // 警報線を重なりの最前面に持ってくる
             });
 
-            console.log("津波情報を更新しました:", new Date().toLocaleTimeString());
+            console.log(`${new Date().toLocaleTimeString()}：津波情報を更新しました（${areas.length}地点）`);
         } catch (error) {
-            console.error("APIの取得に失敗しました:", error);
+            console.error("API取得エラー:", error);
         }
     }
 
@@ -128,7 +76,6 @@
         ]);
 
         const container = d3.select("#map-container");
-
         const prefSvg = container.append(() => prefXml.documentElement);
         const tsunamiSvg = container.append(() => tsunamiXml.documentElement);
         tsunamiSvg.style("position", "absolute");
@@ -148,10 +95,7 @@
         setTimeout(() => {
             autoFit(prefSvg.node());
             autoFit(tsunamiSvg.node());
-            
-            // 初回実行
             updateTsunamiInformation(tsunamiSvg);
-            // 30秒ごとにAPIをチェック（みんなの減災ラボのリアルタイム運用に合わせて調整）
             setInterval(() => updateTsunamiInformation(tsunamiSvg), 30000);
         }, 150);
     }
