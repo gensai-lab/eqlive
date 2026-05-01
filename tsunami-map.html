@@ -3,124 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="https://unpkg.com/topojson@3"></script>
     <style>
-        :root {
-            --major-warning: #C91EFB;
-            --warning: #DE080A;
-            --advisory: #FEDC00;
-            --land: #BFBFBF;
-            --map-bg: #000000;
-            --line-default: rgba(255, 255, 255, 0.2);
-            --inset-border: rgba(255, 255, 255, 0.5);
-        }
-
-        body { margin: 0; background: var(--map-bg); overflow: hidden; font-family: sans-serif; }
-        svg { width: 100vw; height: 100vh; }
-
-        /* 描画スタイル */
-        .land { fill: var(--land); stroke: #444; stroke-width: 0.1px; }
-        .tsunami-line { fill: none; stroke-linejoin: round; stroke-linecap: round; transition: stroke 0.3s; }
+        body { margin: 0; background: #000; overflow: hidden; }
+        #map-container { width: 100vw; height: 100vh; position: relative; }
+        svg { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
         
-        .inset-frame { fill: none; stroke: var(--inset-border); stroke-width: 1.5px; }
-        .inset-text { fill: #fff; font-size: 22px; font-weight: bold; }
-
-        /* 凡例 */
-        .legend {
-            position: absolute; bottom: 40px; right: 40px;
-            display: flex; gap: 30px;
-        }
-        .v-text { writing-mode: vertical-rl; color: #fff; font-size: 28px; font-weight: bold; letter-spacing: 0.2em; }
-        .l-bar { width: 60px; height: 12px; margin-bottom: 15px; }
+        /* 都道府県の初期スタイル */
+        .pref-path { fill: #BFBFBF; stroke: #444; stroke-width: 0.2px; }
+        
+        /* 津波予報区の初期スタイル */
+        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 2px; transition: stroke 0.3s; }
     </style>
 </head>
 <body>
 
-<div id="map-container"></div>
-<div class="legend">
-    <div style="display:flex; flex-direction:column; align-items:center;">
-        <div class="l-bar" style="background:var(--warning)"></div><span class="v-text">津波警報</span>
-    </div>
-    <div style="display:flex; flex-direction:column; align-items:center;">
-        <div class="l-bar" style="background:var(--advisory)"></div><span class="v-text">津波注意報</span>
-    </div>
+<div id="map-container">
+    <div id="pref-layer"></div>
+    <div id="tsunami-layer"></div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    const firebaseConfig = {
+    // Firebase設定
+    const config = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
         databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
-        projectId: "mgl-eqlive",
-        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+        projectId: "mgl-eqlive"
     };
-    const db = getDatabase(initializeApp(firebaseConfig));
+    const db = getDatabase(initializeApp(config));
 
-    const WIDTH = 1920, HEIGHT = 1080;
-    const svg = d3.select("#map-container").append("svg").attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
+    // 両方のSVGを読み込む
+    Promise.all([
+        d3.xml("assets/svg/pref.svg"),
+        d3.xml("assets/svg/tsunami_id.svg")
+    ]).then(([prefXml, tsunamiXml]) => {
+        // 都道府県レイヤー
+        const prefNode = document.getElementById("pref-layer");
+        prefNode.appendChild(prefXml.documentElement);
+        d3.select("#pref-layer svg").selectAll("path").classed("pref-path", true);
 
-    // --- 各地域の「切り出し」設定 ---
-    const REGIONS = [
-        { id: "main", center: [138.5, 38.0], scale: 3500, translate: [WIDTH/2 + 200, HEIGHT/2], clip: null },
-        { id: "oki", label: "沖縄・奄美", center: [127.5, 26.3], scale: 2400, translate: [280, 260], clip: [40, 40, 480, 440] },
-        { id: "oga", label: "小笠原", center: [142.2, 27.0], scale: 4500, translate: [WIDTH-450, HEIGHT-350], clip: [WIDTH-650, HEIGHT-550, 420, 450] }
-    ];
+        // 津波レイヤー
+        const tsunamiNode = document.getElementById("tsunami-layer");
+        tsunamiNode.appendChild(tsunamiXml.documentElement);
+        const tsunamiSvg = d3.select("#tsunami-layer svg");
+        tsunamiSvg.selectAll("path").classed("tsunami-path", true);
 
-    async function loadAndRender() {
-        const [landData, tsunamiData] = await Promise.all([
-            d3.json("assets/json/todoufuken.json"),
-            d3.json("assets/json/tsunami.json")
-        ]);
-
-        const landGeo = topojson.feature(landData, landData.objects[Object.keys(landData.objects)[0]]);
-        const tsunamiGeo = topojson.feature(tsunamiData, tsunamiData.objects[Object.keys(tsunamiData.objects)[0]]);
-
-        REGIONS.forEach(reg => {
-            const proj = d3.geoMercator().center(reg.center).scale(reg.scale).translate(reg.translate);
-            const path = d3.geoPath().projection(proj);
-            const g = svg.append("g").attr("id", `g-${reg.id}`);
-
-            // クリッピング（枠外はみ出し防止）
-            if (reg.clip) {
-                const [x, y, w, h] = reg.clip;
-                const clipId = `clip-${reg.id}`;
-                svg.append("defs").append("clipPath").attr("id", clipId).append("rect").attr("x", x).attr("y", y).attr("width", w).attr("height", h);
-                g.attr("clip-path", `url(#${clipId})`);
+        // Firebase監視
+        onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
+            const data = snapshot.val() || {};
+            
+            tsunamiSvg.selectAll("path").each(function() {
+                const code = d3.select(this).attr("id");
+                const level = data[code];
                 
-                // 枠線とラベル
-                svg.append("path").attr("class", "inset-frame").attr("d", `M${x+w},${y} L${x},${y} L${x},${y+h} L${x+w/3},${y+h}`);
-                svg.append("text").attr("class", "inset-text").attr("x", x+20).attr("y", y+45).text(reg.label);
-            }
+                let color = "rgba(255,255,255,0.2)";
+                let width = "2px";
 
-            // 陸地
-            g.append("g").selectAll("path").data(landGeo.features).enter().append("path").attr("class", "land").attr("d", path);
+                if (level === 'major') { color = "#C91EFB"; width = "12px"; }
+                else if (level === 'warning') { color = "#DE080A"; width = "9px"; }
+                else if (level === 'advisory') { color = "#FEDC00"; width = "6px"; }
 
-            // 津波ライン
-            const lines = g.append("g").selectAll("path").data(tsunamiGeo.features).enter().append("path")
-                .attr("class", "tsunami-line").attr("d", path)
-                .style("stroke", "var(--line-default)").style("stroke-width", "3px");
-
-            // Firebase同期
-            onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
-                const status = snapshot.val() || {};
-                lines.each(function(d) {
-                    const code = d.properties.code || d.id;
-                    const level = status[code];
-                    let sColor = "var(--line-default)", sWidth = "3px";
-                    
-                    if (level === 'major') { sColor = "var(--major-warning)"; sWidth = "12px"; }
-                    else if (level === 'warning') { sColor = "var(--warning)"; sWidth = "9px"; }
-                    else if (level === 'advisory') { sColor = "var(--advisory)"; sWidth = "6px"; }
-                    
-                    d3.select(this).style("stroke", sColor).style("stroke-width", sWidth);
-                });
+                d3.select(this)
+                    .style("stroke", color)
+                    .style("stroke-width", width);
             });
         });
-    }
-
-    loadAndRender();
+    });
 </script>
 </body>
 </html>
