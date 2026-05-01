@@ -6,11 +6,12 @@
     <script src="https://unpkg.com/topojson@3"></script>
     <style>
         :root {
-            --major-warning: #C91EFB;
-            --warning: #DE080A;
-            --advisory: #FEDC00;
-            --land: #BFBFBF;
-            --map-bg: #001233;
+            --major-warning: #C91EFB; /* 大津波警報 */
+            --warning: #DE080A;       /* 津波警報 */
+            --advisory: #FEDC00;      /* 津波注意報 */
+            --land: #BFBFBF;          /* 陸地：指定色 */
+            --map-bg: #001233;        /* 背景（深い海） */
+            --no-tsunami: #ffffff;    /* 予報なし（白） */
         }
 
         body {
@@ -24,25 +25,31 @@
             overflow: hidden;
         }
 
+        #map { width: 100%; height: 100%; }
         svg { width: 100%; height: 100%; }
 
-        .land { fill: var(--land); stroke: #888; stroke-width: 0.2px; }
+        .land {
+            fill: var(--land);
+            stroke: #777;
+            stroke-width: 0.1px;
+        }
 
-        /* 予報区は線のみ（塗りつぶしなし） */
         .tsunami-area {
-            fill: none;
-            stroke-width: 2px; /* 線を太めにする */
+            fill: none; /* 塗りつぶさない */
+            stroke-width: 1.5px; /* 線を太く */
             transition: stroke 0.5s;
+            stroke-linejoin: round;
+            stroke-linecap: round;
         }
 
         .legend {
             position: absolute; bottom: 20px; right: 20px;
             background: rgba(0, 0, 0, 0.8); padding: 10px; border-radius: 4px;
             color: white; font-size: 14px; font-family: sans-serif;
-            pointer-events: none;
+            pointer-events: none; border: 1px solid #444;
         }
-        .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-        .dot { width: 16px; height: 16px; border-radius: 2px; }
+        .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .dot { width: 14px; height: 14px; border-radius: 2px; }
     </style>
 </head>
 <body>
@@ -58,35 +65,56 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Firebase設定は省略（既存のものを使用）
-        const app = initializeApp({ /* 設定 */ });
+        // Firebase設定を復元
+        const firebaseConfig = {
+            apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+            authDomain: "mgl-eqlive.firebaseapp.com",
+            databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+            projectId: "mgl-eqlive",
+            storageBucket: "mgl-eqlive.firebasestorage.app",
+            messagingSenderId: "1060231327645",
+            appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+        };
+        const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        const svg = d3.select("#map").append("svg").attr("viewBox", "0 0 1000 1000");
-        const projection = d3.geoMercator().center([138, 38]).scale(1800).translate([500, 500]);
+        const width = 1000;
+        const height = 1000;
+        const svg = d3.select("#map").append("svg").attr("viewBox", `0 0 ${width} ${height}`);
+        const projection = d3.geoMercator();
         const path = d3.geoPath().projection(projection);
 
         Promise.all([
             d3.json("assets/json/todoufuken.json"),
             d3.json("assets/json/tsunami.json")
         ]).then(([landData, tsunamiData]) => {
+            
             const landKey = Object.keys(landData.objects)[0];
             const tsunamiKey = Object.keys(tsunamiData.objects)[0];
 
-            // 陸地
-            svg.append("g").selectAll("path")
-                .data(topojson.feature(landData, landData.objects[landKey]).features)
-                .enter().append("path").attr("class", "land").attr("d", path);
+            const landFeatures = topojson.feature(landData, landData.objects[landKey]);
+            const tsunamiFeatures = topojson.feature(tsunamiData, tsunamiData.objects[tsunamiKey]);
 
-            // 津波予報区（線のみ）
+            // 陸地データに合わせて表示範囲を自動調整
+            projection.fitExtent([[50, 50], [950, 950]], landFeatures);
+
+            // 陸地を描画
+            svg.append("g").selectAll("path")
+                .data(landFeatures.features)
+                .enter().append("path")
+                .attr("class", "land")
+                .attr("d", path);
+
+            // 津波予報区の線を描画
             const areas = svg.append("g").selectAll("path")
-                .data(topojson.feature(tsunamiData, tsunamiData.objects[tsunamiKey]).features)
+                .data(tsunamiFeatures.features)
                 .enter().append("path")
                 .attr("class", "tsunami-area")
                 .attr("id", d => `area-${d.properties.code || d.id}`)
                 .attr("d", path)
-                .style("stroke", "#ffffff"); // 初期値は白（予報なし）
+                .style("stroke", "rgba(255,255,255,0.2)"); // 初期状態は薄い白
 
+            // Firebaseの更新監視
             onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
                 const status = snapshot.val() || {};
                 areas.style("stroke", d => {
@@ -95,10 +123,13 @@
                     if (level === 'major') return "var(--major-warning)";
                     if (level === 'warning') return "var(--warning)";
                     if (level === 'advisory') return "var(--advisory)";
-                    return "#ffffff"; // 予報なしは白
+                    return "rgba(255,255,255,0.2)";
+                }).style("stroke-width", d => {
+                    const code = d.properties.code || d.id;
+                    return status[code] ? "3px" : "1.5px"; // 警報が出ている線は太くする
                 });
             });
-        });
+        }).catch(err => console.error("Loading Error:", err));
     </script>
 </body>
 </html>
