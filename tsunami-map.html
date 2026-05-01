@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <title>MGL Tsunami Simulation Map v2</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://unpkg.com/topojson@3"></script>
     <style>
@@ -11,188 +12,156 @@
             --advisory: #FEDC00;
             --land: #BFBFBF;
             --map-bg: #000000;
-            --no-tsunami: rgba(255, 255, 255, 0.25);
+            --inset-stroke: rgba(255, 255, 255, 0.4);
         }
 
-        body {
-            margin: 0;
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
             background-color: var(--map-bg);
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             overflow: hidden;
-            font-family: sans-serif;
+            font-family: "Hiragino Sans", "Meiryo", sans-serif;
         }
 
-        #map-container {
-            width: 100%;
-            height: 100%;
-            position: relative;
+        #map-wrapper {
+            width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
         }
 
-        svg { width: 100%; height: 100%; }
-
-        /* 陸地：境界線を少しだけ濃くして視認性アップ */
-        .land { fill: var(--land); stroke: #666; stroke-width: 0.1px; }
-        
-        /* 津波予報線：角を丸くしてニュース風に */
-        .tsunami-area { 
-            fill: none; 
-            transition: stroke 0.5s, stroke-width 0.5s; 
-            stroke-linejoin: round; 
-            stroke-linecap: round; 
+        svg {
+            width: 100%; height: 100%;
+            /* 16:9を維持 */
+            max-width: 177.78vh;
+            max-height: 56.25vw;
         }
 
-        /* インセットの枠線 */
-        .inset-line {
+        /* 陸地のドロップシャドウで立体感を出す */
+        .land {
+            fill: var(--land);
+            stroke: #444;
+            stroke-width: 0.05px;
+            filter: drop-shadow(2px 2px 3px rgba(255,255,255,0.1));
+        }
+
+        .tsunami-line {
             fill: none;
-            stroke: #ffffff;
-            stroke-width: 1.2px;
-            opacity: 0.6;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: stroke 0.4s ease, stroke-width 0.4s ease;
         }
 
-        .inset-label {
-            fill: white;
-            font-size: 20px;
-            font-weight: bold;
-            filter: drop-shadow(1px 1px 2px black);
-        }
+        .inset-box { fill: none; stroke: var(--inset-stroke); stroke-width: 1.5px; }
+        .inset-label { fill: #fff; font-size: 24px; font-weight: bold; }
 
-        /* 凡例：右下に固定 */
         .legend {
-            position: absolute;
-            bottom: 30px;
-            right: 40px;
-            display: flex;
-            gap: 25px;
+            position: absolute; bottom: 5%; right: 4%;
+            display: flex; gap: 40px;
         }
-        .legend-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            color: white;
-            font-weight: bold;
-        }
-        .legend-bar {
-            width: 50px;
-            height: 10px;
-            margin-bottom: 12px;
-        }
-        .v-text {
-            writing-mode: vertical-rl;
-            font-size: 26px;
-            letter-spacing: 0.15em;
-        }
+        .legend-item { display: flex; flex-direction: column; align-items: center; }
+        .legend-bar { width: 60px; height: 12px; margin-bottom: 15px; }
+        .v-text { writing-mode: vertical-rl; color: #fff; font-size: 32px; font-weight: 900; letter-spacing: 0.3em; }
     </style>
 </head>
 <body>
 
-    <div id="map-container">
-        <div id="map"></div>
-        
-        <div class="legend">
-            <div class="legend-item">
-                <div class="legend-bar" style="background:var(--warning)"></div>
-                <span class="v-text">津波警報</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-bar" style="background:var(--advisory)"></div>
-                <span class="v-text">津波注意報</span>
-            </div>
-        </div>
-    </div>
+<div id="map-wrapper"></div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+<div class="legend">
+    <div class="legend-item"><div class="legend-bar" style="background:var(--warning)"></div><span class="v-text">津波警報</span></div>
+    <div class="legend-item"><div class="legend-bar" style="background:var(--advisory)"></div><span class="v-text">津波注意報</span></div>
+</div>
 
-        // Firebase設定
-        const firebaseConfig = {
-            apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
-            authDomain: "mgl-eqlive.firebaseapp.com",
-            databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
-            projectId: "mgl-eqlive",
-            storageBucket: "mgl-eqlive.firebasestorage.app",
-            messagingSenderId: "1060231327645",
-            appId: "1:1060231327645:web:642684f4640bbc21d5c974"
-        };
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // 16:9 放送用サイズ
-        const width = 1280;
-        const height = 720;
-        const svg = d3.select("#map").append("svg").attr("viewBox", `0 0 ${width} ${height}`);
+    const config = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+    const db = getDatabase(initializeApp(config));
 
-        // --- 投影設定（位置を微調整） ---
-        // メイン：北海道が切れないよう少し下げ、全体を右寄りに
-        const projMain = d3.geoMercator().center([138.5, 37.5]).scale(2200).translate([width / 2 + 150, height / 2 + 50]);
-        // 沖縄：枠内にしっかり収まるスケール
-        const projOkinawa = d3.geoMercator().center([127.5, 26.3]).scale(1600).translate([200, 220]);
-        // 小笠原：見えやすい倍率
-        const projOgasawara = d3.geoMercator().center([142.2, 27.0]).scale(3000).translate([850, 520]);
+    const WIDTH = 1920, HEIGHT = 1080;
+    const svg = d3.select("#map-wrapper").append("svg").attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
 
-        const pathMain = d3.geoPath().projection(projMain);
-        const pathOkinawa = d3.geoPath().projection(projOkinawa);
-        const pathOgasawara = d3.geoPath().projection(projOgasawara);
+    // インセットの定義（管理しやすくオブジェクト化）
+    const INSETS = [
+        { id: "oki", label: "沖縄・奄美", center: [127.5, 26.3], scale: 2800, rect: [40, 40, 450, 480] },
+        { id: "oga", label: "小笠原", center: [142.2, 27.0], scale: 5000, rect: [WIDTH-480, HEIGHT-500, 420, 450] }
+    ];
 
-        // インセット枠の描画関数
-        const drawInset = (x, y, w, h, label) => {
-            const g = svg.append("g");
-            g.append("path").attr("class", "inset-line").attr("d", `M${x+w},${y} L${x},${y} L${x},${y+h} L${x+w/3},${y+h}`);
-            g.append("text").attr("class", "inset-label").attr("x", x + 15).attr("y", y + 35).text(label);
-        };
+    // メイン地図の投影設定
+    const projMain = d3.geoMercator().center([138.2, 37.8]).scale(3800).translate([WIDTH/2 + 200, HEIGHT/2 + 40]);
 
-        // 枠の位置調整
-        drawInset(50, 50, 300, 340, "沖縄・奄美");
-        drawInset(780, 380, 280, 300, "小笠原");
-
-        Promise.all([
+    async function init() {
+        const [landData, tsunamiData] = await Promise.all([
             d3.json("assets/json/todoufuken.json"),
             d3.json("assets/json/tsunami.json")
-        ]).then(([landData, tsunamiData]) => {
-            const landKey = Object.keys(landData.objects)[0];
-            const tsunamiKey = Object.keys(tsunamiData.objects)[0];
-            const land = topojson.feature(landData, landData.objects[landKey]);
-            const tsunami = topojson.feature(tsunamiData, tsunamiData.objects[tsunamiKey]);
+        ]);
 
-            const renderGroup = (name, pathGenerator, clipRect) => {
-                const g = svg.append("g");
-                if (clipRect) {
-                    const clipId = `clip-${name}`;
-                    svg.append("defs").append("clipPath").attr("id", clipId)
-                       .append("rect").attr("x", clipRect.x).attr("y", clipRect.y).attr("width", clipRect.w).attr("height", clipRect.h);
-                    g.attr("clip-path", `url(#${clipId})`);
-                }
+        const landGeo = topojson.feature(landData, landData.objects[Object.keys(landData.objects)[0]]);
+        const tsunamiGeo = topojson.feature(tsunamiData, tsunamiData.objects[Object.keys(tsunamiData.objects)[0]]);
 
-                g.append("g").selectAll("path").data(land.features).enter().append("path")
-                    .attr("class", "land").attr("d", pathGenerator);
+        // 1. メイン描画
+        renderMapLayer("main", projMain, null);
 
-                return g.append("g").selectAll("path").data(tsunami.features).enter().append("path")
-                    .attr("class", "tsunami-area").attr("d", pathGenerator)
-                    .style("stroke", "var(--no-tsunami)").style("stroke-width", "2px");
-            };
-
-            const areasMain = renderGroup("main", pathMain, null);
-            const areasOki = renderGroup("oki", pathOkinawa, {x:50, y:50, w:300, h:340});
-            const areasOga = renderGroup("oga", pathOgasawara, {x:780, y:380, w:280, h:300});
-
-            // Firebase更新
-            onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
-                const status = snapshot.val() || {};
-                [areasMain, areasOki, areasOga].forEach(group => {
-                    group.style("stroke", d => {
-                        const level = status[d.properties.code || d.id];
-                        if (level === 'major') return "var(--major-warning)";
-                        if (level === 'warning') return "var(--warning)";
-                        if (level === 'advisory') return "var(--advisory)";
-                        return "var(--no-tsunami)";
-                    }).style("stroke-width", d => status[d.properties.code || d.id] ? "6px" : "2px");
-                });
-            });
+        // 2. インセット描画
+        INSETS.forEach(ins => {
+            const proj = d3.geoMercator().center(ins.center).scale(ins.scale).translate([ins.rect[0] + ins.rect[2]/2, ins.rect[1] + ins.rect[3]/2]);
+            renderMapLayer(ins.id, proj, ins.rect);
+            drawInsetFrame(ins);
         });
-    </script>
+
+        function renderMapLayer(id, proj, rect) {
+            const g = svg.append("g").attr("class", `layer-${id}`);
+            const path = d3.geoPath().projection(proj);
+
+            if (rect) {
+                const clipId = `clip-${id}`;
+                svg.append("defs").append("clipPath").attr("id", clipId)
+                   .append("rect").attr("x", rect[0]).attr("y", rect[1]).attr("width", rect[2]).attr("height", rect[3]);
+                g.attr("clip-path", `url(#${clipId})`);
+            }
+
+            g.append("g").selectAll("path").data(landGeo.features).enter().append("path")
+                .attr("class", "land").attr("d", path);
+
+            const lines = g.append("g").selectAll("path").data(tsunamiGeo.features).enter().append("path")
+                .attr("class", "tsunami-line")
+                .attr("d", path)
+                .attr("data-code", d => d.properties.code || d.id)
+                .style("stroke", "rgba(255,255,255,0.2)").style("stroke-width", "2px");
+
+            // Firebase連携
+            onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
+                const data = snapshot.val() || {};
+                lines.each(function(d) {
+                    const code = d.properties.code || d.id;
+                    const level = data[code];
+                    let color = "rgba(255,255,255,0.2)", width = "2px", z = 0;
+
+                    if (level === 'major') { color = "var(--major-warning)"; width = "10px"; z = 3; }
+                    else if (level === 'warning') { color = "var(--warning)"; width = "8px"; z = 2; }
+                    else if (level === 'advisory') { color = "var(--advisory)"; width = "6px"; z = 1; }
+
+                    d3.select(this).style("stroke", color).style("stroke-width", width).attr("data-z", z);
+                });
+                // 警報レベルが高い順に前面に持ってくる処理（重要！）
+                lines.sort((a, b) => (data[a.properties.code || a.id] ? 1 : 0) - (data[b.properties.code || b.id] ? 1 : 0));
+            });
+        }
+
+        function drawInsetFrame(ins) {
+            const [x, y, w, h] = ins.rect;
+            const g = svg.append("g");
+            // NHK風カギ型フレーム
+            g.append("path").attr("class", "inset-box").attr("d", `M${x+w},${y} L${x},${y} L${x},${y+h} L${x+w/3},${y+h}`);
+            g.append("text").attr("class", "inset-label").attr("x", x+15).attr("y", y+35).text(ins.label);
+        }
+    }
+
+    init();
+</script>
 </body>
 </html>
