@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>みんなの減災ラボ - 放送システム</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         @font-face {
             font-family: 'UDKakugoLarge';
@@ -25,16 +26,14 @@
             background-size: cover;
             font-family: 'UDKakugoLarge', sans-serif;
             color: var(--text-white);
-            display: grid;
-            grid-template-columns: 1280px 640px;
-            grid-template-rows: 840px 240px;
+            position: relative;
         }
 
+        /* メインビデオエリア */
         .main-content {
-            grid-column: 1;
-            grid-row: 1;
-            padding: 40px 0 0 40px;
-            position: relative;
+            position: absolute;
+            top: 40px;
+            left: 40px;
         }
 
         .video-container {
@@ -52,11 +51,12 @@
             object-fit: cover;
         }
 
+        /* 時計・バナー */
         .video-overlay {
             position: absolute;
             top: 40px;
             left: 50px;
-            z-index: 10;
+            z-index: 100;
             display: flex;
             align-items: center;
             gap: 20px;
@@ -77,31 +77,47 @@
             height: 70px;
         }
 
-        .side-panel {
-            grid-column: 2;
-            grid-row: 1 / 3;
-            background-color: rgba(26, 35, 126, 0.9);
-        }
-
+        /* 下部テロップ (title.html) */
         .bottom-ticker-container {
-            grid-column: 1;
-            grid-row: 2;
-            display: flex;
-            align-items: flex-end;
-            padding-bottom: 40px; 
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            width: 1200px;
         }
 
         .title-frame {
             width: 100%;
-            /* サブボックスの拡大に合わせて高さを200pxに調整 */
             height: 210px; 
             border: none;
             background: transparent;
             overflow: hidden;
         }
+
+        /* --- 津波マップコンテナ (右下) --- */
+        #tsunami-map-widget {
+            position: absolute;
+            right: 40px;
+            bottom: 40px;
+            width: 600px;  /* 右側の空きスペースにフィット */
+            height: 1000px; /* 縦長に配置 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        #tsunami-map-widget svg {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* 陸地と津波線のスタイル */
+        .pref-path { fill: #BFBFBF; stroke: #BFBFBF; stroke-width: 0.5px; }
+        .tsunami-path { fill: none; stroke: none; }
     </style>
 </head>
 <body>
+    <!-- 左側：コンテンツエリア -->
     <main class="main-content">
         <div class="video-container">
             <video id="mainVideoDisplay" autoplay playsinline muted></video>
@@ -115,16 +131,19 @@
         </div>
     </main>
 
-    <aside class="side-panel"></aside>
-
+    <!-- 下部：テロップ -->
     <footer class="bottom-ticker-container">
         <iframe src="title.html" class="title-frame" scrolling="no" allowtransparency="true"></iframe>
     </footer>
+
+    <!-- 右側：津波マップ -->
+    <div id="tsunami-map-widget"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+        // Firebase設定
         const firebaseConfig = {
             apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
             authDomain: "mgl-eqlive.firebaseapp.com",
@@ -137,6 +156,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
+        // 時計更新
         function updateClock() {
             const now = new Date();
             const h = now.getHours().toString().padStart(2, '0');
@@ -145,11 +165,77 @@
         }
         setInterval(updateClock, 1000); updateClock();
 
+        // 配信者バナー更新
         onValue(ref(db, 'broadcast/current'), (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
             document.getElementById('distributorImg').src = data.statusType === 'ningen' ? 'assets/banner/distributor/ningen.png' : 'assets/banner/distributor/bot.png';
         });
+
+        // --- 津波マップロジック ---
+        const testData = {
+            "areas": [
+                { "grade": "Warning", "name": "北海道太平洋沿岸中部" },
+                { "grade": "Warning", "name": "青森県太平洋沿岸" },
+                { "grade": "Warning", "name": "岩手県" },
+                { "grade": "Watch", "name": "宮城県" },
+                { "grade": "Watch", "name": "福島県" }
+            ],
+            "cancelled": false
+        };
+
+        async function applyTsunamiData(tsunamiSvg, data) {
+            tsunamiSvg.selectAll("path").style("stroke", "none");
+            if (data.cancelled) return;
+
+            const baseWidth = 10; // 右下に合わせて少し細めに調整
+            data.areas.forEach(area => {
+                const areaName = area.name.trim();
+                let color = "none", width = 0;
+
+                if (area.grade === "MajorWarning") { color = "#C91EFB"; width = baseWidth * 2; }
+                else if (area.grade === "Warning") { color = "#DE080A"; width = baseWidth; }
+                else if (area.grade === "Watch") { color = "#FEDC00"; width = baseWidth; }
+
+                const target = tsunamiSvg.selectAll("path").filter(function() {
+                    const id = d3.select(this).attr("id");
+                    return id && (id === areaName || id.includes(areaName));
+                });
+
+                if (!target.empty()) {
+                    target.style("stroke", color).style("stroke-width", `${width}px`).style("stroke-linecap", "round").raise();
+                }
+            });
+        }
+
+        async function initTsunamiMap() {
+            const [prefXml, tsunamiXml] = await Promise.all([
+                d3.xml("assets/svg/pref.svg"),
+                d3.xml("assets/svg/tsunami2_id.svg")
+            ]);
+
+            const container = d3.select("#tsunami-map-widget");
+            const prefSvg = container.append(() => prefXml.documentElement);
+            const tsunamiSvg = container.append(() => tsunamiXml.documentElement);
+
+            tsunamiSvg.style("position", "absolute");
+            prefSvg.selectAll("path").classed("pref-path", true);
+            tsunamiSvg.selectAll("path").classed("tsunami-path", true);
+
+            const autoFit = (svgNode) => {
+                const bbox = svgNode.getBBox();
+                const margin = 10;
+                svgNode.setAttribute("viewBox", `${bbox.x - margin} ${bbox.y - margin} ${bbox.width + margin * 2} ${bbox.height + margin * 2}`);
+                svgNode.removeAttribute("width");
+                svgNode.removeAttribute("height");
+            };
+
+            autoFit(prefSvg.node());
+            autoFit(tsunamiSvg.node());
+            applyTsunamiData(tsunamiSvg, testData);
+        }
+
+        initTsunamiMap();
     </script>
 </body>
 </html>
