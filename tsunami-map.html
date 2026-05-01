@@ -4,29 +4,48 @@
     <meta charset="UTF-8">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; }
-        #map-container { width: 100vw; height: 100vh; position: relative; }
-        svg { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        body {
+            margin: 0;
+            background: #000;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        #map-container {
+            /* 常に16:9の比率を維持し、画面内に収める */
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        svg {
+            /* ここが重要：アスペクト比を維持して最大サイズで表示 */
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            max-height: 100%;
+            /* もしSVG自体に大きなwidth/heightが指定されていても無視する */
+        }
         
-        /* 都道府県の初期スタイル */
         .pref-path { fill: #BFBFBF; stroke: #444; stroke-width: 0.2px; }
-        
-        /* 津波予報区の初期スタイル */
-        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 2px; transition: stroke 0.3s; }
+        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 2px; transition: stroke 0.3s, stroke-width 0.3s; }
     </style>
 </head>
 <body>
 
-<div id="map-container">
-    <div id="pref-layer"></div>
-    <div id="tsunami-layer"></div>
-</div>
+<div id="map-container"></div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // Firebase設定
     const config = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
         databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
@@ -34,26 +53,28 @@
     };
     const db = getDatabase(initializeApp(config));
 
-    // 両方のSVGを読み込む
-    Promise.all([
-        d3.xml("assets/svg/pref.svg"),
-        d3.xml("assets/svg/tsunami_id.svg")
-    ]).then(([prefXml, tsunamiXml]) => {
-        // 都道府県レイヤー
-        const prefNode = document.getElementById("pref-layer");
-        prefNode.appendChild(prefXml.documentElement);
-        d3.select("#pref-layer svg").selectAll("path").classed("pref-path", true);
+    // 2つのSVGを重ねるための統合処理
+    async function loadMaps() {
+        const [prefXml, tsunamiXml] = await Promise.all([
+            d3.xml("assets/svg/pref.svg"),
+            d3.xml("assets/svg/tsunami_id.svg")
+        ]);
 
-        // 津波レイヤー
-        const tsunamiNode = document.getElementById("tsunami-layer");
-        tsunamiNode.appendChild(tsunamiXml.documentElement);
-        const tsunamiSvg = d3.select("#tsunami-layer svg");
+        const container = d3.select("#map-container");
+
+        // 都道府県レイヤー
+        const prefSvg = container.append(() => prefXml.documentElement);
+        prefSvg.selectAll("path").classed("pref-path", true);
+
+        // 津波レイヤーを都道府県の上に重ねる
+        // ※同じviewBoxであることを前提として、絶対座標で重ねます
+        const tsunamiSvg = container.append(() => tsunamiXml.documentElement);
+        tsunamiSvg.style("position", "absolute");
         tsunamiSvg.selectAll("path").classed("tsunami-path", true);
 
         // Firebase監視
         onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
             const data = snapshot.val() || {};
-            
             tsunamiSvg.selectAll("path").each(function() {
                 const code = d3.select(this).attr("id");
                 const level = data[code];
@@ -61,16 +82,16 @@
                 let color = "rgba(255,255,255,0.2)";
                 let width = "2px";
 
-                if (level === 'major') { color = "#C91EFB"; width = "12px"; }
-                else if (level === 'warning') { color = "#DE080A"; width = "9px"; }
-                else if (level === 'advisory') { color = "#FEDC00"; width = "6px"; }
+                if (level === 'major') { color = "#C91EFB"; width = "10px"; }
+                else if (level === 'warning') { color = "#DE080A"; width = "8px"; }
+                else if (level === 'advisory') { color = "#FEDC00"; width = "5px"; }
 
-                d3.select(this)
-                    .style("stroke", color)
-                    .style("stroke-width", width);
+                d3.select(this).style("stroke", color).style("stroke-width", width);
             });
         });
-    });
+    }
+
+    loadMaps();
 </script>
 </body>
 </html>
