@@ -9,13 +9,14 @@
         #main-canvas { width: var(--canvas-width); height: 100vh; position: relative; display: flex; align-items: center; justify-content: flex-start; overflow: hidden; }
         #background-cover { position: absolute; top: 0; left: 0; width: var(--canvas-width); height: 100%; z-index: -1; object-fit: cover; }
         #map-container { width: 85%; height: 90%; position: relative; margin-left: -70px; display: flex; justify-content: center; align-items: center; }
+        
         svg { position: absolute; width: 100% !important; height: 100% !important; top: 0; left: 0; object-fit: contain; }
         
-        /* 都道府県境界線を陸地と同色にして完全に消す */
-        .pref-path { fill: #BFBFBF; stroke: #BFBFBF; stroke-width: 1px; }
+        /* 陸地と都道府県境界：一体感のあるグレーに設定 */
+        .pref-path { fill: #BFBFBF; stroke: #BFBFBF; stroke-width: 0.5px; }
         
-        /* 津波線のベース：見えない場合はここを白くして存在を確認 */
-        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 5px; }
+        /* 津波線の基本設定：初期状態は透明にして影をなくす */
+        .tsunami-path { fill: none; stroke: none; transition: stroke 0.3s, stroke-width 0.3s; }
     </style>
 </head>
 <body>
@@ -26,7 +27,7 @@
 </div>
 
 <script type="module">
-    // テストデータ
+    // テスト用データ（スクリーンショットの状態を再現）
     const testData = [
         {
             "areas": [
@@ -35,18 +36,17 @@
                 { "grade": "Warning", "name": "岩手県" },
                 { "grade": "Watch", "name": "宮城県" },
                 { "grade": "Watch", "name": "福島県" }
+                // 必要に応じて "MajorWarning" もテストしてください
             ],
             "cancelled": false
         }
     ];
 
     async function applyTsunamiData(tsunamiSvg, data) {
-        // 現在のSVG内のすべてのpathを取得
-        const paths = tsunamiSvg.selectAll("path");
-        console.log(`取得されたpathの総数: ${paths.size()}個`);
-
-        // リセット
-        paths.style("stroke", "rgba(255,255,255,0.1)").style("stroke-width", "5px");
+        // 全リセット（影の原因となる線をクリア）
+        tsunamiSvg.selectAll("path")
+            .style("stroke", "none")
+            .style("stroke-width", "0");
 
         if (data.cancelled) return;
 
@@ -54,41 +54,45 @@
             const areaName = area.name.trim();
             const grade = area.grade;
 
-            let color = "rgba(255,255,255,0.1)";
-            let width = "5px";
+            // 基本の太さ（警報・注意報）
+            const baseWidth = 14; 
+            
+            let color = "none";
+            let width = "0px";
 
-            // グレード別色設定
-            if (grade === "MajorWarning") { color = "#C91EFB"; width = "35px"; }
-            else if (grade === "Warning") { color = "#DE080A"; width = "25px"; }
-            else if (grade === "Watch") { color = "#FEDC00"; width = "18px"; }
+            // グレード別の設定
+            if (grade === "MajorWarning") { 
+                color = "#C91EFB"; // 大津波警報：紫
+                width = `${baseWidth * 2}px`; // 2倍の太さ
+            } 
+            else if (grade === "Warning") { 
+                color = "#DE080A"; // 津波警報：赤
+                width = `${baseWidth}px`; 
+            } 
+            else if (grade === "Watch") { 
+                color = "#FEDC00"; // 津波注意報：黄
+                width = `${baseWidth}px`; 
+            }
 
-            // IDがない場合の最終手段：属性 'name' や 'data-name' なども探す
-            let target = tsunamiSvg.selectAll("path").filter(function() {
-                const el = d3.select(this);
-                return el.attr("id") === areaName || 
-                       el.attr("name") === areaName || 
-                       el.attr("data-name") === areaName;
+            // IDまたは部分一致でパスを選択
+            const target = tsunamiSvg.selectAll("path").filter(function() {
+                const id = d3.select(this).attr("id");
+                return id && (id === areaName || id.includes(areaName));
             });
 
             if (!target.empty()) {
-                target.style("stroke", color).style("stroke-width", width).style("stroke-linecap", "round").raise();
-            } else {
-                console.warn(`「${areaName}」に一致する要素がありません。`);
+                target
+                    .style("stroke", color)
+                    .style("stroke-width", width)
+                    .style("stroke-linecap", "round")
+                    .style("stroke-linejoin", "round")
+                    .raise(); // 重なり順を上にする
             }
         });
     }
 
     async function init() {
         try {
-            // ファイルの存在を確実に確認するため、fetchで中身を一度チェック
-            const response = await fetch("assets/svg/tsunami2_id.svg");
-            const svgText = await response.text();
-            
-            // もし中身が空っぽに近いなら警告
-            if (svgText.length < 200) {
-                console.error("警告: assets/svg/tsunami2_id.svg のファイルサイズが極端に小さいです。内容が空の可能性があります。");
-            }
-
             const [prefXml, tsunamiXml] = await Promise.all([
                 d3.xml("assets/svg/pref.svg"),
                 d3.xml("assets/svg/tsunami2_id.svg")
@@ -118,7 +122,7 @@
             }, 300);
 
         } catch (error) {
-            console.error("初期化エラー:", error);
+            console.error("読み込みに失敗しました:", error);
         }
     }
 
