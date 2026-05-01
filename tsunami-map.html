@@ -22,51 +22,54 @@
 </div>
 
 <script type="module">
-    const API_URL = "https://api.p2pquake.net/v2/history?codes=552&limit=1";
-
-    async function updateTsunamiInformation(tsunamiSvg) {
-        try {
-            const response = await fetch(API_URL);
-            const history = await response.json();
-            if (!history || history.length === 0) return;
-
-            const latestTsunami = history[0];
-            
-            // 全てのパスを初期状態（白）に戻す
-            tsunamiSvg.selectAll("path")
-                .style("stroke", "rgba(255,255,255,0.15)")
-                .style("stroke-width", "2px");
-
-            // 解除されている場合はここで終了
-            if (latestTsunami.cancelled) {
-                console.log("津波予報は解除されています");
-                return;
-            }
-
-            const areas = latestTsunami.areas || [];
-
-            areas.forEach(area => {
-                const areaName = area.name; // APIの"name"（例：岩手県）
-                const grade = area.grade;   // 大津波警報, 津波警報, 津波注意報
-
-                let color = "rgba(255,255,255,0.15)";
-                let width = "2px";
-
-                if (grade === "MajorWarning") { color = "#C91EFB"; width = "14px"; }
-                else if (grade === "Warning") { color = "#DE080A"; width = "10px"; }
-                else if (grade === "Watch") { color = "#FEDC00"; width = "7px"; }
-
-                // SVG内のID属性とAPIのnameが一致する要素を選択して更新
-                tsunamiSvg.select(`path[id="${areaName}"]`)
-                    .style("stroke", color)
-                    .style("stroke-width", width)
-                    .raise(); // 警報線を重なりの最前面に持ってくる
-            });
-
-            console.log(`${new Date().toLocaleTimeString()}：津波情報を更新しました（${areas.length}地点）`);
-        } catch (error) {
-            console.error("API取得エラー:", error);
+    // テスト用データ（提示された構文をそのまま使用）
+    const testData = [
+        {
+            "areas": [
+                { "grade": "Warning", "name": "北海道太平洋沿岸中部" },
+                { "grade": "Warning", "name": "青森県太平洋沿岸" },
+                { "grade": "Warning", "name": "岩手県" },
+                { "grade": "Watch", "name": "北海道太平洋沿岸東部" },
+                { "grade": "Watch", "name": "北海道太平洋沿岸西部" },
+                { "grade": "Watch", "name": "青森県日本海沿岸" },
+                { "grade": "Watch", "name": "宮城県" },
+                { "grade": "Watch", "name": "福島県" }
+            ],
+            "cancelled": false
         }
+    ];
+
+    async function runTest(tsunamiSvg) {
+        console.log("テストデータを反映します...");
+        
+        const latestTsunami = testData[0];
+        
+        // 全初期化
+        tsunamiSvg.selectAll("path")
+            .style("stroke", "rgba(255,255,255,0.15)")
+            .style("stroke-width", "2px");
+
+        if (latestTsunami.cancelled) return;
+
+        latestTsunami.areas.forEach(area => {
+            const areaName = area.name;
+            const grade = area.grade;
+
+            let color = "rgba(255,255,255,0.15)";
+            let width = "2px";
+
+            // 色判定
+            if (grade === "MajorWarning") { color = "#C91EFB"; width = "14px"; }
+            else if (grade === "Warning") { color = "#DE080A"; width = "10px"; }
+            else if (grade === "Watch") { color = "#FEDC00"; width = "7px"; }
+
+            // 反映
+            tsunamiSvg.select(`path[id="${areaName}"]`)
+                .style("stroke", color)
+                .style("stroke-width", width)
+                .raise();
+        });
+        console.log("テストデータの反映が完了しました。");
     }
 
     async function init() {
@@ -95,8 +98,9 @@
         setTimeout(() => {
             autoFit(prefSvg.node());
             autoFit(tsunamiSvg.node());
-            updateTsunamiInformation(tsunamiSvg);
-            setInterval(() => updateTsunamiInformation(tsunamiSvg), 30000);
+            
+            // 実際のAPIの代わりにテスト関数を実行
+            runTest(tsunamiSvg);
         }, 150);
     }
 
