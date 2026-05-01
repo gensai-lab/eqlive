@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
+        :root {
+            --canvas-width: 1857.03px;
+        }
+
         body {
             margin: 0;
             background: #000;
@@ -16,27 +20,37 @@
             position: relative;
         }
 
-        /* 背面のカバー画像設定 */
+        /* 背面のカバー画像 */
         #background-cover {
             position: absolute;
             top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%; /* 縦幅100% */
-            z-index: -1;   /* 地図より背面に配置 */
-            object-fit: cover; /* 画面いっぱいに広げる（比率維持） */
-            opacity: 0.8;      /* 地図を見やすくするために少し暗くする場合 */
+            left: 50%;
+            transform: translateX(-50%);
+            width: var(--canvas-width);
+            height: 100%;
+            z-index: -1;
+            object-fit: cover;
         }
 
-        #map-container {
-            width: 100vw;
+        /* 全体のコンテナ（横幅固定） */
+        #main-canvas {
+            width: var(--canvas-width);
             height: 100vh;
             position: relative;
             display: flex;
+            align-items: center; /* 垂直中央 */
+            justify-content: flex-start; /* 左寄せ */
+        }
+
+        /* 地図のラッパー（ここでサイズと位置を制御） */
+        #map-container {
+            width: 75%;  /* 地図を少し小さく（全体の75%幅） */
+            height: 85%; /* 縦も少し余裕を持たせる */
+            position: relative;
+            margin-left: 50px; /* 左端から少し離す（お好みで調整） */
+            display: flex;
             justify-content: center;
             align-items: center;
-            /* 背景が透けて見えるように透明に */
-            background: transparent; 
         }
 
         svg {
@@ -54,10 +68,13 @@
 </head>
 <body>
 
-<!-- 背景画像 -->
-<img id="background-cover" src="assets/cover/tsunami_cover.png" alt="background">
-
-<div id="map-container"></div>
+<!-- 固定幅キャンバス -->
+<div id="main-canvas">
+    <img id="background-cover" src="assets/cover/tsunami_cover.png" alt="background">
+    
+    <!-- 地図エリア（左寄せ・縮小） -->
+    <div id="map-container"></div>
+</div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -78,7 +95,6 @@
 
         const container = d3.select("#map-container");
 
-        // 各レイヤーのSVG要素を取得
         const prefSvg = container.append(() => prefXml.documentElement);
         const tsunamiSvg = container.append(() => tsunamiXml.documentElement);
         tsunamiSvg.style("position", "absolute");
@@ -86,7 +102,6 @@
         prefSvg.selectAll("path").classed("pref-path", true);
         tsunamiSvg.selectAll("path").classed("tsunami-path", true);
 
-        // 自動フィット関数
         const autoFit = (svgNode) => {
             const bbox = svgNode.getBBox();
             const margin = 10;
@@ -96,13 +111,11 @@
             svgNode.setAttribute("preserveAspectRatio", "xMidYMid meet");
         };
 
-        // 描画後にサイズ調整
         setTimeout(() => {
             autoFit(prefSvg.node());
             autoFit(tsunamiSvg.node());
         }, 100);
 
-        // Firebase監視
         onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
             const data = snapshot.val() || {};
             tsunamiSvg.selectAll("path").each(function() {
