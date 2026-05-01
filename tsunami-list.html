@@ -30,7 +30,7 @@
         /* ヘッダー画像：隙間なく配置 */
         .list-header {
             width: 100%;
-            line-height: 0; /* 下部の微細な隙間を排除 */
+            line-height: 0;
         }
 
         .list-header img {
@@ -43,7 +43,7 @@
             display: grid;
             grid-template-columns: 1.5fr 1fr 0.8fr;
             border-bottom: 2px solid #ccc;
-            align-items: stretch; /* 高さをいっぱいに使う */
+            align-items: stretch;
             height: 80px;
             margin: 0;
             padding: 0;
@@ -73,7 +73,7 @@
             font-size: 42px;
             font-weight: bold;
             letter-spacing: 1px;
-            margin: 0; /* マージンを排除 */
+            margin: 0;
         }
 
         /* 高さ画像：コンテナいっぱいに表示 */
@@ -91,7 +91,7 @@
             height: 100%;
             width: 100%;
             display: block;
-            object-fit: cover; /* 画像をセルいっぱいにフィットさせる */
+            object-fit: cover;
         }
     </style>
 </head>
@@ -112,7 +112,7 @@
 <script>
     /**
      * リストを更新する
-     * @param {string} type - 'ot', 'kt', 'ct'
+     * @param {string} type - 'ot' (大津波), 'kt' (警報), 'ct' (注意報)
      * @param {Array} areas - 予報区データの配列
      */
     window.updateTsunamiList = (type, areas) => {
@@ -128,6 +128,7 @@
             let heightImgSrc = 'assets/banner/tsunami/tsunami_list-none.png';
             const h = area.height;
 
+            // 各グレード・高さに応じた画像パスの選択
             if (h === '10m超') heightImgSrc = 'assets/banner/tsunami/tsunami_list-10mu.png';
             else if (h === '10m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-10m.png';
             else if (h === '5m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-5m.png';
@@ -149,14 +150,20 @@
         });
     };
 
-    // テスト表示用
-    /*
-    updateTsunamiList('kt', [
-        { name: '北海道太平洋沿岸中部', time: '22日 22:22', height: '3m' },
-        { name: '青森県太平洋沿岸', time: '22日 22:30', height: '3m' },
-        { name: '岩手県', time: '22日 22:40', height: '3m' }
-    ]);
-    */
+    // --- テスト実行コード ---
+    // 画面読み込み完了後にテストデータを流し込みます
+    window.addEventListener('load', () => {
+        const testAreas = [
+            { name: '北海道太平洋沿岸東部', time: 'すぐ来る', height: '10m超' },
+            { name: '北海道太平洋沿岸中部', time: '2日 22:22', height: '10m' },
+            { name: '青森県太平洋沿岸', time: '2日 22:40', height: '5m' },
+            { name: '岩手県', time: '2日 22:50', height: '巨大' },
+            { name: '宮城県', time: '2日 23:10', height: '3m' }
+        ];
+
+        // 'ot' (大津波警報) モードでテスト表示
+        updateTsunamiList('ot', testAreas);
+    });
 </script>
 
 </body>
