@@ -68,26 +68,22 @@
 </div>
 
 <script type="module">
-    // テスト用データ
-    const testData = [
-        {
-            "areas": [
-                { "grade": "Warning", "name": "北海道太平洋沿岸中部" },
-                { "grade": "Warning", "name": "青森県太平洋沿岸" },
-                { "grade": "Warning", "name": "岩手県" },
-                { "grade": "Watch", "name": "宮城県" },
-                { "grade": "Watch", "name": "福島県" }
-            ],
-            "cancelled": false
-        }
-    ];
+    let tsunamiSvgElement = null;
 
+    /**
+     * 津波データを地図に反映させる関数
+     * @param {Object} tsunamiSvg - D3で選択されたSVG要素
+     * @param {Object} data - 津波情報データ
+     */
     async function applyTsunamiData(tsunamiSvg, data) {
+        if (!tsunamiSvg) return;
+
+        // 全ての線をリセット
         tsunamiSvg.selectAll("path")
             .style("stroke", "none")
             .style("stroke-width", "0");
 
-        if (data.cancelled) return;
+        if (!data || data.cancelled) return;
 
         data.areas.forEach(area => {
             const areaName = area.name.trim();
@@ -97,16 +93,17 @@
             let color = "none";
             let width = "0px";
 
+            // 凡例に基づいた色分け
             if (grade === "MajorWarning") { 
-                color = "#C91EFB";
+                color = "#C91EFB"; // 大津波警報
                 width = `${baseWidth * 2}px`;
             } 
             else if (grade === "Warning") { 
-                color = "#DE080A";
+                color = "#DE080A"; // 津波警報
                 width = `${baseWidth}px`; 
             } 
             else if (grade === "Watch") { 
-                color = "#FEDC00";
+                color = "#FEDC00"; // 津波注意報
                 width = `${baseWidth}px`; 
             }
 
@@ -135,11 +132,11 @@
 
             const container = d3.select("#map-container");
             const prefSvg = container.append(() => prefXml.documentElement);
-            const tsunamiSvg = container.append(() => tsunamiXml.documentElement);
+            tsunamiSvgElement = container.append(() => tsunamiXml.documentElement);
             
-            tsunamiSvg.style("position", "absolute").style("z-index", "10");
+            tsunamiSvgElement.style("position", "absolute").style("z-index", "10");
             prefSvg.selectAll("path").classed("pref-path", true);
-            tsunamiSvg.selectAll("path").classed("tsunami-path", true);
+            tsunamiSvgElement.selectAll("path").classed("tsunami-path", true);
 
             const autoFit = (svgNode) => {
                 const bbox = svgNode.getBBox();
@@ -152,14 +149,19 @@
 
             setTimeout(() => {
                 autoFit(prefSvg.node());
-                autoFit(tsunamiSvg.node());
-                applyTsunamiData(tsunamiSvg, testData[0]);
+                autoFit(tsunamiSvgElement.node());
+                // 初期化時はデータなし
             }, 300);
 
         } catch (error) {
             console.error("読み込みに失敗しました:", error);
         }
     }
+
+    // 外部（親ウィンドウなど）からデータを流し込めるようにグローバルに公開
+    window.updateTsunamiMap = (data) => {
+        applyTsunamiData(tsunamiSvgElement, data);
+    };
 
     init();
 </script>
