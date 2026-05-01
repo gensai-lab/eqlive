@@ -2,7 +2,6 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>MGL Tsunami Simulation Map v2</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://unpkg.com/topojson@3"></script>
     <style>
@@ -12,89 +11,64 @@
             --advisory: #FEDC00;
             --land: #BFBFBF;
             --map-bg: #000000;
-            --inset-stroke: rgba(255, 255, 255, 0.4);
+            --line-default: rgba(255, 255, 255, 0.2);
+            --inset-border: rgba(255, 255, 255, 0.5);
         }
 
-        body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%;
-            background-color: var(--map-bg);
-            overflow: hidden;
-            font-family: "Hiragino Sans", "Meiryo", sans-serif;
-        }
+        body { margin: 0; background: var(--map-bg); overflow: hidden; font-family: sans-serif; }
+        svg { width: 100vw; height: 100vh; }
 
-        #map-wrapper {
-            width: 100vw; height: 100vh;
-            display: flex; justify-content: center; align-items: center;
-        }
+        /* 描画スタイル */
+        .land { fill: var(--land); stroke: #444; stroke-width: 0.1px; }
+        .tsunami-line { fill: none; stroke-linejoin: round; stroke-linecap: round; transition: stroke 0.3s; }
+        
+        .inset-frame { fill: none; stroke: var(--inset-border); stroke-width: 1.5px; }
+        .inset-text { fill: #fff; font-size: 22px; font-weight: bold; }
 
-        svg {
-            width: 100%; height: 100%;
-            /* 16:9を維持 */
-            max-width: 177.78vh;
-            max-height: 56.25vw;
-        }
-
-        /* 陸地のドロップシャドウで立体感を出す */
-        .land {
-            fill: var(--land);
-            stroke: #444;
-            stroke-width: 0.05px;
-            filter: drop-shadow(2px 2px 3px rgba(255,255,255,0.1));
-        }
-
-        .tsunami-line {
-            fill: none;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            transition: stroke 0.4s ease, stroke-width 0.4s ease;
-        }
-
-        .inset-box { fill: none; stroke: var(--inset-stroke); stroke-width: 1.5px; }
-        .inset-label { fill: #fff; font-size: 24px; font-weight: bold; }
-
+        /* 凡例 */
         .legend {
-            position: absolute; bottom: 5%; right: 4%;
-            display: flex; gap: 40px;
+            position: absolute; bottom: 40px; right: 40px;
+            display: flex; gap: 30px;
         }
-        .legend-item { display: flex; flex-direction: column; align-items: center; }
-        .legend-bar { width: 60px; height: 12px; margin-bottom: 15px; }
-        .v-text { writing-mode: vertical-rl; color: #fff; font-size: 32px; font-weight: 900; letter-spacing: 0.3em; }
+        .v-text { writing-mode: vertical-rl; color: #fff; font-size: 28px; font-weight: bold; letter-spacing: 0.2em; }
+        .l-bar { width: 60px; height: 12px; margin-bottom: 15px; }
     </style>
 </head>
 <body>
 
-<div id="map-wrapper"></div>
-
+<div id="map-container"></div>
 <div class="legend">
-    <div class="legend-item"><div class="legend-bar" style="background:var(--warning)"></div><span class="v-text">津波警報</span></div>
-    <div class="legend-item"><div class="legend-bar" style="background:var(--advisory)"></div><span class="v-text">津波注意報</span></div>
+    <div style="display:flex; flex-direction:column; align-items:center;">
+        <div class="l-bar" style="background:var(--warning)"></div><span class="v-text">津波警報</span>
+    </div>
+    <div style="display:flex; flex-direction:column; align-items:center;">
+        <div class="l-bar" style="background:var(--advisory)"></div><span class="v-text">津波注意報</span>
+    </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    const config = {
+    const firebaseConfig = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
         databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
         projectId: "mgl-eqlive",
         appId: "1:1060231327645:web:642684f4640bbc21d5c974"
     };
-    const db = getDatabase(initializeApp(config));
+    const db = getDatabase(initializeApp(firebaseConfig));
 
     const WIDTH = 1920, HEIGHT = 1080;
-    const svg = d3.select("#map-wrapper").append("svg").attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
+    const svg = d3.select("#map-container").append("svg").attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
 
-    // インセットの定義（管理しやすくオブジェクト化）
-    const INSETS = [
-        { id: "oki", label: "沖縄・奄美", center: [127.5, 26.3], scale: 2800, rect: [40, 40, 450, 480] },
-        { id: "oga", label: "小笠原", center: [142.2, 27.0], scale: 5000, rect: [WIDTH-480, HEIGHT-500, 420, 450] }
+    // --- 各地域の「切り出し」設定 ---
+    const REGIONS = [
+        { id: "main", center: [138.5, 38.0], scale: 3500, translate: [WIDTH/2 + 200, HEIGHT/2], clip: null },
+        { id: "oki", label: "沖縄・奄美", center: [127.5, 26.3], scale: 2400, translate: [280, 260], clip: [40, 40, 480, 440] },
+        { id: "oga", label: "小笠原", center: [142.2, 27.0], scale: 4500, translate: [WIDTH-450, HEIGHT-350], clip: [WIDTH-650, HEIGHT-550, 420, 450] }
     ];
 
-    // メイン地図の投影設定
-    const projMain = d3.geoMercator().center([138.2, 37.8]).scale(3800).translate([WIDTH/2 + 200, HEIGHT/2 + 40]);
-
-    async function init() {
+    async function loadAndRender() {
         const [landData, tsunamiData] = await Promise.all([
             d3.json("assets/json/todoufuken.json"),
             d3.json("assets/json/tsunami.json")
@@ -103,65 +77,50 @@
         const landGeo = topojson.feature(landData, landData.objects[Object.keys(landData.objects)[0]]);
         const tsunamiGeo = topojson.feature(tsunamiData, tsunamiData.objects[Object.keys(tsunamiData.objects)[0]]);
 
-        // 1. メイン描画
-        renderMapLayer("main", projMain, null);
-
-        // 2. インセット描画
-        INSETS.forEach(ins => {
-            const proj = d3.geoMercator().center(ins.center).scale(ins.scale).translate([ins.rect[0] + ins.rect[2]/2, ins.rect[1] + ins.rect[3]/2]);
-            renderMapLayer(ins.id, proj, ins.rect);
-            drawInsetFrame(ins);
-        });
-
-        function renderMapLayer(id, proj, rect) {
-            const g = svg.append("g").attr("class", `layer-${id}`);
+        REGIONS.forEach(reg => {
+            const proj = d3.geoMercator().center(reg.center).scale(reg.scale).translate(reg.translate);
             const path = d3.geoPath().projection(proj);
+            const g = svg.append("g").attr("id", `g-${reg.id}`);
 
-            if (rect) {
-                const clipId = `clip-${id}`;
-                svg.append("defs").append("clipPath").attr("id", clipId)
-                   .append("rect").attr("x", rect[0]).attr("y", rect[1]).attr("width", rect[2]).attr("height", rect[3]);
+            // クリッピング（枠外はみ出し防止）
+            if (reg.clip) {
+                const [x, y, w, h] = reg.clip;
+                const clipId = `clip-${reg.id}`;
+                svg.append("defs").append("clipPath").attr("id", clipId).append("rect").attr("x", x).attr("y", y).attr("width", w).attr("height", h);
                 g.attr("clip-path", `url(#${clipId})`);
+                
+                // 枠線とラベル
+                svg.append("path").attr("class", "inset-frame").attr("d", `M${x+w},${y} L${x},${y} L${x},${y+h} L${x+w/3},${y+h}`);
+                svg.append("text").attr("class", "inset-text").attr("x", x+20).attr("y", y+45).text(reg.label);
             }
 
-            g.append("g").selectAll("path").data(landGeo.features).enter().append("path")
-                .attr("class", "land").attr("d", path);
+            // 陸地
+            g.append("g").selectAll("path").data(landGeo.features).enter().append("path").attr("class", "land").attr("d", path);
 
+            // 津波ライン
             const lines = g.append("g").selectAll("path").data(tsunamiGeo.features).enter().append("path")
-                .attr("class", "tsunami-line")
-                .attr("d", path)
-                .attr("data-code", d => d.properties.code || d.id)
-                .style("stroke", "rgba(255,255,255,0.2)").style("stroke-width", "2px");
+                .attr("class", "tsunami-line").attr("d", path)
+                .style("stroke", "var(--line-default)").style("stroke-width", "3px");
 
-            // Firebase連携
+            // Firebase同期
             onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
-                const data = snapshot.val() || {};
+                const status = snapshot.val() || {};
                 lines.each(function(d) {
                     const code = d.properties.code || d.id;
-                    const level = data[code];
-                    let color = "rgba(255,255,255,0.2)", width = "2px", z = 0;
-
-                    if (level === 'major') { color = "var(--major-warning)"; width = "10px"; z = 3; }
-                    else if (level === 'warning') { color = "var(--warning)"; width = "8px"; z = 2; }
-                    else if (level === 'advisory') { color = "var(--advisory)"; width = "6px"; z = 1; }
-
-                    d3.select(this).style("stroke", color).style("stroke-width", width).attr("data-z", z);
+                    const level = status[code];
+                    let sColor = "var(--line-default)", sWidth = "3px";
+                    
+                    if (level === 'major') { sColor = "var(--major-warning)"; sWidth = "12px"; }
+                    else if (level === 'warning') { sColor = "var(--warning)"; sWidth = "9px"; }
+                    else if (level === 'advisory') { sColor = "var(--advisory)"; sWidth = "6px"; }
+                    
+                    d3.select(this).style("stroke", sColor).style("stroke-width", sWidth);
                 });
-                // 警報レベルが高い順に前面に持ってくる処理（重要！）
-                lines.sort((a, b) => (data[a.properties.code || a.id] ? 1 : 0) - (data[b.properties.code || b.id] ? 1 : 0));
             });
-        }
-
-        function drawInsetFrame(ins) {
-            const [x, y, w, h] = ins.rect;
-            const g = svg.append("g");
-            // NHK風カギ型フレーム
-            g.append("path").attr("class", "inset-box").attr("d", `M${x+w},${y} L${x},${y} L${x},${y+h} L${x+w/3},${y+h}`);
-            g.append("text").attr("class", "inset-label").attr("x", x+15).attr("y", y+35).text(ins.label);
-        }
+        });
     }
 
-    init();
+    loadAndRender();
 </script>
 </body>
 </html>
