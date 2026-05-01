@@ -20,18 +20,16 @@
             position: relative;
         }
 
-        /* 全ての親コンテナ */
         #main-canvas {
             width: var(--canvas-width);
             height: 100vh;
             position: relative;
             display: flex;
             align-items: center;
-            justify-content: flex-start; /* 左寄せ */
+            justify-content: flex-start;
             overflow: hidden;
         }
 
-        /* 背面のカバー画像（左端起点） */
         #background-cover {
             position: absolute;
             top: 0;
@@ -42,12 +40,11 @@
             object-fit: cover;
         }
 
-        /* 地図コンテナ（左マージンを-70pxに設定） */
         #map-container {
             width: 85%;  
             height: 90%; 
             position: relative;
-            margin-left: -70px; /* 地図をさらに左へ寄せる */
+            margin-left: -70px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -64,7 +61,8 @@
         }
         
         .pref-path { fill: #BFBFBF; stroke: #444; stroke-width: 0.2px; }
-        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 2.5px; transition: stroke 0.3s, stroke-width 0.3s; }
+        /* 初期状態の予報線は透明に近い白 */
+        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.15); stroke-width: 2px; transition: stroke 0.5s, stroke-width 0.5s; }
     </style>
 </head>
 <body>
@@ -75,17 +73,55 @@
 </div>
 
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    const API_URL = "https://api.p2pquake.net/v2/history?codes=552&limit=1";
 
-    const config = {
-        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
-        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
-        projectId: "mgl-eqlive"
-    };
-    const db = getDatabase(initializeApp(config));
+    async function updateTsunamiInformation(tsunamiSvg) {
+        try {
+            const response = await fetch(API_URL);
+            const history = await response.json();
+            if (history.length === 0) return;
 
-    async function loadAndFixMaps() {
+            const latestTsunami = history[0];
+            const areas = latestTsunami.areas || [];
+
+            // 全てのパスを一旦初期化
+            tsunamiSvg.selectAll("path")
+                .style("stroke", "rgba(255,255,255,0.15)")
+                .style("stroke-width", "2px");
+
+            // 取得したエリア情報を地図に反映
+            areas.forEach(area => {
+                const code = area.code;
+                const grade = area.grade; // 大津波警報, 津波警報, 津波注意報
+
+                let color = "rgba(255,255,255,0.15)";
+                let width = "2px";
+
+                // P2P地震情報のgradeに基づいた判定
+                if (grade === "MajorWarning") { // 大津波警報
+                    color = "#C91EFB"; 
+                    width = "14px";
+                } else if (grade === "Warning") { // 津波警報
+                    color = "#DE080A"; 
+                    width = "10px";
+                } else if (grade === "Watch") { // 津波注意報
+                    color = "#FEDC00"; 
+                    width = "7px";
+                }
+
+                // IDが一致するパスの色を更新
+                tsunamiSvg.select(`path[id="${code}"]`)
+                    .style("stroke", color)
+                    .style("stroke-width", width);
+            });
+
+            console.log("津波情報を更新しました:", new Date().toLocaleTimeString());
+        } catch (error) {
+            console.error("APIの取得に失敗しました:", error);
+        }
+    }
+
+    async function init() {
         const [prefXml, tsunamiXml] = await Promise.all([
             d3.xml("assets/svg/pref.svg"),
             d3.xml("assets/svg/tsunami_id.svg")
@@ -112,25 +148,15 @@
         setTimeout(() => {
             autoFit(prefSvg.node());
             autoFit(tsunamiSvg.node());
+            
+            // 初回実行
+            updateTsunamiInformation(tsunamiSvg);
+            // 30秒ごとにAPIをチェック（みんなの減災ラボのリアルタイム運用に合わせて調整）
+            setInterval(() => updateTsunamiInformation(tsunamiSvg), 30000);
         }, 150);
-
-        onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
-            const data = snapshot.val() || {};
-            tsunamiSvg.selectAll("path").each(function() {
-                const code = d3.select(this).attr("id");
-                const level = data[code];
-                let color = "rgba(255,255,255,0.2)", width = "2.5px";
-
-                if (level === 'major') { color = "#C91EFB"; width = "14px"; }
-                else if (level === 'warning') { color = "#DE080A"; width = "10px"; }
-                else if (level === 'advisory') { color = "#FEDC00"; width = "7px"; }
-
-                d3.select(this).style("stroke", color).style("stroke-width", width);
-            });
-        });
     }
 
-    loadAndFixMaps();
+    init();
 </script>
 </body>
 </html>
