@@ -20,37 +20,38 @@
             position: relative;
         }
 
-        /* 背面のカバー画像 */
+        /* 全ての親コンテナ */
+        #main-canvas {
+            width: var(--canvas-width);
+            height: 100vh;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start; /* 全てを左寄せ */
+            overflow: hidden;
+        }
+
+        /* 背面のカバー画像（左端起点） */
         #background-cover {
             position: absolute;
             top: 0;
-            left: 50%;
-            transform: translateX(-50%);
+            left: 0; /* 左端に固定 */
             width: var(--canvas-width);
             height: 100%;
             z-index: -1;
             object-fit: cover;
         }
 
-        /* 全体のコンテナ（横幅固定） */
-        #main-canvas {
-            width: var(--canvas-width);
-            height: 100vh;
-            position: relative;
-            display: flex;
-            align-items: center; /* 垂直中央 */
-            justify-content: flex-start; /* 左寄せ */
-        }
-
-        /* 地図のラッパー（ここでサイズと位置を制御） */
+        /* 地図コンテナ（サイズを拡大） */
         #map-container {
-            width: 75%;  /* 地図を少し小さく（全体の75%幅） */
-            height: 85%; /* 縦も少し余裕を持たせる */
+            width: 85%;  /* 地図を大きく（85%） */
+            height: 90%; /* 縦幅も拡大 */
             position: relative;
-            margin-left: 50px; /* 左端から少し離す（お好みで調整） */
+            margin-left: 20px; /* 左端の余白を最小限に */
             display: flex;
             justify-content: center;
             align-items: center;
+            background: transparent;
         }
 
         svg {
@@ -63,16 +64,16 @@
         }
         
         .pref-path { fill: #BFBFBF; stroke: #444; stroke-width: 0.2px; }
-        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 2px; transition: stroke 0.3s; }
+        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 2.5px; transition: stroke 0.3s, stroke-width 0.3s; }
     </style>
 </head>
 <body>
 
-<!-- 固定幅キャンバス -->
 <div id="main-canvas">
+    <!-- 背景も左端から配置 -->
     <img id="background-cover" src="assets/cover/tsunami_cover.png" alt="background">
     
-    <!-- 地図エリア（左寄せ・縮小） -->
+    <!-- 地図を左寄せで大きく配置 -->
     <div id="map-container"></div>
 </div>
 
@@ -111,21 +112,22 @@
             svgNode.setAttribute("preserveAspectRatio", "xMidYMid meet");
         };
 
+        // 初回フィット
         setTimeout(() => {
             autoFit(prefSvg.node());
             autoFit(tsunamiSvg.node());
-        }, 100);
+        }, 150);
 
         onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
             const data = snapshot.val() || {};
             tsunamiSvg.selectAll("path").each(function() {
                 const code = d3.select(this).attr("id");
                 const level = data[code];
-                let color = "rgba(255,255,255,0.2)", width = "2px";
+                let color = "rgba(255,255,255,0.2)", width = "2.5px";
 
-                if (level === 'major') { color = "#C91EFB"; width = "12px"; }
-                else if (level === 'warning') { color = "#DE080A"; width = "9px"; }
-                else if (level === 'advisory') { color = "#FEDC00"; width = "6px"; }
+                if (level === 'major') { color = "#C91EFB"; width = "14px"; }
+                else if (level === 'warning') { color = "#DE080A"; width = "10px"; }
+                else if (level === 'advisory') { color = "#FEDC00"; width = "7px"; }
 
                 d3.select(this).style("stroke", color).style("stroke-width", width);
             });
