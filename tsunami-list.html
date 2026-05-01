@@ -18,38 +18,26 @@
             color: #000;
         }
 
-        /* リスト全体のコンテナ */
         .tsunami-list-container {
-            width: 800px; /* 画像の比率に合わせて調整 */
-            border: 4px solid #fff;
+            width: 800px;
+            /* 外枠は画像のデザインに合わせて調整（白枠が画像に含まれている場合は不要） */
             background-color: #fff;
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
-        /* ヘッダー部分（津波警報 | 到達予想 | 高さ） */
-        .list-header {
-            display: grid;
-            grid-template-columns: 1.5fr 1fr 0.8fr;
-            background-color: #DE080A; /* 警報色 */
-            color: #fff;
-            padding: 10px 20px;
-            font-size: 40px;
-            font-weight: bold;
-            align-items: center;
+        /* ヘッダー画像エリア */
+        .list-header img {
+            width: 100%;
+            display: block;
         }
 
-        .header-divider {
-            font-weight: normal;
-            margin: 0 10px;
-            opacity: 0.8;
-        }
-
-        /* 各行の設定 */
+        /* 各行のレイアウト */
         .list-row {
             display: grid;
             grid-template-columns: 1.5fr 1fr 0.8fr;
-            border-bottom: 2px solid #DE080A;
-            align-items: stretch;
+            border-bottom: 2px solid #ccc; /* 境界線 */
+            align-items: center;
+            height: 80px; /* 画像の高さに合わせて調整 */
         }
 
         .list-row:last-child {
@@ -58,96 +46,97 @@
 
         /* 予報区名 */
         .area-name {
-            padding: 15px 20px;
-            font-size: 38px;
+            padding: 0 20px;
+            font-size: 36px;
             font-weight: bold;
-            display: flex;
-            align-items: center;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        /* 到達予想時刻のボックス */
+        /* 到達予想時刻（黄色背景のテキスト） */
         .arrival-time {
-            background-color: #FEDC00; /* 注意報色（黄色） */
-            margin: 5px;
+            background-color: #FEDC00;
+            height: 70%;
+            margin: 0 10px;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 45px;
+            font-size: 42px;
             font-weight: bold;
-            letter-spacing: 2px;
+            letter-spacing: 1px;
         }
 
-        /* 高さのボックス */
-        .tsunami-height {
-            background-color: #DE080A;
-            color: #fff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 45px;
-            font-weight: bold;
+        /* 高さ画像エリア */
+        .tsunami-height img {
+            height: 100%;
+            max-height: 80px;
+            display: block;
+            margin: 0 auto;
         }
     </style>
 </head>
 <body>
 
 <div class="tsunami-list-container" id="tsunamiList">
-    <!-- ヘッダー -->
-    <div class="list-header" id="listHeader">
-        <div>津波警報</div>
-        <div style="text-align: center;"><span class="header-divider">|</span>到達予想<span class="header-divider">|</span></div>
-        <div style="text-align: center;">高さ</div>
+    <!-- ヘッダー画像 -->
+    <div class="list-header">
+        <img id="headerImg" src="assets/banner/tsunami/tsunami_list-kt.png" alt="Header">
     </div>
 
-    <!-- リストの中身（JavaScriptで生成） -->
+    <!-- リストボディ -->
     <div id="listBody">
-        <!-- サンプル行 -->
-        <div class="list-row">
-            <div class="area-name">北海道太平洋沿岸中部</div>
-            <div class="arrival-time">22日 22:22</div>
-            <div class="tsunami-height">3m</div>
-        </div>
-        <!-- 繰り返し -->
+        <!-- JavaScriptで生成 -->
     </div>
 </div>
 
 <script>
-    // 外部からリストを更新するための関数
-    window.updateTsunamiList = (title, areas) => {
-        const header = document.getElementById('listHeader');
+    /**
+     * リストを更新する
+     * @param {string} type - 'ot' (大津波), 'kt' (警報), 'ct' (注意報)
+     * @param {Array} areas - 予報区データの配列
+     */
+    window.updateTsunamiList = (type, areas) => {
+        const headerImg = document.getElementById('headerImg');
         const body = document.getElementById('listBody');
-        
-        // ヘッダータイトルの更新（大津波警報なら色を変えるなど）
-        header.firstElementChild.innerText = title;
-        if (title.includes("大津波")) {
-            header.style.backgroundColor = "#C91EFB";
-        } else {
-            header.style.backgroundColor = "#DE080A";
-        }
+
+        // ヘッダー画像の切り替え
+        headerImg.src = `assets/banner/tsunami/tsunami_list-${type}.png`;
 
         // リストの生成
         body.innerHTML = '';
         areas.forEach(area => {
+            // 高さ画像の選択ロジック
+            let heightImgSrc = 'assets/banner/tsunami/tsunami_list-none.png';
+            const h = area.height;
+
+            if (h === '10m超') heightImgSrc = 'assets/banner/tsunami/tsunami_list-10mu.png';
+            else if (h === '10m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-10m.png';
+            else if (h === '5m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-5m.png';
+            else if (h === '巨大') heightImgSrc = 'assets/banner/tsunami/tsunami_list-kyodai.png';
+            else if (h === '3m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-3m.png';
+            else if (h === '高い') heightImgSrc = 'assets/banner/tsunami/tsunami_list-takai.png';
+            else if (h === '1m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-1m.png';
+
             const row = document.createElement('div');
             row.className = 'list-row';
             row.innerHTML = `
                 <div class="area-name">${area.name}</div>
                 <div class="arrival-time">${area.time}</div>
-                <div class="tsunami-height">${area.height}</div>
+                <div class="tsunami-height">
+                    <img src="${heightImgSrc}" alt="${h}">
+                </div>
             `;
             body.appendChild(row);
         });
     };
 
-    // 初期表示用のテスト（実際にはFirebase等から呼ぶ）
+    // テスト表示用
     /*
-    updateTsunamiList("津波警報", [
-        { name: "北海道太平洋沿岸中部", time: "22日 22:22", height: "3m" },
-        { name: "北海道太平洋沿岸中部", time: "22日 22:22", height: "3m" },
-        { name: "北海道太平洋沿岸中部", time: "22日 22:22", height: "3m" },
-        { name: "北海道太平洋沿岸中部", time: "22日 22:22", height: "3m" },
-        { name: "北海道太平洋沿岸中部", time: "22日 22:22", height: "3m" }
+    updateTsunamiList('kt', [
+        { name: '北海道太平洋沿岸中部', time: '22日 22:22', height: '3m' },
+        { name: '青森県太平洋沿岸', time: '22日 22:30', height: '3m' },
+        { name: '岩手県', time: '22日 22:40', height: '高い' }
     ]);
     */
 </script>
