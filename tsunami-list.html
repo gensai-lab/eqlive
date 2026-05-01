@@ -18,61 +18,80 @@
             color: #000;
         }
 
+        /* リスト全体のコンテナ：影と余白を完全に除去 */
         .tsunami-list-container {
             width: 800px;
-            /* 外枠は画像のデザインに合わせて調整（白枠が画像に含まれている場合は不要） */
             background-color: #fff;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            margin: 0;
+            padding: 0;
+            border: none;
         }
 
-        /* ヘッダー画像エリア */
+        /* ヘッダー画像：隙間なく配置 */
+        .list-header {
+            width: 100%;
+            line-height: 0; /* 下部の微細な隙間を排除 */
+        }
+
         .list-header img {
             width: 100%;
             display: block;
         }
 
-        /* 各行のレイアウト */
+        /* 各行のレイアウト：余白ゼロ */
         .list-row {
             display: grid;
             grid-template-columns: 1.5fr 1fr 0.8fr;
-            border-bottom: 2px solid #ccc; /* 境界線 */
-            align-items: center;
-            height: 80px; /* 画像の高さに合わせて調整 */
+            border-bottom: 2px solid #ccc;
+            align-items: stretch; /* 高さをいっぱいに使う */
+            height: 80px;
+            margin: 0;
+            padding: 0;
         }
 
         .list-row:last-child {
             border-bottom: none;
         }
 
-        /* 予報区名 */
+        /* 予報区名：垂直中央揃え */
         .area-name {
-            padding: 0 20px;
+            padding: 0 15px;
             font-size: 36px;
             font-weight: bold;
+            display: flex;
+            align-items: center;
             white-space: nowrap;
             overflow: hidden;
-            text-overflow: ellipsis;
         }
 
-        /* 到達予想時刻（黄色背景のテキスト） */
+        /* 到達予想時刻：背景を上下左右いっぱいに広げる */
         .arrival-time {
             background-color: #FEDC00;
-            height: 70%;
-            margin: 0 10px;
             display: flex;
             justify-content: center;
             align-items: center;
             font-size: 42px;
             font-weight: bold;
             letter-spacing: 1px;
+            margin: 0; /* マージンを排除 */
         }
 
-        /* 高さ画像エリア */
+        /* 高さ画像：コンテナいっぱいに表示 */
+        .tsunami-height {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: transparent;
+            margin: 0;
+            padding: 0;
+            line-height: 0;
+        }
+
         .tsunami-height img {
             height: 100%;
-            max-height: 80px;
+            width: 100%;
             display: block;
-            margin: 0 auto;
+            object-fit: cover; /* 画像をセルいっぱいにフィットさせる */
         }
     </style>
 </head>
@@ -93,7 +112,7 @@
 <script>
     /**
      * リストを更新する
-     * @param {string} type - 'ot' (大津波), 'kt' (警報), 'ct' (注意報)
+     * @param {string} type - 'ot', 'kt', 'ct'
      * @param {Array} areas - 予報区データの配列
      */
     window.updateTsunamiList = (type, areas) => {
@@ -106,7 +125,6 @@
         // リストの生成
         body.innerHTML = '';
         areas.forEach(area => {
-            // 高さ画像の選択ロジック
             let heightImgSrc = 'assets/banner/tsunami/tsunami_list-none.png';
             const h = area.height;
 
@@ -136,7 +154,7 @@
     updateTsunamiList('kt', [
         { name: '北海道太平洋沿岸中部', time: '22日 22:22', height: '3m' },
         { name: '青森県太平洋沿岸', time: '22日 22:30', height: '3m' },
-        { name: '岩手県', time: '22日 22:40', height: '高い' }
+        { name: '岩手県', time: '22日 22:40', height: '3m' }
     ]);
     */
 </script>
