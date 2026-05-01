@@ -26,8 +26,8 @@
         }
 
         #map {
-            width: 100%;
-            height: 100%;
+            width: 95vw;
+            height: 95vh;
         }
 
         svg {
@@ -44,7 +44,7 @@
         .tsunami-area {
             fill: var(--none);
             stroke: #ffffff;
-            stroke-width: 0.3px;
+            stroke-width: 0.4px;
             transition: fill 0.5s;
         }
 
@@ -61,6 +61,7 @@
             flex-direction: column;
             gap: 5px;
             pointer-events: none;
+            font-family: sans-serif;
         }
         .legend-item { display: flex; align-items: center; gap: 8px; }
         .dot { width: 14px; height: 14px; border-radius: 2px; }
@@ -91,17 +92,13 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        const width = 800;
-        const height = 800;
+        const width = 1000;
+        const height = 1000;
 
         const svg = d3.select("#map").append("svg")
             .attr("viewBox", `0 0 ${width} ${height}`);
 
-        const projection = d3.geoMercator()
-            .center([138, 38])
-            .scale(1800)
-            .translate([width / 2, height / 2]);
-
+        const projection = d3.geoMercator();
         const path = d3.geoPath().projection(projection);
 
         Promise.all([
@@ -109,18 +106,20 @@
             d3.json("assets/json/tsunami.json")
         ]).then(([landData, tsunamiData]) => {
             
-            // デバッグ用: JSONの構造をコンソールに表示
-            console.log("Land Data Objects:", Object.keys(landData.objects));
-            console.log("Tsunami Data Objects:", Object.keys(tsunamiData.objects));
-
-            // オブジェクト名の自動取得（最初のキーを使用する設定）
             const landKey = Object.keys(landData.objects)[0];
             const tsunamiKey = Object.keys(tsunamiData.objects)[0];
+
+            // データの展開
+            const landFeatures = topojson.feature(landData, landData.objects[landKey]);
+            const tsunamiFeatures = topojson.feature(tsunamiData, tsunamiData.objects[tsunamiKey]);
+
+            // 自動的に地図を画面中央にフィットさせる
+            projection.fitSize([width, height], landFeatures);
 
             // 陸地
             svg.append("g")
                 .selectAll("path")
-                .data(topojson.feature(landData, landData.objects[landKey]).features)
+                .data(landFeatures.features)
                 .enter().append("path")
                 .attr("class", "land")
                 .attr("d", path);
@@ -128,13 +127,13 @@
             // 津波予報区
             const areas = svg.append("g")
                 .selectAll("path")
-                .data(topojson.feature(tsunamiData, tsunamiData.objects[tsunamiKey]).features)
+                .data(tsunamiFeatures.features)
                 .enter().append("path")
                 .attr("class", "tsunami-area")
-                .attr("id", d => `area-${d.properties.code || d.id}`) 
+                .attr("id", d => `area-${d.properties.code || d.id}`)
                 .attr("d", path);
 
-            // Firebase連携
+            // Firebase
             onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
                 const status = snapshot.val() || {};
                 areas.style("fill", d => {
@@ -147,8 +146,6 @@
                 });
             });
 
-        }).catch(error => {
-            console.error("JSONの読み込みに失敗しました:", error);
         });
     </script>
 </body>
