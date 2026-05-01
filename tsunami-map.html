@@ -9,14 +9,11 @@
         #main-canvas { width: var(--canvas-width); height: 100vh; position: relative; display: flex; align-items: center; justify-content: flex-start; overflow: hidden; }
         #background-cover { position: absolute; top: 0; left: 0; width: var(--canvas-width); height: 100%; z-index: -1; object-fit: cover; }
         #map-container { width: 85%; height: 90%; position: relative; margin-left: -70px; display: flex; justify-content: center; align-items: center; }
-        
         svg { position: absolute; width: 100% !important; height: 100% !important; top: 0; left: 0; object-fit: contain; }
         
-        /* 都道府県の境界線を陸地（#BFBFBF）と同じ色に設定 */
-        .pref-path { fill: #BFBFBF; stroke: #BFBFBF; stroke-width: 0.5px; }
-        
-        /* 津波予報線の初期状態（さらに視認性を上げるため少し不透明度アップ） */
-        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.3); stroke-width: 4px; transition: stroke 0.5s, stroke-width 0.5s; }
+        /* 都道府県境界線：陸地（#BFBFBF）と同色にして消す */
+        .pref-path { fill: #BFBFBF; stroke: #BFBFBF; stroke-width: 0.8px; }
+        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 4px; transition: stroke 0.5s, stroke-width 0.5s; }
     </style>
 </head>
 <body>
@@ -27,16 +24,22 @@
 </div>
 
 <script type="module">
-    // テスト用データ
+    // 津波予報区名からSVGのID（コード）への変換マップ
+    // ※お手元のSVGのIDがこれらと異なる場合は、ここを書き換えてください。
+    const nameToIdMap = {
+        "北海道太平洋沿岸東部": "100", "北海道太平洋沿岸中部": "101", "北海道太平洋沿岸西部": "102",
+        "青森県日本海沿岸": "200", "青森県太平洋沿岸": "201", "岩手県": "210", "宮城県": "220", "福島県": "230",
+        "茨城県": "300", "千葉県九十九里・外房": "310", "伊豆諸島": "320", "相模湾・三浦半島": "330",
+        "静岡県": "340", "愛知県外海": "350", "三重県南部": "370", "和歌山県": "510", "徳島県": "600",
+        "高知県": "620", "宮崎県": "701", "鹿児島県東部": "710", "種子島・屋久島地方": "711", "奄美群島・トカラ列島": "712"
+    };
+
     const testData = [
         {
             "areas": [
                 { "grade": "Warning", "name": "北海道太平洋沿岸中部" },
                 { "grade": "Warning", "name": "青森県太平洋沿岸" },
                 { "grade": "Warning", "name": "岩手県" },
-                { "grade": "Watch", "name": "北海道太平洋沿岸東部" },
-                { "grade": "Watch", "name": "北海道太平洋沿岸西部" },
-                { "grade": "Watch", "name": "青森県日本海沿岸" },
                 { "grade": "Watch", "name": "宮城県" },
                 { "grade": "Watch", "name": "福島県" }
             ],
@@ -44,40 +47,36 @@
         }
     ];
 
-    async function runTest(tsunamiSvg) {
-        console.log("テストデータを適用中...");
-        const latestTsunami = testData[0];
-        
-        // 全パスをリセット
+    async function applyTsunamiData(tsunamiSvg, data) {
+        // 全リセット
         tsunamiSvg.selectAll("path")
-            .style("stroke", "rgba(255,255,255,0.3)")
+            .style("stroke", "rgba(255,255,255,0.2)")
             .style("stroke-width", "4px");
 
-        if (latestTsunami.cancelled) return;
+        if (data.cancelled) return;
 
-        latestTsunami.areas.forEach(area => {
-            const areaName = area.name.trim(); // 空白対策
+        data.areas.forEach(area => {
             const grade = area.grade;
+            // 変換マップからIDを取得。なければ名前をそのまま使う。
+            const targetId = nameToIdMap[area.name] || area.name;
 
-            let color = "rgba(255,255,255,0.3)";
+            let color = "rgba(255,255,255,0.2)";
             let width = "4px";
 
-            // ご要望に合わせてさらに太く設定
             if (grade === "MajorWarning") { color = "#C91EFB"; width = "25px"; }
             else if (grade === "Warning") { color = "#DE080A"; width = "18px"; }
             else if (grade === "Watch") { color = "#FEDC00"; width = "12px"; }
 
-            // IDとの照合
-            const targetPath = tsunamiSvg.select(`path[id="${areaName}"]`);
+            const targetPath = tsunamiSvg.select(`path[id="${targetId}"]`);
             
             if (!targetPath.empty()) {
                 targetPath
                     .style("stroke", color)
                     .style("stroke-width", width)
-                    .style("stroke-linecap", "round") // 角を丸くして繋がりを自然に
-                    .raise(); // 最前面へ
+                    .style("stroke-linecap", "round")
+                    .raise();
             } else {
-                console.warn(`予報区「${areaName}」がSVG内で見つかりません。IDを確認してください。`);
+                console.warn(`ID「${targetId}」がSVG内に見つかりません（予報区：${area.name}）`);
             }
         });
     }
@@ -93,7 +92,6 @@
         const tsunamiSvg = container.append(() => tsunamiXml.documentElement);
         
         tsunamiSvg.style("position", "absolute").style("z-index", "10");
-
         prefSvg.selectAll("path").classed("pref-path", true);
         tsunamiSvg.selectAll("path").classed("tsunami-path", true);
 
@@ -109,7 +107,7 @@
         setTimeout(() => {
             autoFit(prefSvg.node());
             autoFit(tsunamiSvg.node());
-            runTest(tsunamiSvg);
+            applyTsunamiData(tsunamiSvg, testData[0]);
         }, 200);
     }
 
