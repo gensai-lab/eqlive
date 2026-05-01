@@ -16,26 +16,27 @@
         }
 
         #map-container {
-            /* 常に16:9の比率を維持し、画面内に収める */
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
             display: flex;
             justify-content: center;
             align-items: center;
-            position: relative;
         }
 
+        /* SVGのサイズ指定をCSSで完全に支配する */
         svg {
-            /* ここが重要：アスペクト比を維持して最大サイズで表示 */
-            width: auto;
-            height: auto;
-            max-width: 100%;
-            max-height: 100%;
-            /* もしSVG自体に大きなwidth/heightが指定されていても無視する */
+            position: absolute;
+            width: 100% !important;
+            height: 100% !important;
+            top: 0;
+            left: 0;
+            /* 縦横比を維持しつつ、はみ出さないように収める */
+            object-fit: contain; 
         }
         
         .pref-path { fill: #BFBFBF; stroke: #444; stroke-width: 0.2px; }
-        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 2px; transition: stroke 0.3s, stroke-width 0.3s; }
+        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 2px; transition: stroke 0.3s; }
     </style>
 </head>
 <body>
@@ -53,7 +54,6 @@
     };
     const db = getDatabase(initializeApp(config));
 
-    // 2つのSVGを重ねるための統合処理
     async function loadMaps() {
         const [prefXml, tsunamiXml] = await Promise.all([
             d3.xml("assets/svg/pref.svg"),
@@ -62,14 +62,22 @@
 
         const container = d3.select("#map-container");
 
+        const processSvg = (xmlDoc) => {
+            const svgElement = xmlDoc.documentElement;
+            // SVGタグに直接書かれている width/height が悪さをしないよう削除
+            svgElement.removeAttribute("width");
+            svgElement.removeAttribute("height");
+            // アスペクト比を維持するための設定を念のため追加
+            svgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
+            return svgElement;
+        };
+
         // 都道府県レイヤー
-        const prefSvg = container.append(() => prefXml.documentElement);
+        const prefSvg = container.append(() => processSvg(prefXml));
         prefSvg.selectAll("path").classed("pref-path", true);
 
-        // 津波レイヤーを都道府県の上に重ねる
-        // ※同じviewBoxであることを前提として、絶対座標で重ねます
-        const tsunamiSvg = container.append(() => tsunamiXml.documentElement);
-        tsunamiSvg.style("position", "absolute");
+        // 津波レイヤー
+        const tsunamiSvg = container.append(() => processSvg(tsunamiXml));
         tsunamiSvg.selectAll("path").classed("tsunami-path", true);
 
         // Firebase監視
@@ -82,9 +90,9 @@
                 let color = "rgba(255,255,255,0.2)";
                 let width = "2px";
 
-                if (level === 'major') { color = "#C91EFB"; width = "10px"; }
-                else if (level === 'warning') { color = "#DE080A"; width = "8px"; }
-                else if (level === 'advisory') { color = "#FEDC00"; width = "5px"; }
+                if (level === 'major') { color = "#C91EFB"; width = "12px"; }
+                else if (level === 'warning') { color = "#DE080A"; width = "9px"; }
+                else if (level === 'advisory') { color = "#FEDC00"; width = "6px"; }
 
                 d3.select(this).style("stroke", color).style("stroke-width", width);
             });
