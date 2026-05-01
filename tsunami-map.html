@@ -27,7 +27,7 @@
             position: relative;
             display: flex;
             align-items: center;
-            justify-content: flex-start; /* 全てを左寄せ */
+            justify-content: flex-start; /* 左寄せ */
             overflow: hidden;
         }
 
@@ -35,19 +35,19 @@
         #background-cover {
             position: absolute;
             top: 0;
-            left: 0; /* 左端に固定 */
+            left: 0;
             width: var(--canvas-width);
             height: 100%;
             z-index: -1;
             object-fit: cover;
         }
 
-        /* 地図コンテナ（サイズを拡大） */
+        /* 地図コンテナ（左マージンを-70pxに設定） */
         #map-container {
-            width: 85%;  /* 地図を大きく（85%） */
-            height: 90%; /* 縦幅も拡大 */
+            width: 85%;  
+            height: 90%; 
             position: relative;
-            margin-left: 20px; /* 左端の余白を最小限に */
+            margin-left: -70px; /* 地図をさらに左へ寄せる */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -70,10 +70,7 @@
 <body>
 
 <div id="main-canvas">
-    <!-- 背景も左端から配置 -->
     <img id="background-cover" src="assets/cover/tsunami_cover.png" alt="background">
-    
-    <!-- 地図を左寄せで大きく配置 -->
     <div id="map-container"></div>
 </div>
 
@@ -112,7 +109,6 @@
             svgNode.setAttribute("preserveAspectRatio", "xMidYMid meet");
         };
 
-        // 初回フィット
         setTimeout(() => {
             autoFit(prefSvg.node());
             autoFit(tsunamiSvg.node());
