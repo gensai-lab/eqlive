@@ -10,8 +10,8 @@
             --warning: #DE080A;
             --advisory: #FEDC00;
             --land: #BFBFBF;
-            --map-bg: #000000; /* 画像に合わせて黒に変更 */
-            --no-tsunami: rgba(255, 255, 255, 0.2);
+            --map-bg: #000000;
+            --no-tsunami: rgba(255, 255, 255, 0.3);
         }
 
         body {
@@ -23,45 +23,77 @@
             justify-content: center;
             align-items: center;
             overflow: hidden;
-            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            font-family: sans-serif;
+        }
+
+        #map-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
         }
 
         svg { width: 100%; height: 100%; }
 
-        .land { fill: var(--land); stroke: #555; stroke-width: 0.2px; }
-        .tsunami-area { fill: none; transition: stroke 0.5s; stroke-linejoin: round; }
+        .land { fill: var(--land); stroke: #555; stroke-width: 0.1px; }
+        .tsunami-area { fill: none; transition: stroke 0.5s; stroke-linejoin: round; stroke-linecap: round; }
 
-        /* インセットの枠線 */
-        .inset-border {
+        /* インセットの枠線デザイン */
+        .inset-line {
             fill: none;
             stroke: #ffffff;
-            stroke-width: 1px;
-            opacity: 0.5;
+            stroke-width: 1.5px;
+            opacity: 0.7;
         }
 
         .inset-label {
             fill: white;
-            font-size: 18px;
+            font-size: 22px;
             font-weight: bold;
+            filter: drop-shadow(2px 2px 2px black);
         }
 
+        /* 右下の凡例（画像に寄せる） */
         .legend {
-            position: absolute; bottom: 30px; right: 30px;
-            color: white; font-size: 24px; font-weight: bold;
-            display: flex; gap: 20px;
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            display: flex;
+            gap: 30px;
         }
-        .legend-item { display: flex; flex-direction: column; align-items: center; }
-        .bar { width: 50px; height: 10px; margin-bottom: 10px; }
-        .v-text { writing-mode: vertical-rl; letter-spacing: 4px; }
+        .legend-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+        }
+        .legend-bar {
+            width: 60px;
+            height: 12px;
+            margin-bottom: 15px;
+        }
+        .v-text {
+            writing-mode: vertical-rl;
+            font-size: 28px;
+            letter-spacing: 0.2em;
+        }
     </style>
 </head>
 <body>
 
-    <div id="map"></div>
-    
-    <div class="legend">
-        <div class="legend-item"><div class="bar" style="background:var(--warning)"></div><span class="v-text">津波警報</span></div>
-        <div class="legend-item"><div class="bar" style="background:var(--advisory)"></div><span class="v-text">津波注意報</span></div>
+    <div id="map-container">
+        <div id="map"></div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-bar" style="background:var(--warning)"></div>
+                <span class="v-text">津波警報</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-bar" style="background:var(--advisory)"></div>
+                <span class="v-text">津波注意報</span>
+            </div>
+        </div>
     </div>
 
     <script type="module">
@@ -80,29 +112,30 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        const svg = d3.select("#map").append("svg").attr("viewBox", "0 0 1000 600");
+        // 画面比率に合わせたSVG作成
+        const width = 1920;
+        const height = 1080;
+        const svg = d3.select("#map").append("svg").attr("viewBox", `0 0 ${width} ${height}`);
 
-        // --- 投影設定 ---
-        // 1. メイン（本州・北海道）
-        const projMain = d3.geoMercator().center([138, 38.5]).scale(2400).translate([520, 300]);
-        // 2. 沖縄・奄美（左上）
-        const projOkinawa = d3.geoMercator().center([127, 26.5]).scale(1800).translate([150, 180]);
-        // 3. 小笠原（右下）
-        const projOgasawara = d3.geoMercator().center([142.2, 27]).scale(3500).translate([750, 480]);
+        // --- 投影設定（大きく表示されるよう調整） ---
+        const projMain = d3.geoMercator().center([137.5, 38.3]).scale(3500).translate([width / 2 + 100, height / 2]);
+        const projOkinawa = d3.geoMercator().center([127.5, 26.5]).scale(2500).translate([280, 300]);
+        const projOgasawara = d3.geoMercator().center([142.2, 27.0]).scale(4500).translate([width - 550, height - 350]);
 
         const pathMain = d3.geoPath().projection(projMain);
         const pathOkinawa = d3.geoPath().projection(projOkinawa);
         const pathOgasawara = d3.geoPath().projection(projOgasawara);
 
-        // インセット枠の描画
-        const drawInsetFrame = (x, y, w, h, label, labelX, labelY) => {
+        // インセット枠（L字デザイン）
+        const drawInset = (x, y, w, h, label) => {
             const g = svg.append("g");
-            g.append("path").attr("d", `M${x+w},${y} L${x},${y} L${x},${y+h} L${x+w/4},${y+h}`).attr("class", "inset-border");
-            g.append("text").attr("x", labelX).attr("y", labelY).text(label).attr("class", "inset-label");
+            // カギ型の線
+            g.append("path").attr("class", "inset-line").attr("d", `M${x+w},${y} L${x},${y} L${x},${y+h} L${x+w/3},${y+h}`);
+            g.append("text").attr("class", "inset-label").attr("x", x + 20).attr("y", y + 45).text(label);
         };
 
-        drawInsetFrame(20, 20, 300, 250, "沖縄・奄美", 40, 60);
-        drawInsetFrame(600, 350, 250, 230, "小笠原", 630, 560);
+        drawInset(80, 100, 450, 400, "沖縄・奄美");
+        drawInset(width - 750, height - 550, 400, 450, "小笠原");
 
         Promise.all([
             d3.json("assets/json/todoufuken.json"),
@@ -113,45 +146,37 @@
             const land = topojson.feature(landData, landData.objects[landKey]);
             const tsunami = topojson.feature(tsunamiData, tsunamiData.objects[tsunamiKey]);
 
-            const renderLayer = (gName, pathObj, clipId) => {
-                const g = svg.append("g").attr("class", gName);
-                
-                // 陸地
-                g.append("g").selectAll("path").data(land.features).enter().append("path")
-                    .attr("class", "land").attr("d", pathObj);
+            const renderGroup = (name, pathGenerator, clipRect) => {
+                const g = svg.append("g");
+                if (clipRect) {
+                    const clipId = `clip-${name}`;
+                    svg.append("defs").append("clipPath").attr("id", clipId)
+                       .append("rect").attr("x", clipRect.x).attr("y", clipRect.y).attr("width", clipRect.w).attr("height", clipRect.h);
+                    g.attr("clip-path", `url(#${clipId})`);
+                }
 
-                // 津波予報線
+                g.append("g").selectAll("path").data(land.features).enter().append("path")
+                    .attr("class", "land").attr("d", pathGenerator);
+
                 return g.append("g").selectAll("path").data(tsunami.features).enter().append("path")
-                    .attr("class", "tsunami-area").attr("d", pathObj)
-                    .attr("id", d => `${gName}-${d.properties.code || d.id}`)
-                    .style("stroke", "var(--no-tsunami)").style("stroke-width", "2.5px");
+                    .attr("class", "tsunami-area").attr("d", pathGenerator)
+                    .style("stroke", "var(--no-tsunami)").style("stroke-width", "3px");
             };
 
-            const areasMain = renderLayer("main", pathMain);
-            const areasOki = renderLayer("oki", pathOkinawa);
-            const areasOga = renderLayer("oga", pathOgasawara);
+            const areasMain = renderGroup("main", pathMain, null);
+            const areasOki = renderGroup("oki", pathOkinawa, {x:80, y:100, w:450, h:400});
+            const areasOga = renderGroup("oga", pathOgasawara, {x:width-750, y:height-550, w:400, h:450});
 
-            // クリップ（枠外はみ出し防止）
-            svg.append("defs").append("clipPath").attr("id", "clipOki")
-                .append("rect").attr("x", 20).attr("y", 20).attr("width", 300).attr("height", 250);
-            d3.select(".oki").attr("clip-path", "url(#clipOki)");
-
-            svg.append("defs").append("clipPath").attr("id", "clipOga")
-                .append("rect").attr("x", 600).attr("y", 350).attr("width", 250).attr("height", 230);
-            d3.select(".oga").attr("clip-path", "url(#clipOga)");
-
-            // Firebase連携
             onValue(ref(db, 'broadcast/tsunami'), (snapshot) => {
                 const status = snapshot.val() || {};
                 [areasMain, areasOki, areasOga].forEach(group => {
                     group.style("stroke", d => {
-                        const code = d.properties.code || d.id;
-                        const level = status[code];
+                        const level = status[d.properties.code || d.id];
                         if (level === 'major') return "var(--major-warning)";
                         if (level === 'warning') return "var(--warning)";
                         if (level === 'advisory') return "var(--advisory)";
                         return "var(--no-tsunami)";
-                    }).style("stroke-width", d => status[d.properties.code || d.id] ? "5px" : "2.5px");
+                    }).style("stroke-width", d => status[d.properties.code || d.id] ? "8px" : "3px");
                 });
             });
         });
