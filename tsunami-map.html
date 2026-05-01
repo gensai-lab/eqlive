@@ -6,40 +6,66 @@
     <style>
         body { 
             margin: 0; 
-            background: transparent; /* iframeとして埋め込むため背景透過 */
+            background: transparent; /* iframe埋め込み用に背景を透過 */
             width: 100vw; 
             height: 100vh; 
             display: flex; 
-            justify-content: center; 
+            justify-content: flex-end; /* 右寄せ */
             align-items: center; 
             overflow: hidden; 
-        }
-        
-        #map-container { 
-            width: auto;   /* 横幅は自動 */
-            height: 100%;  /* 縦幅を100%に固定 */
             position: relative; 
+        }
+
+        #main-canvas { 
+            height: 100vh; 
+            position: relative; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            overflow: hidden; 
+        }
+
+        #background-cover { 
+            position: relative; 
+            height: 100%; /* 縦幅100% */
+            width: auto;   /* 横幅は自動計算 */
+            z-index: -1; 
+            display: block;
+        }
+
+        #map-container { 
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%; 
+            height: 100%; 
             display: flex; 
             justify-content: center; 
             align-items: center; 
+            pointer-events: none; /* 下の要素の操作を邪魔しない */
         }
         
         svg { 
-            height: 100% !important; /* 縦幅を基準にする */
-            width: auto !important;   /* 横幅はアスペクト比を維持 */
-            display: block;
+            position: absolute; 
+            width: 90% !important; /* 画像より少し小さめに配置してバランスを調整 */
+            height: 90% !important; 
+            object-fit: contain; 
         }
         
         /* 陸地と都道府県境界 */
         .pref-path { fill: #BFBFBF; stroke: #BFBFBF; stroke-width: 0.5px; }
         
-        /* 津波線（初期状態は透明） */
-        .tsunami-path { fill: none; stroke: none; }
+        /* 津波線の基本設定 */
+        .tsunami-path { fill: none; stroke: none; transition: stroke 0.3s, stroke-width 0.3s; }
     </style>
 </head>
 <body>
 
-<div id="map-container"></div>
+<div id="main-canvas">
+    <!-- 縦幅100%、横幅オートの設定 -->
+    <img id="background-cover" src="assets/cover/tsunami_cover.png" alt="background">
+    <div id="map-container"></div>
+</div>
 
 <script type="module">
     // テスト用データ
@@ -57,22 +83,32 @@
     ];
 
     async function applyTsunamiData(tsunamiSvg, data) {
-        tsunamiSvg.selectAll("path").style("stroke", "none").style("stroke-width", "0");
+        tsunamiSvg.selectAll("path")
+            .style("stroke", "none")
+            .style("stroke-width", "0");
 
         if (data.cancelled) return;
 
-        const baseWidth = 14; 
         data.areas.forEach(area => {
             const areaName = area.name.trim();
             const grade = area.grade;
+            const baseWidth = 14; 
             
             let color = "none";
             let width = "0px";
 
-            // 「みんなの減災ラボ」カラーパレット
-            if (grade === "MajorWarning") { color = "#C91EFB"; width = `${baseWidth * 2}px`; } 
-            else if (grade === "Warning") { color = "#DE080A"; width = `${baseWidth}px`; } 
-            else if (grade === "Watch") { color = "#FEDC00"; width = `${baseWidth}px`; }
+            if (grade === "MajorWarning") { 
+                color = "#C91EFB";
+                width = `${baseWidth * 2}px`;
+            } 
+            else if (grade === "Warning") { 
+                color = "#DE080A";
+                width = `${baseWidth}px`; 
+            } 
+            else if (grade === "Watch") { 
+                color = "#FEDC00";
+                width = `${baseWidth}px`; 
+            }
 
             const target = tsunamiSvg.selectAll("path").filter(function() {
                 const id = d3.select(this).attr("id");
@@ -80,7 +116,12 @@
             });
 
             if (!target.empty()) {
-                target.style("stroke", color).style("stroke-width", width).style("stroke-linecap", "round").style("stroke-linejoin", "round").raise();
+                target
+                    .style("stroke", color)
+                    .style("stroke-width", width)
+                    .style("stroke-linecap", "round")
+                    .style("stroke-linejoin", "round")
+                    .raise();
             }
         });
     }
@@ -96,15 +137,14 @@
             const prefSvg = container.append(() => prefXml.documentElement);
             const tsunamiSvg = container.append(() => tsunamiXml.documentElement);
             
-            tsunamiSvg.style("position", "absolute");
+            tsunamiSvg.style("position", "absolute").style("z-index", "10");
             prefSvg.selectAll("path").classed("pref-path", true);
             tsunamiSvg.selectAll("path").classed("tsunami-path", true);
 
             const autoFit = (svgNode) => {
                 const bbox = svgNode.getBBox();
-                const margin = 5;
+                const margin = 10;
                 svgNode.setAttribute("viewBox", `${bbox.x - margin} ${bbox.y - margin} ${bbox.width + margin * 2} ${bbox.height + margin * 2}`);
-                // width/height属性を削除し、CSS側（100%）に任せる
                 svgNode.removeAttribute("width");
                 svgNode.removeAttribute("height");
                 svgNode.setAttribute("preserveAspectRatio", "xMidYMid meet");
@@ -114,12 +154,13 @@
                 autoFit(prefSvg.node());
                 autoFit(tsunamiSvg.node());
                 applyTsunamiData(tsunamiSvg, testData[0]);
-            }, 100);
+            }, 300);
 
         } catch (error) {
-            console.error("SVG読み込み失敗:", error);
+            console.error("読み込みに失敗しました:", error);
         }
     }
+
     init();
 </script>
 </body>
