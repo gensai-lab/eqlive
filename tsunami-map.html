@@ -9,14 +9,10 @@
         #main-canvas { width: var(--canvas-width); height: 100vh; position: relative; display: flex; align-items: center; justify-content: flex-start; overflow: hidden; }
         #background-cover { position: absolute; top: 0; left: 0; width: var(--canvas-width); height: 100%; z-index: -1; object-fit: cover; }
         #map-container { width: 85%; height: 90%; position: relative; margin-left: -70px; display: flex; justify-content: center; align-items: center; }
-        
         svg { position: absolute; width: 100% !important; height: 100% !important; top: 0; left: 0; object-fit: contain; }
         
-        /* 都道府県の境界線を陸地（#BFBFBF）と同じ色にして消す */
         .pref-path { fill: #BFBFBF; stroke: #BFBFBF; stroke-width: 0.8px; }
-        
-        /* 津波予報線の初期設定 */
-        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 5px; transition: stroke 0.5s, stroke-width 0.5s; }
+        .tsunami-path { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 5px; }
     </style>
 </head>
 <body>
@@ -27,7 +23,6 @@
 </div>
 
 <script type="module">
-    // テスト用データ
     const testData = [
         {
             "areas": [
@@ -45,9 +40,15 @@
     ];
 
     async function applyTsunamiData(tsunamiSvg, data) {
-        console.log("テストデータを適用中...");
-        
-        // 全ての線をリセット
+        // --- デバッグ用：SVG内のIDをすべてログ出力 ---
+        const existingIds = [];
+        tsunamiSvg.selectAll("path").each(function() {
+            const id = d3.select(this).attr("id");
+            if (id) existingIds.push(id);
+        });
+        console.log("現在読み込まれているSVG内のID一覧:", existingIds);
+        // ------------------------------------------
+
         tsunamiSvg.selectAll("path")
             .style("stroke", "rgba(255,255,255,0.2)")
             .style("stroke-width", "5px");
@@ -61,19 +62,23 @@
             let color = "rgba(255,255,255,0.2)";
             let width = "5px";
 
-            // 「みんなの減災ラボ」用の太い線設定
-            if (grade === "MajorWarning") { color = "#C91EFB"; width = "30px"; }
-            else if (grade === "Warning") { color = "#DE080A"; width = "22px"; }
-            else if (grade === "Watch") { color = "#FEDC00"; width = "15px"; }
+            if (grade === "MajorWarning") { color = "#C91EFB"; width = "35px"; }
+            else if (grade === "Warning") { color = "#DE080A"; width = "25px"; }
+            else if (grade === "Watch") { color = "#FEDC00"; width = "18px"; }
 
-            // IDとの照合（完全一致または部分一致）
-            const targetPaths = tsunamiSvg.selectAll("path").filter(function() {
-                const id = d3.select(this).attr("id");
-                return id && (id === areaName || id.includes(areaName));
-            });
+            // IDを直接指定して選択（d3.selectは特殊文字に弱いため、属性セレクタを使用）
+            const targetPath = tsunamiSvg.select(`path[id="${areaName}"]`);
             
-            if (!targetPaths.empty()) {
-                targetPaths
+            // もし直接見つからない場合は、IDの中に名前が含まれているものを探す（予備）
+            const fallbackPath = targetPath.empty() 
+                ? tsunamiSvg.selectAll("path").filter(function() {
+                    const id = d3.select(this).attr("id");
+                    return id && id.includes(areaName);
+                  })
+                : targetPath;
+
+            if (!fallbackPath.empty()) {
+                fallbackPath
                     .style("stroke", color)
                     .style("stroke-width", width)
                     .style("stroke-linecap", "round")
@@ -86,7 +91,6 @@
 
     async function init() {
         try {
-            // 新しいファイル名「tsunami2_id.svg」を読み込み
             const [prefXml, tsunamiXml] = await Promise.all([
                 d3.xml("assets/svg/pref.svg"),
                 d3.xml("assets/svg/tsunami2_id.svg")
@@ -96,9 +100,7 @@
             const prefSvg = container.append(() => prefXml.documentElement);
             const tsunamiSvg = container.append(() => tsunamiXml.documentElement);
             
-            // 地図の重なり順を調整（津波を一番上に）
             tsunamiSvg.style("position", "absolute").style("z-index", "10");
-
             prefSvg.selectAll("path").classed("pref-path", true);
             tsunamiSvg.selectAll("path").classed("tsunami-path", true);
 
@@ -115,13 +117,12 @@
                 autoFit(prefSvg.node());
                 autoFit(tsunamiSvg.node());
                 applyTsunamiData(tsunamiSvg, testData[0]);
-            }, 200);
+            }, 300);
 
         } catch (error) {
-            console.error("SVGの読み込みに失敗しました:", error);
+            console.error("SVG読み込みエラー:", error);
         }
     }
-
     init();
 </script>
 </body>
