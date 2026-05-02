@@ -63,6 +63,12 @@
             overflow: hidden;
         }
 
+        /* 地名は左端を基準に縮小 */
+        .area-text {
+            display: inline-block;
+            transform-origin: left center;
+        }
+
         /* 到達予想時刻エリア */
         .arrival-time-overlay {
             left: 400px;
@@ -72,9 +78,10 @@
             letter-spacing: 1px;
         }
 
-        .text-node {
+        /* 時刻は中央を基準に縮小 */
+        .time-text {
             display: inline-block;
-            transform-origin: left center;
+            transform-origin: center center;
         }
     </style>
 </head>
@@ -88,19 +95,24 @@
 </div>
 
 <script>
+    /**
+     * 文字の長体（圧縮）処理
+     * @param {HTMLElement} element - 対象のエレメント
+     * @param {number} maxWidth - 最大許容幅
+     */
     function adjustTextScale(element, maxWidth) {
+        // スケールを一旦リセットして本来の幅を計測
+        element.style.transform = 'scaleX(1)';
         const currentWidth = element.offsetWidth;
+        
         if (currentWidth > maxWidth) {
             const scale = maxWidth / currentWidth;
             element.style.transform = `scaleX(${scale})`;
-        } else {
-            element.style.transform = 'scaleX(1)';
         }
     }
 
     /**
-     * @param {string} type - 'ot', 'kt', 'ct'
-     * @param {Array} data - { area: string, time: string, height: string }
+     * リスト更新
      */
     window.updateTsunamiList = (type, data) => {
         const headerImg = document.getElementById('headerImg');
@@ -113,7 +125,6 @@
             const wrapper = document.createElement('div');
             wrapper.className = 'list-item-wrapper';
             
-            // ファイル名規則の適用
             let hFile = 'none';
             const h = item.height;
 
@@ -124,34 +135,33 @@
             else if (h === '1m') hFile = '1m';
             else if (h === '巨大') hFile = 'kyodai';
             else if (h === '高い') hFile = 'takai';
-            else if (h === '不明' || h === '') hFile = 'none'; // 数値が特定できない注意報用
+            else if (h === '不明' || h === '') hFile = 'none';
             
             const imgSrc = `assets/banner/tsunami/tsunami-list_${hFile}.svg`;
             
             wrapper.innerHTML = `
                 <img src="${imgSrc}" alt="${hFile}">
                 <div class="overlay area-name-overlay">
-                    <span class="text-node area-text">${item.area}</span>
+                    <span class="area-text">${item.area}</span>
                 </div>
                 <div class="overlay arrival-time-overlay">
-                    <span class="text-node time-text">${item.time}</span>
+                    <span class="time-text">${item.time}</span>
                 </div>
             `;
             body.appendChild(wrapper);
 
-            adjustTextScale(wrapper.querySelector('.area-text'), 360);
-            adjustTextScale(wrapper.querySelector('.time-text'), 230);
+            // 描画後に地名と時刻の両方に縮小処理を適用
+            adjustTextScale(wrapper.querySelector('.area-text'), 360); // 地名枠
+            adjustTextScale(wrapper.querySelector('.time-text'), 230); // 時刻枠
         });
     };
 
-    // テスト実行：M8以上の巨大地震想定の表示
+    // テスト実行
     window.addEventListener('load', () => {
         const testData = [
-            { area: '北海道太平洋沿岸東部', time: 'すぐ来る', height: '巨大' },
+            { area: '北海道太平洋沿岸東部', time: 'つぎつぎ来襲中', height: '巨大' }, // 長い時刻の例
             { area: '岩手県', time: 'すぐ来る', height: '巨大' },
-            { area: '千葉県九十九里・外房', time: '2日 22:40', height: '高い' },
-            { area: '伊豆諸島', time: '2日 22:50', height: '高い' },
-            { area: '静岡県', time: '2日 23:10', height: '不明' } // 注意報の「不明」想定
+            { area: '鹿児島県奄美群島・トカラ列島', time: '2日 22:22', height: '10m' }
         ];
         
         updateTsunamiList('ot', testData);
