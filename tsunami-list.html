@@ -5,8 +5,8 @@
     <style>
         @font-face {
             font-family: 'UDKakugoLarge';
-            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
-            font-weight: 400;
+            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
+            font-weight: bold;
         }
 
         body {
@@ -18,14 +18,16 @@
             color: #000;
         }
 
+        /* リスト全体のコンテナ：ヘッダーと中身を一体化 */
         .tsunami-list-container {
             width: 800px;
-            background-color: #fff;
             margin: 0;
             padding: 0;
-            border: none;
+            display: flex;
+            flex-direction: column;
         }
 
+        /* ヘッダー画像 */
         .list-header {
             width: 800px;
             line-height: 0;
@@ -36,21 +38,26 @@
             display: block;
         }
 
+        /* リストボディ：白背景でヘッダーの下に密着 */
+        #listBody {
+            background-color: #fff;
+            width: 800px;
+        }
+
         .list-row {
             display: grid;
-            /* 比率：地名 400px / 時刻 250px / 高さ 150px */
+            /* 地名 400px / 時刻 250px / 高さ 150px */
             grid-template-columns: 400px 250px 150px;
             border-bottom: 2px solid #ccc;
-            align-items: center; /* 垂直中央揃え */
-            min-height: 80px; /* 最低限の高さ */
-            margin: 0;
-            padding: 0;
+            align-items: center;
+            min-height: 80px;
         }
 
         .list-row:last-child {
             border-bottom: none;
         }
 
+        /* 地名 */
         .area-name-container {
             width: 400px;
             padding: 0 15px;
@@ -68,7 +75,7 @@
             transform-origin: left center;
         }
 
-        /* 到達予想時刻：背景なし・黒文字 */
+        /* 到達予想時刻 */
         .arrival-time {
             width: 250px;
             display: flex;
@@ -78,10 +85,9 @@
             font-weight: bold;
             letter-spacing: 1px;
             color: #000;
-            background-color: transparent;
         }
 
-        /* 高さエリア：画像の横幅を150pxに固定、縦はauto */
+        /* 高さ画像エリア */
         .tsunami-height {
             width: 150px;
             line-height: 0;
@@ -91,8 +97,8 @@
         }
 
         .tsunami-height img {
-            width: 150px; /* 横幅をセルに合わせる */
-            height: auto;  /* 縦幅は自動 */
+            width: 150px;
+            height: auto;
             display: block;
         }
     </style>
@@ -100,13 +106,21 @@
 <body>
 
 <div class="tsunami-list-container" id="tsunamiList">
+    <!-- 上部に固定されるヘッダー -->
     <div class="list-header">
         <img id="headerImg" src="assets/banner/tsunami/tsunami_list-kt.png" alt="Header">
     </div>
-    <div id="listBody"></div>
+
+    <!-- その下に続くリスト -->
+    <div id="listBody">
+        <!-- JavaScriptで生成 -->
+    </div>
 </div>
 
 <script>
+    /**
+     * 文字の長体（圧縮）処理
+     */
     function adjustTextScale(element, maxWidth) {
         const currentWidth = element.offsetWidth;
         if (currentWidth > maxWidth) {
@@ -117,17 +131,23 @@
         }
     }
 
+    /**
+     * リスト更新
+     */
     window.updateTsunamiList = (type, areas) => {
         const headerImg = document.getElementById('headerImg');
         const body = document.getElementById('listBody');
 
+        // ヘッダー画像のパスを更新
         headerImg.src = `assets/banner/tsunami/tsunami_list-${type}.png`;
+        
         body.innerHTML = '';
 
         areas.forEach(area => {
             let heightImgSrc = 'assets/banner/tsunami/tsunami_list-none.png';
             const h = area.height;
 
+            // 高さアセットの割り当て
             if (h === '10m超') heightImgSrc = 'assets/banner/tsunami/tsunami_list-10mu.png';
             else if (h === '10m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-10m.png';
             else if (h === '5m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-5m.png';
@@ -149,18 +169,22 @@
             `;
             body.appendChild(row);
 
+            // 長体処理の実行
             const nameSpan = row.querySelector('.area-name');
             adjustTextScale(nameSpan, 370);
         });
     };
 
-    // テスト実行
+    // テスト用データ
     window.addEventListener('load', () => {
         const testAreas = [
             { name: '北海道太平洋沿岸東部', time: 'すぐ来る', height: '10m超' },
-            { name: '鹿児島県奄美群島・トカラ列島', time: '2日 22:22', height: '5m' },
-            { name: '岩手県', time: '2日 22:50', height: '巨大' }
+            { name: '北海道太平洋沿岸中部', time: '2日 22:22', height: '10m' },
+            { name: '青森県太平洋沿岸', time: '2日 22:40', height: '5m' },
+            { name: '岩手県', time: '2日 22:50', height: '巨大' },
+            { name: '鹿児島県奄美群島・トカラ列島', time: '2日 23:10', height: '3m' }
         ];
+        // 'ot' = 大津波警報ヘッダーを表示
         updateTsunamiList('ot', testAreas);
     });
 </script>
