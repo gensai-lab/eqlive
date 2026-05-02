@@ -77,21 +77,30 @@
             height: 70px;
         }
 
-        /* 津波マップ用パネルの設定 */
+        /* 津波マップ用パネルの設定（2段構成） */
         .tsunami-panel {
             grid-column: 2;
             grid-row: 1 / 3;
             display: flex;
+            flex-direction: column;
             align-items: flex-end;
             justify-content: flex-end;
             padding: 0 40px 40px 0;
+            gap: 20px; /* リストとマップの間の隙間 */
+        }
+
+        .tsunami-list-frame {
+            width: 600px;
+            height: 250px;
+            border: none;
+            background-color: #fff;
+            border-radius: 8px 8px 8px 8px;
         }
 
         .tsunami-frame {
             width: 600px;
             height: 350px;
             border: none;
-            /* 黒不透明度90%を設定 */
             background-color: rgba(0, 0, 0, 0.9);
             border-radius: 8px 8px 8px 8px; 
         }
@@ -128,7 +137,8 @@
     </main>
 
     <aside class="tsunami-panel">
-        <iframe src="tsunami-map.html" class="tsunami-frame" scrolling="no" allowtransparency="true"></iframe>
+        <iframe id="tsunamiListIframe" src="tsunami-list.html" class="tsunami-list-frame" scrolling="no" allowtransparency="true"></iframe>
+        <iframe id="tsunamiMapIframe" src="tsunami-map.html" class="tsunami-frame" scrolling="no" allowtransparency="true"></iframe>
     </aside>
 
     <footer class="bottom-ticker-container">
@@ -163,6 +173,27 @@
             const data = snapshot.val();
             if (!data) return;
             document.getElementById('distributorImg').src = data.statusType === 'ningen' ? 'assets/banner/distributor/ningen.png' : 'assets/banner/distributor/bot.png';
+        });
+
+        // リアルタイム津波情報の連携（両方のiframeへデータを流す）
+        onValue(ref(db, 'tsunami'), (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            // dataがオブジェクト形式の場合、配列形式に変換
+            const dataArray = Object.values(data).flat();
+
+            const mapIframe = document.getElementById('tsunamiMapIframe').contentWindow;
+            const listIframe = document.getElementById('tsunamiListIframe').contentWindow;
+
+            // マップとリスト両方の更新関数を呼び出す
+            if (mapIframe.updateTsunamiMap) {
+                const activeInfo = dataArray.find(d => d.code === 552 && !d.cancelled);
+                mapIframe.updateTsunamiMap(activeInfo);
+            }
+            if (listIframe.updateTsunamiList) {
+                listIframe.updateTsunamiList(dataArray);
+            }
         });
     </script>
 </body>
