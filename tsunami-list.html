@@ -5,7 +5,6 @@
     <style>
         @font-face {
             font-family: 'UDKakugoDB';
-            /* DB（デミボールド）フォントを読み込み */
             src: url('./assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
         }
 
@@ -14,7 +13,7 @@
             padding: 0;
             background: transparent;
             overflow: hidden;
-            /* フォント指定：DB、太さ400 */
+            /* DBフォント、太さ400を指定 */
             font-family: 'UDKakugoDB', sans-serif;
             font-weight: 400;
         }
@@ -27,15 +26,15 @@
             flex-direction: column;
         }
 
-        /* 画像コンテナ：ギャップを完全に排除 */
         .list-item-wrapper {
-            position: relative; /* 文字を重ねるための基準 */
+            position: relative;
             width: 800px;
             line-height: 0;
             margin: 0;
             padding: 0;
         }
 
+        /* SVG素材を表示 */
         .list-item-wrapper img {
             width: 100%;
             height: auto;
@@ -44,29 +43,47 @@
             padding: 0;
         }
 
-        /* 津波予報区名のテキスト配置 */
-        .area-name-overlay {
+        /* 共通テキスト設定 */
+        .overlay {
             position: absolute;
             top: 0;
-            left: 0;
-            width: 400px; /* 画像内の地名エリアに合わせる */
             height: 100%;
             display: flex;
             align-items: center;
-            padding-left: 20px;
             box-sizing: border-box;
-            line-height: normal; /* テキストの行間をリセット */
+            line-height: normal;
             color: #000;
-            font-size: 38px;
             white-space: nowrap;
-            overflow: hidden;
-            pointer-events: none; /* 下の画像操作を邪魔しない */
+            pointer-events: none;
         }
 
-        /* 長体（変形）用 */
-        .area-name-text {
+        /* 津波予報区名：左側に配置 */
+        .area-name-overlay {
+            left: 0;
+            width: 400px;
+            padding-left: 20px;
+            font-size: 38px;
+            overflow: hidden;
+        }
+
+        /* 到達予想時刻：中央（画像のデザインに合わせる）に配置 */
+        .arrival-time-overlay {
+            left: 400px;
+            width: 250px;
+            justify-content: center;
+            font-size: 40px;
+            letter-spacing: 1px;
+        }
+
+        .text-node {
             display: inline-block;
             transform-origin: left center;
+        }
+
+        /* 時刻用は中央基点で変形させる場合は center center */
+        .time-node {
+            display: inline-block;
+            transform-origin: center center;
         }
     </style>
 </head>
@@ -75,13 +92,11 @@
 <div class="tsunami-list-container" id="tsunamiList">
     <!-- ヘッダー -->
     <div class="list-item-wrapper">
-        <img id="headerImg" src="assets/banner/tsunami/tsunami_list-ot.png" alt="Header">
+        <img id="headerImg" src="assets/banner/tsunami/tsunami_list-ot.svg" alt="Header">
     </div>
 
-    <!-- リスト（5個） -->
-    <div id="listBody">
-        <!-- JavaScriptで生成 -->
-    </div>
+    <!-- リスト -->
+    <div id="listBody"></div>
 </div>
 
 <script>
@@ -100,45 +115,50 @@
 
     /**
      * リストを更新する
-     * @param {string} type - 'ot', 'kt', 'ct'
-     * @param {Array} data - { area: '予報区名', height: 'アセット名' } の配列
      */
     window.updateTsunamiList = (type, data) => {
         const headerImg = document.getElementById('headerImg');
         const body = document.getElementById('listBody');
 
-        headerImg.src = `assets/banner/tsunami/tsunami_list-${type}.png`;
+        // SVGに差し替え
+        headerImg.src = `assets/banner/tsunami/tsunami_list-${type}.svg`;
         body.innerHTML = '';
         
         data.forEach(item => {
             const wrapper = document.createElement('div');
             wrapper.className = 'list-item-wrapper';
             
-            // 画像パスの生成
-            const imgSrc = `assets/banner/tsunami/tsunami_list-${item.height}.png`;
+            // SVGに差し替え
+            const imgSrc = `assets/banner/tsunami/tsunami_list-${item.height}.svg`;
             
             wrapper.innerHTML = `
                 <img src="${imgSrc}" alt="${item.height}">
-                <div class="area-name-overlay">
-                    <span class="area-name-text">${item.area}</span>
+                <div class="overlay area-name-overlay">
+                    <span class="text-node area-text">${item.area}</span>
+                </div>
+                <div class="overlay arrival-time-overlay">
+                    <span class="text-node time-text">${item.time}</span>
                 </div>
             `;
             body.appendChild(wrapper);
 
-            // 描画後に長体処理を適用
-            const textSpan = wrapper.querySelector('.area-name-text');
-            adjustTextScale(textSpan, 360); // 枠に合わせて最大幅を調整
+            // 長体処理
+            const areaSpan = wrapper.querySelector('.area-text');
+            const timeSpan = wrapper.querySelector('.time-text');
+            
+            adjustTextScale(areaSpan, 360); // 地名枠
+            adjustTextScale(timeSpan, 230); // 時刻枠
         });
     };
 
     // --- テスト実行 ---
     window.addEventListener('load', () => {
         const testData = [
-            { area: '北海道太平洋沿岸東部', height: '10mu' },
-            { area: '北海道太平洋沿岸中部', height: '10m' },
-            { area: '青森県太平洋沿岸', height: '5m' },
-            { area: '鹿児島県奄美群島・トカラ列島', height: 'kyodai' },
-            { area: '相模湾・三浦半島', height: '3m' }
+            { area: '北海道太平洋沿岸東部', time: 'すぐ来る', height: '10mu' },
+            { area: '北海道太平洋沿岸中部', time: '2日 22:22', height: '10m' },
+            { area: '青森県太平洋沿岸', time: '2日 22:40', height: '5m' },
+            { area: '鹿児島県奄美群島・トカラ列島', time: '2日 23:10', height: 'kyodai' },
+            { area: '相模湾・三浦半島', time: '2日 23:30', height: '3m' }
         ];
         
         updateTsunamiList('ot', testData);
