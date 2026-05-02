@@ -15,7 +15,6 @@
             overflow: hidden;
             font-family: 'UDKakugoDB', sans-serif;
             font-weight: 400;
-            /* プロポーショナル詰めを有効化 */
             font-feature-settings: "palt";
         }
 
@@ -56,7 +55,6 @@
             pointer-events: none;
         }
 
-        /* 津波予報区名エリア */
         .area-name-overlay {
             left: -4px;
             width: 400px;
@@ -70,7 +68,6 @@
             transform-origin: left center;
         }
 
-        /* 到達予想時刻エリア */
         .arrival-time-overlay {
             left: 404px;
             width: 250px;
@@ -84,9 +81,8 @@
             transform-origin: center center;
         }
 
-        /* 「日」の文字だけ小さくするスタイル */
         .date-unit {
-            font-size: 0.6em; /* 元の文字の60%のサイズ */
+            font-size: 0.6em;
             margin-right: 0.1em;
             vertical-align: baseline;
         }
@@ -102,38 +98,31 @@
 </div>
 
 <script>
-    /**
-     * 津波文言変換辞書
-     */
+    // 設定
+    const PAGE_INTERVAL = 5000; // ページ切り替え間隔（ミリ秒）
+    const ITEMS_PER_PAGE = 5;   // 1ページあたりの最大表示件数
+
     const timeTextDictionary = {
         'ただちに津波来襲と予測': 'すぐ来る',
         '第１波の到達を確認': '第1波到達',
         '津波到達中と推測': '到達中'
     };
 
-    /**
-     * 文言を変換し、「日」をタグで囲む
-     */
+    let currentPageLoop = null; // ループタイマー保持用
+    let allPages = [];          // 生成された全ページデータ
+    let currentPageIndex = 0;
+
     function formatTimeText(text) {
-        // 1. まず辞書変換を適用
         let display = timeTextDictionary[text] || text;
-        
-        // 2. 「日」を小文字化用のspanで囲む
-        // 数値の後に「日」が来る場合（例: 3日）に置換
         if (display.includes('日')) {
             display = display.replace(/日/g, '<span class="date-unit">日</span>');
         }
-        
         return display;
     }
 
-    /**
-     * 文字の長体（圧縮）処理
-     */
     function adjustTextScale(element, maxWidth) {
         element.style.transform = 'scaleX(1)';
         const currentWidth = element.offsetWidth;
-        
         if (currentWidth > maxWidth) {
             const scale = maxWidth / currentWidth;
             element.style.transform = `scaleX(${scale})`;
@@ -141,35 +130,35 @@
     }
 
     /**
-     * リスト更新
+     * 高さに応じたSVGファイル名の決定
      */
-    window.updateTsunamiList = (type, data) => {
+    function getTsunamiSvgName(heightStr) {
+        if (heightStr === '10m超') return '10mu';
+        if (heightStr === '10m') return '10m';
+        if (heightStr === '5m') return '5m';
+        if (heightStr === '3m') return '3m';
+        if (heightStr === '1m') return '1m';
+        if (heightStr === '巨大') return 'kyodai';
+        if (heightStr === '高い') return 'takai';
+        return 'none';
+    }
+
+    /**
+     * 1つのページを表示する
+     */
+    function renderPage(pageData) {
         const headerImg = document.getElementById('headerImg');
         const body = document.getElementById('listBody');
 
-        headerImg.src = `assets/banner/tsunami/tsunami-list_${type}.svg`;
+        headerImg.src = `assets/banner/tsunami/tsunami-list_${pageData.type}.svg`;
         body.innerHTML = '';
-        
-        data.forEach(item => {
+
+        pageData.items.forEach(item => {
             const wrapper = document.createElement('div');
             wrapper.className = 'list-item-wrapper';
             
-            // 地震規模（M8以上等）に応じたアセット選択
-            let hFile = 'none';
-            const h = item.height;
-
-            if (h === '10m超') hFile = '10mu';
-            else if (h === '10m') hFile = '10m';
-            else if (h === '5m') hFile = '5m';
-            else if (h === '3m') hFile = '3m';
-            else if (h === '1m') hFile = '1m';
-            else if (h === '巨大') hFile = 'kyodai';
-            else if (h === '高い') hFile = 'takai';
-            else if (h === '不明' || h === '') hFile = 'none';
-            
+            const hFile = getTsunamiSvgName(item.height);
             const imgSrc = `assets/banner/tsunami/tsunami-list_${hFile}.svg`;
-            
-            // 時刻テキストの変換（HTMLタグを含む可能性があるためinnerHTMLで流し込む）
             const displayTimeHTML = formatTimeText(item.time);
             
             wrapper.innerHTML = `
@@ -186,18 +175,86 @@
             adjustTextScale(wrapper.querySelector('.area-text'), 360);
             adjustTextScale(wrapper.querySelector('.time-text'), 230);
         });
+    }
+
+    /**
+     * ページループの開始
+     */
+    function startPageLoop() {
+        if (currentPageLoop) clearInterval(currentPageLoop);
+        if (allPages.length === 0) return;
+
+        currentPageIndex = 0;
+        renderPage(allPages[currentPageIndex]);
+
+        if (allPages.length > 1) {
+            currentPageLoop = setInterval(() => {
+                currentPageIndex = (currentPageIndex + 1) % allPages.length;
+                renderPage(allPages[currentPageIndex]);
+            }, PAGE_INTERVAL);
+        }
+    }
+
+    /**
+     * P2PのJSONを受け取り、ページを生成して表示を開始する
+     */
+    window.processP2PTsunami = (p2pData) => {
+        // 最新のcancelledでないデータを取得
+        const latestInfo = p2pData.find(d => d.code === 552 && !d.cancelled);
+        if (!latestInfo) return;
+
+        // 1. 警報レベルごとにグループ化
+        const groups = {
+            ot: [], // 大津波警報 (MajorWarning)
+            kt: [], // 津波警報 (Warning)
+            ct: []  // 津波注意報 (Watch)
+        };
+
+        latestInfo.areas.forEach(area => {
+            const item = {
+                area: area.name,
+                time: area.firstHeight.condition || area.firstHeight.arrivalTime || "",
+                height: area.maxHeight.description
+            };
+
+            if (area.grade === 'MajorWarning') groups.ot.push(item);
+            else if (area.grade === 'Warning') groups.kt.push(item);
+            else if (area.grade === 'Watch') groups.ct.push(item);
+        });
+
+        // 2. ページに分割（5件ずつ）
+        allPages = [];
+        ['ot', 'kt', 'ct'].forEach(type => {
+            const list = groups[type];
+            for (let i = 0; i < list.length; i += ITEMS_PER_PAGE) {
+                allPages.push({
+                    type: type,
+                    items: list.slice(i, i + ITEMS_PER_PAGE)
+                });
+            }
+        });
+
+        // 3. ループ開始
+        startPageLoop();
     };
 
-    // テスト実行：様々な文言パターン
+    // テスト実行
     window.addEventListener('load', () => {
-        const testData = [
-            { area: '北海道太平洋沿岸東部', time: 'ただちに津波来襲と予測', height: '巨大' },
-            { area: '岩手県', time: '23日 22:22', height: '巨大' },
-            { area: '宮城県', time: '津波到達中と推測', height: '巨大' },
-            { area: '福島県', time: '4日 01:15', height: '高い' }
+        const sampleP2P = [
+            {
+                "code": 552,
+                "cancelled": false,
+                "areas": [
+                    { "name": "北海道太平洋沿岸東部", "grade": "MajorWarning", "maxHeight": { "description": "巨大" }, "firstHeight": { "condition": "ただちに津波来襲と予測" } },
+                    { "name": "岩手県", "grade": "MajorWarning", "maxHeight": { "description": "巨大" }, "firstHeight": { "condition": "第１波の到達を確認" } },
+                    { "name": "宮城県", "grade": "Warning", "maxHeight": { "description": "3m" }, "firstHeight": { "condition": "津波到達中と推測" } },
+                    { "name": "福島県", "grade": "Warning", "maxHeight": { "description": "3m" }, "firstHeight": { "condition": "3日 20:30" } },
+                    { "name": "茨城県", "grade": "Watch", "maxHeight": { "description": "1m" }, "firstHeight": { "condition": "3日 20:45" } },
+                    { "name": "千葉県九十九里・外房", "grade": "Watch", "maxHeight": { "description": "1m" }, "firstHeight": { "condition": "3日 21:00" } }
+                ]
+            }
         ];
-        
-        updateTsunamiList('ot', testData);
+        processP2PTsunami(sampleP2P);
     });
 </script>
 
