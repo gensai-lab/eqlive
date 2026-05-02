@@ -1,103 +1,33 @@
-<!DOCTYPE html>
+z<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <style>
-        @font-face {
-            font-family: 'UDKakugoLarge';
-            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
-            font-weight: 400;
-        }
-
         body {
             margin: 0;
             padding: 0;
             background: transparent;
-            font-family: 'UDKakugoLarge', sans-serif;
             overflow: hidden;
-            color: #000;
         }
 
-        /* リスト全体のコンテナ：ヘッダーと中身を一体化 */
+        /* リスト全体のコンテナ */
         .tsunami-list-container {
             width: 800px;
             margin: 0;
             padding: 0;
             display: flex;
             flex-direction: column;
+            background-color: #fff; /* 背景を白に固定 */
         }
 
-        /* ヘッダー画像 */
-        .list-header {
-            width: 800px;
-            line-height: 0;
+        /* ヘッダーおよびリスト内の各画像共通設定 */
+        .list-image-item {
+            width: 800px; /* 横幅をヘッダーに揃える */
+            line-height: 0; /* 画像間の微細な隙間を排除 */
         }
 
-        .list-header img {
+        .list-image-item img {
             width: 100%;
-            display: block;
-        }
-
-        /* リストボディ：白背景でヘッダーの下に密着 */
-        #listBody {
-            background-color: #fff;
-            width: 800px;
-        }
-
-        .list-row {
-            display: grid;
-            /* 地名 400px / 時刻 250px / 高さ 150px */
-            grid-template-columns: 400px 250px 150px;
-            border-bottom: 2px solid #ccc;
-            align-items: center;
-            min-height: 80px;
-        }
-
-        .list-row:last-child {
-            border-bottom: none;
-        }
-
-        /* 地名 */
-        .area-name-container {
-            width: 400px;
-            padding: 0 15px;
-            display: flex;
-            align-items: center;
-            overflow: hidden;
-            box-sizing: border-box;
-        }
-
-        .area-name {
-            font-size: 36px;
-            font-weight: bold;
-            white-space: nowrap;
-            display: inline-block;
-            transform-origin: left center;
-        }
-
-        /* 到達予想時刻 */
-        .arrival-time {
-            width: 250px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 42px;
-            font-weight: bold;
-            letter-spacing: 1px;
-            color: #000;
-        }
-
-        /* 高さ画像エリア */
-        .tsunami-height {
-            width: 150px;
-            line-height: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .tsunami-height img {
-            width: 150px;
             height: auto;
             display: block;
         }
@@ -106,86 +36,58 @@
 <body>
 
 <div class="tsunami-list-container" id="tsunamiList">
-    <!-- 上部に固定されるヘッダー -->
-    <div class="list-header">
-        <img id="headerImg" src="assets/banner/tsunami/tsunami_list-kt.png" alt="Header">
+    <!-- ヘッダー画像 -->
+    <div class="list-image-item">
+        <img id="headerImg" src="assets/banner/tsunami/tsunami_list-ot.png" alt="Header">
     </div>
 
-    <!-- その下に続くリスト -->
+    <!-- リスト画像（5個） -->
     <div id="listBody">
-        <!-- JavaScriptで生成 -->
+        <!-- JavaScriptで画像を5個生成します -->
     </div>
 </div>
 
 <script>
     /**
-     * 文字の長体（圧縮）処理
+     * リストを画像のみで構成する関数
+     * @param {string} type - 'ot', 'kt', 'ct'
+     * @param {Array} heightTypes - 表示したい高さアセットの種類の配列（5個）
      */
-    function adjustTextScale(element, maxWidth) {
-        const currentWidth = element.offsetWidth;
-        if (currentWidth > maxWidth) {
-            const scale = maxWidth / currentWidth;
-            element.style.transform = `scaleX(${scale})`;
-        } else {
-            element.style.transform = 'scaleX(1)';
-        }
-    }
-
-    /**
-     * リスト更新
-     */
-    window.updateTsunamiList = (type, areas) => {
+    window.updateTsunamiImageList = (type, heightTypes) => {
         const headerImg = document.getElementById('headerImg');
         const body = document.getElementById('listBody');
 
-        // ヘッダー画像のパスを更新
+        // ヘッダーの切り替え
         headerImg.src = `assets/banner/tsunami/tsunami_list-${type}.png`;
-        
+
+        // リストの中身をクリアして画像を5個配置
         body.innerHTML = '';
-
-        areas.forEach(area => {
-            let heightImgSrc = 'assets/banner/tsunami/tsunami_list-none.png';
-            const h = area.height;
-
-            // 高さアセットの割り当て
-            if (h === '10m超') heightImgSrc = 'assets/banner/tsunami/tsunami_list-10mu.png';
-            else if (h === '10m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-10m.png';
-            else if (h === '5m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-5m.png';
-            else if (h === '巨大') heightImgSrc = 'assets/banner/tsunami/tsunami_list-kyodai.png';
-            else if (h === '3m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-3m.png';
-            else if (h === '高い') heightImgSrc = 'assets/banner/tsunami/tsunami_list-takai.png';
-            else if (h === '1m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-1m.png';
-
-            const row = document.createElement('div');
-            row.className = 'list-row';
-            row.innerHTML = `
-                <div class="area-name-container">
-                    <span class="area-name">${area.name}</span>
-                </div>
-                <div class="arrival-time">${area.time}</div>
-                <div class="tsunami-height">
-                    <img src="${heightImgSrc}" alt="${h}">
-                </div>
-            `;
-            body.appendChild(row);
-
-            // 長体処理の実行
-            const nameSpan = row.querySelector('.area-name');
-            adjustTextScale(nameSpan, 370);
+        
+        heightTypes.forEach(hType => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'list-image-item';
+            
+            // アセット名に基づいた画像パスを生成
+            // 例: '5m' -> assets/banner/tsunami/tsunami_list-5m.png
+            const imgSrc = `assets/banner/tsunami/tsunami_list-${hType}.png`;
+            
+            wrapper.innerHTML = `<img src="${imgSrc}" alt="${hType}">`;
+            body.appendChild(wrapper);
         });
     };
 
-    // テスト用データ
+    // --- テスト実行 ---
     window.addEventListener('load', () => {
-        const testAreas = [
-            { name: '北海道太平洋沿岸東部', time: 'すぐ来る', height: '10m超' },
-            { name: '北海道太平洋沿岸中部', time: '2日 22:22', height: '10m' },
-            { name: '青森県太平洋沿岸', time: '2日 22:40', height: '5m' },
-            { name: '岩手県', time: '2日 22:50', height: '巨大' },
-            { name: '鹿児島県奄美群島・トカラ列島', time: '2日 23:10', height: '3m' }
+        // 例として大津波警報(ot)の下に、異なる高さの画像を5個並べます
+        const testHeights = [
+            '10mu',   // 10m超
+            '10m',    // 10m
+            '5m',     // 5m
+            'kyodai', // 巨大
+            '3m'      // 3m
         ];
-        // 'ot' = 大津波警報ヘッダーを表示
-        updateTsunamiList('ot', testAreas);
+        
+        updateTsunamiImageList('ot', testHeights);
     });
 </script>
 
