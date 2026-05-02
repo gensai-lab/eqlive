@@ -18,13 +18,11 @@
             color: #000;
         }
 
-        /* リスト全体のコンテナ：横幅800pxで固定 */
         .tsunami-list-container {
             width: 800px;
             background-color: #fff;
             margin: 0;
             padding: 0;
-            border: none;
         }
 
         .list-header {
@@ -39,7 +37,6 @@
 
         .list-row {
             display: grid;
-            /* 比率を固定：地名 400px / 時刻 250px / 高さ 150px = 計800px */
             grid-template-columns: 400px 250px 150px;
             border-bottom: 2px solid #ccc;
             align-items: stretch;
@@ -50,13 +47,12 @@
             border-bottom: none;
         }
 
-        /* 地名エリア */
         .area-name-container {
             width: 400px;
             padding: 0 15px;
             display: flex;
             align-items: center;
-            overflow: hidden; /* はみ出し防止 */
+            overflow: hidden;
             box-sizing: border-box;
         }
 
@@ -65,7 +61,7 @@
             font-weight: bold;
             white-space: nowrap;
             display: inline-block;
-            transform-origin: left center; /* 左端を基点に縮める */
+            transform-origin: left center;
         }
 
         /* 到達予想時刻 */
@@ -80,19 +76,19 @@
             letter-spacing: 1px;
         }
 
-        /* 高さ画像 */
+        /* 高さエリア：背景画像の上に文字を重ねる */
         .tsunami-height {
             width: 150px;
             display: flex;
             justify-content: center;
             align-items: center;
-        }
-
-        .tsunami-height img {
-            height: 100%;
-            width: 100%;
-            display: block;
-            object-fit: cover;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            color: #fff; /* 白抜き文字 */
+            font-size: 45px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3); /* 視認性向上のための軽い影 */
         }
     </style>
 </head>
@@ -106,9 +102,6 @@
 </div>
 
 <script>
-    /**
-     * 地名の長さに応じて文字を横方向に圧縮する関数
-     */
     function adjustTextScale(element, maxWidth) {
         const currentWidth = element.offsetWidth;
         if (currentWidth > maxWidth) {
@@ -127,45 +120,45 @@
         body.innerHTML = '';
 
         areas.forEach(area => {
-            let heightImgSrc = 'assets/banner/tsunami/tsunami_list-none.png';
+            let heightImg = 'assets/banner/tsunami/tsunami_list-none.png';
             const h = area.height;
 
-            if (h === '10m超') heightImgSrc = 'assets/banner/tsunami/tsunami_list-10mu.png';
-            else if (h === '10m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-10m.png';
-            else if (h === '5m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-5m.png';
-            else if (h === '巨大') heightImgSrc = 'assets/banner/tsunami/tsunami_list-kyodai.png';
-            else if (h === '3m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-3m.png';
-            else if (h === '高い') heightImgSrc = 'assets/banner/tsunami/tsunami_list-takai.png';
-            else if (h === '1m') heightImgSrc = 'assets/banner/tsunami/tsunami_list-1m.png';
+            // 背景画像の選択
+            if (h === '10m超') heightImg = 'assets/banner/tsunami/tsunami_list-10mu.png';
+            else if (h === '10m') heightImg = 'assets/banner/tsunami/tsunami_list-10m.png';
+            else if (h === '5m') heightImg = 'assets/banner/tsunami/tsunami_list-5m.png';
+            else if (h === '巨大') heightImg = 'assets/banner/tsunami/tsunami_list-kyodai.png';
+            else if (h === '3m') heightImg = 'assets/banner/tsunami/tsunami_list-3m.png';
+            else if (h === '高い') heightImg = 'assets/banner/tsunami/tsunami_list-takai.png';
+            else if (h === '1m') heightImg = 'assets/banner/tsunami/tsunami_list-1m.png';
 
             const row = document.createElement('div');
             row.className = 'list-row';
+            // 高さ部分はテキスト(area.height)を表示しつつ背景(heightImg)を設定
             row.innerHTML = `
                 <div class="area-name-container">
                     <span class="area-name">${area.name}</span>
                 </div>
                 <div class="arrival-time">${area.time}</div>
-                <div class="tsunami-height">
-                    <img src="${heightImgSrc}" alt="${h}">
+                <div class="tsunami-height" style="background-image: url('${heightImg}')">
+                    ${h}
                 </div>
             `;
             body.appendChild(row);
 
-            // 描画後に文字幅をチェックして圧縮をかける
             const nameSpan = row.querySelector('.area-name');
-            // パディングを除いた最大幅（400px - 左右15pxずつ = 370px）
             adjustTextScale(nameSpan, 370);
         });
     };
 
-    // --- テストデータ（長い地名を含む） ---
+    // テスト実行
     window.addEventListener('load', () => {
         const testAreas = [
             { name: '北海道太平洋沿岸東部', time: 'すぐ来る', height: '10m超' },
-            { name: '鹿児島県奄美群島・トカラ列島', time: '2日 22:22', height: '10m' }, // 長い地名
-            { name: '伊豆諸島', time: '2日 22:40', height: '5m' },
-            { name: '相模湾・三浦半島', time: '2日 22:50', height: '巨大' },
-            { name: '長崎県西方', time: '2日 23:10', height: '3m' }
+            { name: '北海道太平洋沿岸中部', time: '2日 22:22', height: '10m' },
+            { name: '青森県太平洋沿岸', time: '2日 22:40', height: '5m' },
+            { name: '岩手県', time: '2日 22:50', height: '巨大' },
+            { name: '鹿児島県奄美群島・トカラ列島', time: '2日 23:10', height: '3m' }
         ];
         updateTsunamiList('ot', testAreas);
     });
