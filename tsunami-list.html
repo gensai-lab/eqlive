@@ -98,9 +98,9 @@
 </div>
 
 <script>
-    // 設定
-    const PAGE_INTERVAL = 5000; // ページ切り替え間隔（ミリ秒）
-    const ITEMS_PER_PAGE = 5;   // 1ページあたりの最大表示件数
+    // --- 設定項目 ---
+    const PAGE_INTERVAL = 20000; // ★20秒ごとに切り替え
+    const ITEMS_PER_PAGE = 5;    // 1ページあたりの最大表示件数
 
     const timeTextDictionary = {
         'ただちに津波来襲と予測': 'すぐ来る',
@@ -108,13 +108,13 @@
         '津波到達中と推測': '到達中'
     };
 
-    let currentPageLoop = null; // ループタイマー保持用
-    let allPages = [];          // 生成された全ページデータ
+    let currentPageLoop = null;
+    let allPages = [];
     let currentPageIndex = 0;
 
     function formatTimeText(text) {
         let display = timeTextDictionary[text] || text;
-        if (display.includes('日')) {
+        if (display && display.includes('日')) {
             display = display.replace(/日/g, '<span class="date-unit">日</span>');
         }
         return display;
@@ -133,6 +133,7 @@
      * 高さに応じたSVGファイル名の決定
      */
     function getTsunamiSvgName(heightStr) {
+        if (!heightStr || heightStr === '不明') return 'none'; // 注意報の数値なし等
         if (heightStr === '10m超') return '10mu';
         if (heightStr === '10m') return '10m';
         if (heightStr === '5m') return '5m';
@@ -143,9 +144,6 @@
         return 'none';
     }
 
-    /**
-     * 1つのページを表示する
-     */
     function renderPage(pageData) {
         const headerImg = document.getElementById('headerImg');
         const body = document.getElementById('listBody');
@@ -177,9 +175,6 @@
         });
     }
 
-    /**
-     * ページループの開始
-     */
     function startPageLoop() {
         if (currentPageLoop) clearInterval(currentPageLoop);
         if (allPages.length === 0) return;
@@ -196,25 +191,21 @@
     }
 
     /**
-     * P2PのJSONを受け取り、ページを生成して表示を開始する
+     * P2PのJSONを受け取り処理を開始する
      */
     window.processP2PTsunami = (p2pData) => {
-        // 最新のcancelledでないデータを取得
+        // 最新の有効な津波情報を取得
         const latestInfo = p2pData.find(d => d.code === 552 && !d.cancelled);
         if (!latestInfo) return;
 
-        // 1. 警報レベルごとにグループ化
-        const groups = {
-            ot: [], // 大津波警報 (MajorWarning)
-            kt: [], // 津波警報 (Warning)
-            ct: []  // 津波注意報 (Watch)
-        };
+        const groups = { ot: [], kt: [], ct: [] };
 
         latestInfo.areas.forEach(area => {
             const item = {
                 area: area.name,
+                // conditionがあれば優先、なければarrivalTimeを使用
                 time: area.firstHeight.condition || area.firstHeight.arrivalTime || "",
-                height: area.maxHeight.description
+                height: area.maxHeight ? area.maxHeight.description : '不明'
             };
 
             if (area.grade === 'MajorWarning') groups.ot.push(item);
@@ -222,7 +213,6 @@
             else if (area.grade === 'Watch') groups.ct.push(item);
         });
 
-        // 2. ページに分割（5件ずつ）
         allPages = [];
         ['ot', 'kt', 'ct'].forEach(type => {
             const list = groups[type];
@@ -234,11 +224,10 @@
             }
         });
 
-        // 3. ループ開始
         startPageLoop();
     };
 
-    // テスト実行
+    // --- テスト実行 ---
     window.addEventListener('load', () => {
         const sampleP2P = [
             {
@@ -248,9 +237,7 @@
                     { "name": "北海道太平洋沿岸東部", "grade": "MajorWarning", "maxHeight": { "description": "巨大" }, "firstHeight": { "condition": "ただちに津波来襲と予測" } },
                     { "name": "岩手県", "grade": "MajorWarning", "maxHeight": { "description": "巨大" }, "firstHeight": { "condition": "第１波の到達を確認" } },
                     { "name": "宮城県", "grade": "Warning", "maxHeight": { "description": "3m" }, "firstHeight": { "condition": "津波到達中と推測" } },
-                    { "name": "福島県", "grade": "Warning", "maxHeight": { "description": "3m" }, "firstHeight": { "condition": "3日 20:30" } },
-                    { "name": "茨城県", "grade": "Watch", "maxHeight": { "description": "1m" }, "firstHeight": { "condition": "3日 20:45" } },
-                    { "name": "千葉県九十九里・外房", "grade": "Watch", "maxHeight": { "description": "1m" }, "firstHeight": { "condition": "3日 21:00" } }
+                    { "name": "静岡県", "grade": "Watch", "maxHeight": { "description": "不明" }, "firstHeight": { "condition": "津波到達中と推測" } }
                 ]
             }
         ];
