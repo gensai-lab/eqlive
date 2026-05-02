@@ -1,93 +1,147 @@
-z<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <style>
+        @font-face {
+            font-family: 'UDKakugoDB';
+            /* DB（デミボールド）フォントを読み込み */
+            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
+        }
+
         body {
             margin: 0;
             padding: 0;
             background: transparent;
             overflow: hidden;
+            /* フォント指定：DB、太さ400 */
+            font-family: 'UDKakugoDB', sans-serif;
+            font-weight: 400;
         }
 
-        /* リスト全体のコンテナ */
         .tsunami-list-container {
             width: 800px;
             margin: 0;
             padding: 0;
             display: flex;
             flex-direction: column;
-            background-color: #fff; /* 背景を白に固定 */
         }
 
-        /* ヘッダーおよびリスト内の各画像共通設定 */
-        .list-image-item {
-            width: 800px; /* 横幅をヘッダーに揃える */
-            line-height: 0; /* 画像間の微細な隙間を排除 */
+        /* 画像コンテナ：ギャップを完全に排除 */
+        .list-item-wrapper {
+            position: relative; /* 文字を重ねるための基準 */
+            width: 800px;
+            line-height: 0;
+            margin: 0;
+            padding: 0;
         }
 
-        .list-image-item img {
+        .list-item-wrapper img {
             width: 100%;
             height: auto;
             display: block;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 津波予報区名のテキスト配置 */
+        .area-name-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 400px; /* 画像内の地名エリアに合わせる */
+            height: 100%;
+            display: flex;
+            align-items: center;
+            padding-left: 20px;
+            box-sizing: border-box;
+            line-height: normal; /* テキストの行間をリセット */
+            color: #000;
+            font-size: 38px;
+            white-space: nowrap;
+            overflow: hidden;
+            pointer-events: none; /* 下の画像操作を邪魔しない */
+        }
+
+        /* 長体（変形）用 */
+        .area-name-text {
+            display: inline-block;
+            transform-origin: left center;
         }
     </style>
 </head>
 <body>
 
 <div class="tsunami-list-container" id="tsunamiList">
-    <!-- ヘッダー画像 -->
-    <div class="list-image-item">
+    <!-- ヘッダー -->
+    <div class="list-item-wrapper">
         <img id="headerImg" src="assets/banner/tsunami/tsunami_list-ot.png" alt="Header">
     </div>
 
-    <!-- リスト画像（5個） -->
+    <!-- リスト（5個） -->
     <div id="listBody">
-        <!-- JavaScriptで画像を5個生成します -->
+        <!-- JavaScriptで生成 -->
     </div>
 </div>
 
 <script>
     /**
-     * リストを画像のみで構成する関数
-     * @param {string} type - 'ot', 'kt', 'ct'
-     * @param {Array} heightTypes - 表示したい高さアセットの種類の配列（5個）
+     * 文字の長体（圧縮）処理
      */
-    window.updateTsunamiImageList = (type, heightTypes) => {
+    function adjustTextScale(element, maxWidth) {
+        const currentWidth = element.offsetWidth;
+        if (currentWidth > maxWidth) {
+            const scale = maxWidth / currentWidth;
+            element.style.transform = `scaleX(${scale})`;
+        } else {
+            element.style.transform = 'scaleX(1)';
+        }
+    }
+
+    /**
+     * リストを更新する
+     * @param {string} type - 'ot', 'kt', 'ct'
+     * @param {Array} data - { area: '予報区名', height: 'アセット名' } の配列
+     */
+    window.updateTsunamiList = (type, data) => {
         const headerImg = document.getElementById('headerImg');
         const body = document.getElementById('listBody');
 
-        // ヘッダーの切り替え
         headerImg.src = `assets/banner/tsunami/tsunami_list-${type}.png`;
-
-        // リストの中身をクリアして画像を5個配置
         body.innerHTML = '';
         
-        heightTypes.forEach(hType => {
+        data.forEach(item => {
             const wrapper = document.createElement('div');
-            wrapper.className = 'list-image-item';
+            wrapper.className = 'list-item-wrapper';
             
-            // アセット名に基づいた画像パスを生成
-            // 例: '5m' -> assets/banner/tsunami/tsunami_list-5m.png
-            const imgSrc = `assets/banner/tsunami/tsunami_list-${hType}.png`;
+            // 画像パスの生成
+            const imgSrc = `assets/banner/tsunami/tsunami_list-${item.height}.png`;
             
-            wrapper.innerHTML = `<img src="${imgSrc}" alt="${hType}">`;
+            wrapper.innerHTML = `
+                <img src="${imgSrc}" alt="${item.height}">
+                <div class="area-name-overlay">
+                    <span class="area-name-text">${item.area}</span>
+                </div>
+            `;
             body.appendChild(wrapper);
+
+            // 描画後に長体処理を適用
+            const textSpan = wrapper.querySelector('.area-name-text');
+            adjustTextScale(textSpan, 360); // 枠に合わせて最大幅を調整
         });
     };
 
     // --- テスト実行 ---
     window.addEventListener('load', () => {
-        // 例として大津波警報(ot)の下に、異なる高さの画像を5個並べます
-        const testHeights = [
-            '10mu',   // 10m超
-            '10m',    // 10m
-            '5m',     // 5m
-            'kyodai', // 巨大
-            '3m'      // 3m
+        const testData = [
+            { area: '北海道太平洋沿岸東部', height: '10mu' },
+            { area: '北海道太平洋沿岸中部', height: '10m' },
+            { area: '青森県太平洋沿岸', height: '5m' },
+            { area: '鹿児島県奄美群島・トカラ列島', height: 'kyodai' },
+            { area: '相模湾・三浦半島', height: '3m' }
         ];
         
-        updateTsunamiImageList('ot', testHeights);
+        updateTsunamiList('ot', testData);
     });
 </script>
 
