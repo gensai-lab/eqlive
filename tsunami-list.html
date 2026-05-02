@@ -18,8 +18,9 @@
             font-feature-settings: "palt";
         }
 
+        /* 全体幅を 600px に変更 */
         .tsunami-list-container {
-            width: 800px;
+            width: 600px;
             margin: 0;
             padding: 0;
             display: flex;
@@ -28,7 +29,7 @@
 
         .list-item-wrapper {
             position: relative;
-            width: 800px;
+            width: 600px;
             line-height: 0;
             margin: 0;
             padding: 0;
@@ -55,11 +56,12 @@
             pointer-events: none;
         }
 
+        /* 予報区名エリア：600pxに合わせて幅を調整（約300px） */
         .area-name-overlay {
-            left: -4px;
-            width: 400px;
-            padding-left: 20px;
-            font-size: 42px;
+            left: -3px;
+            width: 300px;
+            padding-left: 15px;
+            font-size: 32px; /* 幅に合わせて少しフォントサイズを調整 */
             overflow: hidden;
         }
 
@@ -68,11 +70,12 @@
             transform-origin: left center;
         }
 
+        /* 時刻エリア：残り幅に合わせて調整（約190px） */
         .arrival-time-overlay {
-            left: 404px;
-            width: 250px;
+            left: 303px;
+            width: 190px;
             justify-content: center;
-            font-size: 42px;
+            font-size: 32px;
             letter-spacing: -0.2px;
         }
 
@@ -98,9 +101,8 @@
 </div>
 
 <script>
-    // --- 設定項目 ---
-    const PAGE_INTERVAL = 20000; // ★20秒ごとに切り替え
-    const ITEMS_PER_PAGE = 5;    // 1ページあたりの最大表示件数
+    const PAGE_INTERVAL = 20000;
+    const ITEMS_PER_PAGE = 5;
 
     const timeTextDictionary = {
         'ただちに津波来襲と予測': 'すぐ来る',
@@ -129,11 +131,8 @@
         }
     }
 
-    /**
-     * 高さに応じたSVGファイル名の決定
-     */
     function getTsunamiSvgName(heightStr) {
-        if (!heightStr || heightStr === '不明') return 'none'; // 注意報の数値なし等
+        if (!heightStr || heightStr === '不明') return 'none';
         if (heightStr === '10m超') return '10mu';
         if (heightStr === '10m') return '10m';
         if (heightStr === '5m') return '5m';
@@ -170,8 +169,9 @@
             `;
             body.appendChild(wrapper);
 
-            adjustTextScale(wrapper.querySelector('.area-text'), 360);
-            adjustTextScale(wrapper.querySelector('.time-text'), 230);
+            // 600px幅に合わせて許容最大幅を調整
+            adjustTextScale(wrapper.querySelector('.area-text'), 270); 
+            adjustTextScale(wrapper.querySelector('.time-text'), 175);
         });
     }
 
@@ -190,11 +190,7 @@
         }
     }
 
-    /**
-     * P2PのJSONを受け取り処理を開始する
-     */
-    window.processP2PTsunami = (p2pData) => {
-        // 最新の有効な津波情報を取得
+    window.updateTsunamiList = (p2pData) => {
         const latestInfo = p2pData.find(d => d.code === 552 && !d.cancelled);
         if (!latestInfo) return;
 
@@ -203,8 +199,7 @@
         latestInfo.areas.forEach(area => {
             const item = {
                 area: area.name,
-                // conditionがあれば優先、なければarrivalTimeを使用
-                time: area.firstHeight.condition || area.firstHeight.arrivalTime || "",
+                time: area.firstHeightCondition || area.firstHeight?.condition || area.firstHeight?.arrivalTime || "",
                 height: area.maxHeight ? area.maxHeight.description : '不明'
             };
 
@@ -226,23 +221,6 @@
 
         startPageLoop();
     };
-
-    // --- テスト実行 ---
-    window.addEventListener('load', () => {
-        const sampleP2P = [
-            {
-                "code": 552,
-                "cancelled": false,
-                "areas": [
-                    { "name": "北海道太平洋沿岸東部", "grade": "MajorWarning", "maxHeight": { "description": "巨大" }, "firstHeight": { "condition": "ただちに津波来襲と予測" } },
-                    { "name": "岩手県", "grade": "MajorWarning", "maxHeight": { "description": "巨大" }, "firstHeight": { "condition": "第１波の到達を確認" } },
-                    { "name": "宮城県", "grade": "Warning", "maxHeight": { "description": "3m" }, "firstHeight": { "condition": "津波到達中と推測" } },
-                    { "name": "静岡県", "grade": "Watch", "maxHeight": { "description": "不明" }, "firstHeight": { "condition": "津波到達中と推測" } }
-                ]
-            }
-        ];
-        processP2PTsunami(sampleP2P);
-    });
 </script>
 
 </body>
