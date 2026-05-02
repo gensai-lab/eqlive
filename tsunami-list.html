@@ -13,7 +13,6 @@
             padding: 0;
             background: transparent;
             overflow: hidden;
-            /* DBフォント、太さ400を指定 */
             font-family: 'UDKakugoDB', sans-serif;
             font-weight: 400;
         }
@@ -34,7 +33,6 @@
             padding: 0;
         }
 
-        /* SVG素材を表示 */
         .list-item-wrapper img {
             width: 100%;
             height: auto;
@@ -43,7 +41,6 @@
             padding: 0;
         }
 
-        /* 共通テキスト設定 */
         .overlay {
             position: absolute;
             top: 0;
@@ -57,7 +54,7 @@
             pointer-events: none;
         }
 
-        /* 津波予報区名：左側に配置 */
+        /* 津波予報区名エリア */
         .area-name-overlay {
             left: 0;
             width: 400px;
@@ -66,7 +63,7 @@
             overflow: hidden;
         }
 
-        /* 到達予想時刻：中央（画像のデザインに合わせる）に配置 */
+        /* 到達予想時刻エリア */
         .arrival-time-overlay {
             left: 400px;
             width: 250px;
@@ -79,30 +76,18 @@
             display: inline-block;
             transform-origin: left center;
         }
-
-        /* 時刻用は中央基点で変形させる場合は center center */
-        .time-node {
-            display: inline-block;
-            transform-origin: center center;
-        }
     </style>
 </head>
 <body>
 
 <div class="tsunami-list-container" id="tsunamiList">
-    <!-- ヘッダー -->
     <div class="list-item-wrapper">
-        <img id="headerImg" src="assets/banner/tsunami/tsunami_list-ot.svg" alt="Header">
+        <img id="headerImg" src="assets/banner/tsunami/tsunami-list_ot.svg" alt="Header">
     </div>
-
-    <!-- リスト -->
     <div id="listBody"></div>
 </div>
 
 <script>
-    /**
-     * 文字の長体（圧縮）処理
-     */
     function adjustTextScale(element, maxWidth) {
         const currentWidth = element.offsetWidth;
         if (currentWidth > maxWidth) {
@@ -114,25 +99,37 @@
     }
 
     /**
-     * リストを更新する
+     * @param {string} type - 'ot', 'kt', 'ct'
+     * @param {Array} data - { area: string, time: string, height: string }
      */
     window.updateTsunamiList = (type, data) => {
         const headerImg = document.getElementById('headerImg');
         const body = document.getElementById('listBody');
 
-        // SVGに差し替え
-        headerImg.src = `assets/banner/tsunami/tsunami_list-${type}.svg`;
+        headerImg.src = `assets/banner/tsunami/tsunami-list_${type}.svg`;
         body.innerHTML = '';
         
         data.forEach(item => {
             const wrapper = document.createElement('div');
             wrapper.className = 'list-item-wrapper';
             
-            // SVGに差し替え
-            const imgSrc = `assets/banner/tsunami/tsunami_list-${item.height}.svg`;
+            // ファイル名規則の適用
+            let hFile = 'none';
+            const h = item.height;
+
+            if (h === '10m超') hFile = '10mu';
+            else if (h === '10m') hFile = '10m';
+            else if (h === '5m') hFile = '5m';
+            else if (h === '3m') hFile = '3m';
+            else if (h === '1m') hFile = '1m';
+            else if (h === '巨大') hFile = 'kyodai';
+            else if (h === '高い') hFile = 'takai';
+            else if (h === '不明' || h === '') hFile = 'none'; // 数値が特定できない注意報用
+            
+            const imgSrc = `assets/banner/tsunami/tsunami-list_${hFile}.svg`;
             
             wrapper.innerHTML = `
-                <img src="${imgSrc}" alt="${item.height}">
+                <img src="${imgSrc}" alt="${hFile}">
                 <div class="overlay area-name-overlay">
                     <span class="text-node area-text">${item.area}</span>
                 </div>
@@ -142,23 +139,19 @@
             `;
             body.appendChild(wrapper);
 
-            // 長体処理
-            const areaSpan = wrapper.querySelector('.area-text');
-            const timeSpan = wrapper.querySelector('.time-text');
-            
-            adjustTextScale(areaSpan, 360); // 地名枠
-            adjustTextScale(timeSpan, 230); // 時刻枠
+            adjustTextScale(wrapper.querySelector('.area-text'), 360);
+            adjustTextScale(wrapper.querySelector('.time-text'), 230);
         });
     };
 
-    // --- テスト実行 ---
+    // テスト実行：M8以上の巨大地震想定の表示
     window.addEventListener('load', () => {
         const testData = [
-            { area: '北海道太平洋沿岸東部', time: 'すぐ来る', height: '10mu' },
-            { area: '北海道太平洋沿岸中部', time: '2日 22:22', height: '10m' },
-            { area: '青森県太平洋沿岸', time: '2日 22:40', height: '5m' },
-            { area: '鹿児島県奄美群島・トカラ列島', time: '2日 23:10', height: 'kyodai' },
-            { area: '相模湾・三浦半島', time: '2日 23:30', height: '3m' }
+            { area: '北海道太平洋沿岸東部', time: 'すぐ来る', height: '巨大' },
+            { area: '岩手県', time: 'すぐ来る', height: '巨大' },
+            { area: '千葉県九十九里・外房', time: '2日 22:40', height: '高い' },
+            { area: '伊豆諸島', time: '2日 22:50', height: '高い' },
+            { area: '静岡県', time: '2日 23:10', height: '不明' } // 注意報の「不明」想定
         ];
         
         updateTsunamiList('ot', testData);
