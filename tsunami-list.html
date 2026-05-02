@@ -15,7 +15,7 @@
             overflow: hidden;
             font-family: 'UDKakugoDB', sans-serif;
             font-weight: 400;
-            /* 文字のプロポーショナル詰めを有効化 */
+            /* プロポーショナル詰めを有効化 */
             font-feature-settings: "palt";
         }
 
@@ -58,10 +58,10 @@
 
         /* 津波予報区名エリア */
         .area-name-overlay {
-            left: -5px;
+            left: 0;
             width: 400px;
             padding-left: 20px;
-            font-size: 42px;
+            font-size: 38px;
             overflow: hidden;
         }
 
@@ -72,16 +72,23 @@
 
         /* 到達予想時刻エリア */
         .arrival-time-overlay {
-            left: 404px;
+            left: 400px;
             width: 250px;
             justify-content: center;
-            font-size: 42px;
-            letter-spacing: 0px;
+            font-size: 40px;
+            letter-spacing: 1px;
         }
 
         .time-text {
             display: inline-block;
             transform-origin: center center;
+        }
+
+        /* 「日」の文字だけ小さくするスタイル */
+        .date-unit {
+            font-size: 0.7em; /* 元の文字の70%のサイズ */
+            margin-right: 0.1em;
+            vertical-align: baseline;
         }
     </style>
 </head>
@@ -105,11 +112,19 @@
     };
 
     /**
-     * 文言を変換する関数
+     * 文言を変換し、「日」をタグで囲む
      */
     function formatTimeText(text) {
-        // 辞書に一致するものがあれば変換、なければそのまま返す
-        return timeTextDictionary[text] || text;
+        // 1. まず辞書変換を適用
+        let display = timeTextDictionary[text] || text;
+        
+        // 2. 「日」を小文字化用のspanで囲む
+        // 数値の後に「日」が来る場合（例: 3日）に置換
+        if (display.includes('日')) {
+            display = display.replace(/日/g, '<span class="date-unit">日</span>');
+        }
+        
+        return display;
     }
 
     /**
@@ -139,6 +154,7 @@
             const wrapper = document.createElement('div');
             wrapper.className = 'list-item-wrapper';
             
+            // 地震規模（M8以上等）に応じたアセット選択
             let hFile = 'none';
             const h = item.height;
 
@@ -153,8 +169,8 @@
             
             const imgSrc = `assets/banner/tsunami/tsunami-list_${hFile}.svg`;
             
-            // 時刻テキストを辞書を通して変換
-            const displayTime = formatTimeText(item.time);
+            // 時刻テキストの変換（HTMLタグを含む可能性があるためinnerHTMLで流し込む）
+            const displayTimeHTML = formatTimeText(item.time);
             
             wrapper.innerHTML = `
                 <img src="${imgSrc}" alt="${hFile}">
@@ -162,7 +178,7 @@
                     <span class="area-text">${item.area}</span>
                 </div>
                 <div class="overlay arrival-time-overlay">
-                    <span class="time-text">${displayTime}</span>
+                    <span class="time-text">${displayTimeHTML}</span>
                 </div>
             `;
             body.appendChild(wrapper);
@@ -172,13 +188,13 @@
         });
     };
 
-    // テスト実行
+    // テスト実行：様々な文言パターン
     window.addEventListener('load', () => {
         const testData = [
             { area: '北海道太平洋沿岸東部', time: 'ただちに津波来襲と予測', height: '巨大' },
-            { area: '岩手県', time: '第１波の到達を確認', height: '巨大' },
+            { area: '岩手県', time: '3日 22:22', height: '巨大' },
             { area: '宮城県', time: '津波到達中と推測', height: '巨大' },
-            { area: '福島県', time: '22日 22:40', height: '高い' }
+            { area: '福島県', time: '4日 01:15', height: '高い' }
         ];
         
         updateTsunamiList('ot', testData);
