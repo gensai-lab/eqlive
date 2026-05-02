@@ -15,6 +15,8 @@
             overflow: hidden;
             font-family: 'UDKakugoDB', sans-serif;
             font-weight: 400;
+            /* 文字のプロポーショナル詰めを有効化 */
+            font-feature-settings: "palt";
         }
 
         .tsunami-list-container {
@@ -63,7 +65,6 @@
             overflow: hidden;
         }
 
-        /* 地名は左端を基準に縮小 */
         .area-text {
             display: inline-block;
             transform-origin: left center;
@@ -78,7 +79,6 @@
             letter-spacing: 1px;
         }
 
-        /* 時刻は中央を基準に縮小 */
         .time-text {
             display: inline-block;
             transform-origin: center center;
@@ -96,12 +96,26 @@
 
 <script>
     /**
+     * 津波文言変換辞書
+     */
+    const timeTextDictionary = {
+        'ただちに津波来襲と予測': 'すぐ来る',
+        '第１波の到達を確認': '第1波到達',
+        '津波到達中と推測': '到達中'
+    };
+
+    /**
+     * 文言を変換する関数
+     */
+    function formatTimeText(text) {
+        // 辞書に一致するものがあれば変換、なければそのまま返す
+        return timeTextDictionary[text] || text;
+    }
+
+    /**
      * 文字の長体（圧縮）処理
-     * @param {HTMLElement} element - 対象のエレメント
-     * @param {number} maxWidth - 最大許容幅
      */
     function adjustTextScale(element, maxWidth) {
-        // スケールを一旦リセットして本来の幅を計測
         element.style.transform = 'scaleX(1)';
         const currentWidth = element.offsetWidth;
         
@@ -139,29 +153,32 @@
             
             const imgSrc = `assets/banner/tsunami/tsunami-list_${hFile}.svg`;
             
+            // 時刻テキストを辞書を通して変換
+            const displayTime = formatTimeText(item.time);
+            
             wrapper.innerHTML = `
                 <img src="${imgSrc}" alt="${hFile}">
                 <div class="overlay area-name-overlay">
                     <span class="area-text">${item.area}</span>
                 </div>
                 <div class="overlay arrival-time-overlay">
-                    <span class="time-text">${item.time}</span>
+                    <span class="time-text">${displayTime}</span>
                 </div>
             `;
             body.appendChild(wrapper);
 
-            // 描画後に地名と時刻の両方に縮小処理を適用
-            adjustTextScale(wrapper.querySelector('.area-text'), 360); // 地名枠
-            adjustTextScale(wrapper.querySelector('.time-text'), 230); // 時刻枠
+            adjustTextScale(wrapper.querySelector('.area-text'), 360);
+            adjustTextScale(wrapper.querySelector('.time-text'), 230);
         });
     };
 
     // テスト実行
     window.addEventListener('load', () => {
         const testData = [
-            { area: '北海道太平洋沿岸東部', time: 'つぎつぎ来襲中', height: '巨大' }, // 長い時刻の例
-            { area: '岩手県', time: 'すぐ来る', height: '巨大' },
-            { area: '鹿児島県奄美群島・トカラ列島', time: '2日 22:22', height: '10m' }
+            { area: '北海道太平洋沿岸東部', time: 'ただちに津波来襲と予測', height: '巨大' },
+            { area: '岩手県', time: '第１波の到達を確認', height: '巨大' },
+            { area: '宮城県', time: '津波到達中と推測', height: '巨大' },
+            { area: '福島県', time: '2日 22:40', height: '高い' }
         ];
         
         updateTsunamiList('ot', testData);
