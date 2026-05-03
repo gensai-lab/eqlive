@@ -3,62 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <style>
+        @font-face {
+            font-family: 'UDKakugoLarge';
+            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
+            font-weight: bold;
+        }
+
         body {
             margin: 0;
             padding: 0;
             overflow: hidden;
-            background: transparent;
+            background: rgba(255, 255, 255, 0.9); /* indexの指定に合わせた背景 */
             width: 600px;
             height: 135px;
             font-family: 'UDKakugoLarge', sans-serif;
         }
 
-        #news-container {
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 40, 120, 0.9); /* ニュースらしい紺色 */
-            color: white;
+        .container {
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            padding: 0 20px;
-            box-sizing: border-box;
-            border-left: 10px solid #ffcc00; /* アクセントの黄色 */
+            width: 600px;
+            height: 135px;
         }
 
-        .label {
+        /* ヘッダー部分 */
+        .header {
+            background-color: #003EB3;
+            color: white;
             font-size: 24px;
+            padding: 5px 15px;
             font-weight: bold;
-            margin-bottom: 5px;
-            color: #ffcc00;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .content {
-            font-size: 32px;
-            font-weight: bold;
-            white-space: nowrap;
+        /* テッカー部分 */
+        .ticker-viewport {
+            flex-grow: 1;
             overflow: hidden;
-            text-overflow: ellipsis;
-            line-height: 1.2;
+            position: relative;
+            background: white;
+            display: flex;
+            align-items: center;
+        }
+
+        .ticker-content {
+            white-space: nowrap;
+            position: absolute;
+            font-size: 38px;
+            color: #333;
+            font-weight: bold;
+            padding-left: 100%;
+            animation: ticker-scroll 25s linear infinite;
+        }
+
+        @keyframes ticker-scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-100%); }
+        }
+
+        /* 更新時間表示 */
+        .timestamp {
+            font-size: 16px;
+            opacity: 0.8;
         }
     </style>
 </head>
 <body>
 
-<div id="news-container">
-    <div class="label" id="newsLabel">最新情報</div>
-    <div class="content" id="newsContent">情報を待機中...</div>
+<div class="container">
+    <div class="header">
+        <span>最新の防災情報</span>
+        <span class="timestamp" id="update-time">取得中...</span>
+    </div>
+    <div class="ticker-viewport">
+        <div id="ticker-text" class="ticker-content">
+            情報を取得しています...
+        </div>
+    </div>
 </div>
 
 <script>
-    // index.htmlから情報を流し込むための関数
-    window.updateNews = (label, text) => {
-        document.getElementById('newsLabel').innerText = label;
-        document.getElementById('newsContent').innerText = text;
-    };
+    // 気象庁RSS (高頻度フィードの例)
+    const RSS_URL = 'https://www.jma.go.jp/bosai/pwwd/xml/feed/pwwd.xml';
+    // CORS回避のためのプロキシ（開発・テスト用。本番は自前サーバー等の構築を推奨）
+    const PROXY_URL = 'https://api.allorigins.win/get?url=';
 
-    // テスト表示
-    // window.updateNews("地震情報", "最大震度3を長崎県などで観測しました。");
+    async function fetchRSS() {
+        try {
+            const response = await fetch(`${PROXY_URL}${encodeURIComponent(RSS_URL)}`);
+            const data = await response.json();
+            const parser = new DOMParser();
+            const xml = parser.parseFromString(data.contents, "text/xml");
+            
+            const entries = xml.querySelectorAll("entry");
+            let tickerMessage = "";
+
+            entries.forEach((entry, index) => {
+                if (index < 5) { // 直近5件を表示
+                    const title = entry.querySelector("title").textContent;
+                    tickerMessage += `　【${title}】　`;
+                }
+            });
+
+            if (tickerMessage) {
+                document.getElementById('ticker-text').innerText = tickerMessage + tickerMessage; // ループ用に2回繰り返す
+                const now = new Date();
+                document.getElementById('update-time').innerText = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')} 更新`;
+            }
+        } catch (error) {
+            console.error('RSSの取得に失敗しました:', error);
+            document.getElementById('ticker-text').innerText = "気象情報の取得に失敗しました。";
+        }
+    }
+
+    // 初回取得と3分おきの更新
+    fetchRSS();
+    setInterval(fetchRSS, 180000);
+
+    // テッカーのアニメーション速度を文字数に応じて調整（オプション）
+    function adjustSpeed() {
+        const content = document.getElementById('ticker-text');
+        const length = content.innerText.length;
+        const duration = Math.max(15, length / 5); // 文字数に応じて秒数を変更
+        content.style.animationDuration = `${duration}s`;
+    }
 </script>
 
 </body>
