@@ -26,11 +26,9 @@
             background-color: white;
             display: flex;
             overflow: hidden;
-            border: none;
             position: relative;
         }
 
-        /* 待機用バナー（SVG）の表示エリア */
         #waiting-banner {
             position: absolute;
             top: 0;
@@ -42,72 +40,57 @@
             background-repeat: no-repeat;
             background-position: center;
             z-index: 10;
-            display: block; /* 初期状態は表示 */
+            display: block;
         }
 
-        /* 通常テロップのパーツ（最初は隠しておく） */
         .genre-label {
             background-color: #003EB3;
             color: white;
             width: 90px;
             height: 100%;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-            font-size: 36px;
-            line-height: 1.1;
-            letter-spacing: 2px;
+            font-size: 30px; /* 文字数によって調整できるよう少し小さめに設定 */
+            line-height: 1.2;
+            letter-spacing: 1px;
             font-weight: bold;
-            visibility: hidden; 
+            text-align: center;
+            word-break: break-all;
+            padding: 0 5px;
+            box-sizing: border-box;
         }
 
         .content-area {
             flex: 1;
             display: flex;
-            align-items: center;
-            padding: 0 20px;
-            overflow: hidden;
+            flex-direction: column; /* 2行にするため縦並び */
+            justify-content: center;
+            padding: 0 15px;
             background-color: white;
-            visibility: hidden;
         }
 
-        .ticker-viewport {
-            width: 100%;
-            overflow: hidden;
-            position: relative;
-            height: 80px;
-            display: flex;
-            align-items: center;
-        }
-
-        .ticker-content {
-            white-space: nowrap;
-            position: absolute;
-            font-size: 48px;
+        .news-line {
+            font-size: 36px; /* スクロールなし・2行のためサイズ調整 */
             color: #1a1a1a;
             font-weight: bold;
-            animation: ticker-scroll linear infinite;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.4;
         }
 
-        @keyframes ticker-scroll {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-100%); }
-        }
+        .line-1 { border-bottom: 1px solid #eee; padding-bottom: 2px; margin-bottom: 2px; }
     </style>
 </head>
 <body>
 
 <div class="main-container">
-    <!-- 待機用SVGを表示するレイヤー -->
     <div id="waiting-banner"></div>
-
-    <!-- 通常テロップレイヤー -->
-    <div id="genre-text" class="genre-label">情<br>報</div>
-    <div class="content-area" id="main-content">
-        <div class="ticker-viewport">
-            <div id="ticker-text" class="ticker-content"></div>
-        </div>
+    <div id="genre-text" class="genre-label"></div>
+    <div class="content-area" id="main-content" style="visibility: hidden;">
+        <div id="text-line1" class="news-line line-1"></div>
+        <div id="text-line2" class="news-line"></div>
     </div>
 </div>
 
@@ -128,49 +111,35 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const tickerElement = document.getElementById('ticker-text');
     const genreElement = document.getElementById('genre-text');
+    const line1Element = document.getElementById('text-line1');
+    const line2Element = document.getElementById('text-line2');
     const contentArea = document.getElementById('main-content');
     const waitingBanner = document.getElementById('waiting-banner');
 
-    // ニュースデータの監視
     onValue(ref(db, 'broadcast/manual_news'), (snapshot) => {
         const data = snapshot.val();
-        let finalMessage = "";
 
-        if (data && data.items && data.items.length > 0) {
-            // データがある場合：バナーを消し、テロップを表示
+        if (data && (data.line1 || data.line2)) {
             waitingBanner.style.display = "none";
-            genreElement.style.visibility = "visible";
             contentArea.style.visibility = "visible";
+            genreElement.style.visibility = "visible";
 
-            data.items.forEach(text => {
-                finalMessage += `　　■ ${text}`;
-            });
-            
-            tickerElement.innerText = finalMessage + finalMessage;
-            const duration = Math.max(15, (finalMessage.length * 0.25));
-            tickerElement.style.animationDuration = `${duration}s`;
-            tickerElement.style.animationPlayState = "running";
+            // ジャンルの処理（2文字ずつ改行を入れる処理など）
+            let genreDisp = data.genre || "情報";
+            if (genreDisp.length > 2) {
+                genreDisp = genreDisp.substring(0, 2) + "<br>" + genreDisp.substring(2, 4);
+            } else {
+                genreDisp = genreDisp.split('').join('<br>');
+            }
+            genreElement.innerHTML = genreDisp;
+
+            line1Element.innerText = data.line1 || "";
+            line2Element.innerText = data.line2 || "";
         } else {
-            // データがない場合：バナーを表示し、テロップを隠す
             waitingBanner.style.display = "block";
-            genreElement.style.visibility = "hidden";
             contentArea.style.visibility = "hidden";
-            tickerElement.innerText = "";
-            tickerElement.style.animation = "none";
-        }
-    });
-
-    // 配信モードによるラベル色・文字の変更
-    onValue(ref(db, 'broadcast/current'), (snapshot) => {
-        const data = snapshot.val();
-        if (data && data.statusType === 'ningen') {
-            genreElement.innerHTML = "速<br>報";
-            genreElement.style.backgroundColor = "#d32f2f";
-        } else {
-            genreElement.innerHTML = "情<br>報";
-            genreElement.style.backgroundColor = "#003EB3";
+            genreElement.style.visibility = "hidden";
         }
     });
 </script>
