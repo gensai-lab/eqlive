@@ -21,7 +21,6 @@
             font-family: 'UDKakugoLarge', sans-serif;
         }
 
-        /* 映像背景エリア */
         .video-background {
             position: absolute;
             top: 0;
@@ -37,7 +36,6 @@
             object-fit: cover;
         }
 
-        /* 中継テロップエリア */
         .relay-info {
             position: absolute;
             top: 145px;
@@ -67,7 +65,6 @@
 <body>
 
 <div class="video-background">
-    <!-- videoタグに変更 -->
     <video id="live-video" muted playsinline></video>
 </div>
 
@@ -76,7 +73,6 @@
     <div class="relay-location" id="location-text">読込中...</div>
 </div>
 
-<!-- HLS.js ライブラリ -->
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
 <script type="module">
@@ -105,7 +101,6 @@
     onValue(ref(db, 'broadcast/current/camera'), (snapshot) => {
         const data = snapshot.val();
         
-        // 場所名の更新
         if (data && data.location) {
             locationText.innerText = data.location;
             relayContainer.style.visibility = "visible";
@@ -113,43 +108,44 @@
             relayContainer.style.visibility = "hidden";
         }
 
-        // 映像URLの更新（URLが変わった時だけ処理）
         if (data && data.url && data.url !== currentUrl) {
             currentUrl = data.url;
-            playHLS(data.url);
+            // CORS回避プロキシを経由させる
+            const proxiedUrl = "https://corsproxy.io/?" + encodeURIComponent(data.url);
+            playHLS(proxiedUrl);
         }
     });
 
     function playHLS(url) {
         if (Hls.isSupported()) {
-            if (hls) hls.destroy(); // 既存の接続を破棄
-            hls = new Hls();
+            if (hls) hls.destroy();
+            hls = new Hls({
+                // プロキシ経由の場合、時々必要になる設定
+                xhrSetup: function(xhr, url) {
+                    xhr.withCredentials = false;
+                }
+            });
             hls.loadSource(url);
             hls.attachMedia(video);
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 video.play().catch(e => console.log("再生失敗:", e));
             });
             
-            // エラーハンドリング（再接続試行など）
             hls.on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) {
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
-                            console.log("ネットワークエラー。再試行中...");
                             hls.startLoad();
                             break;
                         case Hls.ErrorTypes.MEDIA_ERROR:
-                            console.log("メディアエラー。復旧中...");
                             hls.recoverMediaError();
                             break;
                         default:
-                            playHLS(url);
                             break;
                     }
                 }
             });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            // SafariなどのHLSネイティブ対応ブラウザ用
             video.src = url;
             video.addEventListener('loadedmetadata', () => {
                 video.play();
