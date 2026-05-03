@@ -110,9 +110,10 @@
 
         if (data && data.url && data.url !== currentUrl) {
             currentUrl = data.url;
-            // CORS回避プロキシを経由させる
-            const myProxy = "https://kactuif-proxy.jridpm.workers.dev/?url="; // 自分のURLを入れる
-            const proxiedUrl = myProxy + encodeURIComponent(data.url);
+            // Cloudflare WorkersのURL（末尾にスラッシュを付ける）
+            const myProxy = "https://kactuif-proxy.jridpm.workers.dev/"; 
+            // 修正：?url=を使わず、プロキシURLに直接ターゲットURLを繋ぐ
+            const proxiedUrl = myProxy + data.url;
             playHLS(proxiedUrl);
         }
     });
@@ -121,7 +122,6 @@
         if (Hls.isSupported()) {
             if (hls) hls.destroy();
             hls = new Hls({
-                // プロキシ経由の場合、時々必要になる設定
                 xhrSetup: function(xhr, url) {
                     xhr.withCredentials = false;
                 }
@@ -133,15 +133,20 @@
             });
             
             hls.on(Hls.Events.ERROR, (event, data) => {
+                console.error("HLS Error:", data);
                 if (data.fatal) {
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.log("ネットワークエラー、再試行中...");
                             hls.startLoad();
                             break;
                         case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.log("メディアエラー、復旧を試みます");
                             hls.recoverMediaError();
                             break;
                         default:
+                            console.log("致命的なエラー、再起動します");
+                            hls.destroy();
                             break;
                     }
                 }
