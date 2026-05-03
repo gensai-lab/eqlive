@@ -152,7 +152,7 @@
         </div>
         <div class="form-group">
             <label>サブタイトル（震度情報など）</label>
-            <input type="text" id="subTitle" placeholder="例：長野県で震度1">
+            <input type="text" id="subtitle" placeholder="例：長野県で震度1">
         </div>
         <button class="btn-update" onclick="saveTitle()">タイトル反映</button>
     </div>
@@ -244,7 +244,7 @@
     window.saveTitle = () => {
         update(ref(db, 'broadcast/current'), {
             mainTitle: document.getElementById('mainTitle').value,
-            subTitle: document.getElementById('subTitle').value
+            subtitle: document.getElementById('subtitle').value
         }).then(() => alert('タイトルとサブタイトルを更新しました'));
     };
 
@@ -268,7 +268,7 @@
         update(ref(db, 'broadcast/current'), {
             layoutMode: 'normal',
             mainTitle: '',
-            subTitle: '',
+            subtitle: '',
             statusType: 'bot'
         });
         set(ref(db, 'broadcast/manual_news'), { genre: '', line1: '', line2: '' });
@@ -279,7 +279,7 @@
         if (!data) return;
         document.getElementById('statusType').value = data.statusType || 'bot';
         document.getElementById('mainTitle').value = data.mainTitle || '';
-        document.getElementById('subTitle').value = data.subtitle || '';
+        document.getElementById('subtitle').value = data.subtitle || '';
         
         document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('active'));
         const activeCard = document.getElementById('mode-' + (data.layoutMode || 'normal'));
