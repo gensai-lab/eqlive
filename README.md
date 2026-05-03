@@ -6,4 +6,4 @@
 <br>Tsunami Yobikake : https://gensai-lab.github.io/eqlive/tsunami-yobikake.html</br>
 <br>News Ticker : https://gensai-lab.github.io/eqlive/news-ticker.html</br>
 
-<br>1 Live Only : https://gensai-lab.github.io/eqlive/live-onry.html</br>
+<br>1 Live Only : https://gensai-lab.github.io/eqlive/live-only.html</br>
