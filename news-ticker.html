@@ -5,7 +5,6 @@
     <style>
         @font-face {
             font-family: 'UDKakugoLarge';
-            /* DB（デミボールド）ウェイト */
             src: url('./assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
             font-weight: 400;
         }
@@ -28,9 +27,25 @@
             display: flex;
             overflow: hidden;
             border: none;
+            position: relative;
         }
 
-        /* 左側のラベル（管理画面のモードに合わせて色や文字を変えることも可能） */
+        /* 待機用バナー（SVG）の表示エリア */
+        #waiting-banner {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('./assets/banner/ticker-t.svg');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            z-index: 10;
+            display: block; /* 初期状態は表示 */
+        }
+
+        /* 通常テロップのパーツ（最初は隠しておく） */
         .genre-label {
             background-color: #003EB3;
             color: white;
@@ -44,6 +59,7 @@
             line-height: 1.1;
             letter-spacing: 2px;
             font-weight: bold;
+            visibility: hidden; 
         }
 
         .content-area {
@@ -53,6 +69,7 @@
             padding: 0 20px;
             overflow: hidden;
             background-color: white;
+            visibility: hidden;
         }
 
         .ticker-viewport {
@@ -82,10 +99,14 @@
 <body>
 
 <div class="main-container">
-    <div id="genre-text" class="genre-label">速<br>報</div>
-    <div class="content-area">
+    <!-- 待機用SVGを表示するレイヤー -->
+    <div id="waiting-banner"></div>
+
+    <!-- 通常テロップレイヤー -->
+    <div id="genre-text" class="genre-label">情<br>報</div>
+    <div class="content-area" id="main-content">
         <div class="ticker-viewport">
-            <div id="ticker-text" class="ticker-content">情報を待機しています...</div>
+            <div id="ticker-text" class="ticker-content"></div>
         </div>
     </div>
 </div>
@@ -94,7 +115,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // Firebase設定
     const firebaseConfig = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
         authDomain: "mgl-eqlive.firebaseapp.com",
@@ -110,40 +130,47 @@
 
     const tickerElement = document.getElementById('ticker-text');
     const genreElement = document.getElementById('genre-text');
+    const contentArea = document.getElementById('main-content');
+    const waitingBanner = document.getElementById('waiting-banner');
 
-    // Firebaseの「ニュース管理」データを監視
+    // ニュースデータの監視
     onValue(ref(db, 'broadcast/manual_news'), (snapshot) => {
         const data = snapshot.val();
         let finalMessage = "";
 
         if (data && data.items && data.items.length > 0) {
-            // 管理画面から入力された項目を結合
+            // データがある場合：バナーを消し、テロップを表示
+            waitingBanner.style.display = "none";
+            genreElement.style.visibility = "visible";
+            contentArea.style.visibility = "visible";
+
             data.items.forEach(text => {
                 finalMessage += `　　■ ${text}`;
             });
             
-            // テキストを反映（ループ用に2回繰り返す）
             tickerElement.innerText = finalMessage + finalMessage;
-            
-            // 文字数に応じてスクロール速度を動的に変更（1文字0.25秒）
             const duration = Math.max(15, (finalMessage.length * 0.25));
             tickerElement.style.animationDuration = `${duration}s`;
+            tickerElement.style.animationPlayState = "running";
         } else {
-            // ニュース項目が空の場合の表示
-            tickerElement.innerText = "現在、新しい情報はありません。";
-            tickerElement.style.animation = "none"; // スクロール停止
+            // データがない場合：バナーを表示し、テロップを隠す
+            waitingBanner.style.display = "block";
+            genreElement.style.visibility = "hidden";
+            contentArea.style.visibility = "hidden";
+            tickerElement.innerText = "";
+            tickerElement.style.animation = "none";
         }
     });
 
-    // 配信モード（Bot/人間）によってラベルの色や文字を変えたい場合の拡張用
+    // 配信モードによるラベル色・文字の変更
     onValue(ref(db, 'broadcast/current'), (snapshot) => {
         const data = snapshot.val();
         if (data && data.statusType === 'ningen') {
             genreElement.innerHTML = "速<br>報";
-            genreElement.style.backgroundColor = "#d32f2f"; // 人間配信時は赤色にする例
+            genreElement.style.backgroundColor = "#d32f2f";
         } else {
             genreElement.innerHTML = "情<br>報";
-            genreElement.style.backgroundColor = "#003EB3"; // 通常（Bot）は青色
+            genreElement.style.backgroundColor = "#003EB3";
         }
     });
 </script>
