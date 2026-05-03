@@ -109,6 +109,12 @@
             </select>
         </div>
         <div class="form-group">
+            <label>海保ライブカメラ選択</label>
+            <select id="camera-selector">
+                <option value="">（場所を選択して反映）</option>
+            </select>
+        </div>
+        <div class="form-group">
             <label>中継場所の表示名</label>
             <input type="text" id="relay-location" placeholder="例：岩手 花巻空港">
         </div>
@@ -171,6 +177,30 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    let cameraList = [];
+
+    // カメラリストの読み込み
+    fetch('./assets/json/kh-livec.json')
+        .then(res => res.json())
+        .then(data => {
+            cameraList = data;
+            const selector = document.getElementById('camera-selector');
+            cameraList.forEach(cam => {
+                const opt = document.createElement('option');
+                opt.value = cam.id;
+                opt.textContent = cam.name;
+                selector.appendChild(opt);
+            });
+        });
+
+    // カメラ選択時の連動
+    document.getElementById('camera-selector').addEventListener('change', (e) => {
+        const selected = cameraList.find(c => c.id === e.target.value);
+        if(selected) {
+            document.getElementById('relay-location').value = selected.name;
+        }
+    });
+
     // タブ切り替え
     window.showTab = (e, tabId, title) => {
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -182,13 +212,26 @@
 
     // 保存処理（中継・モード）
     window.saveRelay = () => {
+        const selectedId = document.getElementById('camera-selector').value;
+        const selectedCam = cameraList.find(c => c.id === selectedId);
+
+        const cameraUpdate = {
+            location: document.getElementById('relay-location').value
+        };
+
+        // カメラが選択されていればURLも更新
+        if(selectedCam) {
+            cameraUpdate.url = selectedCam.url;
+            cameraUpdate.id = selectedCam.id;
+        }
+
         update(ref(db, 'broadcast/current'), {
             statusType: document.getElementById('statusType').value,
             updatedAt: Date.now()
         });
-        update(ref(db, 'broadcast/current/camera'), {
-            location: document.getElementById('relay-location').value
-        }).then(() => alert('反映しました'));
+        
+        update(ref(db, 'broadcast/current/camera'), cameraUpdate)
+        .then(() => alert('反映しました'));
     };
 
     // 保存処理（ニュース・速報）
@@ -209,13 +252,33 @@
         update(ref(db, 'broadcast/current'), { layoutMode: mode });
     };
 
+    // 緊急全リセット
+    window.emergencyReset = () => {
+        if(!confirm('全ての表示をリセットしますか？')) return;
+        update(ref(db, 'broadcast/current'), {
+            layoutMode: 'normal',
+            mainTitle: '',
+            statusType: 'bot'
+        });
+        update(ref(db, 'broadcast/current/camera'), {
+            location: '',
+            url: ''
+        });
+        set(ref(db, 'broadcast/manual_news'), {
+            genre: '', line1: '', line2: ''
+        });
+    };
+
     // データ受信同期
     onValue(ref(db, 'broadcast/current'), (snapshot) => {
         const data = snapshot.val();
         if (data) {
             document.getElementById('statusType').value = data.statusType || 'bot';
             document.getElementById('mainTitle').value = data.mainTitle || '';
-            if(data.camera) document.getElementById('relay-location').value = data.camera.location || '';
+            if(data.camera) {
+                document.getElementById('relay-location').value = data.camera.location || '';
+                if(data.camera.id) document.getElementById('camera-selector').value = data.camera.id;
+            }
             
             document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('active'));
             const activeCard = document.getElementById('mode-' + (data.layoutMode || 'normal'));
