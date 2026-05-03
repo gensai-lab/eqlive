@@ -7,3 +7,4 @@
 <br>News Ticker : https://gensai-lab.github.io/eqlive/news-ticker.html</br>
 
 <br>1 Live Only : https://gensai-lab.github.io/eqlive/live-only.html</br>
+<br>2 Tsunami Info Overlay : https://gensai-lab.github.io/eqlive/tsunami-info-overlay.html</br>
