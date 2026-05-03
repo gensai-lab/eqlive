@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kactuif - Live Background</title>
     <style>
         @font-face {
             font-family: 'UDKakugoLarge';
@@ -39,7 +40,7 @@
         /* 中継テロップエリア */
         .relay-info {
             position: absolute;
-            top: 145px; /* 時計の下に配置 */
+            top: 145px;
             left: 65px;
             z-index: 10;
             display: flex;
@@ -47,15 +48,13 @@
             visibility: hidden;
         }
 
-        /* 中継画像（SVG） */
         .relay-banner {
-            height: 54px; /* フォントサイズに合わせて調整 */
+            height: 54px;
             width: auto;
             margin-right: 15px;
             filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
         }
 
-        /* 中継場所名 */
         .relay-location {
             color: white;
             font-size: 42px;
@@ -68,14 +67,17 @@
 <body>
 
 <div class="video-background">
-    <img id="live-video" src="./assets/cam/default.jpg" alt="Live Camera">
+    <!-- videoタグに変更 -->
+    <video id="live-video" muted playsinline></video>
 </div>
 
 <div class="relay-info" id="relay-container">
-    <!-- 指定された画像を使用 -->
     <img src="assets/banner/live.svg" class="relay-banner" alt="中継">
     <div class="relay-location" id="location-text">読込中...</div>
 </div>
+
+<!-- HLS.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -94,18 +96,66 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    const video = document.getElementById('live-video');
     const locationText = document.getElementById('location-text');
     const relayContainer = document.getElementById('relay-container');
+    let hls = null;
+    let currentUrl = "";
 
     onValue(ref(db, 'broadcast/current/camera'), (snapshot) => {
         const data = snapshot.val();
+        
+        // 場所名の更新
         if (data && data.location) {
             locationText.innerText = data.location;
             relayContainer.style.visibility = "visible";
         } else {
             relayContainer.style.visibility = "hidden";
         }
+
+        // 映像URLの更新（URLが変わった時だけ処理）
+        if (data && data.url && data.url !== currentUrl) {
+            currentUrl = data.url;
+            playHLS(data.url);
+        }
     });
+
+    function playHLS(url) {
+        if (Hls.isSupported()) {
+            if (hls) hls.destroy(); // 既存の接続を破棄
+            hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                video.play().catch(e => console.log("再生失敗:", e));
+            });
+            
+            // エラーハンドリング（再接続試行など）
+            hls.on(Hls.Events.ERROR, (event, data) => {
+                if (data.fatal) {
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.log("ネットワークエラー。再試行中...");
+                            hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.log("メディアエラー。復旧中...");
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            playHLS(url);
+                            break;
+                    }
+                }
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // SafariなどのHLSネイティブ対応ブラウザ用
+            video.src = url;
+            video.addEventListener('loadedmetadata', () => {
+                video.play();
+            });
+        }
+    }
 </script>
 
 </body>
