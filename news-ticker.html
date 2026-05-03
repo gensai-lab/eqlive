@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: transparent;
+            width: 600px;
+            height: 135px;
+            font-family: 'UDKakugoLarge', sans-serif;
+        }
+
+        #news-container {
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 40, 120, 0.9); /* ニュースらしい紺色 */
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 0 20px;
+            box-sizing: border-box;
+            border-left: 10px solid #ffcc00; /* アクセントの黄色 */
+        }
+
+        .label {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #ffcc00;
+        }
+
+        .content {
+            font-size: 32px;
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2;
+        }
+    </style>
+</head>
+<body>
+
+<div id="news-container">
+    <div class="label" id="newsLabel">最新情報</div>
+    <div class="content" id="newsContent">情報を待機中...</div>
+</div>
+
+<script>
+    // index.htmlから情報を流し込むための関数
+    window.updateNews = (label, text) => {
+        document.getElementById('newsLabel').innerText = label;
+        document.getElementById('newsContent').innerText = text;
+    };
+
+    // テスト表示
+    // window.updateNews("地震情報", "最大震度3を長崎県などで観測しました。");
+</script>
+
+</body>
+</html>
