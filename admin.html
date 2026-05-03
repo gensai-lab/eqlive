@@ -16,121 +16,143 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
             background-color: var(--bg-gray); 
             margin: 0;
-            padding: 10px;
-            display: flex; 
-            justify-content: center;
+            padding: 0;
+            padding-bottom: 80px; /* 下部タブのスペース確保 */
         }
 
         .admin-container { 
             width: 100%; 
             max-width: 600px; 
+            margin: 0 auto;
             background: white; 
             padding: 20px; 
-            border-radius: 16px; 
-            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            min-height: 100vh;
             box-sizing: border-box;
         }
 
-        h1 { font-size: 18px; color: var(--primary-blue); text-align: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        h1 { font-size: 18px; color: var(--primary-blue); text-align: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
 
-        .tabs { display: flex; background: #e4e6eb; padding: 4px; border-radius: 12px; margin-bottom: 25px; gap: 4px; }
-        .tab-btn { flex: 1; padding: 12px 5px; cursor: pointer; border: none; background: transparent; border-radius: 8px; font-weight: bold; font-size: 13px; color: #65676b; transition: all 0.2s; }
-        .tab-btn.active { background: white; color: var(--primary-blue); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        /* 下部固定タブメニュー */
+        .bottom-tabs { 
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 600px;
+            display: flex; 
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 8px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            box-sizing: border-box;
+        }
+        .tab-btn { 
+            flex: 1;
+            padding: 10px 5px; 
+            cursor: pointer; 
+            border: none; 
+            background: transparent; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            font-size: 11px;
+            color: #65676b;
+            text-align: center;
+        }
+        .tab-btn.active { background: #e8eaf6; color: var(--primary-blue); }
+        .tab-btn span { display: block; font-size: 20px; margin-bottom: 2px; }
 
         .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; animation: fadeIn 0.2s ease; }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        .form-group { margin-bottom: 20px; }
-        label { display: block; font-weight: bold; margin-bottom: 10px; font-size: 15px; color: #444; }
+        .form-group { margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 12px; }
+        label { display: block; font-weight: bold; margin-bottom: 10px; font-size: 14px; color: #333; }
 
-        input[type="text"] { width: 100%; padding: 16px; border: 2px solid #e4e6eb; border-radius: 10px; box-sizing: border-box; font-size: 16px; background: #f9f9f9; }
+        input[type="text"], textarea, select { 
+            width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 8px; 
+            box-sizing: border-box; font-size: 16px; background: white; 
+        }
 
-        /* レイアウト切替用のボタングループ */
-        .layout-selector { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        /* レイアウト切替 */
+        .layout-selector { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         .layout-card {
-            border: 2px solid #e4e6eb;
-            border-radius: 12px;
-            padding: 15px 10px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            background: #f9f9f9;
+            border: 2px solid #eee; border-radius: 10px; padding: 12px 5px;
+            text-align: center; cursor: pointer; background: white;
         }
         .layout-card.active { border-color: var(--primary-blue); background: #e8eaf6; color: var(--primary-blue); }
-        .layout-card span { display: block; font-size: 24px; margin-bottom: 5px; }
-        .layout-card p { margin: 0; font-size: 12px; font-weight: bold; }
+        .layout-card b { display: block; font-size: 18px; }
 
-        .btn-group { display: flex; flex-direction: column; gap: 12px; margin-top: 30px; }
-        button.btn-update { width: 100%; padding: 18px; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; background-color: var(--primary-blue); color: white; -webkit-tap-highlight-color: transparent; }
-        button:active { transform: scale(0.98); opacity: 0.9; }
+        button.btn-update { 
+            width: 100%; padding: 16px; border: none; border-radius: 12px; 
+            font-size: 16px; font-weight: bold; cursor: pointer; 
+            background-color: var(--primary-blue); color: white; margin-top: 10px;
+        }
+        .btn-reset { background: #666 !important; margin-top: 5px; }
 
-        .help-text { font-size: 12px; color: #888; margin-top: 5px; }
     </style>
 </head>
 <body>
 
 <div class="admin-container">
-    <h1>Kactuif 配信管理 (Admin)</h1>
-    
-    <div class="tabs">
-        <button class="tab-btn active" onclick="showTab(event, 'tab-relay')">①中継設定</button>
-        <button class="tab-btn" onclick="showTab(event, 'tab-news')">②ニュース</button>
-        <button class="tab-btn" onclick="showTab(event, 'tab-master')">構成切替</button>
-    </div>
+    <h1 id="panel-title">中継設定</h1>
 
-    <!-- ① 中継設定 -->
+    <!-- ① 中継・モード設定 -->
     <div id="tab-relay" class="tab-content active">
+        <div class="form-group">
+            <label>配信モード切替</label>
+            <select id="statusType">
+                <option value="bot">Botによる配信</option>
+                <option value="ningen">人間による配信</option>
+            </select>
+        </div>
         <div class="form-group">
             <label>中継場所の表示名</label>
             <input type="text" id="relay-location" placeholder="例：岩手 花巻空港">
-            <p class="help-text">ライブ映像の上に表示される場所名です。</p>
         </div>
-        <div class="btn-group">
-            <button class="btn-update" onclick="saveRelay()">中継情報を更新</button>
-        </div>
+        <button class="btn-update" onclick="saveRelay()">中継・モード反映</button>
     </div>
 
-    <!-- ② ニュース管理 -->
+    <!-- ② ニュース・速報設定 -->
     <div id="tab-news" class="tab-content">
         <div class="form-group">
-            <label>ジャンル</label>
-            <input type="text" id="news-genre" placeholder="例：速報">
+            <label>ニュースタイトル（赤帯）</label>
+            <input type="text" id="news-genre" placeholder="速報 / 地震情報など">
         </div>
         <div class="form-group">
-            <label>内容：1行目</label>
-            <input type="text" id="news-line1">
+            <label>ニュース内容</label>
+            <input type="text" id="news-line1" placeholder="1行目" style="margin-bottom:8px;">
+            <input type="text" id="news-line2" placeholder="2行目">
         </div>
         <div class="form-group">
-            <label>内容：2行目</label>
-            <input type="text" id="news-line2">
+            <label>速報タイトル (mainTitle)</label>
+            <textarea id="mainTitle" rows="3" placeholder="津波警報を発表しました"></textarea>
         </div>
-        <div class="btn-group">
-            <button class="btn-update" onclick="saveNews()">ニュースを反映</button>
-        </div>
+        <button class="btn-update" onclick="saveNews()">ニュース・速報反映</button>
     </div>
 
-    <!-- ③ 画面構成（レイアウト）切替 -->
+    <!-- ③ 構成切替 -->
     <div id="tab-master" class="tab-content">
-        <label>現在の配信レイアウト</label>
-        <div class="layout-selector">
-            <div class="layout-card" id="mode-normal" onclick="setLayout('normal')">
-                <span>①</span>
-                <p>通常中継</p>
-            </div>
-            <div class="layout-card" id="mode-tsunami" onclick="setLayout('tsunami')">
-                <span>②</span>
-                <p>津波情報</p>
-            </div>
-            <div class="layout-card" id="mode-l-shape" onclick="setLayout('l-shape')">
-                <span>④</span>
-                <p>L字画面</p>
+        <div class="form-group">
+            <label>配信画面レイアウト</label>
+            <div class="layout-selector">
+                <div class="layout-card" id="mode-normal" onclick="setLayout('normal')"><b>①</b>通常</div>
+                <div class="layout-card" id="mode-tsunami" onclick="setLayout('tsunami')"><b>②</b>有事</div>
+                <div class="layout-card" id="mode-l-shape" onclick="setLayout('l-shape')"><b>④</b>L字</div>
             </div>
         </div>
-        <p class="help-text" style="margin-top:20px;">※選択すると即座に配信画面（③のスイッチャー）が切り替わります。</p>
+        <button class="btn-update btn-reset" onclick="emergencyReset()">緊急全リセット</button>
     </div>
 </div>
+
+<!-- 下部固定ナビゲーション -->
+<nav class="bottom-tabs">
+    <button class="tab-btn active" onclick="showTab(event, 'tab-relay', '中継設定')"><span>🎥</span>中継</button>
+    <button class="tab-btn" onclick="showTab(event, 'tab-news', 'ニュース設定')"><span>📰</span>ニュース</button>
+    <button class="tab-btn" onclick="showTab(event, 'tab-master', '画面構成')"><span>🖥️</span>構成</button>
+</nav>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -150,48 +172,51 @@
     const db = getDatabase(app);
 
     // タブ切り替え
-    window.showTab = (e, tabId) => {
+    window.showTab = (e, tabId, title) => {
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
         e.currentTarget.classList.add('active');
+        document.getElementById('panel-title').innerText = title;
     };
 
-    // ① 中継場所の保存
+    // 保存処理（中継・モード）
     window.saveRelay = () => {
-        update(ref(db, 'broadcast/current/camera'), {
-            location: document.getElementById('relay-location').value,
+        update(ref(db, 'broadcast/current'), {
+            statusType: document.getElementById('statusType').value,
             updatedAt: Date.now()
-        }).then(() => alert('中継場所を更新しました'));
+        });
+        update(ref(db, 'broadcast/current/camera'), {
+            location: document.getElementById('relay-location').value
+        }).then(() => alert('反映しました'));
     };
 
-    // ② ニュースの保存
+    // 保存処理（ニュース・速報）
     window.saveNews = () => {
+        update(ref(db, 'broadcast/current'), {
+            mainTitle: document.getElementById('mainTitle').value
+        });
         set(ref(db, 'broadcast/manual_news'), {
             genre: document.getElementById('news-genre').value,
             line1: document.getElementById('news-line1').value,
             line2: document.getElementById('news-line2').value,
             updatedAt: Date.now()
-        }).then(() => alert('ニュースを反映しました'));
+        }).then(() => alert('反映しました'));
     };
 
-    // ④ レイアウト切替
+    // レイアウト切替
     window.setLayout = (mode) => {
-        update(ref(db, 'broadcast/current'), {
-            layoutMode: mode
-        }).then(() => {
-            console.log("Layout changed to:", mode);
-        });
+        update(ref(db, 'broadcast/current'), { layoutMode: mode });
     };
 
-    // リアルタイム反映（Admin側の表示同期）
+    // データ受信同期
     onValue(ref(db, 'broadcast/current'), (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            // 中継場所
+            document.getElementById('statusType').value = data.statusType || 'bot';
+            document.getElementById('mainTitle').value = data.mainTitle || '';
             if(data.camera) document.getElementById('relay-location').value = data.camera.location || '';
             
-            // レイアウトボタンの選択状態
             document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('active'));
             const activeCard = document.getElementById('mode-' + (data.layoutMode || 'normal'));
             if(activeCard) activeCard.classList.add('active');
