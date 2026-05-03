@@ -32,11 +32,6 @@
         .btn-update { background-color: var(--primary-blue); color: white; width: 100%; }
         .btn-reset { background-color: #666; color: white; }
         
-        .news-item { background: #f9f9f9; padding: 10px; border-left: 4px solid var(--primary-blue); margin-bottom: 10px; display: flex; gap: 10px; align-items: center; }
-        .news-item input { flex: 1; }
-        .btn-remove { background: var(--accent-red); color: white; padding: 5px 10px; font-size: 12px; }
-        .btn-add { background: #4caf50; color: white; margin-bottom: 10px; width: auto; padding: 8px 15px; }
-
         @media (max-width: 480px) { .btn-group { grid-template-columns: 1fr; } }
     </style>
 </head>
@@ -47,24 +42,32 @@
     
     <!-- タブ切り替えボタン -->
     <div class="tabs">
-        <div class="tab-btn active" onclick="showTab('tab-program')">番組管理</div>
+        <div class="tab-btn active" onclick="showTab('tab-news')">ニュース管理</div>
         <div class="tab-btn" onclick="showTab('tab-sokuhou')">速報管理</div>
-        <div class="tab-btn" onclick="showTab('tab-news')">ニュース管理</div>
+        <div class="tab-btn" onclick="showTab('tab-program')">番組管理</div>
     </div>
 
-    <!-- 番組管理タブ -->
-    <div id="tab-program" class="tab-content active">
+    <!-- ニュース管理タブ（1件更新スタイル・2行対応） -->
+    <div id="tab-news" class="tab-content active">
         <div class="form-group">
-            <label for="statusType">配信モード</label>
-            <select id="statusType">
-                <option value="bot">自動（Bot）</option>
-                <option value="ningen">人間による配信</option>
-            </select>
+            <label for="news-genre">ジャンル（例：速報、新聞、鉄道、お知らせ）</label>
+            <input type="text" id="news-genre" placeholder="表示したいジャンル名を入力">
         </div>
-        <button class="btn-update" onclick="saveData('program')">配信モードを更新</button>
+        <div class="form-group">
+            <label for="news-line1">ニュース内容：1行目</label>
+            <input type="text" id="news-line1" placeholder="ニュースの内容（上段）">
+        </div>
+        <div class="form-group">
+            <label for="news-line2">ニュース内容：2行目</label>
+            <input type="text" id="news-line2" placeholder="ニュースの内容（下段）">
+        </div>
+        <div class="btn-group">
+            <button class="btn-update" onclick="saveData('news')">ニュースを反映</button>
+            <button class="btn-reset" onclick="resetNews()">クリア</button>
+        </div>
     </div>
 
-    <!-- 速報管理タブ -->
+    <!-- 速報管理タブ（メインテロップ用） -->
     <div id="tab-sokuhou" class="tab-content">
         <div class="form-group">
             <label for="subtitle">サブテキスト（震源地など）</label>
@@ -76,18 +79,20 @@
         </div>
         <div class="btn-group">
             <button class="btn-update" onclick="saveData('sokuhou')">速報を反映</button>
-            <button class="btn-reset" id="resetBtn">リセット</button>
+            <button class="btn-reset" id="resetBtn">クリア</button>
         </div>
     </div>
 
-    <!-- ニュース管理タブ（テロップ用） -->
-    <div id="tab-news" class="tab-content">
-        <label>手動ニュース一覧（テロップに流れます）</label>
-        <div id="news-list-container">
-            <!-- ここにニュース入力欄が追加されます -->
+    <!-- 番組管理タブ -->
+    <div id="tab-program" class="tab-content">
+        <div class="form-group">
+            <label for="statusType">配信モード</label>
+            <select id="statusType">
+                <option value="bot">自動（Bot）</option>
+                <option value="ningen">人間による配信</option>
+            </select>
         </div>
-        <button class="btn-add" onclick="addNewsInput()">＋ ニュース項目を追加</button>
-        <button class="btn-update" onclick="saveData('news')">ニュースを保存・反映</button>
+        <button class="btn-update" onclick="saveData('program')">配信モードを更新</button>
     </div>
 </div>
 
@@ -95,6 +100,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, update, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+    // Firebase設定
     const firebaseConfig = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
         authDomain: "mgl-eqlive.firebaseapp.com",
@@ -108,7 +114,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // タブ切り替え機能
+    // タブ切り替え
     window.showTab = (tabId) => {
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -116,19 +122,7 @@
         event.currentTarget.classList.add('active');
     };
 
-    // ニュース入力欄の追加・削除
-    window.addNewsInput = (value = "") => {
-        const container = document.getElementById('news-list-container');
-        const div = document.createElement('div');
-        div.className = 'news-item';
-        div.innerHTML = `
-            <input type="text" class="news-input" value="${value}" placeholder="ニュースの内容を入力">
-            <button class="btn-remove" onclick="this.parentElement.remove()">削除</button>
-        `;
-        container.appendChild(div);
-    };
-
-    // Firebaseデータの保存
+    // 保存処理
     window.saveData = (mode) => {
         if (mode === 'program') {
             update(ref(db, 'broadcast/current'), {
@@ -141,21 +135,28 @@
                 subtitle: document.getElementById('subtitle').value,
                 mainTitle: document.getElementById('mainTitle').value,
                 updatedAt: Date.now()
-            }).then(() => alert('速報を反映しました'));
+            }).then(() => alert('速報設定を更新しました'));
         }
         else if (mode === 'news') {
-            const newsData = [];
-            document.querySelectorAll('.news-input').forEach(input => {
-                if (input.value.trim()) newsData.push(input.value.trim());
-            });
             set(ref(db, 'broadcast/manual_news'), {
-                items: newsData,
+                genre: document.getElementById('news-genre').value,
+                line1: document.getElementById('news-line1').value,
+                line2: document.getElementById('news-line2').value,
                 updatedAt: Date.now()
             }).then(() => alert('ニュースを反映しました'));
         }
     };
 
-    // 初期データ読み込み
+    // ニュース入力リセット
+    window.resetNews = () => {
+        if(confirm('ニュース入力を空にしますか？')) {
+            document.getElementById('news-genre').value = '';
+            document.getElementById('news-line1').value = '';
+            document.getElementById('news-line2').value = '';
+        }
+    };
+
+    // 既存データの読み込み
     onValue(ref(db, 'broadcast/current'), (snapshot) => {
         const data = snapshot.val();
         if (data) {
@@ -167,17 +168,15 @@
 
     onValue(ref(db, 'broadcast/manual_news'), (snapshot) => {
         const data = snapshot.val();
-        const container = document.getElementById('news-list-container');
-        container.innerHTML = '';
-        if (data && data.items) {
-            data.items.forEach(text => addNewsInput(text));
-        } else {
-            addNewsInput(); // 最初は1つ空欄を表示
+        if (data) {
+            document.getElementById('news-genre').value = data.genre || '';
+            document.getElementById('news-line1').value = data.line1 || '';
+            document.getElementById('news-line2').value = data.line2 || '';
         }
     });
 
     document.getElementById('resetBtn').addEventListener('click', () => {
-        if(confirm('速報入力をリセットしますか？')) {
+        if(confirm('速報設定をリセットしますか？')) {
             document.getElementById('subtitle').value = '';
             document.getElementById('mainTitle').value = '';
         }
