@@ -279,7 +279,7 @@
         if (!data) return;
         document.getElementById('statusType').value = data.statusType || 'bot';
         document.getElementById('mainTitle').value = data.mainTitle || '';
-        document.getElementById('subTitle').value = data.subTitle || '';
+        document.getElementById('subTitle').value = data.subtitle || '';
         
         document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('active'));
         const activeCard = document.getElementById('mode-' + (data.layoutMode || 'normal'));
