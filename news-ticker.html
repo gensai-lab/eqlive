@@ -5,7 +5,6 @@
     <style>
         @font-face {
             font-family: 'UDKakugoLarge';
-            /* DB（デミボールド）相当のウェイトを指定 */
             src: url('./assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
             font-weight: 400;
         }
@@ -30,7 +29,6 @@
             border: none;
         }
 
-        /* 左側のジャンル表示（青い部分） */
         .genre-label {
             background-color: #003EB3;
             color: white;
@@ -45,7 +43,6 @@
             letter-spacing: 2px;
         }
 
-        /* 右側のコンテンツエリア：1段構成で中央に配置 */
         .content-area {
             flex: 1;
             display: flex;
@@ -59,7 +56,7 @@
             width: 100%;
             overflow: hidden;
             position: relative;
-            height: 80px; /* 1段なので高さを確保 */
+            height: 80px;
             display: flex;
             align-items: center;
         }
@@ -67,7 +64,7 @@
         .ticker-content {
             white-space: nowrap;
             position: absolute;
-            font-size: 48px; /* 1段で見やすいためサイズを拡大 */
+            font-size: 48px;
             color: #1a1a1a;
             animation: ticker-scroll linear infinite;
         }
@@ -81,65 +78,83 @@
 <body>
 
 <div class="main-container">
-    <div class="genre-label">
-        新<br>聞
-    </div>
+    <div id="genre-text" class="genre-label">新<br>聞</div>
     <div class="content-area">
         <div class="ticker-viewport">
-            <div id="ticker-text" class="ticker-content">
-                ニュースを読み込んでいます...
-            </div>
+            <div id="ticker-text" class="ticker-content">情報を取得中...</div>
         </div>
     </div>
 </div>
 
-<script>
-    // 指定されたGASのURL
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // Firebase設定
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
     const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxWRgwizVqOW8vEKGKYoTOYkuMEETgzONsr4nqveX3Y6kCKILlD9Fee4_NzkLlXMn4g/exec';
 
+    // RSS（GAS）からデータを取得する関数
     async function fetchRSS() {
         try {
             const response = await fetch(GAS_API_URL);
             const data = await response.json();
-            if (data.error) throw new Error(data.error);
-
             const parser = new DOMParser();
             const xml = parser.parseFromString(data.contents, "text/xml");
             const items = xml.querySelectorAll("item");
-            
-            let tickerMessage = "";
-
+            let msg = "";
             items.forEach((item, i) => {
-                if (i < 10) { 
+                if (i < 10) {
                     let title = item.querySelector("title").textContent;
-                    
-                    // 30文字以上はカットして要約
-                    if (title.length > 30) {
-                        title = title.substring(0, 30) + "...";
-                    }
-                    
-                    tickerMessage += `　　■ ${title}`;
+                    if (title.length > 30) title = title.substring(0, 30) + "...";
+                    msg += `　　■ ${title}`;
                 }
             });
-
-            if (tickerMessage) {
-                const displayArea = document.getElementById('ticker-text');
-                // ループ用に2回繰り返す
-                displayArea.innerText = tickerMessage + tickerMessage; 
-                
-                // スクロール速度調整
-                const duration = Math.max(20, (tickerMessage.length * 0.25));
-                displayArea.style.animationDuration = `${duration}s`;
-            }
-        } catch (error) {
-            console.error('Fetch Error:', error);
-            document.getElementById('ticker-text').innerText = "情報の更新を待機しています...";
+            return msg;
+        } catch (e) {
+            return "";
         }
     }
 
-    fetchRSS();
-    // 10分おきに更新
-    setInterval(fetchRSS, 600000);
+    // 表示を更新するメインロジック
+    const tickerElement = document.getElementById('ticker-text');
+    const genreElement = document.getElementById('genre-text');
+
+    onValue(ref(db, 'broadcast/manual_news'), async (snapshot) => {
+        const data = snapshot.val();
+        let finalMessage = "";
+
+        if (data && data.items && data.items.length > 0) {
+            // 【手動ニュースがある場合】
+            genreElement.innerHTML = "速<br>報";
+            data.items.forEach(text => {
+                finalMessage += `　　■ ${text}`;
+            });
+        } else {
+            // 【手動ニュースがない場合】RSSを取得
+            genreElement.innerHTML = "新<br>聞";
+            finalMessage = await fetchRSS();
+        }
+
+        if (finalMessage) {
+            tickerElement.innerText = finalMessage + finalMessage;
+            const duration = Math.max(20, (finalMessage.length * 0.25));
+            tickerElement.style.animationDuration = `${duration}s`;
+        } else {
+            tickerElement.innerText = "現在、新しい情報はありません。";
+        }
+    });
 </script>
 
 </body>
