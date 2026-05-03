@@ -111,7 +111,8 @@
         if (data && data.url && data.url !== currentUrl) {
             currentUrl = data.url;
             // CORS回避プロキシを経由させる
-            const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(data.url)}`;
+            const myProxy = "https://kactuif-proxy.jridpm.workers.dev/?url="; // 自分のURLを入れる
+            const proxiedUrl = myProxy + encodeURIComponent(data.url);
             playHLS(proxiedUrl);
         }
     });
