@@ -6,7 +6,7 @@
         @font-face {
             font-family: 'UDKakugoLarge';
             src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
-            font-weight: 400;
+            font-weight: bold;
         }
 
         body {
@@ -19,30 +19,28 @@
             font-family: 'UDKakugoLarge', sans-serif;
         }
 
-        /* 外枠の角丸コンテナ */
+        /* 外枠コンテナ：影を消し、サイズを600x135に固定 */
         .main-container {
-            width: 580px; /* 余白を持たせる */
-            height: 115px;
-            margin: 10px;
+            width: 600px;
+            height: 135px;
             background-color: white;
-            border-radius: 10px;
             display: flex;
             overflow: hidden;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            border: none; /* 影と枠線を排除 */
         }
 
         /* 左側のジャンル表示（青い部分） */
         .genre-label {
             background-color: #003EB3;
             color: white;
-            width: 80px;
+            width: 90px; /* 少し幅を広げて安定感を出す */
             height: 100%;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            font-size: 32px;
-            line-height: 1.2;
+            font-size: 36px;
+            line-height: 1.1;
             font-weight: bold;
             letter-spacing: 2px;
         }
@@ -53,15 +51,19 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            padding: 0 15px;
+            padding: 0 20px;
             overflow: hidden;
+            background-color: white;
         }
 
         /* ニュースのソース名（上段） */
         .source-name {
-            font-size: 20px;
-            color: #444;
-            margin-bottom: 2px;
+            font-size: 22px;
+            color: #555;
+            margin-bottom: 5px;
+            border-bottom: 2px solid #003EB3; /* アクセントの線 */
+            width: fit-content;
+            padding-right: 10px;
         }
 
         /* ニュース本文（下段・スクロール） */
@@ -69,13 +71,15 @@
             width: 100%;
             overflow: hidden;
             position: relative;
-            height: 50px;
+            height: 60px;
+            display: flex;
+            align-items: center;
         }
 
         .ticker-content {
             white-space: nowrap;
             position: absolute;
-            font-size: 36px;
+            font-size: 42px; /* 文字を大きく */
             color: #1a1a1a;
             font-weight: bold;
             animation: ticker-scroll linear infinite;
@@ -104,8 +108,8 @@
 </div>
 
 <script>
-    // GASのURLを貼り付けてください
-    const GAS_API_URL = 'ここにGASのURLを貼り付け';
+    // あなたのGASのURLをここに貼り付けてください
+    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxWRgwizVqOW8vEKGKYoTOYkuMEETgzONsr4nqveX3Y6kCKILlD9Fee4_NzkLlXMn4g/exec';
 
     async function fetchRSS() {
         try {
@@ -123,7 +127,7 @@
                 if (i < 10) { 
                     let title = item.querySelector("title").textContent;
                     
-                    // 【要約処理】30文字を超える場合はカットして「...」を付与
+                    // 【要約設定】30文字以上はカット
                     if (title.length > 30) {
                         title = title.substring(0, 30) + "...";
                     }
@@ -134,10 +138,11 @@
 
             if (tickerMessage) {
                 const displayArea = document.getElementById('ticker-text');
-                displayArea.innerText = tickerMessage + "　　"; // 末尾に余白
+                // ループを滑らかにするために2回繰り返す
+                displayArea.innerText = tickerMessage + tickerMessage; 
                 
-                // テキストの長さに応じてスクロール時間を調整（1文字0.3秒）
-                const duration = Math.max(20, (tickerMessage.length * 0.3));
+                // スクロール速度（1文字あたり0.25秒程度に設定）
+                const duration = Math.max(20, (tickerMessage.length * 0.25));
                 displayArea.style.animationDuration = `${duration}s`;
             }
         } catch (error) {
@@ -147,6 +152,7 @@
     }
 
     fetchRSS();
+    // 10分おきに更新
     setInterval(fetchRSS, 600000);
 </script>
 
