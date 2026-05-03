@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Kactuif - Main Switcher</title>
+    <style>
+        @font-face {
+            font-family: 'UDKakugoLarge';
+            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
+            font-weight: bold;
+        }
+
+        :root {
+            --clock-stroke: #003EB3;
+            --text-white: #ffffff;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            background-color: black;
+            font-family: 'UDKakugoLarge', sans-serif;
+        }
+
+        /* 制御対象のレイヤー（② tsunami-info-overlay.html など） */
+        #content-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            z-index: 1;
+            transition: opacity 0.5s ease; /* 切り替え時のフェード効果 */
+        }
+
+        /* 最前面に固定するオーバーレイ（時計・ロゴ） */
+        .static-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            pointer-events: none; /* 下層の操作を妨げない */
+        }
+
+        .video-overlay-elements {
+            position: absolute;
+            top: 195px; /* ②のvideo-containerの位置に合わせる */
+            left: 90px;
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .clock {
+            font-size: 90px;
+            font-weight: bold;
+            color: var(--text-white);
+            -webkit-text-stroke: 12px var(--clock-stroke);
+            stroke-linejoin: round;
+            paint-order: stroke fill;
+            line-height: 1;
+            font-feature-settings: "palt";
+        }
+
+        .distributor-banner img {
+            height: 70px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 下層：情報レイヤー（初期値として②を指定） -->
+    <iframe id="content-layer" src="tsunami-info-overlay.html"></iframe>
+
+    <!-- 最上層：固定エレメント -->
+    <div class="static-overlay">
+        <div class="video-overlay-elements">
+            <div class="clock" id="liveClock">00：00</div>
+            <div class="distributor-banner">
+                <!-- 初期はBOT版を表示 -->
+                <img id="distributorImg" src="assets/banner/distributor/bot.png">
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+            authDomain: "mgl-eqlive.firebaseapp.com",
+            databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+            projectId: "mgl-eqlive",
+            storageBucket: "mgl-eqlive.firebasestorage.app",
+            messagingSenderId: "1060231327645",
+            appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // 時計の更新処理
+        function updateClock() {
+            const now = new Date();
+            const h = now.getHours().toString().padStart(2, '0');
+            const m = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('liveClock').innerText = `${h}：${m}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Adminからのスイッチング指示を受信
+        onValue(ref(db, 'broadcast/current'), (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            // 1. バナーの切り替え（人間/BOT）
+            const bannerImg = document.getElementById('distributorImg');
+            bannerImg.src = data.statusType === 'ningen' 
+                ? 'assets/banner/distributor/ningen.png' 
+                : 'assets/banner/distributor/bot.png';
+
+            // 2. モードに応じたiframeの切り替え
+            // 例: data.mode が 'tsunami' なら tsunami-info-overlay.html を表示
+            const contentLayer = document.getElementById('content-layer');
+            let targetUrl = "tsunami-info-overlay.html"; // デフォルト
+            
+            if (data.viewMode === 'normal') {
+                targetUrl = "normal-overlay.html"; // 通常時用の別のレイアウト
+            }
+
+            if (contentLayer.getAttribute('src') !== targetUrl) {
+                contentLayer.style.opacity = 0; // フェードアウト
+                setTimeout(() => {
+                    contentLayer.src = targetUrl;
+                    contentLayer.style.opacity = 1; // フェードイン
+                }, 500);
+            }
+        });
+    </script>
+</body>
+</html>
