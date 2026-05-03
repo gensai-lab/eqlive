@@ -25,7 +25,7 @@
             width: 600px;
             height: 146px;
             opacity: 0;
-            transition: opacity 2s ease-in-out; /* 2秒かけてクロスフェード */
+            transition: opacity 2s ease-in-out; /* 2秒間のクロスフェード */
             object-fit: contain;
         }
 
@@ -36,47 +36,51 @@
 </head>
 <body>
 
-<div id="container">
-    <!-- 画像はJavaScriptで動的に生成されます -->
-</div>
+<div id="container"></div>
 
 <script>
     const FADE_INTERVAL = 10000; // 10秒ごとに切り替え
-    let currentLevel = null; // 'MajorWarning', 'Warning', 'Watch'
+    let currentLevel = null;
     let currentIndex = 0;
     let timer = null;
 
-    // 画像設定
+    // 指定されたファイル名規則に基づく設定
     const config = {
         MajorWarning: {
             count: 5,
-            path: 'assets/banner/yobikake/major_' // 例: major_0.png ~ major_4.png
+            prefix: 'assets/banner/yobikake/tsunami-yk_o' // o1.svg ~ o5.svg
         },
         Warning: {
             count: 5,
-            path: 'assets/banner/yobikake/warning_' // 例: warning_0.png ~ warning_4.png
+            prefix: 'assets/banner/yobikake/tsunami-yk_k' // k1.svg ~ k5.svg
         },
         Watch: {
             count: 3,
-            path: 'assets/banner/yobikake/watch_' // 例: watch_0.png ~ watch_2.png
+            prefix: 'assets/banner/yobikake/tsunami-yk_c' // c1.svg ~ c3.svg
         }
     };
 
+    /**
+     * 表示する警報レベルを更新し、画像を生成する
+     */
     function updateDisplay(level) {
-        if (currentLevel === level) return; // レベルが変わらなければ何もしない
+        if (currentLevel === level) return;
         
         currentLevel = level;
         const container = document.getElementById('container');
-        container.innerHTML = ''; // 既存の画像をクリア
+        container.innerHTML = '';
         
-        if (!config[level]) return;
+        if (!config[level]) {
+            if (timer) clearInterval(timer);
+            return;
+        }
 
-        // 画像要素を生成
-        for (let i = 0; i < config[level].count; i++) {
+        // 画像要素を生成 (1始まりのインデックスでファイル名を指定)
+        for (let i = 1; i <= config[level].count; i++) {
             const img = document.createElement('img');
-            img.src = `${config[level].path}${i}.png`;
+            img.src = `${config[level].prefix}${i}.svg`;
             img.className = 'yobikake-img';
-            if (i === 0) img.classList.add('active');
+            if (i === 1) img.classList.add('active');
             container.appendChild(img);
         }
 
@@ -84,6 +88,9 @@
         startLoop();
     }
 
+    /**
+     * 10秒ごとのループ処理（最後に来たら最初に戻る）
+     */
     function startLoop() {
         if (timer) clearInterval(timer);
         
@@ -91,13 +98,20 @@
         if (imgs.length <= 1) return;
 
         timer = setInterval(() => {
+            // 現在の画像を非表示に
             imgs[currentIndex].classList.remove('active');
+            
+            // 次のインデックスへ（最大枚数を超えたら0に戻る）
             currentIndex = (currentIndex + 1) % imgs.length;
+            
+            // 次の画像を表示
             imgs[currentIndex].classList.add('active');
         }, FADE_INTERVAL);
     }
 
-    // index.htmlのFirebase受信処理から呼ばれる関数
+    /**
+     * 外部（index.html）からのデータ連携用
+     */
     window.updateTsunamiYobikake = (dataArray) => {
         if (!dataArray || dataArray.length === 0) {
             updateDisplay(null);
@@ -110,7 +124,7 @@
             return;
         }
 
-        // 優先順位：大津波警報 > 津波警報 > 津波注意報
+        // 優先順位判定
         let highestGrade = null;
         const grades = activeInfo.areas.map(a => a.grade);
 
@@ -121,13 +135,8 @@
         updateDisplay(highestGrade);
     };
 
-    /* --- テスト用実行コード（本番時はコメントアウトまたは削除） --- */
-    /*
-    window.onload = () => {
-        // テスト：大津波警報が来ている想定
-        updateDisplay('MajorWarning');
-    };
-    */
+    // テスト用（必要に応じてコメントアウトを外して確認してください）
+    // window.onload = () => updateDisplay('MajorWarning');
 </script>
 
 </body>
