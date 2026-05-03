@@ -13,7 +13,7 @@
             margin: 0;
             padding: 0;
             overflow: hidden;
-            background: rgba(255, 255, 255, 0.9); /* indexの指定に合わせた背景 */
+            background: rgba(255, 255, 255, 0.9);
             width: 600px;
             height: 135px;
             font-family: 'UDKakugoLarge', sans-serif;
@@ -26,7 +26,6 @@
             height: 135px;
         }
 
-        /* ヘッダー部分 */
         .header {
             background-color: #003EB3;
             color: white;
@@ -38,7 +37,6 @@
             align-items: center;
         }
 
-        /* テッカー部分 */
         .ticker-viewport {
             flex-grow: 1;
             overflow: hidden;
@@ -63,7 +61,6 @@
             100% { transform: translateX(-100%); }
         }
 
-        /* 更新時間表示 */
         .timestamp {
             font-size: 16px;
             opacity: 0.8;
@@ -85,50 +82,50 @@
 </div>
 
 <script>
-    // 気象庁RSS (高頻度フィードの例)
-    const RSS_URL = 'https://news.yahoo.co.jp/rss/topics/top-picks.xmll';
-    // CORS回避のためのプロキシ（開発・テスト用。本番は自前サーバー等の構築を推奨）
-    const PROXY_URL = 'https://api.allorigins.win/get?url=';
+    // 先ほどコピーしたGASのウェブアプリURLをここに貼り付けてください
+    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxf0mTQlCZUlug2IG8eBpIwB_RLkdt-xqNUB-3YJ9tWnqVyi6hcYdQGlKYQSuCbBV_U/exec';
 
     async function fetchRSS() {
         try {
-            const response = await fetch(`${PROXY_URL}${encodeURIComponent(RSS_URL)}`);
+            const response = await fetch(GAS_API_URL);
             const data = await response.json();
+            
+            if (data.error) throw new Error(data.error);
+
             const parser = new DOMParser();
             const xml = parser.parseFromString(data.contents, "text/xml");
             
+            // 気象庁RSSの構造に合わせて解析（entryタグ）
             const entries = xml.querySelectorAll("entry");
             let tickerMessage = "";
 
             entries.forEach((entry, index) => {
-                if (index < 5) { // 直近5件を表示
+                if (index < 8) { 
                     const title = entry.querySelector("title").textContent;
-                    tickerMessage += `　【${title}】　`;
+                    tickerMessage += `　■ ${title}　`;
                 }
             });
 
             if (tickerMessage) {
-                document.getElementById('ticker-text').innerText = tickerMessage + tickerMessage; // ループ用に2回繰り返す
+                // 文字数に応じてスクロール速度を自動調整
+                const displayArea = document.getElementById('ticker-text');
+                displayArea.innerText = tickerMessage + tickerMessage; 
+                
+                const duration = Math.max(20, (tickerMessage.length * 0.5));
+                displayArea.style.animationDuration = `${duration}s`;
+
                 const now = new Date();
-                document.getElementById('update-time').innerText = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')} 更新`;
+                document.getElementById('update-time').innerText = 
+                    `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')} 更新`;
             }
         } catch (error) {
-            console.error('RSSの取得に失敗しました:', error);
-            document.getElementById('ticker-text').innerText = "気象情報の取得に失敗しました。";
+            console.error('取得失敗:', error);
+            document.getElementById('ticker-text').innerText = "情報の更新を待機しています...";
         }
     }
 
-    // 初回取得と3分おきの更新
     fetchRSS();
-    setInterval(fetchRSS, 180000);
-
-    // テッカーのアニメーション速度を文字数に応じて調整（オプション）
-    function adjustSpeed() {
-        const content = document.getElementById('ticker-text');
-        const length = content.innerText.length;
-        const duration = Math.max(15, length / 5); // 文字数に応じて秒数を変更
-        content.style.animationDuration = `${duration}s`;
-    }
+    setInterval(fetchRSS, 300000); // 5分おき
 </script>
 
 </body>
