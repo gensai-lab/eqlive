@@ -53,7 +53,7 @@
             color: #333;
             font-weight: bold;
             padding-left: 100%;
-            animation: ticker-scroll 25s linear infinite;
+            animation: ticker-scroll linear infinite;
         }
 
         @keyframes ticker-scroll {
@@ -71,61 +71,72 @@
 
 <div class="container">
     <div class="header">
-        <span>最新の防災情報</span>
+        <span>最新ニュース（読売新聞）</span>
         <span class="timestamp" id="update-time">取得中...</span>
     </div>
     <div class="ticker-viewport">
         <div id="ticker-text" class="ticker-content">
-            情報を取得しています...
+            ニュースを読み込んでいます...
         </div>
     </div>
 </div>
 
 <script>
-    // 先ほどコピーしたGASのウェブアプリURLをここに貼り付けてください
-    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzrUfHNbkvuSrdWsVNwPZN85gbKy_skWdRkla0AlRRgg6jRQyV8zaL75FuoH-X_M9wF/exec';
+    // デプロイしたGASのURLをここに貼り付けてください
+    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxfv5qH_FGvQCyCEGZJ3q7Z0b2W74PV3yqdWQQvXjqf1h5cbdwrgIGajqtzNC1MqPjk/exec';
 
     async function fetchRSS() {
         try {
             const response = await fetch(GAS_API_URL);
-            const data = await response.json();
+            if (!response.ok) throw new Error('Network response was not ok');
             
+            const data = await response.json();
             if (data.error) throw new Error(data.error);
 
             const parser = new DOMParser();
             const xml = parser.parseFromString(data.contents, "text/xml");
             
-            // 気象庁RSSの構造に合わせて解析（entryタグ）
-            const entries = xml.querySelectorAll("entry");
+            // 読売新聞RSS (RSS 1.0) の構造に合わせて 'item' タグを取得
+            const items = xml.querySelectorAll("item");
             let tickerMessage = "";
 
-            entries.forEach((entry, index) => {
-                if (index < 8) { 
-                    const title = entry.querySelector("title").textContent;
-                    tickerMessage += `　■ ${title}　`;
-                }
-            });
+            if (items.length === 0) {
+                // 万が一itemが取れない場合、entryタグも試す（互換性のため）
+                const entries = xml.querySelectorAll("entry");
+                entries.forEach((el, i) => { if(i < 10) tickerMessage += `　■ ${el.querySelector("title").textContent}　`; });
+            } else {
+                items.forEach((item, i) => {
+                    if (i < 10) { 
+                        const title = item.querySelector("title").textContent;
+                        tickerMessage += `　■ ${title}　`;
+                    }
+                });
+            }
 
             if (tickerMessage) {
-                // 文字数に応じてスクロール速度を自動調整
                 const displayArea = document.getElementById('ticker-text');
+                // 文字列を2回繰り返してループをスムーズにする
                 displayArea.innerText = tickerMessage + tickerMessage; 
                 
-                const duration = Math.max(20, (tickerMessage.length * 0.5));
+                // スクロール速度の調整 (1文字あたり約0.4秒)
+                const duration = Math.max(25, (tickerMessage.length * 0.4));
                 displayArea.style.animationDuration = `${duration}s`;
 
                 const now = new Date();
                 document.getElementById('update-time').innerText = 
                     `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')} 更新`;
+            } else {
+                throw new Error('No items found');
             }
         } catch (error) {
-            console.error('取得失敗:', error);
-            document.getElementById('ticker-text').innerText = "情報の更新を待機しています...";
+            console.error('RSS Fetch Error:', error);
+            document.getElementById('ticker-text').innerText = "ニュースの取得に失敗しました。URLやGASの設定を確認してください。";
         }
     }
 
     fetchRSS();
-    setInterval(fetchRSS, 300000); // 5分おき
+    // 10分おきに更新
+    setInterval(fetchRSS, 600000);
 </script>
 
 </body>
