@@ -17,7 +17,7 @@
             background-color: var(--bg-gray); 
             margin: 0;
             padding: 0;
-            padding-bottom: 100px; /* タブの高さを考慮 */
+            padding-bottom: 100px; 
         }
 
         .admin-container { 
@@ -32,7 +32,6 @@
 
         h1 { font-size: 18px; color: var(--primary-blue); text-align: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
 
-        /* 下部固定タブメニュー (5分割) */
         .bottom-tabs { 
             position: fixed;
             bottom: 0;
@@ -76,7 +75,6 @@
             box-sizing: border-box; font-size: 16px; background: white; 
         }
 
-        /* シーン切替カード */
         .layout-selector { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         .layout-card {
             border: 2px solid #eee; border-radius: 10px; padding: 15px 5px;
@@ -109,7 +107,6 @@
                 <option value="bot">🤖 Botによる自動配信</option>
                 <option value="ningen">👤 人間による手動配信</option>
             </select>
-            <p style="font-size:12px; color:#666; margin-top:10px;">※ロゴ横の配信元表示に反映されます</p>
         </div>
         <button class="btn-update" onclick="saveStatus()">配信モード反映</button>
     </div>
@@ -129,16 +126,15 @@
                     <b>④</b>L字<br><small>情報枠を常時表示</small>
                 </div>
             </div>
-            <p style="font-size:12px; color:#666; margin-top:15px;">※①と②は switcher.html で、④は L字用レイヤーで管理されます。</p>
         </div>
         <button class="btn-update btn-reset" onclick="emergencyReset()">緊急全リセット</button>
     </div>
 
-    <!-- 3. Ticker (ニューステロップ) -->
+    <!-- 3. Ticker -->
     <div id="tab-ticker" class="tab-content">
         <div class="form-group">
             <label>テロップ赤帯 (ジャンル)</label>
-            <input type="text" id="news-genre" placeholder="速報 / 津波注意報発表中 / 気象情報">
+            <input type="text" id="news-genre" placeholder="速報 / 津波注意報発表中">
         </div>
         <div class="form-group">
             <label>ニュース内容</label>
@@ -148,11 +144,15 @@
         <button class="btn-update" onclick="saveTicker()">Ticker反映</button>
     </div>
 
-    <!-- 4. タイトル (最上部速報) -->
+    <!-- 4. タイトル（メイン・サブ） -->
     <div id="tab-title" class="tab-content">
         <div class="form-group">
-            <label>メインタイトル（今の情報）</label>
-            <textarea id="mainTitle" rows="4" placeholder="例：長野県で震度1&#13;&#10;愛知県に大津波警報"></textarea>
+            <label>メインタイトル</label>
+            <input type="text" id="mainTitle" placeholder="例：津波警報を発表しました">
+        </div>
+        <div class="form-group">
+            <label>サブタイトル（震度情報など）</label>
+            <input type="text" id="subTitle" placeholder="例：長野県で震度1">
         </div>
         <button class="btn-update" onclick="saveTitle()">タイトル反映</button>
     </div>
@@ -173,7 +173,6 @@
     </div>
 </div>
 
-<!-- 下部固定ナビゲーション (5タブ) -->
 <nav class="bottom-tabs">
     <button class="tab-btn active" onclick="showTab(event, 'tab-status', '配信モード設定')"><span>📡</span>配信モード</button>
     <button class="tab-btn" onclick="showTab(event, 'tab-scene', 'シーン切り替え')"><span>🎬</span>シーン切替</button>
@@ -201,7 +200,6 @@
 
     let cameraList = [];
 
-    // カメラデータ読み込み
     fetch('./assets/json/kh-livec.json')
         .then(res => res.json())
         .then(data => {
@@ -215,7 +213,6 @@
             });
         });
 
-    // タブ切り替え
     window.showTab = (e, tabId, title) => {
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -224,7 +221,6 @@
         document.getElementById('panel-title').innerText = title;
     };
 
-    // 1. 配信モード保存
     window.saveStatus = () => {
         update(ref(db, 'broadcast/current'), {
             statusType: document.getElementById('statusType').value,
@@ -232,17 +228,10 @@
         }).then(() => alert('配信モードを更新しました'));
     };
 
-    // 2. シーンレイアウト保存
     window.setLayout = (mode) => {
-        update(ref(db, 'broadcast/current'), { layoutMode: mode })
-        .then(() => {
-            // UI上のアクティブ状態を即座に反映
-            document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('active'));
-            document.getElementById('mode-' + mode).classList.add('active');
-        });
+        update(ref(db, 'broadcast/current'), { layoutMode: mode });
     };
 
-    // 3. Ticker保存
     window.saveTicker = () => {
         set(ref(db, 'broadcast/manual_news'), {
             genre: document.getElementById('news-genre').value,
@@ -252,14 +241,13 @@
         }).then(() => alert('Tickerを更新しました'));
     };
 
-    // 4. タイトル保存
     window.saveTitle = () => {
         update(ref(db, 'broadcast/current'), {
-            mainTitle: document.getElementById('mainTitle').value
-        }).then(() => alert('タイトルを更新しました'));
+            mainTitle: document.getElementById('mainTitle').value,
+            subTitle: document.getElementById('subTitle').value
+        }).then(() => alert('タイトルとサブタイトルを更新しました'));
     };
 
-    // 5. カメラ保存
     window.saveCamera = () => {
         const selectedId = document.getElementById('camera-selector').value;
         const selectedCam = cameraList.find(c => c.id === selectedId);
@@ -270,30 +258,28 @@
         .then(() => alert('カメラ設定を反映しました'));
     };
 
-    // カメラ選択連動
     document.getElementById('camera-selector').addEventListener('change', (e) => {
         const selected = cameraList.find(c => c.id === e.target.value);
         if(selected) document.getElementById('relay-location').value = selected.name;
     });
 
-    // 緊急リセット
     window.emergencyReset = () => {
-        if(!confirm('全ての表示設定（タイトル、Ticker、モード等）をデフォルトに戻しますか？')) return;
+        if(!confirm('全リセットしますか？')) return;
         update(ref(db, 'broadcast/current'), {
             layoutMode: 'normal',
             mainTitle: '',
+            subTitle: '',
             statusType: 'bot'
         });
         set(ref(db, 'broadcast/manual_news'), { genre: '', line1: '', line2: '' });
-        alert('リセットしました');
     };
 
-    // Firebase同期
     onValue(ref(db, 'broadcast/current'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
         document.getElementById('statusType').value = data.statusType || 'bot';
         document.getElementById('mainTitle').value = data.mainTitle || '';
+        document.getElementById('subTitle').value = data.subTitle || '';
         
         document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('active'));
         const activeCard = document.getElementById('mode-' + (data.layoutMode || 'normal'));
