@@ -44,11 +44,9 @@
             position: absolute;
             border: none;
             z-index: 10;
-            transition: opacity 0.5s ease;
             overflow: hidden;
         }
 
-        /* タイトル枠: 横幅100% / 高さ210px / 背景透過 */
         #titleFrame {
             bottom: 0;
             left: 0;
@@ -57,9 +55,8 @@
             background: transparent;
         }
 
-        /* 津波マップ枠: 600x350 / 背景黒(0.9) / 角丸8px */
         #tsunamiFrame {
-            bottom: 230px; /* タイトル枠の上に配置 */
+            bottom: 230px;
             right: 40px;
             width: 600px;
             height: 350px;
@@ -67,7 +64,6 @@
             border-radius: 8px;
         }
 
-        /* 津波呼びかけ枠: 600x146 / 背景透過 / 角丸8px */
         #infoTopFrame {
             top: 40px;
             right: 40px;
@@ -118,10 +114,10 @@
     <!-- 1. ベースレイヤー -->
     <iframe id="content-layer" src="tsunami-info-overlay.html"></iframe>
 
-    <!-- 2. 追加情報レイヤー -->
-    <iframe id="titleFrame" class="info-overlay-frame" src="title.html" style="opacity: 0;"></iframe>
-    <iframe id="tsunamiFrame" class="info-overlay-frame" src="tsunami-map.html" style="opacity: 0;"></iframe>
-    <iframe id="infoTopFrame" class="info-overlay-frame" src="tsunami-yobikake.html" style="opacity: 0;"></iframe>
+    <!-- 2. 追加情報レイヤー（初期は空） -->
+    <iframe id="titleFrame" class="info-overlay-frame" src="about:blank"></iframe>
+    <iframe id="tsunamiFrame" class="info-overlay-frame" src="about:blank"></iframe>
+    <iframe id="infoTopFrame" class="info-overlay-frame" src="about:blank"></iframe>
 
     <!-- 3. 固定オーバーレイ -->
     <div class="static-overlay">
@@ -162,6 +158,7 @@
             const data = snapshot.val();
             if (!data) return;
 
+            // バナー反映
             const bannerImg = document.getElementById('distributorImg');
             bannerImg.src = data.statusType === 'ningen' 
                 ? 'assets/banner/distributor/ningen.png' 
@@ -171,14 +168,15 @@
             const tsunamiFrame = document.getElementById('tsunamiFrame');
             const infoTopFrame = document.getElementById('infoTopFrame');
 
+            // layoutModeによるURLの差し替え（表示・非表示の制御）
             if (data.layoutMode === 'tsunami') {
-                titleFrame.style.opacity = "1";
-                tsunamiFrame.style.opacity = "1";
-                infoTopFrame.style.opacity = "1";
+                if (titleFrame.src.indexOf('title.html') === -1) titleFrame.src = "title.html";
+                if (tsunamiFrame.src.indexOf('tsunami-map.html') === -1) tsunamiFrame.src = "tsunami-map.html";
+                if (infoTopFrame.src.indexOf('tsunami-yobikake.html') === -1) infoTopFrame.src = "tsunami-yobikake.html";
             } else {
-                titleFrame.style.opacity = "0";
-                tsunamiFrame.style.opacity = "0";
-                infoTopFrame.style.opacity = "0";
+                titleFrame.src = "about:blank";
+                tsunamiFrame.src = "about:blank";
+                infoTopFrame.src = "about:blank";
             }
         });
     </script>
