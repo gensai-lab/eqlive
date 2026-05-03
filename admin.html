@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>管理パネル - みんなの減災ラボ</title>
+    <title>Kactuif 管理パネル</title>
     <style>
         :root {
             --primary-blue: #1a237e;
             --bg-gray: #f0f2f5;
             --accent-red: #d32f2f;
-            --success-green: #2e7d32;
             --text-main: #1c1e21;
         }
 
@@ -20,7 +19,6 @@
             padding: 10px;
             display: flex; 
             justify-content: center;
-            color: var(--text-main);
         }
 
         .admin-container { 
@@ -33,164 +31,104 @@
             box-sizing: border-box;
         }
 
-        h1 { 
-            font-size: 18px; 
-            color: var(--primary-blue); 
-            text-align: center;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
-        }
+        h1 { font-size: 18px; color: var(--primary-blue); text-align: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
 
-        /* モバイル向けタブメニュー */
-        .tabs { 
-            display: flex; 
-            background: #e4e6eb;
-            padding: 4px;
-            border-radius: 12px;
-            margin-bottom: 25px;
-            gap: 4px;
-        }
-        .tab-btn { 
-            flex: 1;
-            padding: 12px 5px; 
-            cursor: pointer; 
-            border: none; 
-            background: transparent; 
-            border-radius: 8px; 
-            font-weight: bold; 
-            font-size: 14px;
-            color: #65676b;
-            transition: all 0.2s;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .tab-btn.active { 
-            background: white; 
-            color: var(--primary-blue); 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
+        .tabs { display: flex; background: #e4e6eb; padding: 4px; border-radius: 12px; margin-bottom: 25px; gap: 4px; }
+        .tab-btn { flex: 1; padding: 12px 5px; cursor: pointer; border: none; background: transparent; border-radius: 8px; font-weight: bold; font-size: 13px; color: #65676b; transition: all 0.2s; }
+        .tab-btn.active { background: white; color: var(--primary-blue); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
         .form-group { margin-bottom: 20px; }
-        label { 
-            display: block; 
-            font-weight: bold; 
-            margin-bottom: 10px; 
-            font-size: 15px; 
-            color: #444;
-        }
+        label { display: block; font-weight: bold; margin-bottom: 10px; font-size: 15px; color: #444; }
 
-        input[type="text"], select, textarea { 
-            width: 100%; 
-            padding: 16px; /* モバイルでタップしやすい高さ */
-            border: 2px solid #e4e6eb; 
-            border-radius: 10px; 
-            box-sizing: border-box; 
-            font-size: 16px; /* iOSの自動ズーム防止 */
+        input[type="text"] { width: 100%; padding: 16px; border: 2px solid #e4e6eb; border-radius: 10px; box-sizing: border-box; font-size: 16px; background: #f9f9f9; }
+
+        /* レイアウト切替用のボタングループ */
+        .layout-selector { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .layout-card {
+            border: 2px solid #e4e6eb;
+            border-radius: 12px;
+            padding: 15px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
             background: #f9f9f9;
-            transition: border-color 0.2s;
         }
-        input:focus, textarea:focus {
-            border-color: var(--primary-blue);
-            outline: none;
-            background: white;
-        }
+        .layout-card.active { border-color: var(--primary-blue); background: #e8eaf6; color: var(--primary-blue); }
+        .layout-card span { display: block; font-size: 24px; margin-bottom: 5px; }
+        .layout-card p { margin: 0; font-size: 12px; font-weight: bold; }
 
-        /* ボタンデザイン */
-        .btn-group { 
-            display: flex; 
-            flex-direction: column;
-            gap: 12px; 
-            margin-top: 30px; 
-        }
-        button { 
-            width: 100%;
-            padding: 18px; 
-            border: none; 
-            border-radius: 12px; 
-            font-size: 16px; 
-            font-weight: bold; 
-            cursor: pointer; 
-            transition: transform 0.1s, opacity 0.2s;
-            -webkit-tap-highlight-color: transparent;
-        }
+        .btn-group { display: flex; flex-direction: column; gap: 12px; margin-top: 30px; }
+        button.btn-update { width: 100%; padding: 18px; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; background-color: var(--primary-blue); color: white; -webkit-tap-highlight-color: transparent; }
         button:active { transform: scale(0.98); opacity: 0.9; }
 
-        .btn-update { background-color: var(--primary-blue); color: white; }
-        .btn-reset { background-color: #eee; color: #444; }
-
-        .help-text {
-            font-size: 12px;
-            color: #888;
-            margin-top: 5px;
-        }
-
+        .help-text { font-size: 12px; color: #888; margin-top: 5px; }
     </style>
 </head>
 <body>
 
 <div class="admin-container">
-    <h1>Kactuif 配信管理</h1>
+    <h1>Kactuif 配信管理 (Admin)</h1>
     
     <div class="tabs">
-        <button class="tab-btn active" onclick="showTab(event, 'tab-news')">ニュース</button>
-        <button class="tab-btn" onclick="showTab(event, 'tab-sokuhou')">速報設定</button>
-        <button class="tab-btn" onclick="showTab(event, 'tab-program')">モード</button>
+        <button class="tab-btn active" onclick="showTab(event, 'tab-relay')">①中継設定</button>
+        <button class="tab-btn" onclick="showTab(event, 'tab-news')">②ニュース</button>
+        <button class="tab-btn" onclick="showTab(event, 'tab-master')">構成切替</button>
     </div>
 
-    <div id="tab-news" class="tab-content active">
+    <!-- ① 中継設定 -->
+    <div id="tab-relay" class="tab-content active">
+        <div class="form-group">
+            <label>中継場所の表示名</label>
+            <input type="text" id="relay-location" placeholder="例：岩手 花巻空港">
+            <p class="help-text">ライブ映像の上に表示される場所名です。</p>
+        </div>
+        <div class="btn-group">
+            <button class="btn-update" onclick="saveRelay()">中継情報を更新</button>
+        </div>
+    </div>
+
+    <!-- ② ニュース管理 -->
+    <div id="tab-news" class="tab-content">
         <div class="form-group">
             <label>ジャンル</label>
-            <input type="text" id="news-genre" placeholder="例：速報、鉄道、お知らせ">
+            <input type="text" id="news-genre" placeholder="例：速報">
         </div>
         <div class="form-group">
             <label>内容：1行目</label>
-            <input type="text" id="news-line1" placeholder="上段のテキスト">
+            <input type="text" id="news-line1">
         </div>
         <div class="form-group">
             <label>内容：2行目</label>
-            <input type="text" id="news-line2" placeholder="下段のテキスト">
+            <input type="text" id="news-line2">
         </div>
         <div class="btn-group">
-            <button class="btn-update" onclick="saveData('news')">ニュースを反映する</button>
-            <button class="btn-reset" onclick="resetNews()">入力をクリア</button>
+            <button class="btn-update" onclick="saveNews()">ニュースを反映</button>
         </div>
     </div>
 
-    <div id="tab-sokuhou" class="tab-content">
-        <div class="form-group">
-            <label>サブテキスト</label>
-            <input type="text" id="subtitle" placeholder="震源地：青森県東方沖">
+    <!-- ③ 画面構成（レイアウト）切替 -->
+    <div id="tab-master" class="tab-content">
+        <label>現在の配信レイアウト</label>
+        <div class="layout-selector">
+            <div class="layout-card" id="mode-normal" onclick="setLayout('normal')">
+                <span>①</span>
+                <p>通常中継</p>
+            </div>
+            <div class="layout-card" id="mode-tsunami" onclick="setLayout('tsunami')">
+                <span>②</span>
+                <p>津波情報</p>
+            </div>
+            <div class="layout-card" id="mode-l-shape" onclick="setLayout('l-shape')">
+                <span>④</span>
+                <p>L字画面</p>
+            </div>
         </div>
-        <div class="form-group">
-            <label>メインタイトル</label>
-            <textarea id="mainTitle" rows="4" placeholder="津波警報を発表しました"></textarea>
-        </div>
-        <div class="btn-group">
-            <button class="btn-update" onclick="saveData('sokuhou')">速報を反映する</button>
-            <button class="btn-reset" id="resetBtn">リセット</button>
-        </div>
-    </div>
-
-    <div id="tab-program" class="tab-content">
-        <div class="form-group">
-            <label>配信モード切替</label>
-            <select id="statusType">
-                <option value="bot">自動（Bot）</option>
-                <option value="ningen">人間による配信</option>
-            </select>
-            <p class="help-text">「人間」にするとテロップが赤くなります。</p>
-        </div>
-        <div class="btn-group">
-            <button class="btn-update" onclick="saveData('program')">設定を保存する</button>
-        </div>
+        <p class="help-text" style="margin-top:20px;">※選択すると即座に配信画面（③のスイッチャー）が切り替わります。</p>
     </div>
 </div>
 
@@ -219,45 +157,44 @@
         e.currentTarget.classList.add('active');
     };
 
-    // 保存
-    window.saveData = (mode) => {
-        if (mode === 'program') {
-            update(ref(db, 'broadcast/current'), {
-                statusType: document.getElementById('statusType').value,
-                updatedAt: Date.now()
-            }).then(() => alert('更新完了'));
-        } 
-        else if (mode === 'sokuhou') {
-            update(ref(db, 'broadcast/current'), {
-                subtitle: document.getElementById('subtitle').value,
-                mainTitle: document.getElementById('mainTitle').value,
-                updatedAt: Date.now()
-            }).then(() => alert('速報を反映しました'));
-        }
-        else if (mode === 'news') {
-            set(ref(db, 'broadcast/manual_news'), {
-                genre: document.getElementById('news-genre').value,
-                line1: document.getElementById('news-line1').value,
-                line2: document.getElementById('news-line2').value,
-                updatedAt: Date.now()
-            }).then(() => alert('ニュースを送信しました'));
-        }
+    // ① 中継場所の保存
+    window.saveRelay = () => {
+        update(ref(db, 'broadcast/current/camera'), {
+            location: document.getElementById('relay-location').value,
+            updatedAt: Date.now()
+        }).then(() => alert('中継場所を更新しました'));
     };
 
-    window.resetNews = () => {
-        if(confirm('内容を消去しますか？')) {
-            document.getElementById('news-genre').value = '';
-            document.getElementById('news-line1').value = '';
-            document.getElementById('news-line2').value = '';
-        }
+    // ② ニュースの保存
+    window.saveNews = () => {
+        set(ref(db, 'broadcast/manual_news'), {
+            genre: document.getElementById('news-genre').value,
+            line1: document.getElementById('news-line1').value,
+            line2: document.getElementById('news-line2').value,
+            updatedAt: Date.now()
+        }).then(() => alert('ニュースを反映しました'));
     };
 
+    // ④ レイアウト切替
+    window.setLayout = (mode) => {
+        update(ref(db, 'broadcast/current'), {
+            layoutMode: mode
+        }).then(() => {
+            console.log("Layout changed to:", mode);
+        });
+    };
+
+    // リアルタイム反映（Admin側の表示同期）
     onValue(ref(db, 'broadcast/current'), (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            document.getElementById('statusType').value = data.statusType || 'bot';
-            document.getElementById('subtitle').value = data.subtitle || '';
-            document.getElementById('mainTitle').value = data.mainTitle || '';
+            // 中継場所
+            if(data.camera) document.getElementById('relay-location').value = data.camera.location || '';
+            
+            // レイアウトボタンの選択状態
+            document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('active'));
+            const activeCard = document.getElementById('mode-' + (data.layoutMode || 'normal'));
+            if(activeCard) activeCard.classList.add('active');
         }
     });
 
@@ -267,13 +204,6 @@
             document.getElementById('news-genre').value = data.genre || '';
             document.getElementById('news-line1').value = data.line1 || '';
             document.getElementById('news-line2').value = data.line2 || '';
-        }
-    });
-
-    document.getElementById('resetBtn').addEventListener('click', () => {
-        if(confirm('リセットしますか？')) {
-            document.getElementById('subtitle').value = '';
-            document.getElementById('mainTitle').value = '';
         }
     });
 </script>
