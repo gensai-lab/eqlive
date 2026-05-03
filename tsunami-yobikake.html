@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: transparent;
+            width: 600px;
+            height: 146px;
+        }
+
+        #container {
+            position: relative;
+            width: 600px;
+            height: 146px;
+        }
+
+        .yobikake-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 600px;
+            height: 146px;
+            opacity: 0;
+            transition: opacity 2s ease-in-out; /* 2秒かけてクロスフェード */
+            object-fit: contain;
+        }
+
+        .yobikake-img.active {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+<div id="container">
+    <!-- 画像はJavaScriptで動的に生成されます -->
+</div>
+
+<script>
+    const FADE_INTERVAL = 10000; // 10秒ごとに切り替え
+    let currentLevel = null; // 'MajorWarning', 'Warning', 'Watch'
+    let currentIndex = 0;
+    let timer = null;
+
+    // 画像設定
+    const config = {
+        MajorWarning: {
+            count: 5,
+            path: 'assets/banner/yobikake/major_' // 例: major_0.png ~ major_4.png
+        },
+        Warning: {
+            count: 5,
+            path: 'assets/banner/yobikake/warning_' // 例: warning_0.png ~ warning_4.png
+        },
+        Watch: {
+            count: 3,
+            path: 'assets/banner/yobikake/watch_' // 例: watch_0.png ~ watch_2.png
+        }
+    };
+
+    function updateDisplay(level) {
+        if (currentLevel === level) return; // レベルが変わらなければ何もしない
+        
+        currentLevel = level;
+        const container = document.getElementById('container');
+        container.innerHTML = ''; // 既存の画像をクリア
+        
+        if (!config[level]) return;
+
+        // 画像要素を生成
+        for (let i = 0; i < config[level].count; i++) {
+            const img = document.createElement('img');
+            img.src = `${config[level].path}${i}.png`;
+            img.className = 'yobikake-img';
+            if (i === 0) img.classList.add('active');
+            container.appendChild(img);
+        }
+
+        currentIndex = 0;
+        startLoop();
+    }
+
+    function startLoop() {
+        if (timer) clearInterval(timer);
+        
+        const imgs = document.querySelectorAll('.yobikake-img');
+        if (imgs.length <= 1) return;
+
+        timer = setInterval(() => {
+            imgs[currentIndex].classList.remove('active');
+            currentIndex = (currentIndex + 1) % imgs.length;
+            imgs[currentIndex].classList.add('active');
+        }, FADE_INTERVAL);
+    }
+
+    // index.htmlのFirebase受信処理から呼ばれる関数
+    window.updateTsunamiYobikake = (dataArray) => {
+        if (!dataArray || dataArray.length === 0) {
+            updateDisplay(null);
+            return;
+        }
+
+        const activeInfo = dataArray.find(d => d.code === 552 && !d.cancelled);
+        if (!activeInfo) {
+            updateDisplay(null);
+            return;
+        }
+
+        // 優先順位：大津波警報 > 津波警報 > 津波注意報
+        let highestGrade = null;
+        const grades = activeInfo.areas.map(a => a.grade);
+
+        if (grades.includes('MajorWarning')) highestGrade = 'MajorWarning';
+        else if (grades.includes('Warning')) highestGrade = 'Warning';
+        else if (grades.includes('Watch')) highestGrade = 'Watch';
+
+        updateDisplay(highestGrade);
+    };
+
+    /* --- テスト用実行コード（本番時はコメントアウトまたは削除） --- */
+    /*
+    window.onload = () => {
+        // テスト：大津波警報が来ている想定
+        updateDisplay('MajorWarning');
+    };
+    */
+</script>
+
+</body>
+</html>
