@@ -29,6 +29,7 @@
             position: relative;
         }
 
+        /* 待機用バナー */
         #waiting-banner {
             position: absolute;
             top: 0;
@@ -43,6 +44,7 @@
             display: block;
         }
 
+        /* ジャンル表示（46px） */
         .genre-label {
             background-color: #003EB3;
             color: white;
@@ -51,36 +53,44 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 30px; /* 文字数によって調整できるよう少し小さめに設定 */
-            line-height: 1.2;
+            font-size: 46px; 
+            line-height: 1.1;
             letter-spacing: 1px;
             font-weight: bold;
             text-align: center;
             word-break: break-all;
             padding: 0 5px;
             box-sizing: border-box;
+            visibility: hidden;
         }
 
+        /* ニュース内容表示エリア */
         .content-area {
             flex: 1;
             display: flex;
-            flex-direction: column; /* 2行にするため縦並び */
+            flex-direction: column;
             justify-content: center;
             padding: 0 15px;
             background-color: white;
+            visibility: hidden;
         }
 
+        /* ニュース内容（40px / 行間1.3） */
         .news-line {
-            font-size: 36px; /* スクロールなし・2行のためサイズ調整 */
+            font-size: 40px; 
             color: #1a1a1a;
             font-weight: bold;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            line-height: 1.4;
+            line-height: 1.3;
         }
 
-        .line-1 { border-bottom: 1px solid #eee; padding-bottom: 2px; margin-bottom: 2px; }
+        /* 区切り線は削除 */
+        .line-1 { 
+            border-bottom: none; 
+            margin-bottom: 0; 
+        }
     </style>
 </head>
 <body>
@@ -88,7 +98,7 @@
 <div class="main-container">
     <div id="waiting-banner"></div>
     <div id="genre-text" class="genre-label"></div>
-    <div class="content-area" id="main-content" style="visibility: hidden;">
+    <div class="content-area" id="main-content">
         <div id="text-line1" class="news-line line-1"></div>
         <div id="text-line2" class="news-line"></div>
     </div>
@@ -125,12 +135,13 @@
             contentArea.style.visibility = "visible";
             genreElement.style.visibility = "visible";
 
-            // ジャンルの処理（2文字ずつ改行を入れる処理など）
-            let genreDisp = data.genre || "情報";
-            if (genreDisp.length > 2) {
-                genreDisp = genreDisp.substring(0, 2) + "<br>" + genreDisp.substring(2, 4);
+            // ジャンルの処理（2文字で改行）
+            let genreRaw = data.genre || "情報";
+            let genreDisp = "";
+            if (genreRaw.length > 2) {
+                genreDisp = genreRaw.substring(0, 2) + "<br>" + genreRaw.substring(2, 4);
             } else {
-                genreDisp = genreDisp.split('').join('<br>');
+                genreDisp = genreRaw.split('').join('<br>');
             }
             genreElement.innerHTML = genreDisp;
 
@@ -140,6 +151,16 @@
             waitingBanner.style.display = "block";
             contentArea.style.visibility = "hidden";
             genreElement.style.visibility = "hidden";
+        }
+    });
+
+    // 配信モード連動（色の変更など）
+    onValue(ref(db, 'broadcast/current'), (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.statusType === 'ningen') {
+            genreElement.style.backgroundColor = "#d32f2f";
+        } else {
+            genreElement.style.backgroundColor = "#003EB3";
         }
     });
 </script>
