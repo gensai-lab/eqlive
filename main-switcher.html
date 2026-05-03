@@ -47,7 +47,7 @@
             transition: opacity 0.5s ease;
         }
 
-        /* タイトル枠（下部など） */
+        /* タイトル枠（下部） */
         #titleFrame {
             bottom: 40px;
             left: 40px;
@@ -55,7 +55,7 @@
             height: 150px;
         }
 
-        /* 津波マップ枠（右下など） */
+        /* 津波マップ枠（右側中段〜下部） */
         #tsunamiFrame {
             bottom: 40px;
             right: 40px;
@@ -63,7 +63,7 @@
             height: 350px;
         }
 
-        /* 上部情報枠（テロップ上など） */
+        /* 津波呼びかけ枠（右上） */
         #infoTopFrame {
             top: 40px;
             right: 40px;
@@ -82,6 +82,7 @@
             pointer-events: none;
         }
 
+        /* 時計とバナーの配置指定を反映 */
         .video-overlay-elements {
             position: absolute;
             top: 40px;
@@ -109,13 +110,13 @@
 </head>
 <body>
 
-    <!-- 1. ベースレイヤー -->
+    <!-- 1. ベースレイヤー（② tsunami-info-overlay.html） -->
     <iframe id="content-layer" src="tsunami-info-overlay.html"></iframe>
 
-    <!-- 2. 追加情報レイヤー（各パーツ） -->
-    <iframe id="titleFrame" class="info-overlay-frame" src="about:blank" opacity="0"></iframe>
-    <iframe id="tsunamiFrame" class="info-overlay-frame" src="about:blank" opacity="0"></iframe>
-    <iframe id="infoTopFrame" class="info-overlay-frame" src="about:blank" opacity="0"></iframe>
+    <!-- 2. 追加情報レイヤー（指定URLを設定） -->
+    <iframe id="titleFrame" class="info-overlay-frame" src="title.html" style="opacity: 0;"></iframe>
+    <iframe id="tsunamiFrame" class="info-overlay-frame" src="tsunami-map.html" style="opacity: 0;"></iframe>
+    <iframe id="infoTopFrame" class="info-overlay-frame" src="tsunami-yobikake.html" style="opacity: 0;"></iframe>
 
     <!-- 3. 固定オーバーレイ（時計・ロゴ） -->
     <div class="static-overlay">
@@ -159,24 +160,28 @@
             const data = snapshot.val();
             if (!data) return;
 
-            // バナー切替
+            // バナー切替（人間/Bot）
             const bannerImg = document.getElementById('distributorImg');
             bannerImg.src = data.statusType === 'ningen' 
                 ? 'assets/banner/distributor/ningen.png' 
                 : 'assets/banner/distributor/bot.png';
 
             // シーン切替ロジック
-            const contentLayer = document.getElementById('content-layer');
-            const tsunamiFrame = document.getElementById('tsunamiFrame');
             const titleFrame = document.getElementById('titleFrame');
+            const tsunamiFrame = document.getElementById('tsunamiFrame');
+            const infoTopFrame = document.getElementById('infoTopFrame');
 
+            // admin.htmlの「シーン切り替え」に連動
             if (data.layoutMode === 'tsunami') {
-                // 津波モード時のフレーム制御例
-                tsunamiFrame.style.opacity = "1";
-                tsunamiFrame.src = "tsunami-map.html"; // 必要に応じて
-            } else if (data.layoutMode === 'normal') {
-                tsunamiFrame.style.opacity = "0";
+                // 有事モード：呼びかけやマップを表示
                 titleFrame.style.opacity = "1";
+                tsunamiFrame.style.opacity = "1";
+                infoTopFrame.style.opacity = "1";
+            } else if (data.layoutMode === 'normal') {
+                // 通常モード：各フレームを隠す（必要に応じてtitleのみ出す等の調整可）
+                titleFrame.style.opacity = "0";
+                tsunamiFrame.style.opacity = "0";
+                infoTopFrame.style.opacity = "0";
             }
         });
     </script>
