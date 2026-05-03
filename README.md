@@ -8,3 +8,4 @@
 
 <br>1 Live Only : https://gensai-lab.github.io/eqlive/live-only.html</br>
 <br>2 Tsunami Info Overlay : https://gensai-lab.github.io/eqlive/tsunami-info-overlay.html</br>
+<br>3 Main Switcher : https://gensai-lab.github.io/eqlive/main-switcher.html</br>
