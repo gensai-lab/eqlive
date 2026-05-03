@@ -23,9 +23,12 @@
             overflow: hidden;
             background-color: black;
             font-family: 'UDKakugoLarge', sans-serif;
+            position: relative;
         }
 
-        /* 制御対象のレイヤー（② tsunami-info-overlay.html など） */
+        /* ――― レイヤー構造 ――― */
+
+        /* 1. ベース層（映像・背景） */
         #content-layer {
             position: absolute;
             top: 0;
@@ -34,10 +37,41 @@
             height: 100%;
             border: none;
             z-index: 1;
-            transition: opacity 0.5s ease; /* 切り替え時のフェード効果 */
         }
 
-        /* 最前面に固定するオーバーレイ（時計・ロゴ） */
+        /* 2. 情報追加層（タイトル、津波マップ等） */
+        .info-overlay-frame {
+            position: absolute;
+            border: none;
+            z-index: 10;
+            transition: opacity 0.5s ease;
+        }
+
+        /* タイトル枠（下部など） */
+        #titleFrame {
+            bottom: 40px;
+            left: 40px;
+            width: 1215px;
+            height: 150px;
+        }
+
+        /* 津波マップ枠（右下など） */
+        #tsunamiFrame {
+            bottom: 40px;
+            right: 40px;
+            width: 600px;
+            height: 350px;
+        }
+
+        /* 上部情報枠（テロップ上など） */
+        #infoTopFrame {
+            top: 40px;
+            right: 40px;
+            width: 600px;
+            height: 146px;
+        }
+
+        /* 3. 最前面固定層（時計・ロゴ） */
         .static-overlay {
             position: absolute;
             top: 0;
@@ -45,13 +79,13 @@
             width: 100%;
             height: 100%;
             z-index: 100;
-            pointer-events: none; /* 下層の操作を妨げない */
+            pointer-events: none;
         }
 
         .video-overlay-elements {
             position: absolute;
-            top: 36px; /* ②のvideo-containerの位置に合わせる */
-            left: 60px;
+            top: 195px;
+            left: 90px;
             display: flex;
             align-items: center;
             gap: 30px;
@@ -75,15 +109,19 @@
 </head>
 <body>
 
-    <!-- 下層：情報レイヤー（初期値として②を指定） -->
+    <!-- 1. ベースレイヤー -->
     <iframe id="content-layer" src="tsunami-info-overlay.html"></iframe>
 
-    <!-- 最上層：固定エレメント -->
+    <!-- 2. 追加情報レイヤー（各パーツ） -->
+    <iframe id="titleFrame" class="info-overlay-frame" src="about:blank" opacity="0"></iframe>
+    <iframe id="tsunamiFrame" class="info-overlay-frame" src="about:blank" opacity="0"></iframe>
+    <iframe id="infoTopFrame" class="info-overlay-frame" src="about:blank" opacity="0"></iframe>
+
+    <!-- 3. 固定オーバーレイ（時計・ロゴ） -->
     <div class="static-overlay">
         <div class="video-overlay-elements">
             <div class="clock" id="liveClock">00：00</div>
             <div class="distributor-banner">
-                <!-- 初期はBOT版を表示 -->
                 <img id="distributorImg" src="assets/banner/distributor/bot.png">
             </div>
         </div>
@@ -93,6 +131,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+        // Firebase構成
         const firebaseConfig = {
             apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
             authDomain: "mgl-eqlive.firebaseapp.com",
@@ -105,7 +144,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // 時計の更新処理
+        // 時計更新
         function updateClock() {
             const now = new Date();
             const h = now.getHours().toString().padStart(2, '0');
@@ -115,32 +154,29 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // Adminからのスイッチング指示を受信
+        // 配信状態・レイアウト監視
         onValue(ref(db, 'broadcast/current'), (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
 
-            // 1. バナーの切り替え（人間/BOT）
+            // バナー切替
             const bannerImg = document.getElementById('distributorImg');
             bannerImg.src = data.statusType === 'ningen' 
                 ? 'assets/banner/distributor/ningen.png' 
                 : 'assets/banner/distributor/bot.png';
 
-            // 2. モードに応じたiframeの切り替え
-            // 例: data.mode が 'tsunami' なら tsunami-info-overlay.html を表示
+            // シーン切替ロジック
             const contentLayer = document.getElementById('content-layer');
-            let targetUrl = "tsunami-info-overlay.html"; // デフォルト
-            
-            if (data.viewMode === 'normal') {
-                targetUrl = "normal-overlay.html"; // 通常時用の別のレイアウト
-            }
+            const tsunamiFrame = document.getElementById('tsunamiFrame');
+            const titleFrame = document.getElementById('titleFrame');
 
-            if (contentLayer.getAttribute('src') !== targetUrl) {
-                contentLayer.style.opacity = 0; // フェードアウト
-                setTimeout(() => {
-                    contentLayer.src = targetUrl;
-                    contentLayer.style.opacity = 1; // フェードイン
-                }, 500);
+            if (data.layoutMode === 'tsunami') {
+                // 津波モード時のフレーム制御例
+                tsunamiFrame.style.opacity = "1";
+                tsunamiFrame.src = "tsunami-map.html"; // 必要に応じて
+            } else if (data.layoutMode === 'normal') {
+                tsunamiFrame.style.opacity = "0";
+                titleFrame.style.opacity = "1";
             }
         });
     </script>
