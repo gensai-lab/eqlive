@@ -4,3 +4,6 @@
 <br>Tsunami Map : https://gensai-lab.github.io/eqlive/tsunami-map.html</br>
 <br>Tsunami List : https://gensai-lab.github.io/eqlive/tsunami-list.html</br>
 <br>Tsunami Yobikake : https://gensai-lab.github.io/eqlive/tsunami-yobikake.html</br>
+<br>News Ticker : https://gensai-lab.github.io/eqlive/news-ticker.html</br>
+
+<br>1 Live Only : https://gensai-lab.github.io/eqlive/live-onry.html</br>
