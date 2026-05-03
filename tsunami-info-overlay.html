@@ -1,1 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Kactuif - Tsunami Info Overlay</title>
+    <style>
+        @font-face {
+            font-family: 'UDKakugoLarge';
+            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
+            font-weight: bold;
+        }
 
+        :root {
+            --clock-stroke: #003EB3;
+            --text-white: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 1920px;
+            height: 1080px;
+            background: url('assets/cover/cover.jpg') no-repeat center center;
+            background-size: cover;
+            font-family: 'UDKakugoLarge', sans-serif;
+            color: var(--text-white);
+            display: grid;
+            grid-template-columns: 1280px 640px;
+            grid-template-rows: 840px 240px;
+        }
+
+        .main-content {
+            grid-column: 1;
+            grid-row: 1;
+            padding: 155px 0 0 40px;
+            position: relative;
+        }
+
+        .video-container {
+            width: 1215px;
+            height: 675px;
+            background: #000;
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px; 
+        }
+
+        #mainVideoDisplay, #imageDisplay {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 40px;
+            left: 50px;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .clock {
+            font-size: 90px;
+            font-weight: bold;
+            color: var(--text-white);
+            -webkit-text-stroke: 12px var(--clock-stroke);
+            stroke-linejoin: round;
+            paint-order: stroke fill;
+            line-height: 1;
+            font-feature-settings: "palt";
+        }
+
+        .distributor-banner img {
+            height: 70px;
+        }
+
+        .tsunami-panel {
+            grid-column: 2;
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: flex-end;
+            padding: 0 40px 40px 0;
+            gap: 20px;
+        }
+
+        /* 146px ボックス：呼びかけ画像を表示 */
+        .info-top-frame {
+            width: 600px;
+            height: 146px;
+            border: none;
+            background-color: transparent; /* 背景透過 */
+            border-radius: 8px;
+        }
+
+        /* 135px ボックス：現在は空 */
+        .info-mid-frame {
+            width: 600px;
+            height: 135px;
+            border: none;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+        }
+
+        .tsunami-list-frame {
+            width: 600px;
+            height: 310px;
+            border: none;
+            background-color: #fff;
+            border-radius: 8px;
+        }
+
+        .tsunami-frame {
+            width: 600px;
+            height: 350px;
+            border: none;
+            background-color: rgba(0, 0, 0, 0.9);
+            border-radius: 8px; 
+        }
+
+        .bottom-ticker-container {
+            grid-column: 1;
+            grid-row: 2;
+            display: flex;
+            align-items: flex-end;
+            padding-bottom: 15px; 
+        }
+
+        .title-frame {
+            width: 100%;
+            height: 210px; 
+            border: none;
+            background: transparent;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <main class="main-content">
+        <div class="video-container">
+            <video id="mainVideoDisplay" autoplay playsinline muted></video>
+            <img id="imageDisplay" src="" alt="" style="display:none;">
+        </div>
+        <div class="video-overlay">
+            <div class="clock" id="liveClock">00：00</div>
+            <div class="distributor-banner">
+                <img id="distributorImg" src="assets/banner/distributor/bot.png">
+            </div>
+        </div>
+    </main>
+
+    <aside class="tsunami-panel">
+        <iframe id="infoTopIframe" src="tsunami-yobikake.html" class="info-top-frame" scrolling="no" allowtransparency="true"></iframe>
+        <iframe id="infoMidIframe" src="news-ticker.html" class="info-mid-frame" scrolling="no" allowtransparency="true"></iframe>
+        <iframe id="tsunamiListIframe" src="tsunami-list.html" class="tsunami-list-frame" scrolling="no" allowtransparency="true"></iframe>
+        <iframe id="tsunamiMapIframe" src="tsunami-map.html" class="tsunami-frame" scrolling="no" allowtransparency="true"></iframe>
+    </aside>
+
+    <footer class="bottom-ticker-container">
+        <iframe src="title.html" class="title-frame" scrolling="no" allowtransparency="true"></iframe>
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+            authDomain: "mgl-eqlive.firebaseapp.com",
+            databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+            projectId: "mgl-eqlive",
+            storageBucket: "mgl-eqlive.firebasestorage.app",
+            messagingSenderId: "1060231327645",
+            appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        function updateClock() {
+            const now = new Date();
+            const h = now.getHours().toString().padStart(2, '0');
+            const m = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('liveClock').innerText = `${h}：${m}`;
+        }
+        setInterval(updateClock, 1000); updateClock();
+
+        onValue(ref(db, 'broadcast/current'), (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+            document.getElementById('distributorImg').src = data.statusType === 'ningen' ? 'assets/banner/distributor/ningen.png' : 'assets/banner/distributor/bot.png';
+        });
+
+        // 津波情報の受信と各iframeへの配信
+        onValue(ref(db, 'tsunami'), (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            const dataArray = Object.values(data).flat();
+
+            const mapIframe = document.getElementById('tsunamiMapIframe').contentWindow;
+            const listIframe = document.getElementById('tsunamiListIframe').contentWindow;
+            const yobikakeIframe = document.getElementById('infoTopIframe').contentWindow;
+
+            // 津波マップの更新
+            if (mapIframe.updateTsunamiMap) {
+                const activeInfo = dataArray.find(d => d.code === 552 && !d.cancelled);
+                mapIframe.updateTsunamiMap(activeInfo);
+            }
+            
+            // 津波リストの更新
+            if (listIframe.updateTsunamiList) {
+                listIframe.updateTsunamiList(dataArray);
+            }
+
+            // 呼びかけ画像の更新
+            if (yobikakeIframe.updateTsunamiYobikake) {
+                yobikakeIframe.updateTsunamiYobikake(dataArray);
+            }
+        });
+    </script>
+</body>
+</html>
