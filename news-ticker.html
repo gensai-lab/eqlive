@@ -6,7 +6,7 @@
         @font-face {
             font-family: 'UDKakugoLarge';
             src: url('./assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
-            font-weight: bold;
+            font-weight: 400;
         }
 
         body {
@@ -62,7 +62,7 @@
         }
 
         .timestamp {
-            font-size: 16px;
+            font-size: 20px;
             opacity: 0.8;
         }
     </style>
@@ -119,7 +119,7 @@
                 displayArea.innerText = tickerMessage + tickerMessage; 
                 
                 // スクロール速度の調整 (1文字あたり約0.4秒)
-                const duration = Math.max(25, (tickerMessage.length * 0.4));
+                const duration = Math.max(25, (tickerMessage.length * 0.7));
                 displayArea.style.animationDuration = `${duration}s`;
 
                 const now = new Date();
