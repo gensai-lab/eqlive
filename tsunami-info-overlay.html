@@ -25,7 +25,6 @@
             font-family: 'UDKakugoLarge', sans-serif;
             color: var(--text-white);
             display: grid;
-            /* 右側のパネル幅を維持し、左側を広げたレイアウト */
             grid-template-columns: 1280px 640px;
             grid-template-rows: 1fr; 
         }
@@ -37,6 +36,7 @@
             position: relative;
         }
 
+        /* 映像を表示するコンテナ */
         .video-container {
             width: 1215px;
             height: 675px;
@@ -46,10 +46,11 @@
             border-radius: 8px; 
         }
 
-        #mainVideoDisplay, #imageDisplay {
+        /* iframeをコンテナいっぱいに広げる */
+        #mainVideoIframe {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            border: none;
         }
 
         .tsunami-panel {
@@ -63,7 +64,6 @@
             gap: 20px;
         }
 
-        /* 中身を空にし、不透明度を0%に設定 */
         .info-top-frame {
             width: 600px;
             height: 146px;
@@ -89,7 +89,6 @@
             border-radius: 8px;
         }
 
-        /* 中身を空にし、不透明度を0%に設定 */
         .tsunami-frame {
             width: 600px;
             height: 350px;
@@ -103,20 +102,15 @@
 <body>
     <main class="main-content">
         <div class="video-container">
-            <!-- 動画表示エリア -->
-            <video id="mainVideoDisplay" autoplay playsinline muted></video>
-            <img id="imageDisplay" src="" alt="" style="display:none;">
+            <!-- ① live-only.html を埋め込む iframe -->
+            <iframe id="mainVideoIframe" src="live-only.html" scrolling="no" allow="autoplay; encrypted-media"></iframe>
         </div>
     </main>
 
     <aside class="tsunami-panel">
-        <!-- 枠自体は維持しつつ非表示（about:blank） -->
         <iframe id="infoTopIframe" src="about:blank" class="info-top-frame" scrolling="no" allowtransparency="true"></iframe>
-        
         <iframe id="infoMidIframe" src="news-ticker.html" class="info-mid-frame" scrolling="no" allowtransparency="true"></iframe>
         <iframe id="tsunamiListIframe" src="tsunami-list.html" class="tsunami-list-frame" scrolling="no" allowtransparency="true"></iframe>
-        
-        <!-- 枠自体は維持しつつ非表示（about:blank） -->
         <iframe id="tsunamiMapIframe" src="about:blank" class="tsunami-frame" scrolling="no" allowtransparency="true"></iframe>
     </aside>
 
@@ -136,28 +130,29 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // 津波情報の受信と各iframeへの配信（表示中のもののみ）
         onValue(ref(db, 'tsunami'), (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
-
             const dataArray = Object.values(data).flat();
             const listIframe = document.getElementById('tsunamiListIframe').contentWindow;
-
-            // 津波リストの更新（現在表示されているフレームのみ）
             if (listIframe.updateTsunamiList) {
                 listIframe.updateTsunamiList(dataArray);
             }
         });
 
-        // ライブ映像URLの取得
+        // Firebaseから映像URL（m3u8）を受け取り、子画面（live-only.html）に伝える
         onValue(ref(db, 'broadcast/current'), (snapshot) => {
             const data = snapshot.val();
             if (!data || !data.videoUrl) return;
+
+            const iframe = document.getElementById('mainVideoIframe');
             
-            const videoElement = document.getElementById('mainVideoDisplay');
-            if (videoElement.src !== data.videoUrl) {
-                videoElement.src = data.videoUrl;
+            // live-only.html内の再生関数を呼び出す
+            // まだ読み込まれていない場合を考慮し、URLをクエリパラメータで渡すか、
+            // postMessageで通信する形が確実です。
+            if (iframe.contentWindow && data.videoUrl) {
+                // live-only.html 側にURLを送信（※live-only.html側で受信処理が必要）
+                iframe.contentWindow.postMessage({ type: 'UPDATE_VIDEO_URL', url: data.videoUrl }, '*');
             }
         });
     </script>
