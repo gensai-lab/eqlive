@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EQLive - Live Layer</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        @font-face {
+            font-family: 'UDKakugoLarge';
+            src: url('./assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
+            font-weight: 400;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            background-color: black;
+            font-family: 'UDKakugoLarge', sans-serif;
+        }
+
+        .video-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #live-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* 画面いっぱいに表示 */
+        }
+
+        /* 天気予報オーバーレイ（55分用） */
+        #weather-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            z-index: 50;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+        }
+
+        /* デバッグ・ステータス表示 */
+        #status-log {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            color: rgba(255, 255, 255, 0.2);
+            font-size: 14px;
+            z-index: 100;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="video-container">
+        <video id="live-video" muted playsinline autoplay></video>
+    </div>
+
+    <div id="weather-overlay">全国の天気予報を表示中...</div>
+
+    <div id="status-log">System Initializing...</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    
+    const video = document.getElementById('live-video');
+    const statusLog = document.getElementById('status-log');
+    const weatherOverlay = document.getElementById('weather-overlay');
+
+    let hls = null;
+    let cameraList = [];
+    let currentCameraId = "";
+
+    function log(msg) {
+        console.log(msg);
+        statusLog.innerText = msg;
+    }
+
+    // 1. カメラリスト(JSON)を読み込む
+    async function loadConfig() {
+        try {
+            const response = await fetch('assets/json/kh-livec.json');
+            cameraList = await response.json();
+            log(`JSON Loaded: ${cameraList.length} cams`);
+            startSync();
+        } catch (e) {
+            log("JSON Load Error: " + e.message);
+        }
+    }
+
+    // 2. Firebase同期開始
+    function startSync() {
+        // カメラIDの監視
+        onValue(ref(db, 'broadcast/current/cameraSource'), (snapshot) => {
+            const id = snapshot.val();
+            if (id && id !== currentCameraId) {
+                currentCameraId = id;
+                const camData = cameraList.find(c => c.id === id);
+                if (camData) {
+                    playStream(camData.url, camData.name);
+                } else {
+                    log(`ID Not Found: ${id}`);
+                }
+            }
+        });
+
+        // 天気予報フラグの監視
+        onValue(ref(db, 'broadcast/schedule/isWeatherTime'), (snapshot) => {
+            const isWeather = snapshot.val();
+            weatherOverlay.style.display = isWeather ? 'flex' : 'none';
+        });
+    }
+
+    // 3. 動画再生処理
+    function playStream(url, name) {
+        log(`Connecting: ${name}`);
+
+        if (hls) {
+            hls.destroy();
+        }
+
+        if (Hls.isSupported()) {
+            hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true,
+                backBufferLength: 30
+            });
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                video.play().then(() => {
+                    log(`LIVE: ${name}`);
+                }).catch(e => {
+                    log("Autoplay blocked. Click screen.");
+                });
+            });
+
+            // 再生エラー時の自動リカバリ
+            hls.on(Hls.Events.ERROR, (event, data) => {
+                if (data.fatal) {
+                    log(`HLS Fatal: ${data.details}`);
+                    if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+                    else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+                }
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Safari / iOS 用
+            video.src = url;
+            video.play();
+        }
+    }
+
+    // 起動
+    loadConfig();
+
+    // ブラウザの自動再生ブロック解除用
+    document.body.addEventListener('click', () => {
+        video.play();
+        log("Playback Resumed");
+    });
+</script>
+
+</body>
+</html>
