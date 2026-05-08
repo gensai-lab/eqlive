@@ -29,19 +29,29 @@
             padding: 0; margin: 0; font-weight: bold;
         }
 
-        /* 予報区名：32px、最大幅280pxで縮小 */
+        /* 予報区名：左パディング14px、最大幅280pxで縮小 */
         .area-wrapper {
-            width: 280px; margin-left: 100px; /* 画像のラベル位置に合わせるため調整 */
+            width: 280px; 
+            padding-left: 14px; /* 指定の14px */
             overflow: visible; display: flex; align-items: center;
+            box-sizing: border-box;
         }
         .area-name {
             font-size: 32px; white-space: nowrap; transform-origin: left center;
         }
 
-        /* 到達予想：32px */
+        /* 到達予想：中央揃え、右パディング（後ほど調整用） */
         .time {
-            flex: 1; font-size: 32px; text-align: right;
-            padding-right: 25px; white-space: nowrap;
+            flex: 1; font-size: 32px; 
+            text-align: center; /* 中央揃え */
+            padding-right: 30px; /* 右パディング：いい感じに（仮） */
+            white-space: nowrap;
+        }
+        
+        /* 「日」の文字サイズを小さくする用 */
+        .day-unit {
+            font-size: 0.7em;
+            margin: 0 2px;
         }
     </style>
 </head>
@@ -63,38 +73,52 @@
         "ただちに到達と推測": "直ちに到達"
     };
 
-    const HEIGHT_TO_FILE = {
-        "10m": "10m", "10m超": "10mu", "5m": "5m", "3m": "3m", "1m": "1m",
-        "巨大": "kyodai", "高い": "takai", "none": "none"
+    // 画像マッピング設定
+    const HEIGHT_IMAGE_MAP = {
+        "１ｍ": "assets/banner/tsunami/tsunami-list_1m.svg",
+        "３ｍ": "assets/banner/tsunami/tsunami-list_3m.svg",
+        "５ｍ": "assets/banner/tsunami/tsunami-list_5m.svg",
+        "１０ｍ": "assets/banner/tsunami/tsunami-list_10m.svg",
+        "１０ｍ超": "assets/banner/tsunami/tsunami-list_10mu.svg",
+        "giant": "assets/banner/tsunami/tsunami-list_kyodai.svg",
+        "high": "assets/banner/tsunami/tsunami-list_takai.svg",
+        "none": "assets/banner/tsunami/tsunami-list_none.svg"
     };
 
     // --- 関数：文字幅の自動圧縮 ---
     function adjustTextScale(el) {
         el.style.transform = "scaleX(1)";
         const width = el.offsetWidth;
-        if (width > 280) {
-            const scale = 280 / width;
+        const maxWidth = 266; // 280px - padding 14px
+        if (width > maxWidth) {
+            const scale = maxWidth / width;
             el.style.transform = `scaleX(${scale})`;
         }
     }
 
-    // --- 関数：時刻・文言の整形 ---
-    function formatCondition(cond) {
+    // --- 関数：時刻・文言の整形（「日」の小文字化含む） ---
+    function formatConditionHTML(cond) {
         if (!cond) return "";
-        if (CONDITION_DICT[cond]) return CONDITION_DICT[cond];
+        let text = CONDITION_DICT[cond] || cond;
         
-        // 日付形式 (例: 2026-04-20T23:45:00) の判定
-        const date = new Date(cond);
-        if (!isNaN(date.getTime()) && cond.includes(':')) {
+        // 日付形式の判定と整形
+        const date = new Date(text);
+        if (!isNaN(date.getTime()) && text.includes(':')) {
             const d = date.getDate();
             const h = String(date.getHours()).padStart(2, '0');
             const m = String(date.getMinutes()).padStart(2, '0');
-            return `${d}日 ${h}:${m}`;
+            // 「日」をspanで囲んで出力
+            return `${d}<span class="day-unit">日</span> ${h}:${m}`;
         }
-        return cond;
+
+        // すでに文字列の中に「日」がある場合も置換（例: 21日 00:30）
+        if (text.includes("日")) {
+            return text.replace("日", '<span class="day-unit">日</span>');
+        }
+
+        return text;
     }
 
-    // --- メインレンダリング ---
     let currentPage = 0;
     const rowsPerPage = 5;
     let tsunamiAreas = [];
@@ -107,11 +131,11 @@
 
         if (!data || data.length === 0) return;
 
-        // 代表的な警報種別を決定 (一番高いvalueに合わせる)
+        // 代表的な警報種別を決定
         const maxValue = Math.max(...data.map(a => a.maxHeight?.value || 0));
-        if (maxValue >= 5) currentGradeImg = "ot";      // 大津波
-        else if (maxValue >= 3) currentGradeImg = "kt"; // 警報
-        else currentGradeImg = "ct";                    // 注意報
+        if (maxValue >= 5) currentGradeImg = "ot";
+        else if (maxValue >= 3) currentGradeImg = "kt";
+        else currentGradeImg = "ct";
 
         header.style.backgroundImage = `url('../assets/banner/tsunami/tsunami-list_${currentGradeImg}.svg')`;
 
@@ -122,19 +146,19 @@
             const row = document.createElement('div');
             row.className = 'row-img';
             
-            // 画像ファイル名の決定
-            const hKey = item.maxHeight?.description || "none";
-            const fileName = HEIGHT_TO_FILE[hKey] || "none";
-            row.style.backgroundImage = `url('../assets/banner/tsunami/tsunami-list_${fileName}.svg')`;
+            // 指定のパスに基づき背景画像を設定
+            const desc = item.maxHeight?.description || "none";
+            const imgPath = HEIGHT_IMAGE_MAP[desc] || HEIGHT_IMAGE_MAP["none"];
+            row.style.backgroundImage = `url('../${imgPath}')`;
 
-            const condText = formatCondition(item.firstHeight?.condition || item.firstHeight?.arrivalTime);
+            const condHTML = formatConditionHTML(item.firstHeight?.condition || item.firstHeight?.arrivalTime);
 
             row.innerHTML = `
                 <div class="row-content">
                     <div class="area-wrapper">
                         <div class="area-name">${item.name}</div>
                     </div>
-                    <div class="time">${condText}</div>
+                    <div class="time">${condHTML}</div>
                 </div>
             `;
             container.appendChild(row);
@@ -142,19 +166,17 @@
         });
     }
 
-    // P2P地震情報 API等からデータを取得する想定のダミーロジック
-    // 実際には fetch 等で data[1].areas を取得して渡してください
-    const sampleData = [
+    // P2P地震情報のJSONから抽出して適用する例
+    const sampleFromP2P = [
         { name: "北海道太平洋沿岸東部", maxHeight: { description: "１ｍ", value: 1 }, firstHeight: { condition: "第１波の到達を確認" } },
-        { name: "青森県日本海沿岸", maxHeight: { description: "１ｍ", value: 1 }, firstHeight: { condition: "津波到達中と推測" } },
-        { name: "岩手県", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2026-04-20T23:50:00" } }
+        { name: "北海道太平洋沿岸中部", maxHeight: { description: "１ｍ", value: 1 }, firstHeight: { condition: "2026-04-20 23:55:00" } },
+        { name: "岩手県", maxHeight: { description: "giant", value: 5 }, firstHeight: { condition: "津波到達中と推測" } }
     ];
 
-    // 初期実行
-    tsunamiAreas = sampleData; 
+    tsunamiAreas = sampleFromP2P; 
     render(tsunamiAreas);
 
-    // 10秒ごとにページ切り替え
+    // 10秒ページ送り
     setInterval(() => {
         const totalPages = Math.ceil(tsunamiAreas.length / rowsPerPage);
         if (totalPages > 1) {
