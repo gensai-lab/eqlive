@@ -9,7 +9,7 @@
         }
 
         body, html {
-            margin: 0; padding: 0; width: 100%; height: 200px;
+            margin: 0; padding: 0; width: 600px; height: 135px;
             background-color: transparent; overflow: hidden;
             font-family: 'UDKakugo', sans-serif;
         }
@@ -21,59 +21,57 @@
             position: relative;
         }
 
-        /* デフォルト画像 (SVG) */
-        #default-view {
+        #default-view, #emergency-view {
             width: 100%; height: 100%;
-            display: flex; justify-content: center; align-items: center;
             position: absolute; top: 0; left: 0;
-            transition: opacity 0.5s;
-        }
-        #default-view img { height: 100%; width: auto; }
-
-        /* 有事の情報表示 */
-        #emergency-view {
-            width: 100%; height: 100%;
-            display: flex; align-items: center;
-            position: absolute; top: 0; left: 0;
-            opacity: 0; transition: opacity 0.5s;
-            background: linear-gradient(90deg, #000 0%, #111 100%);
+            transition: opacity 0.4s;
+            opacity: 0;
         }
 
-        /* ジャンルボックス (鉄道、津波観測など) */
-        #genre-box {
-            min-width: 280px; height: 100%;
-            display: flex; justify-content: center; align-items: center;
-            font-size: 64px; font-weight: bold; color: white;
-            background-color: #0078d4; /* デフォルト青 */
-            margin-right: 40px;
-        }
-
-        /* テキストエリア */
-        #text-box {
-            font-size: 72px; font-weight: bold; color: white;
-            white-space: nowrap; overflow: hidden;
-            letter-spacing: 0.05em;
-        }
-
-        /* ジャンル別カラー設定 */
-        .color-railway { background-color: #00429d !important; } /* 鉄道：濃い青 */
-        .color-tsunami { background-color: #d13438 !important; } /* 津波：赤 */
-        .color-news { background-color: #444 !important; }    /* 最新情報：グレー */
-
-        /* 表示状態の切り替え */
         .active { opacity: 1 !important; }
+
+        /* デフォルトSVG */
+        #default-view img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* 有事表示レイアウト */
+        #emergency-view { display: flex; align-items: center; }
+
+        #genre-box {
+            width: 160px; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 32px; font-weight: bold; color: white;
+            background-color: #0078d4;
+            text-align: center;
+            line-height: 1.2;
+            flex-shrink: 0;
+        }
+
+        #text-area {
+            flex: 1; padding-left: 20px;
+            display: flex; flex-direction: column; justify-content: center;
+            color: white; overflow: hidden;
+        }
+
+        .line1 { font-size: 34px; font-weight: bold; margin-bottom: 2px; white-space: nowrap; }
+        .line2 { font-size: 28px; font-weight: bold; color: #ccc; white-space: nowrap; }
+
+        /* ジャンル別カラー */
+        .color-railway { background-color: #00429d !important; }
+        .color-tsunami { background-color: #d13438 !important; }
+        .color-news { background-color: #444 !important; }
     </style>
 </head>
 <body>
 
 <div id="ticker-container">
-    <div id="default-view" class="active">
-        <img src="../assets/ticker-t.svg" alt="Default Ticker">
-    </div>
+    <div id="default-view" class="active"><img src="../assets/ticker-t.svg"></div>
 
     <div id="emergency-view">
-        <div id="genre-box">ジャンル</div>
-        <div id="text-box">テキストがここに表示されます</div>
+        <div id="genre-box" id="genre-text">ジャンル</div>
+        <div id="text-area">
+            <div class="line1" id="line1">本文1行目</div>
+            <div class="line2" id="line2">本文2行目</div>
+        </div>
     </div>
 </div>
 
@@ -95,36 +93,29 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const defaultView = document.getElementById('default-view');
-    const emergencyView = document.getElementById('emergency-view');
-    const genreBox = document.getElementById('genre-box');
-    const textBox = document.getElementById('text-box');
-
-    // Firebaseの broadcast/ticker パスを監視
-    // データ構造: { genre: "鉄道", text: "JR山手線 全線で運転見合わせ", active: true }
     onValue(ref(db, 'broadcast/ticker'), (snapshot) => {
         const data = snapshot.val();
-        
-        if (data && data.active && data.text) {
-            // 情報あり：emergency-viewを表示
-            genreBox.innerText = data.genre || "情報";
-            textBox.innerText = data.text;
+        const def = document.getElementById('default-view');
+        const emg = document.getElementById('emergency-view');
 
-            // ジャンルに応じて色を変えるロジック
-            genreBox.className = ""; // リセット
-            if (data.genre.includes("鉄道")) genreBox.classList.add('color-railway');
-            else if (data.genre.includes("津波")) genreBox.classList.add('color-tsunami');
-            else genreBox.classList.add('color-news');
+        if (data && data.active) {
+            document.getElementById('genre-box').innerText = data.genre || "";
+            document.getElementById('line1').innerText = data.line1 || "";
+            document.getElementById('line2').innerText = data.line2 || "";
 
-            defaultView.classList.remove('active');
-            emergencyView.classList.add('active');
+            const gb = document.getElementById('genre-box');
+            gb.className = ""; 
+            if (data.genre.includes("鉄道")) gb.classList.add('color-railway');
+            else if (data.genre.includes("津波")) gb.classList.add('color-tsunami');
+            else gb.classList.add('color-news');
+
+            def.classList.remove('active');
+            emg.classList.add('active');
         } else {
-            // 情報なし：デフォルトSVGを表示
-            defaultView.classList.add('active');
-            emergencyView.classList.remove('active');
+            def.classList.add('active');
+            emg.classList.remove('active');
         }
     });
 </script>
-
 </body>
 </html>
