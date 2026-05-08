@@ -6,3 +6,4 @@
 
 <br>**Parts**</br>
 <br>Ticker : https://gensai-lab.github.io/eqlive/parts/ticker.html</br>
+<br>Tsunami List : https://gensai-lab.github.io/eqlive/parts/tsunami-list.html</br>
