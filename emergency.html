@@ -12,30 +12,36 @@
             background-position: center;
             overflow: hidden;
             font-family: sans-serif;
+            /* 画面全体へのパディングはなし */
         }
 
         .layout-root {
             display: flex;
-            padding-top: 155px;
-            padding-left: 40px;
-            gap: 25px; /* メイン画面と右グループのギャップ */
+            width: 100%;
+            height: 100%;
         }
 
-        /* メイン画面（中継・共有・画像） */
+        /* メイン画面：マージンで位置を指定 */
         .main-screen {
             width: 1215px;
             height: 675px;
-            background-color: rgba(0, 0, 0, 0.5); /* コンテンツがない時の仮背景 */
+            margin-top: 155px;   /* 上の余白 */
+            margin-left: 40px;   /* 左の余白 */
+            background-color: rgba(0, 0, 0, 0.5);
             border-radius: 8px;
             overflow: hidden;
             position: relative;
         }
 
-        /* サイドバー（右側の4つのボックス） */
+        /* 右側のグループ */
         .side-group {
             width: 600px;
             display: flex;
             flex-direction: column;
+            /* メイン画面との間隔（左40px + メイン1215px + 25px = 1280px付近） */
+            margin-left: 25px; 
+            margin-top: 40px; /* グループ全体の上に40pxの余白 */
+            gap: 20px;        /* 各パーツ間の隙間を20pxに設定 */
         }
 
         /* 透明な四角形 (1つめ) */
@@ -45,26 +51,17 @@
             background: transparent;
         }
 
-        /* ticker.html (2つめ) */
-        .ticker-box {
+        /* 各パーツの共通設定 */
+        .parts-container {
             width: 600px;
-            height: 135px;
             border-radius: 8px;
             overflow: hidden;
             background-color: rgba(0, 0, 0, 0.7);
             border: none;
         }
 
-        /* tsunami-list.html (3つめ) */
-        .tsunami-box {
-            width: 600px;
-            height: 310px;
-            border-radius: 8px;
-            overflow: hidden;
-            background-color: rgba(0, 0, 0, 0.7);
-            border: none;
-            margin-top: 25px; /* パーツ間の余白 */
-        }
+        .ticker-box { height: 135px; }
+        .tsunami-box { height: 310px; }
 
         /* 透明な四角形 (4つめ) */
         .spacer-bottom {
@@ -77,6 +74,7 @@
             width: 100%;
             height: 100%;
             border: none;
+            display: block;
         }
     </style>
 </head>
@@ -89,21 +87,17 @@
     <div class="side-group">
         <div class="spacer-top"></div>
         
-        <div class="ticker-box">
+        <div class="parts-container ticker-box">
             <iframe src="parts/ticker.html"></iframe>
         </div>
 
-        <div class="tsunami-box">
+        <div class="parts-container tsunami-box">
             <iframe src="parts/tsunami-list.html"></iframe>
         </div>
 
         <div class="spacer-bottom"></div>
     </div>
 </div>
-
-<script type="module">
-    // 必要に応じてFirebaseからメイン画面のコンテンツを切り替えるスクリプトをここに追加できます
-</script>
 
 </body>
 </html>
