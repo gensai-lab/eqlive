@@ -2,99 +2,76 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EQLive - Live Display</title>
     <style>
-        /* フォントの設定 */
         @font-face {
-            font-family: 'UDKakugo';
-            src: url('assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
+            font-family: 'UDKakugoLarge';
+            src: url('../assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
+            font-weight: 400;
         }
 
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: black;
-            overflow: hidden;
-            font-family: 'UDKakugo', sans-serif;
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            background: transparent; width: 600px; height: 135px;
+            font-family: 'UDKakugoLarge', sans-serif;
         }
 
-        #video-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        .main-container {
+            width: 600px; height: 135px;
+            background-color: white; display: flex;
+            overflow: hidden; position: relative;
         }
 
-        /* 映像全画面表示 */
-        video, iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: none;
-            object-fit: cover;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* 中継テロップ（背景なし・縁取りあり） */
-        #live-location-overlay {
-            position: absolute;
-            top: 60px; /* 少し下げました */
-            left: 80px;
-            display: flex;
-            align-items: center;
-            color: white;
-            z-index: 100;
-            transition: opacity 0.5s;
+        #waiting-banner {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-image: url('../assets/ticker-t.svg'); /* パス修正 */
+            background-size: contain; background-repeat: no-repeat; background-position: center;
+            z-index: 10; transition: opacity 0.5s ease;
+        }
+
+        .genre-label {
+            background-color: #003EB3; /* デフォルト青 */
+            color: white; width: 80px; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 50px; line-height: 1.1; letter-spacing: 1px;
+            font-weight: bold; text-align: center;
+            word-break: break-all; padding: 0 5px; box-sizing: border-box;
             opacity: 0;
-            pointer-events: none;
-            /* 強力な影で可読性を確保 */
-            filter: drop-shadow(0 0 4px rgba(0,0,0,1)) drop-shadow(0 0 8px rgba(0,0,0,1));
         }
 
-        #live-location-overlay.active {
-            opacity: 1;
+        .content-area {
+            flex: 1; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            padding: 0 15px; background-color: white;
+            opacity: 0; text-align: center;
         }
 
-        .live-icon {
-            width: 115px; /* サイズアップ */
-            height: auto;
-            margin-right: 24px;
+        .news-line {
+            width: 100%; font-size: 43px; 
+            color: #1a1a1a; font-weight: bold;
+            white-space: nowrap; overflow: hidden;
+            text-overflow: ellipsis; line-height: 1.3;
         }
 
-        .location-name {
-            font-size: 48px; /* サイズアップ */
-            font-weight: bold;
-            letter-spacing: 0.08em;
-            /* 文字自体の縁取り */
-            text-shadow: 
-                2px 2px 0 #000, -2px -2px 0 #000,
-                -2px 2px 0 #000, 2px -2px 0 #000,
-                0px 2px 0 #000, 0px -2px 0 #000,
-                -2px 0px 0 #000, 2px 0px 0 #000;
-        }
-
-        #player-target {
-            width: 100%;
-            height: 100%;
+        .show-content {
+            animation: fadeIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
 <body>
 
-<div id="video-container">
-    <div id="live-location-overlay">
-        <img src="assets/live.svg" class="live-icon" alt="中継">
-        <span id="target-location-name" class="location-name">---</span>
+<div class="main-container">
+    <div id="waiting-banner"></div>
+    <div id="genre-text" class="genre-label"></div>
+    <div class="content-area" id="main-content">
+        <div id="text-line1" class="news-line"></div>
+        <div id="text-line2" class="news-line"></div>
     </div>
-
-    <div id="player-target"></div>
 </div>
 
 <script type="module">
@@ -108,84 +85,58 @@
         projectId: "mgl-eqlive",
         storageBucket: "mgl-eqlive.firebasestorage.app",
         messagingSenderId: "1060231327645",
-        appId: "1:1060231327645:web:642684f4640bbc21d5c974",
-        measurementId: "G-BK3MJJ0VR7"
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let cameraList = [];
-    let currentCameraId = "";
-    let hls = null;
+    const genreElement = document.getElementById('genre-text');
+    const line1Element = document.getElementById('text-line1');
+    const line2Element = document.getElementById('text-line2');
+    const contentArea = document.getElementById('main-content');
+    const waitingBanner = document.getElementById('waiting-banner');
 
-    async function loadConfig() {
-        try {
-            const response = await fetch('https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json');
-            cameraList = await response.json();
-            startSync();
-        } catch (e) {
-            console.error("JSON Load Error:", e);
-        }
-    }
+    let lastCombinedText = "";
 
-    function startSync() {
-        onValue(ref(db, 'broadcast/current'), (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return;
-            if (data.cameraSource !== currentCameraId) {
-                updateCamera(data.cameraSource);
+    // manual_news ノードを監視
+    onValue(ref(db, 'broadcast/manual_news'), (snapshot) => {
+        const data = snapshot.val();
+        const currentCombined = (data?.genre || "") + (data?.line1 || "") + (data?.line2 || "");
+
+        if (data && (data.line1 || data.line2)) {
+            waitingBanner.style.opacity = "0";
+            
+            if (currentCombined !== lastCombinedText) {
+                genreElement.classList.remove('show-content');
+                contentArea.classList.remove('show-content');
+                void genreElement.offsetWidth; // リフロー強制
+
+                let genreRaw = data.genre || "情報";
+                genreElement.innerHTML = genreRaw.length > 2 
+                    ? genreRaw.substring(0, 2) + "<br>" + genreRaw.substring(2, 4)
+                    : genreRaw.split('').join('<br>');
+
+                line1Element.innerText = data.line1 || "";
+                line2Element.innerText = data.line2 || "";
+
+                genreElement.classList.add('show-content');
+                contentArea.classList.add('show-content');
             }
-        });
-    }
-
-    function updateCamera(id) {
-        currentCameraId = id;
-        const cam = cameraList.find(c => c.id === id);
-        const overlay = document.getElementById('live-location-overlay');
-        const nameElement = document.getElementById('target-location-name');
-        const container = document.getElementById('player-target');
-
-        if (hls) { hls.destroy(); hls = null; }
-        container.innerHTML = "";
-
-        if (cam) {
-            nameElement.innerText = cam.name;
-            overlay.classList.add('active');
-
-            if (cam.type === 'hls' || cam.url.includes('.m3u8')) {
-                const video = document.createElement('video');
-                video.muted = true;
-                video.autoplay = true;
-                video.playsInline = true;
-                container.appendChild(video);
-
-                if (Hls.isSupported()) {
-                    hls = new Hls();
-                    hls.loadSource(cam.url);
-                    hls.attachMedia(video);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        video.play().catch(e => console.error("Autoplay failed:", e));
-                    });
-                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    video.src = cam.url;
-                    video.addEventListener('loadedmetadata', () => {
-                        video.play();
-                    });
-                }
-            } else if (cam.url.includes('youtube.com') || cam.url.includes('youtu.be')) {
-                let vidId = cam.url.split('v=')[1] || cam.url.split('/').pop();
-                container.innerHTML = `<iframe src="https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&rel=0&controls=0&showinfo=0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-            } else {
-                container.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-            }
+            lastCombinedText = currentCombined;
         } else {
-            overlay.classList.remove('active');
+            waitingBanner.style.opacity = "1";
+            genreElement.classList.remove('show-content');
+            contentArea.classList.remove('show-content');
+            lastCombinedText = "";
         }
-    }
+    });
 
-    window.onload = loadConfig;
+    onValue(ref(db, 'broadcast/current'), (snapshot) => {
+        const data = snapshot.val();
+        // 手動モード(ningen)の時は赤、それ以外は青
+        genreElement.style.backgroundColor = (data && data.statusType === 'ningen') ? "#de080a" : "#003EB3";
+    });
 </script>
-
 </body>
 </html>
