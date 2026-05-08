@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EQLive - Live Display</title>
     <style>
+        /* フォントの設定 */
+        @font-face {
+            font-family: 'UDKakugo';
+            src: url('assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
+        }
+
         body, html {
             margin: 0;
             padding: 0;
@@ -12,36 +18,44 @@
             height: 100%;
             background-color: black;
             overflow: hidden;
-            font-family: "A-OTF UD新ゴ Pr6N", "Hiragino Sans", "Meiryo", sans-serif;
+            font-family: 'UDKakugo', sans-serif;
         }
 
         #video-container {
             position: relative;
             width: 100vw;
             height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        iframe, video {
+        /* 全画面表示のためのスタイル */
+        video, iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
             border: none;
+            object-fit: cover; /* 映像を隙間なく全画面に広げる */
         }
 
-        /* 中継テロップのスタイル */
+        /* 中継テロップ */
         #live-location-overlay {
             position: absolute;
-            top: 50px; /* 左上より少し下 */
+            top: 50px;
             left: 40px;
             display: flex;
             align-items: center;
             background: rgba(0, 0, 0, 0.7);
             padding: 8px 20px 8px 12px;
             border-radius: 4px;
-            /* border-left を削除しました */
             color: white;
             z-index: 100;
             transition: opacity 0.5s;
             opacity: 0;
+            pointer-events: none;
         }
 
         #live-location-overlay.active {
@@ -49,7 +63,7 @@
         }
 
         .live-icon {
-            width: 100px; /* live.svgのサイズに合わせて調整 */
+            width: 100px;
             height: auto;
             margin-right: 12px;
         }
@@ -67,9 +81,11 @@
             left: 10px;
             color: rgba(255,255,255,0.3);
             font-size: 10px;
+            z-index: 110;
             pointer-events: none;
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
 <body>
 
@@ -79,7 +95,7 @@
         <span id="target-location-name" class="location-name">---</span>
     </div>
 
-    <div id="player" style="width:100%; height:100%;"></div>
+    <div id="player-target" style="width:100%; height:100%;"></div>
 </div>
 
 <div id="log">Initializing...</div>
@@ -104,6 +120,7 @@
 
     let cameraList = [];
     let currentCameraId = "";
+    let hls = null;
 
     function log(msg) {
         console.log(msg);
@@ -136,24 +153,46 @@
         const cam = cameraList.find(c => c.id === id);
         const overlay = document.getElementById('live-location-overlay');
         const nameElement = document.getElementById('target-location-name');
-        const player = document.getElementById('player');
+        const container = document.getElementById('player-target');
+
+        // 既存のプレイヤーをクリア
+        if (hls) { hls.destroy(); hls = null; }
+        container.innerHTML = "";
 
         if (cam) {
             log(`Switching to: ${cam.name}`);
             nameElement.innerText = cam.name;
             overlay.classList.add('active');
 
-            // 自動再生対応の埋め込み処理
-            if (cam.url.includes('youtube.com') || cam.url.includes('youtu.be')) {
-                // YouTubeの場合: mute=1 と autoplay=1 を付与
+            if (cam.type === 'hls' || cam.url.includes('.m3u8')) {
+                // HLS (.m3u8) の再生処理
+                const video = document.createElement('video');
+                video.muted = true;
+                video.autoplay = true;
+                video.playsInline = true;
+                container.appendChild(video);
+
+                if (Hls.isSupported()) {
+                    hls = new Hls();
+                    hls.loadSource(cam.url);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        video.play().catch(e => log("Autoplay prevented: " + e));
+                    });
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Safari用
+                    video.src = cam.url;
+                    video.addEventListener('loadedmetadata', () => {
+                        video.play();
+                    });
+                }
+            } else if (cam.url.includes('youtube.com') || cam.url.includes('youtu.be')) {
+                // YouTube の再生処理
                 let vidId = cam.url.split('v=')[1] || cam.url.split('/').pop();
-                player.innerHTML = `<iframe src="https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&rel=0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+                container.innerHTML = `<iframe src="https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&rel=0&controls=0&showinfo=0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
             } else {
-                // HLSなどの汎用URLの場合: muted autoplay を属性に追加
-                // cam.urlが直接m3u8ならvideoタグ、埋め込みURLならiframeにパラメーターを付与
-                player.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-                
-                // ※もし自作のHLSプレイヤー(Video.js等)を使う場合は、videoタグに muted 属性を付けて .play() を呼び出してください。
+                // その他の埋め込みURL
+                container.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
             }
         } else {
             overlay.classList.remove('active');
