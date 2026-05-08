@@ -21,7 +21,7 @@
         @keyframes blink { 50% { opacity: 0.5; } }
         main { display: flex; flex: 1; overflow: hidden; }
         nav { width: 200px; background: #181818; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
-        nav button { background: transparent; border: none; color: #aaa; padding: 20px; text-align: left; font-size: 16px; cursor: pointer; border-left: 4px solid transparent; }
+        nav button { background: transparent; border: none; color: #aaa; padding: 20px; text-align: left; font-size: 16px; cursor: pointer; border-left: 4px solid transparent; outline: none; }
         nav button.active { background: #252525; color: white; border-left-color: var(--accent-blue); }
         .content { flex: 1; padding: 30px; overflow-y: auto; }
         .tab-content { display: none; }
@@ -30,11 +30,12 @@
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
         label { display: block; margin-bottom: 5px; color: #aaa; font-size: 14px; }
         input, select, textarea { width: 100%; background: #2d2d2d; border: 1px solid var(--border-color); color: white; padding: 10px; border-radius: 4px; box-sizing: border-box; }
-        button.primary { background: var(--accent-blue); color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button.primary { background: var(--accent-blue); color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
+        button.primary:hover { opacity: 0.8; }
         /* Table Styles */
-        .scroll-table { height: 500px; overflow-y: auto; border: 1px solid var(--border-color); background: #1a1a1a; }
+        .scroll-table { height: 60vh; overflow-y: auto; border: 1px solid var(--border-color); background: #1a1a1a; }
         table { width: 100%; border-collapse: collapse; }
-        th { background: #252525; position: sticky; top: 0; padding: 12px; text-align: left; border-bottom: 2px solid var(--border-color); }
+        th { background: #252525; position: sticky; top: 0; padding: 12px; text-align: left; border-bottom: 2px solid var(--border-color); z-index: 10; }
         td { padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 14px; }
         tr:hover { background: #333; cursor: pointer; }
         tr.selected { background: #004a83 !important; }
@@ -158,11 +159,12 @@
         document.getElementById('btn-' + tabId).classList.add('active');
     };
 
-    // --- Firebaseデータ受信 ---
+    // --- Firebaseデータ受信 (リアルタイム監視) ---
     onValue(ref(db, 'broadcast'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
+        // 入力フィールドの値を同期
         document.getElementById('field-mode').value = data.current.mode;
         document.getElementById('field-layout').value = data.current.layoutMode;
         document.getElementById('field-statusType').value = data.current.statusType;
@@ -171,10 +173,12 @@
         document.getElementById('field-subtitle').value = data.current.subtitle;
         document.getElementById('field-leftText').value = data.l_shape.leftText;
 
+        // ヘッダーのステータス表示を更新
         const statusBadge = document.getElementById('global-status');
         statusBadge.innerText = data.current.mode.toUpperCase() + " MODE";
         statusBadge.className = "status-badge status-" + (data.current.mode === 'special' ? 'special' : 'normal');
         
+        // リスト内の選択ハイライトを更新
         highlightSelectedCamera(data.current.cameraSource);
     });
 
@@ -189,41 +193,50 @@
         updates['broadcast/l_shape/leftText'] = document.getElementById('field-leftText').value;
         updates['broadcast/current/updatedAt'] = Date.now();
 
-        update(ref(db), updates).then(() => alert("更新完了"));
+        update(ref(db), updates).then(() => {
+            console.log("Firebase sync successful");
+        }).catch((error) => {
+            alert("更新エラー: " + error.message);
+        });
     };
 
-    // --- カメラリスト生成 ---
+    // --- カメラリスト生成 (GitHubのリモートJSONを使用) ---
     async function initCameraSwitcher() {
         const loadingMsg = document.getElementById('camera-loading');
         try {
-            // パスを再確認してください
-            const res = await fetch('assets/json/kh-livec.json');
-            if (!res.ok) throw new Error("JSON file not found");
+            // GitHubのリモートURLから取得
+            const res = await fetch('https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json');
+            if (!res.ok) throw new Error("JSONデータの取得に失敗しました");
             
             cameraList = await res.json();
             const tbody = document.getElementById('camera-list-body');
-            tbody.innerHTML = ""; // クリア
+            tbody.innerHTML = ""; 
 
             cameraList.forEach(cam => {
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', cam.id);
                 tr.innerHTML = `
                     <td style="font-weight:bold;">${cam.name}</td>
-                    <td style="color:#888;">${cam.id}</td>
+                    <td style="color:#888; font-family:monospace;">${cam.id}</td>
                     <td><span style="font-size:10px; background:#444; padding:2px 5px; border-radius:3px;">${cam.type}</span></td>
                 `;
                 tr.onclick = () => {
-                    update(ref(db, 'broadcast/current'), { cameraSource: cam.id });
+                    // 行をクリックした瞬間にFirebaseを更新
+                    update(ref(db, 'broadcast/current'), { 
+                        cameraSource: cam.id,
+                        updatedAt: Date.now()
+                    });
                 };
                 tbody.appendChild(tr);
             });
             loadingMsg.style.display = "none";
         } catch (e) {
-            loadingMsg.innerText = "エラー: assets/json/kh-livec.json が見つかりません。";
-            console.error(e);
+            loadingMsg.innerHTML = `<span style="color:var(--accent-red)">エラー: カメラリストを読み込めませんでした。</span>`;
+            console.error("Camera List Load Error:", e);
         }
     }
 
+    // 選択中のカメラ行をハイライトする
     function highlightSelectedCamera(selectedId) {
         document.querySelectorAll('#camera-list-body tr').forEach(tr => {
             if (tr.getAttribute('data-id') === selectedId) {
@@ -234,7 +247,7 @@
         });
     }
 
-    // 起動
+    // ページ読み込み完了時に実行
     window.onload = initCameraSwitcher;
 
 </script>
