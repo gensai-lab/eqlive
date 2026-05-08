@@ -28,28 +28,17 @@
             padding: 0; margin: 0; font-weight: bold;
         }
 
-        /* 予報区名：左パディング14px、最大幅280px */
         .area-wrapper {
-            width: 280px; 
-            padding-left: 14px;
-            overflow: visible; display: flex; align-items: center;
-            box-sizing: border-box;
+            width: 280px; padding-left: 14px;
+            overflow: visible; display: flex; align-items: center; box-sizing: border-box;
         }
-        .area-name {
-            font-size: 32px; white-space: nowrap; transform-origin: left center;
-        }
+        .area-name { font-size: 32px; white-space: nowrap; transform-origin: left center; }
 
-        /* 到達予想：最大幅170pxで中央揃え */
         .time-wrapper {
-            width: 170px;
-            margin-left: auto; /* 右側に寄せるための余白調整 */
-            margin-right: 20px;
+            width: 170px; margin-left: auto; margin-right: 20px;
             overflow: visible; display: flex; justify-content: center;
         }
-        .time {
-            font-size: 32px; white-space: nowrap; transform-origin: center center;
-        }
-        
+        .time { font-size: 32px; white-space: nowrap; transform-origin: center center; }
         .day-unit { font-size: 0.7em; margin: 0 2px; }
     </style>
 </head>
@@ -64,7 +53,18 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // --- 設定・辞書 ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
     const CONDITION_DICT = {
         "第１波の到達を確認": "第1波到達",
         "津波到達中と推測": "津波到達中",
@@ -82,7 +82,6 @@
         "none": "assets/banner/tsunami/tsunami-list_none.svg"
     };
 
-    // --- 関数：文字幅の自動圧縮 ---
     function adjustScale(el, maxWidth) {
         el.style.transform = "scaleX(1)";
         const width = el.offsetWidth;
@@ -92,12 +91,9 @@
         }
     }
 
-    // --- 関数：時刻・文言の整形 ---
     function formatConditionHTML(cond) {
         if (!cond) return "";
         let text = CONDITION_DICT[cond] || cond;
-        
-        // 日付・時刻形式の変換
         const date = new Date(text);
         if (!isNaN(date.getTime()) && text.includes(':')) {
             const d = date.getDate();
@@ -105,24 +101,35 @@
             const m = String(date.getMinutes()).padStart(2, '0');
             return `${d}<span class="day-unit">日</span> ${h}:${m}`;
         }
-        if (text.includes("日")) {
-            return text.replace("日", '<span class="day-unit">日</span>');
-        }
+        if (text.includes("日")) return text.replace("日", '<span class="day-unit">日</span>');
         return text;
     }
 
     let currentPage = 0;
     const rowsPerPage = 5;
-    let allTsunamiData = []; // 全データ保持用
-    let currentGrade = "ot";  // admin等から指定される現在の表示モード
+    let allTsunamiData = [
+        { name: "静岡県", maxHeight: { description: "１０ｍ超", value: 10 }, firstHeight: { condition: "津波到達中と推測" } },
+        { name: "愛知県外海", maxHeight: { description: "１０ｍ超", value: 10 }, firstHeight: { condition: "第１波の到達を確認" } },
+        { name: "伊勢・三河湾", maxHeight: { description: "１０ｍ", value: 10 }, firstHeight: { condition: "津波到達中と推測" } },
+        { name: "三重県南部", maxHeight: { description: "１０ｍ超", value: 10 }, firstHeight: { condition: "ただちに到達と推測" } },
+        { name: "和歌山県", maxHeight: { description: "５ｍ", value: 5 }, firstHeight: { condition: "ただちに到達と推測" } },
+        { name: "伊豆諸島", maxHeight: { description: "５ｍ", value: 5 }, firstHeight: { condition: "2027/05/02 10:30:00" } },
+        { name: "相模湾・三浦半島", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/02 10:40:00" } },
+        { name: "東京湾内湾", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/02 10:40:00" } },
+        { name: "徳島県", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/02 10:50:00" } },
+        { name: "高知県", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/02 10:50:00" } },
+        { name: "淡路島南部", maxHeight: { description: "１ｍ", value: 1 }, firstHeight: { condition: "2027/05/02 11:00:00" } },
+        { name: "大阪府", maxHeight: { description: "１ｍ", value: 1 }, firstHeight: { condition: "2027/05/02 11:10:00" } }
+    ];
+    let currentGrade = "ot";
+    let autoPage = true;
+    let lastTriggerTime = 0;
 
     function render() {
         const container = document.getElementById('list-container');
         const header = document.getElementById('header-area');
         container.innerHTML = "";
 
-        // 1. 現在のヘッダー（grade）に一致するデータのみを抽出
-        // 大津波警報(ot) -> value 5以上, 津波警報(kt) -> value 3, 津波注意報(ct) -> value 1
         const filteredData = allTsunamiData.filter(item => {
             if (currentGrade === "ot") return item.maxHeight.value >= 5;
             if (currentGrade === "kt") return item.maxHeight.value === 3;
@@ -137,91 +144,57 @@
         const totalPages = Math.ceil(filteredData.length / rowsPerPage);
         if (currentPage >= totalPages) currentPage = 0;
 
-        const start = currentPage * rowsPerPage;
-        const pageItems = filteredData.slice(start, start + rowsPerPage);
+        const pageItems = filteredData.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
 
         pageItems.forEach(item => {
             const row = document.createElement('div');
             row.className = 'row-img';
-            
-            const desc = item.maxHeight.description || "none";
-            const imgPath = HEIGHT_IMAGE_MAP[desc] || HEIGHT_IMAGE_MAP["none"];
+            const imgPath = HEIGHT_IMAGE_MAP[item.maxHeight.description] || HEIGHT_IMAGE_MAP["none"];
             row.style.backgroundImage = `url('../${imgPath}')`;
-
-            const condHTML = formatConditionHTML(item.firstHeight.condition);
-
             row.innerHTML = `
                 <div class="row-content">
-                    <div class="area-wrapper">
-                        <div class="area-name">${item.name}</div>
-                    </div>
-                    <div class="time-wrapper">
-                        <div class="time">${condHTML}</div>
-                    </div>
-                </div>
-            `;
+                    <div class="area-wrapper"><div class="area-name">${item.name}</div></div>
+                    <div class="time-wrapper"><div class="time">${formatConditionHTML(item.firstHeight.condition)}</div></div>
+                </div>`;
             container.appendChild(row);
-            
-            // 圧縮実行
-            adjustScale(row.querySelector('.area-name'), 266); // 280-14
-            adjustScale(row.querySelector('.time'), 170);      // 170
+            adjustScale(row.querySelector('.area-name'), 266);
+            adjustScale(row.querySelector('.time'), 170);
         });
     }
 
-    // --- テストデータ ---
-    allTsunamiData = [
-        { name: "静岡県", maxHeight: { description: "１０ｍ超", value: 10 }, firstHeight: { condition: "津波到達中と推測" } },
-        { name: "愛知県外海", maxHeight: { description: "１０ｍ超", value: 10 }, firstHeight: { condition: "第１波の到達を確認" } },
-        { name: "伊勢・三河湾", maxHeight: { description: "１０ｍ", value: 10 }, firstHeight: { condition: "津波到達中と推測" } },
-        { name: "三重県南部", maxHeight: { description: "１０ｍ超", value: 10 }, firstHeight: { condition: "ただちに到達と推測" } },
-        { name: "和歌山県", maxHeight: { description: "５ｍ", value: 5 }, firstHeight: { condition: "ただちに到達と推測" } },
-        { name: "伊豆諸島", maxHeight: { description: "５ｍ", value: 5 }, firstHeight: { condition: "2027/05/02 10:30:00" } },
-        { name: "相模湾・三浦半島", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/02 10:40:00" } },
-        { name: "東京湾内湾", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/02 10:40:00" } },
-        { name: "徳島県", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/02 10:50:00" } },
-        { name: "高知県", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/02 10:50:00" } },
-        { name: "淡路島南部", maxHeight: { description: "１ｍ", value: 1 }, firstHeight: { condition: "2027/05/02 11:00:00" } },
-        { name: "大阪府", maxHeight: { description: "１ｍ", value: 1 }, firstHeight: { condition: "2027/05/02 11:10:00" } }
-    ];
-
-    // Firebase連携（adminの切り替えを監視）
-    const firebaseConfig = {
-        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
-        authDomain: "mgl-eqlive.firebaseapp.com",
-        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
-        projectId: "mgl-eqlive",
-        storageBucket: "mgl-eqlive.firebasestorage.app",
-        messagingSenderId: "1060231327645",
-        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
-    };
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
     onValue(ref(db, 'broadcast/tsunami_config'), (snapshot) => {
         const config = snapshot.val();
-        if (config && config.grade) {
-            currentGrade = config.grade;
-            currentPage = 0; // 切り替え時に最初のページへ
-            render();
+        if (!config) return;
+        currentGrade = config.grade || 'ot';
+        autoPage = config.autoPage !== false;
+
+        // 手動ページ送り信号の受信
+        if (config.manualTrigger && config.manualTrigger.timestamp !== lastTriggerTime) {
+            const filteredCount = allTsunamiData.filter(item => {
+                if (currentGrade === "ot") return item.maxHeight.value >= 5;
+                if (currentGrade === "kt") return item.maxHeight.value === 3;
+                if (currentGrade === "ct") return item.maxHeight.value === 1;
+                return false;
+            }).length;
+            const totalPages = Math.ceil(filteredCount / rowsPerPage);
+
+            if (config.manualTrigger.direction === 'next') currentPage = (currentPage + 1) % totalPages;
+            if (config.manualTrigger.direction === 'prev') currentPage = (currentPage - 1 + totalPages) % totalPages;
+            lastTriggerTime = config.manualTrigger.timestamp;
         }
+        render();
     });
 
-    render();
-
-    // 10秒ページ送り
     setInterval(() => {
+        if (!autoPage) return;
         const filteredCount = allTsunamiData.filter(item => {
             if (currentGrade === "ot") return item.maxHeight.value >= 5;
             if (currentGrade === "kt") return item.maxHeight.value === 3;
             if (currentGrade === "ct") return item.maxHeight.value === 1;
             return false;
         }).length;
-        
         const totalPages = Math.ceil(filteredCount / rowsPerPage);
-        if (totalPages > 1) {
-            currentPage = (currentPage + 1) % totalPages;
-            render();
-        }
+        if (totalPages > 1) { currentPage = (currentPage + 1) % totalPages; render(); }
     }, 10000);
 </script>
 </body>
