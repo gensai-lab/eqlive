@@ -26,12 +26,28 @@
             width: 280px; padding-left: 14px;
             overflow: visible; display: flex; align-items: center; box-sizing: border-box;
         }
-        .area-name { font-size: 32px; white-space: nowrap; transform-origin: left center; }
+        
+        /* font-feature-settingsを追加 */
+        .area-name { 
+            font-size: 32px; 
+            white-space: nowrap; 
+            transform-origin: left center; 
+            font-feature-settings: "palt"; 
+        }
+
         .time-wrapper {
             width: 170px; margin-left: auto; margin-right: 117px;
             overflow: visible; display: flex; justify-content: center;
         }
-        .time { font-size: 32px; white-space: nowrap; transform-origin: center center; }
+
+        /* font-feature-settingsを追加 */
+        .time { 
+            font-size: 32px; 
+            white-space: nowrap; 
+            transform-origin: center center; 
+            font-feature-settings: "palt";
+        }
+
         .day-unit { font-size: 0.8em; margin: 0 1px; }
     </style>
 </head>
@@ -106,7 +122,7 @@
         { name: "大阪府", maxHeight: { description: "１ｍ", value: 1 }, firstHeight: { condition: "2027/05/22 11:10:00" } }
     ];
 
-    let currentGroupIndex = 0; // 0:大津波, 1:津波警報, 2:注意報
+    let currentGroupIndex = 0; 
     let currentPageInGroup = 0;
     const rowsPerPage = 5;
     let autoPage = true;
@@ -117,7 +133,7 @@
             { id: 'ot', data: allTsunamiData.filter(d => d.maxHeight.value >= 5 || d.maxHeight.description === "巨大") },
             { id: 'kt', data: allTsunamiData.filter(d => (d.maxHeight.value === 3 || d.maxHeight.description === "高い") && d.maxHeight.description !== "巨大") },
             { id: 'ct', data: allTsunamiData.filter(d => d.maxHeight.value === 1 || d.maxHeight.description === "none") }
-        ].filter(g => g.data.length > 0); // データがあるグループのみ有効化
+        ].filter(g => g.data.length > 0);
     }
 
     function render() {
@@ -134,7 +150,6 @@
         const header = document.getElementById('header-area');
         container.innerHTML = "";
 
-        // ヘッダーを現在のグループに合わせて設定
         header.style.backgroundImage = `url('../assets/banner/tsunami/tsunami-list_${currentGroup.id}.svg')`;
 
         const pageItems = currentGroup.data.slice(currentPageInGroup * rowsPerPage, (currentPageInGroup + 1) * rowsPerPage);
@@ -156,13 +171,13 @@
 
     function nextPage() {
         const groups = getGroups();
+        if (groups.length === 0) return;
         const currentGroup = groups[currentGroupIndex];
         const totalPages = Math.ceil(currentGroup.data.length / rowsPerPage);
 
         if (currentPageInGroup + 1 < totalPages) {
             currentPageInGroup++;
         } else {
-            // 次の警報グループへ
             currentPageInGroup = 0;
             currentGroupIndex = (currentGroupIndex + 1) % groups.length;
         }
@@ -171,10 +186,10 @@
 
     function prevPage() {
         const groups = getGroups();
+        if (groups.length === 0) return;
         if (currentPageInGroup > 0) {
             currentPageInGroup--;
         } else {
-            // 前の警報グループの最後のページへ
             currentGroupIndex = (currentGroupIndex - 1 + groups.length) % groups.length;
             const prevGroup = groups[currentGroupIndex];
             currentPageInGroup = Math.ceil(prevGroup.data.length / rowsPerPage) - 1;
