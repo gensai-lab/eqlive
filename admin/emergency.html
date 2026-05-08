@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EQLive - Emergency Mode</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 1920px;
+            height: 1080px;
+            background-color: #000;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+
+        /* 画面全体のレイアウト：グリッド */
+        .container {
+            display: grid;
+            grid-template-columns: 1400px 520px; /* 左：メイン映像, 右：津波情報 */
+            grid-template-rows: 880px 200px;    /* 上：メイン＆津波, 下：テロップ */
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 左側：メインコンテンツ（ライブカメラ or スクリーン） */
+        .main-view {
+            grid-column: 1 / 2;
+            grid-row: 1 / 2;
+            background-color: #111;
+            position: relative;
+            overflow: hidden;
+            border-right: 2px solid #333;
+        }
+
+        .view-frame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        /* 右側：津波情報リスト */
+        .tsunami-aside {
+            grid-column: 2 / 3;
+            grid-row: 1 / 2;
+            background-color: #000;
+            border-left: 2px solid #333;
+        }
+
+        .aside-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* 下部：テロップエリア */
+        .footer-ticker {
+            grid-column: 1 / 3;
+            grid-row: 2 / 3;
+            background-color: #000;
+            border-top: 2px solid #333;
+            z-index: 100;
+        }
+
+        .ticker-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="main-view">
+        <iframe id="content-display" class="view-frame" src="live-only.html"></iframe>
+    </div>
+
+    <aside class="tsunami-aside">
+        <iframe src="parts/tsunami-list.html" class="aside-frame"></iframe>
+    </aside>
+
+    <footer class="footer-ticker">
+        <iframe src="parts/ticker.html" class="ticker-frame"></iframe>
+    </footer>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974",
+        measurementId: "G-BK3MJJ0VR7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const displayFrame = document.getElementById('content-display');
+    let currentSource = "";
+
+    // Firebaseで「今どの画面をメインに出すべきか」を監視
+    // broadcast/current/mainViewSource に 'live' か 'screen' を入れる想定
+    onValue(ref(db, 'broadcast/current/mainViewSource'), (snapshot) => {
+        const source = snapshot.val() || 'live';
+        
+        if (source !== currentSource) {
+            currentSource = source;
+            if (source === 'screen') {
+                displayFrame.style.opacity = 0;
+                setTimeout(() => {
+                    displayFrame.src = "screen-program.html";
+                    displayFrame.style.opacity = 1;
+                }, 300);
+            } else {
+                displayFrame.style.opacity = 0;
+                setTimeout(() => {
+                    displayFrame.src = "live-only.html";
+                    displayFrame.style.opacity = 1;
+                }, 300);
+            }
+        }
+    });
+</script>
+
+</body>
+</html>
