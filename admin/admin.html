@@ -84,15 +84,24 @@
         </div>
 
         <div id="tab-broadcast" class="tab-content">
+            <h2>メイン画面ソース選択</h2>
+            <div class="card">
+                <label>表示コンテンツ（emergency.html）</label>
+                <div class="btn-group">
+                    <button id="btn-src-screen" class="secondary" onclick="updateMainSource('screen')">画面共有</button>
+                    <button id="btn-src-camera" class="secondary" onclick="updateMainSource('camera')">ライブカメラ</button>
+                </div>
+            </div>
+
             <h2>基本放送設定</h2>
             <div class="card">
                 <label>配信モード</label>
-                <select id="field-mode">
+                <select id="field-mode" style="width: 100%; padding: 10px; background: #111; color: white; border: 1px solid #333; border-radius: 5px;">
                     <option value="normal">通常時</option>
                     <option value="special">緊急特番</option>
                 </select>
             </div>
-            <button class="primary" onclick="syncBroadcast()">反映</button>
+            <button class="primary" style="width:100%;" onclick="syncBroadcast()">反映</button>
         </div>
     </div>
 </main>
@@ -122,15 +131,28 @@
         if (window.innerWidth <= 768) toggleMenu();
     };
 
+    // Firebase リアルタイム更新監視
     onValue(ref(db, 'broadcast'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
+
+        // 津波設定の反映
         const isAuto = data.tsunami_config?.autoPage !== false;
         document.getElementById('auto-status-text').innerText = isAuto ? "自動送り：ON" : "自動送り：OFF";
         document.getElementById('auto-status-text').style.color = isAuto ? "var(--accent-blue)" : "var(--accent-red)";
         document.getElementById('btn-prev').disabled = document.getElementById('btn-next').disabled = isAuto;
+
+        // カメラ設定の反映
         document.getElementById('field-cameraId').value = data.current?.cameraSource || '';
         highlightSelectedCamera(data.current?.cameraSource);
+
+        // メイン画面ソース選択状態の反映
+        const source = data.current?.mainSource || 'screen';
+        document.getElementById('btn-src-screen').className = (source === 'screen') ? 'primary' : 'secondary';
+        document.getElementById('btn-src-camera').className = (source === 'camera') ? 'primary' : 'secondary';
+
+        // モード反映
+        document.getElementById('field-mode').value = data.current?.mode || 'normal';
     });
 
     window.toggleAutoPage = () => {
@@ -140,6 +162,10 @@
 
     window.manualPageMove = (dir) => {
         update(ref(db, 'broadcast/tsunami_config'), { manualTrigger: { direction: dir, timestamp: Date.now() } });
+    };
+
+    window.updateMainSource = (source) => {
+        update(ref(db, 'broadcast/current'), { mainSource: source });
     };
 
     window.syncBroadcast = () => {
