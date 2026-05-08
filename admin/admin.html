@@ -55,7 +55,7 @@
         /* Main Layout */
         main { display: flex; flex: 1; overflow: hidden; flex-direction: row; }
 
-        /* Navigation (Sidebar/Topbar) */
+        /* Navigation */
         nav { 
             width: var(--nav-width); 
             background: #181818; 
@@ -90,7 +90,6 @@
 
         h2 { font-size: 20px; margin-top: 0; margin-bottom: 20px; color: var(--accent-blue); }
 
-        /* Responsive Grid */
         .card { 
             background: var(--card-bg); 
             border-radius: 8px; 
@@ -115,7 +114,7 @@
             color: white; 
             padding: 12px; 
             border-radius: 6px; 
-            font-size: 16px; /* 16px以上にするとiPhoneでズームされない */
+            font-size: 16px;
             box-sizing: border-box; 
         }
 
@@ -128,7 +127,7 @@
             cursor: pointer; 
             font-weight: bold; 
             font-size: 16px;
-            width: 100%; /* モバイルではフル幅 */
+            width: 100%;
         }
 
         /* Table Optimization */
@@ -145,9 +144,6 @@
         tr:hover { background: #333; }
         tr.selected { background: #004a83 !important; }
 
-        /* --- MEDIA QUERIES --- */
-
-        /* Tablets & Mobile (900px以下) */
         @media (max-width: 900px) {
             main { flex-direction: column; }
             nav { 
@@ -170,15 +166,6 @@
             .content { padding: 15px; }
             .scroll-table { height: 40vh; }
         }
-
-        /* Smart Phones (480px以下) */
-        @media (max-width: 480px) {
-            .header-logo { font-size: 16px; }
-            h2 { font-size: 18px; }
-            .card { padding: 15px; }
-            td { font-size: 13px; padding: 12px 8px; }
-            th:nth-child(3), td:nth-child(3) { display: none; } /* スマホではTypeを隠して地点名を広く */
-        }
     </style>
 </head>
 <body>
@@ -191,6 +178,7 @@
 <main>
     <nav>
         <button onclick="showTab('broadcast')" id="btn-broadcast" class="active">放送制御</button>
+        <button onclick="showTab('screen')" id="btn-screen">投影制御</button>
         <button onclick="showTab('camera')" id="btn-camera">カメラ切替</button>
         <button onclick="showTab('ticker')" id="btn-ticker">テロップ</button>
     </nav>
@@ -224,7 +212,30 @@
                     </select>
                 </div>
             </div>
-            <button class="primary" onclick="syncToFirebase()">一括更新</button>
+            <button class="primary" onclick="syncToFirebase()">設定を反映</button>
+        </div>
+
+        <div id="tab-screen" class="tab-content">
+            <h2>投影制御 (Screen Program)</h2>
+            <div class="card">
+                <label>投影種別</label>
+                <select id="field-screen-type">
+                    <option value="none">オフ (None)</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="image">画像 (URL)</option>
+                    <option value="video">動画 (URL/HLS)</option>
+                    <option value="screenshare">画面共有 (Screen Share)</option>
+                </select>
+            </div>
+            <div class="card">
+                <label>投影ソースURL / ファイルパス</label>
+                <input type="text" id="field-screen-url" placeholder="https://www.youtube.com/watch?v=... または画像URL">
+            </div>
+            <div class="card">
+                <label>投影タイトル（テロップ表示名）</label>
+                <input type="text" id="field-screen-title" placeholder="例：〇〇地震の解説資料">
+            </div>
+            <button class="primary" onclick="syncToFirebase()">投影を反映</button>
         </div>
 
         <div id="tab-camera" class="tab-content">
@@ -236,11 +247,7 @@
             <div class="scroll-table">
                 <table id="camera-table">
                     <thead>
-                        <tr>
-                            <th>地点名</th>
-                            <th>ID</th>
-                            <th>Type</th>
-                        </tr>
+                        <tr><th>地点名</th><th>ID</th><th>Type</th></tr>
                     </thead>
                     <tbody id="camera-list-body"></tbody>
                 </table>
@@ -251,14 +258,10 @@
         <div id="tab-ticker" class="tab-content">
             <h2>テロップ管理</h2>
             <div class="card">
-                <div style="margin-bottom:15px;">
-                    <label>メインタイトル</label>
-                    <input type="text" id="field-mainTitle" placeholder="例：地震速報">
-                </div>
-                <div>
-                    <label>サブタイトル</label>
-                    <input type="text" id="field-subtitle" placeholder="例：避難を心がけてください">
-                </div>
+                <label>メインタイトル</label>
+                <input type="text" id="field-mainTitle" placeholder="例：地震速報">
+                <label style="margin-top:15px;">サブタイトル</label>
+                <input type="text" id="field-subtitle" placeholder="例：避難を心がけてください">
             </div>
             <div class="card">
                 <label>詳細テキスト (L字下部)</label>
@@ -296,40 +299,54 @@
         document.getElementById('btn-' + tabId).classList.add('active');
     };
 
+    // Firebaseデータの購読
     onValue(ref(db, 'broadcast'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
-        document.getElementById('field-mode').value = data.current.mode;
-        document.getElementById('field-layout').value = data.current.layoutMode;
-        document.getElementById('field-statusType').value = data.current.statusType;
-        document.getElementById('field-cameraId').value = data.current.cameraSource;
-        document.getElementById('field-mainTitle').value = data.current.mainTitle;
-        document.getElementById('field-subtitle').value = data.current.subtitle;
-        document.getElementById('field-leftText').value = data.l_shape.leftText;
+        // 放送設定
+        document.getElementById('field-mode').value = data.current.mode || 'normal';
+        document.getElementById('field-layout').value = data.current.layoutMode || 'normal';
+        document.getElementById('field-statusType').value = data.current.statusType || 'bot';
+        document.getElementById('field-cameraId').value = data.current.cameraSource || '';
+        document.getElementById('field-mainTitle').value = data.current.mainTitle || '';
+        document.getElementById('field-subtitle').value = data.current.subtitle || '';
+        document.getElementById('field-leftText').value = data.l_shape?.leftText || '';
+
+        // 投影設定 (Screen Program)
+        if (data.screen_program) {
+            document.getElementById('field-screen-type').value = data.screen_program.type || 'none';
+            document.getElementById('field-screen-url').value = data.screen_program.url || '';
+            document.getElementById('field-screen-title').value = data.screen_program.title || '';
+        }
 
         const statusBadge = document.getElementById('global-status');
-        statusBadge.innerText = data.current.mode.toUpperCase() + " MODE";
+        statusBadge.innerText = (data.current.mode || 'NORMAL').toUpperCase() + " MODE";
         statusBadge.className = "status-badge status-" + (data.current.mode === 'special' ? 'special' : 'normal');
         
         highlightSelectedCamera(data.current.cameraSource);
     });
 
+    // Firebaseへの更新同期
     window.syncToFirebase = function() {
         const updates = {};
+        // 放送設定
         updates['broadcast/current/mode'] = document.getElementById('field-mode').value;
         updates['broadcast/current/layoutMode'] = document.getElementById('field-layout').value;
         updates['broadcast/current/statusType'] = document.getElementById('field-statusType').value;
         updates['broadcast/current/mainTitle'] = document.getElementById('field-mainTitle').value;
         updates['broadcast/current/subtitle'] = document.getElementById('field-subtitle').value;
         updates['broadcast/l_shape/leftText'] = document.getElementById('field-leftText').value;
+
+        // 投影設定
+        updates['broadcast/screen_program/type'] = document.getElementById('field-screen-type').value;
+        updates['broadcast/screen_program/url'] = document.getElementById('field-screen-url').value;
+        updates['broadcast/screen_program/title'] = document.getElementById('field-screen-title').value;
+
         updates['broadcast/current/updatedAt'] = Date.now();
 
         update(ref(db), updates).then(() => {
-            const btn = document.querySelector('button.primary');
-            const originalText = btn.innerText;
-            btn.innerText = "更新しました！";
-            setTimeout(() => btn.innerText = originalText, 2000);
+            alert("設定を送信しました。");
         });
     };
 
@@ -359,7 +376,7 @@
             });
             loadingMsg.style.display = "none";
         } catch (e) {
-            loadingMsg.innerHTML = `<span style="color:var(--accent-red)">エラー</span>`;
+            loadingMsg.innerHTML = `<span style="color:var(--accent-red)">読み込みエラー</span>`;
         }
     }
 
