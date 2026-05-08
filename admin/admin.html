@@ -227,15 +227,19 @@
 </main>
 
 <script type="module">
+    // バージョンを 10.8.0 に統一し、Realtime Database を追加
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
         databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
         projectId: "mgl-eqlive",
         storageBucket: "mgl-eqlive.firebasestorage.app",
         messagingSenderId: "1060231327645",
-        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974",
+        measurementId: "G-BK3MJJ0VR7"
     };
 
     const app = initializeApp(firebaseConfig);
