@@ -28,7 +28,7 @@
         }
         .area-name { font-size: 32px; white-space: nowrap; transform-origin: left center; }
         .time-wrapper {
-            width: 170px; margin-left: auto; margin-right: 117px;
+            width: 170px; margin-left: auto; margin-right: 20px;
             overflow: visible; display: flex; justify-content: center;
         }
         .time { font-size: 32px; white-space: nowrap; transform-origin: center center; }
@@ -70,6 +70,8 @@
         "５ｍ": "assets/banner/tsunami/tsunami-list_5m.svg",
         "１０ｍ": "assets/banner/tsunami/tsunami-list_10m.svg",
         "１０ｍ超": "assets/banner/tsunami/tsunami-list_10mu.svg",
+        "巨大": "assets/banner/tsunami/tsunami-list_kyodai.svg",
+        "高い": "assets/banner/tsunami/tsunami-list_takai.svg",
         "none": "assets/banner/tsunami/tsunami-list_none.svg"
     };
 
@@ -89,18 +91,13 @@
         return text.replace("日", '<span class="day-unit">日</span>');
     }
 
-    let currentPage = 0;
-    const rowsPerPage = 5;
-    let autoPage = true;
-    let lastTriggerTime = 0;
-
-    // テストデータ（種別混在）
-    const allTsunamiData = [
+    let allTsunamiData = [
         { name: "静岡県", maxHeight: { description: "１０ｍ超", value: 10 }, firstHeight: { condition: "津波到達中と推測" } },
         { name: "愛知県外海", maxHeight: { description: "１０ｍ超", value: 10 }, firstHeight: { condition: "第１波の到達を確認" } },
         { name: "伊勢・三河湾", maxHeight: { description: "１０ｍ", value: 10 }, firstHeight: { condition: "津波到達中と推測" } },
         { name: "三重県南部", maxHeight: { description: "１０ｍ超", value: 10 }, firstHeight: { condition: "ただちに到達と推測" } },
         { name: "和歌山県", maxHeight: { description: "５ｍ", value: 5 }, firstHeight: { condition: "ただちに到達と推測" } },
+        { name: "伊豆諸島", maxHeight: { description: "５ｍ", value: 5 }, firstHeight: { condition: "2027/05/02 10:30:00" } },
         { name: "相模湾・三浦半島", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/02 10:40:00" } },
         { name: "東京湾内湾", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/02 10:40:00" } },
         { name: "徳島県", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/02 10:50:00" } },
@@ -109,23 +106,38 @@
         { name: "大阪府", maxHeight: { description: "１ｍ", value: 1 }, firstHeight: { condition: "2027/05/02 11:10:00" } }
     ];
 
+    let currentGroupIndex = 0; // 0:大津波, 1:津波警報, 2:注意報
+    let currentPageInGroup = 0;
+    const rowsPerPage = 5;
+    let autoPage = true;
+    let lastTriggerTime = 0;
+
+    function getGroups() {
+        return [
+            { id: 'ot', data: allTsunamiData.filter(d => d.maxHeight.value >= 5 || d.maxHeight.description === "巨大") },
+            { id: 'kt', data: allTsunamiData.filter(d => (d.maxHeight.value === 3 || d.maxHeight.description === "高い") && d.maxHeight.description !== "巨大") },
+            { id: 'ct', data: allTsunamiData.filter(d => d.maxHeight.value === 1 || d.maxHeight.description === "none") }
+        ].filter(g => g.data.length > 0); // データがあるグループのみ有効化
+    }
+
     function render() {
+        const groups = getGroups();
+        if (groups.length === 0) return;
+
+        if (currentGroupIndex >= groups.length) currentGroupIndex = 0;
+        const currentGroup = groups[currentGroupIndex];
+        const totalPages = Math.ceil(currentGroup.data.length / rowsPerPage);
+
+        if (currentPageInGroup >= totalPages) currentPageInGroup = 0;
+
         const container = document.getElementById('list-container');
         const header = document.getElementById('header-area');
         container.innerHTML = "";
 
-        const totalPages = Math.ceil(allTsunamiData.length / rowsPerPage);
-        if (currentPage >= totalPages) currentPage = 0;
+        // ヘッダーを現在のグループに合わせて設定
+        header.style.backgroundImage = `url('../assets/banner/tsunami/tsunami-list_${currentGroup.id}.svg')`;
 
-        const start = currentPage * rowsPerPage;
-        const pageItems = allTsunamiData.slice(start, start + rowsPerPage);
-
-        // そのページの1件目のデータに基づいてヘッダーを決定
-        const topItem = pageItems[0];
-        let grade = "ct";
-        if (topItem.maxHeight.value >= 5) grade = "ot";
-        else if (topItem.maxHeight.value >= 3) grade = "kt";
-        header.style.backgroundImage = `url('../assets/banner/tsunami/tsunami-list_${grade}.svg')`;
+        const pageItems = currentGroup.data.slice(currentPageInGroup * rowsPerPage, (currentPageInGroup + 1) * rowsPerPage);
 
         pageItems.forEach(item => {
             const row = document.createElement('div');
@@ -142,24 +154,51 @@
         });
     }
 
+    function nextPage() {
+        const groups = getGroups();
+        const currentGroup = groups[currentGroupIndex];
+        const totalPages = Math.ceil(currentGroup.data.length / rowsPerPage);
+
+        if (currentPageInGroup + 1 < totalPages) {
+            currentPageInGroup++;
+        } else {
+            // 次の警報グループへ
+            currentPageInGroup = 0;
+            currentGroupIndex = (currentGroupIndex + 1) % groups.length;
+        }
+        render();
+    }
+
+    function prevPage() {
+        const groups = getGroups();
+        if (currentPageInGroup > 0) {
+            currentPageInGroup--;
+        } else {
+            // 前の警報グループの最後のページへ
+            currentGroupIndex = (currentGroupIndex - 1 + groups.length) % groups.length;
+            const prevGroup = groups[currentGroupIndex];
+            currentPageInGroup = Math.ceil(prevGroup.data.length / rowsPerPage) - 1;
+        }
+        render();
+    }
+
     onValue(ref(db, 'broadcast/tsunami_config'), (snapshot) => {
         const config = snapshot.val();
         if (!config) return;
         autoPage = config.autoPage !== false;
         if (config.manualTrigger && config.manualTrigger.timestamp !== lastTriggerTime) {
-            const totalPages = Math.ceil(allTsunamiData.length / rowsPerPage);
-            if (config.manualTrigger.direction === 'next') currentPage = (currentPage + 1) % totalPages;
-            else currentPage = (currentPage - 1 + totalPages) % totalPages;
+            if (config.manualTrigger.direction === 'next') nextPage();
+            else prevPage();
             lastTriggerTime = config.manualTrigger.timestamp;
         }
         render();
     });
 
     setInterval(() => {
-        if (!autoPage) return;
-        const totalPages = Math.ceil(allTsunamiData.length / rowsPerPage);
-        if (totalPages > 1) { currentPage = (currentPage + 1) % totalPages; render(); }
+        if (autoPage) nextPage();
     }, 10000);
+
+    render();
 </script>
 </body>
 </html>
