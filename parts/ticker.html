@@ -1,1 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @font-face {
+            font-family: 'UDKakugo';
+            src: url('../assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
+        }
 
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 200px;
+            background-color: transparent; overflow: hidden;
+            font-family: 'UDKakugo', sans-serif;
+        }
+
+        #ticker-container {
+            width: 100%; height: 100%;
+            display: flex; align-items: center;
+            background-color: #000;
+            position: relative;
+        }
+
+        /* デフォルト画像 (SVG) */
+        #default-view {
+            width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            position: absolute; top: 0; left: 0;
+            transition: opacity 0.5s;
+        }
+        #default-view img { height: 100%; width: auto; }
+
+        /* 有事の情報表示 */
+        #emergency-view {
+            width: 100%; height: 100%;
+            display: flex; align-items: center;
+            position: absolute; top: 0; left: 0;
+            opacity: 0; transition: opacity 0.5s;
+            background: linear-gradient(90deg, #000 0%, #111 100%);
+        }
+
+        /* ジャンルボックス (鉄道、津波観測など) */
+        #genre-box {
+            min-width: 280px; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 64px; font-weight: bold; color: white;
+            background-color: #0078d4; /* デフォルト青 */
+            margin-right: 40px;
+        }
+
+        /* テキストエリア */
+        #text-box {
+            font-size: 72px; font-weight: bold; color: white;
+            white-space: nowrap; overflow: hidden;
+            letter-spacing: 0.05em;
+        }
+
+        /* ジャンル別カラー設定 */
+        .color-railway { background-color: #00429d !important; } /* 鉄道：濃い青 */
+        .color-tsunami { background-color: #d13438 !important; } /* 津波：赤 */
+        .color-news { background-color: #444 !important; }    /* 最新情報：グレー */
+
+        /* 表示状態の切り替え */
+        .active { opacity: 1 !important; }
+    </style>
+</head>
+<body>
+
+<div id="ticker-container">
+    <div id="default-view" class="active">
+        <img src="../assets/ticker-t.svg" alt="Default Ticker">
+    </div>
+
+    <div id="emergency-view">
+        <div id="genre-box">ジャンル</div>
+        <div id="text-box">テキストがここに表示されます</div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974",
+        measurementId: "G-BK3MJJ0VR7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const defaultView = document.getElementById('default-view');
+    const emergencyView = document.getElementById('emergency-view');
+    const genreBox = document.getElementById('genre-box');
+    const textBox = document.getElementById('text-box');
+
+    // Firebaseの broadcast/ticker パスを監視
+    // データ構造: { genre: "鉄道", text: "JR山手線 全線で運転見合わせ", active: true }
+    onValue(ref(db, 'broadcast/ticker'), (snapshot) => {
+        const data = snapshot.val();
+        
+        if (data && data.active && data.text) {
+            // 情報あり：emergency-viewを表示
+            genreBox.innerText = data.genre || "情報";
+            textBox.innerText = data.text;
+
+            // ジャンルに応じて色を変えるロジック
+            genreBox.className = ""; // リセット
+            if (data.genre.includes("鉄道")) genreBox.classList.add('color-railway');
+            else if (data.genre.includes("津波")) genreBox.classList.add('color-tsunami');
+            else genreBox.classList.add('color-news');
+
+            defaultView.classList.remove('active');
+            emergencyView.classList.add('active');
+        } else {
+            // 情報なし：デフォルトSVGを表示
+            defaultView.classList.add('active');
+            emergencyView.classList.remove('active');
+        }
+    });
+</script>
+
+</body>
+</html>
