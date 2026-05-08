@@ -26,28 +26,22 @@
             width: 280px; padding-left: 14px;
             overflow: visible; display: flex; align-items: center; box-sizing: border-box;
         }
-        
-        /* font-feature-settingsを追加 */
         .area-name { 
             font-size: 36px; 
             white-space: nowrap; 
             transform-origin: left center; 
             font-feature-settings: "palt"; 
         }
-
         .time-wrapper {
             width: 170px; margin-left: auto; margin-right: 117px;
             overflow: visible; display: flex; justify-content: center;
         }
-
-        /* font-feature-settingsを追加 */
         .time { 
             font-size: 32px; 
             white-space: nowrap; 
             transform-origin: center center; 
             font-feature-settings: "palt";
         }
-
         .day-unit { font-size: 0.8em; margin: 0 1px; }
     </style>
 </head>
@@ -100,33 +94,54 @@
     function formatConditionHTML(cond) {
         if (!cond) return "";
         let text = CONDITION_DICT[cond] || cond;
-        const date = new Date(text);
+        // P2Pからの時刻形式 "2026/05/09 08:30:00" に対応
+        const date = new Date(text.replace(/-/g, '/')); 
         if (!isNaN(date.getTime()) && text.includes(':')) {
             return `${date.getDate()}<span class="day-unit">日</span> ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
         }
         return text.replace("日", '<span class="day-unit">日</span>');
     }
 
-    let allTsunamiData = [
-        { name: "静岡県", maxHeight: { description: "１０ｍ超", value: 10 }, firstHeight: { condition: "津波到達中と推測" } },
-        { name: "愛知県外海", maxHeight: { description: "１０ｍ超", value: 10 }, firstHeight: { condition: "第１波の到達を確認" } },
-        { name: "伊勢・三河湾", maxHeight: { description: "１０ｍ", value: 10 }, firstHeight: { condition: "津波到達中と推測" } },
-        { name: "三重県南部", maxHeight: { description: "１０ｍ超", value: 10 }, firstHeight: { condition: "ただちに到達と推測" } },
-        { name: "和歌山県", maxHeight: { description: "５ｍ", value: 5 }, firstHeight: { condition: "ただちに到達と推測" } },
-        { name: "伊豆諸島", maxHeight: { description: "５ｍ", value: 5 }, firstHeight: { condition: "2027/05/22 10:30:00" } },
-        { name: "相模湾・三浦半島", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/22 10:40:00" } },
-        { name: "東京湾内湾", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/22 10:40:00" } },
-        { name: "徳島県", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/22 10:50:00" } },
-        { name: "高知県", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2027/05/22 10:50:00" } },
-        { name: "淡路島南部", maxHeight: { description: "１ｍ", value: 1 }, firstHeight: { condition: "2027/05/22 11:00:00" } },
-        { name: "大阪府", maxHeight: { description: "１ｍ", value: 1 }, firstHeight: { condition: "2027/05/22 11:10:00" } }
-    ];
-
+    let allTsunamiData = []; // APIから取得したデータを保持
     let currentGroupIndex = 0; 
     let currentPageInGroup = 0;
     const rowsPerPage = 5;
     let autoPage = true;
     let lastTriggerTime = 0;
+
+    // P2P地震情報 APIからデータを取得
+    async function fetchP2PData() {
+        try {
+            const response = await fetch('https://api.p2pquake.net/v2/history?codes=552&limit=1');
+            const data = await response.json();
+            if (data && data.length > 0 && data[0].areas) {
+                // データを整形
+                allTsunamiData = data[0].areas.map(area => {
+                    let val = 0;
+                    const desc = area.maxHeight.description;
+                    // グループ分け用の数値判定
+                    if (desc.includes('１０ｍ') || desc === '巨大') val = 10;
+                    else if (desc.includes('５ｍ')) val = 5;
+                    else if (desc.includes('３ｍ') || desc === '高い') val = 3;
+                    else if (desc.includes('１ｍ')) val = 1;
+
+                    return {
+                        name: area.name,
+                        maxHeight: {
+                            description: desc,
+                            value: val
+                        },
+                        firstHeight: {
+                            condition: area.firstHeight ? (area.firstHeight.arrivalTime || area.firstHeight.condition) : ""
+                        }
+                    };
+                });
+                render();
+            }
+        } catch (error) {
+            console.error("API取得エラー:", error);
+        }
+    }
 
     function getGroups() {
         return [
@@ -138,7 +153,11 @@
 
     function render() {
         const groups = getGroups();
-        if (groups.length === 0) return;
+        if (groups.length === 0) {
+            document.getElementById('list-container').innerHTML = "";
+            document.getElementById('header-area').style.backgroundImage = "none";
+            return;
+        }
 
         if (currentGroupIndex >= groups.length) currentGroupIndex = 0;
         const currentGroup = groups[currentGroupIndex];
@@ -197,6 +216,7 @@
         render();
     }
 
+    // Firebase連携（ページ送り制御用）
     onValue(ref(db, 'broadcast/tsunami_config'), (snapshot) => {
         const config = snapshot.val();
         if (!config) return;
@@ -209,11 +229,16 @@
         render();
     });
 
+    // 10秒おきにページ送り
     setInterval(() => {
         if (autoPage) nextPage();
     }, 10000);
 
-    render();
+    // 30秒おきにP2P APIから最新情報を取得
+    setInterval(fetchP2PData, 30000);
+
+    // 初回実行
+    fetchP2PData();
 </script>
 </body>
 </html>
