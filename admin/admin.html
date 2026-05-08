@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EQLive Admin v2.0</title>
+    <title>EQLive Admin v2.0 - Pro</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -12,40 +12,179 @@
             --accent-red: #d13438;
             --text-color: #ffffff;
             --border-color: #333;
+            --nav-width: 200px;
         }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        header { padding: 15px 25px; background: #000; border-bottom: 2px solid var(--accent-blue); display: flex; justify-content: space-between; align-items: center; }
-        .status-badge { padding: 5px 12px; border-radius: 4px; font-weight: bold; font-size: 14px; }
+
+        body { 
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-color); 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Header */
+        header { 
+            padding: 10px 20px; 
+            background: #000; 
+            border-bottom: 2px solid var(--accent-blue); 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .header-logo { font-size: 18px; font-weight: bold; }
+        .header-logo span { color: #888; font-size: 12px; margin-left: 5px; }
+
+        .status-badge { 
+            padding: 4px 10px; 
+            border-radius: 4px; 
+            font-weight: bold; 
+            font-size: 12px; 
+            white-space: nowrap;
+        }
         .status-normal { background: var(--accent-blue); }
         .status-special { background: var(--accent-red); animation: blink 1s infinite; }
+
         @keyframes blink { 50% { opacity: 0.5; } }
-        main { display: flex; flex: 1; overflow: hidden; }
-        nav { width: 200px; background: #181818; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
-        nav button { background: transparent; border: none; color: #aaa; padding: 20px; text-align: left; font-size: 16px; cursor: pointer; border-left: 4px solid transparent; outline: none; }
-        nav button.active { background: #252525; color: white; border-left-color: var(--accent-blue); }
-        .content { flex: 1; padding: 30px; overflow-y: auto; }
-        .tab-content { display: none; }
+
+        /* Main Layout */
+        main { display: flex; flex: 1; overflow: hidden; flex-direction: row; }
+
+        /* Navigation (Sidebar/Topbar) */
+        nav { 
+            width: var(--nav-width); 
+            background: #181818; 
+            border-right: 1px solid var(--border-color); 
+            display: flex; 
+            flex-direction: column; 
+            flex-shrink: 0;
+        }
+
+        nav button { 
+            background: transparent; 
+            border: none; 
+            color: #aaa; 
+            padding: 18px 20px; 
+            text-align: left; 
+            font-size: 15px; 
+            cursor: pointer; 
+            border-left: 4px solid transparent;
+            transition: 0.2s;
+        }
+
+        nav button.active { 
+            background: #252525; 
+            color: white; 
+            border-left-color: var(--accent-blue); 
+        }
+
+        /* Content Area */
+        .content { flex: 1; padding: 20px; overflow-y: auto; box-sizing: border-box; }
+        .tab-content { display: none; max-width: 1000px; margin: 0 auto; }
         .tab-content.active { display: block; }
-        .card { background: var(--card-bg); border-radius: 8px; padding: 20px; margin-bottom: 25px; border: 1px solid var(--border-color); }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-        label { display: block; margin-bottom: 5px; color: #aaa; font-size: 14px; }
-        input, select, textarea { width: 100%; background: #2d2d2d; border: 1px solid var(--border-color); color: white; padding: 10px; border-radius: 4px; box-sizing: border-box; }
-        button.primary { background: var(--accent-blue); color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
-        button.primary:hover { opacity: 0.8; }
-        /* Table Styles */
-        .scroll-table { height: 60vh; overflow-y: auto; border: 1px solid var(--border-color); background: #1a1a1a; }
+
+        h2 { font-size: 20px; margin-top: 0; margin-bottom: 20px; color: var(--accent-blue); }
+
+        /* Responsive Grid */
+        .card { 
+            background: var(--card-bg); 
+            border-radius: 8px; 
+            padding: 20px; 
+            margin-bottom: 20px; 
+            border: 1px solid var(--border-color); 
+        }
+
+        .grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+            gap: 15px; 
+            margin-bottom: 20px;
+        }
+
+        label { display: block; margin-bottom: 8px; color: #aaa; font-size: 13px; font-weight: bold; }
+        
+        input, select, textarea { 
+            width: 100%; 
+            background: #2d2d2d; 
+            border: 1px solid var(--border-color); 
+            color: white; 
+            padding: 12px; 
+            border-radius: 6px; 
+            font-size: 16px; /* 16px以上にするとiPhoneでズームされない */
+            box-sizing: border-box; 
+        }
+
+        button.primary { 
+            background: var(--accent-blue); 
+            color: white; 
+            border: none; 
+            padding: 15px 30px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 16px;
+            width: 100%; /* モバイルではフル幅 */
+        }
+
+        /* Table Optimization */
+        .scroll-table { 
+            height: 50vh; 
+            overflow-y: auto; 
+            border: 1px solid var(--border-color); 
+            background: #1a1a1a; 
+            border-radius: 6px;
+        }
         table { width: 100%; border-collapse: collapse; }
-        th { background: #252525; position: sticky; top: 0; padding: 12px; text-align: left; border-bottom: 2px solid var(--border-color); z-index: 10; }
-        td { padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 14px; }
-        tr:hover { background: #333; cursor: pointer; }
+        th { background: #252525; position: sticky; top: 0; padding: 12px; text-align: left; border-bottom: 2px solid var(--border-color); z-index: 10; font-size: 13px; }
+        td { padding: 14px 12px; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+        tr:hover { background: #333; }
         tr.selected { background: #004a83 !important; }
-        #camera-loading { padding: 20px; text-align: center; color: #888; }
+
+        /* --- MEDIA QUERIES --- */
+
+        /* Tablets & Mobile (900px以下) */
+        @media (max-width: 900px) {
+            main { flex-direction: column; }
+            nav { 
+                width: 100%; 
+                flex-direction: row; 
+                border-right: none; 
+                border-bottom: 1px solid var(--border-color); 
+                overflow-x: auto;
+            }
+            nav button { 
+                flex: 1; 
+                text-align: center; 
+                padding: 15px 5px; 
+                font-size: 13px; 
+                border-left: none; 
+                border-bottom: 4px solid transparent; 
+                white-space: nowrap;
+            }
+            nav button.active { border-bottom-color: var(--accent-blue); }
+            .content { padding: 15px; }
+            .scroll-table { height: 40vh; }
+        }
+
+        /* Smart Phones (480px以下) */
+        @media (max-width: 480px) {
+            .header-logo { font-size: 16px; }
+            h2 { font-size: 18px; }
+            .card { padding: 15px; }
+            td { font-size: 13px; padding: 12px 8px; }
+            th:nth-child(3), td:nth-child(3) { display: none; } /* スマホではTypeを隠して地点名を広く */
+        }
     </style>
 </head>
 <body>
 
 <header>
-    <div style="font-size: 20px; font-weight: bold;">EQLive Admin <span style="color:#888; font-size:14px;">v2.0</span></div>
+    <div class="header-logo">EQLive Admin<span>v2.0 Pro</span></div>
     <div id="global-status" class="status-badge status-normal">NORMAL MODE</div>
 </header>
 
@@ -53,12 +192,12 @@
     <nav>
         <button onclick="showTab('broadcast')" id="btn-broadcast" class="active">放送制御</button>
         <button onclick="showTab('camera')" id="btn-camera">カメラ切替</button>
-        <button onclick="showTab('ticker')" id="btn-ticker">テロップ・情報</button>
+        <button onclick="showTab('ticker')" id="btn-ticker">テロップ</button>
     </nav>
 
     <div class="content">
         <div id="tab-broadcast" class="tab-content active">
-            <h2>放送制御パネル</h2>
+            <h2>放送制御</h2>
             <div class="grid">
                 <div class="card">
                     <label>放送モード</label>
@@ -78,21 +217,21 @@
                     </select>
                 </div>
                 <div class="card">
-                    <label>オペレーター</label>
+                    <label>配信担当</label>
                     <select id="field-statusType">
                         <option value="bot">自動 (Bot)</option>
                         <option value="ningen">手動 (Ningen)</option>
                     </select>
                 </div>
             </div>
-            <button class="primary" onclick="syncToFirebase()">設定を更新</button>
+            <button class="primary" onclick="syncToFirebase()">一括更新</button>
         </div>
 
         <div id="tab-camera" class="tab-content">
-            <h2>ライブカメラ・スイッチャー</h2>
-            <div class="card">
-                <label>現在選択中のカメラID</label>
-                <input type="text" id="field-cameraId" readonly style="font-weight:bold; color:var(--accent-blue);">
+            <h2>ライブカメラ切替</h2>
+            <div class="card" style="padding:12px;">
+                <label>現在選択中:</label>
+                <input type="text" id="field-cameraId" readonly style="border:none; background:transparent; font-weight:bold; color:var(--accent-blue); padding:0;">
             </div>
             <div class="scroll-table">
                 <table id="camera-table">
@@ -100,33 +239,32 @@
                         <tr>
                             <th>地点名</th>
                             <th>ID</th>
-                            <th>タイプ</th>
+                            <th>Type</th>
                         </tr>
                     </thead>
-                    <tbody id="camera-list-body">
-                        </tbody>
+                    <tbody id="camera-list-body"></tbody>
                 </table>
-                <div id="camera-loading">カメラリストを読み込んでいます...</div>
+                <div id="camera-loading">読み込み中...</div>
             </div>
         </div>
 
         <div id="tab-ticker" class="tab-content">
-            <h2>テロップ・テキスト管理</h2>
+            <h2>テロップ管理</h2>
             <div class="card">
                 <div style="margin-bottom:15px;">
                     <label>メインタイトル</label>
-                    <input type="text" id="field-mainTitle">
+                    <input type="text" id="field-mainTitle" placeholder="例：地震速報">
                 </div>
                 <div>
                     <label>サブタイトル</label>
-                    <input type="text" id="field-subtitle">
+                    <input type="text" id="field-subtitle" placeholder="例：避難を心がけてください">
                 </div>
             </div>
             <div class="card">
-                <label>下部テキスト (L字用)</label>
-                <textarea id="field-leftText" rows="4"></textarea>
+                <label>詳細テキスト (L字下部)</label>
+                <textarea id="field-leftText" rows="4" placeholder="ここに情報を入力"></textarea>
             </div>
-            <button class="primary" onclick="syncToFirebase()">テキストを更新</button>
+            <button class="primary" onclick="syncToFirebase()">テキスト送信</button>
         </div>
     </div>
 </main>
@@ -151,7 +289,6 @@
 
     let cameraList = [];
 
-    // --- タブ切り替え ---
     window.showTab = function(tabId) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
@@ -159,12 +296,10 @@
         document.getElementById('btn-' + tabId).classList.add('active');
     };
 
-    // --- Firebaseデータ受信 (リアルタイム監視) ---
     onValue(ref(db, 'broadcast'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
-        // 入力フィールドの値を同期
         document.getElementById('field-mode').value = data.current.mode;
         document.getElementById('field-layout').value = data.current.layoutMode;
         document.getElementById('field-statusType').value = data.current.statusType;
@@ -173,16 +308,13 @@
         document.getElementById('field-subtitle').value = data.current.subtitle;
         document.getElementById('field-leftText').value = data.l_shape.leftText;
 
-        // ヘッダーのステータス表示を更新
         const statusBadge = document.getElementById('global-status');
         statusBadge.innerText = data.current.mode.toUpperCase() + " MODE";
         statusBadge.className = "status-badge status-" + (data.current.mode === 'special' ? 'special' : 'normal');
         
-        // リスト内の選択ハイライトを更新
         highlightSelectedCamera(data.current.cameraSource);
     });
 
-    // --- Firebaseデータ送信 ---
     window.syncToFirebase = function() {
         const updates = {};
         updates['broadcast/current/mode'] = document.getElementById('field-mode').value;
@@ -194,20 +326,17 @@
         updates['broadcast/current/updatedAt'] = Date.now();
 
         update(ref(db), updates).then(() => {
-            console.log("Firebase sync successful");
-        }).catch((error) => {
-            alert("更新エラー: " + error.message);
+            const btn = document.querySelector('button.primary');
+            const originalText = btn.innerText;
+            btn.innerText = "更新しました！";
+            setTimeout(() => btn.innerText = originalText, 2000);
         });
     };
 
-    // --- カメラリスト生成 (GitHubのリモートJSONを使用) ---
     async function initCameraSwitcher() {
         const loadingMsg = document.getElementById('camera-loading');
         try {
-            // GitHubのリモートURLから取得
             const res = await fetch('https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json');
-            if (!res.ok) throw new Error("JSONデータの取得に失敗しました");
-            
             cameraList = await res.json();
             const tbody = document.getElementById('camera-list-body');
             tbody.innerHTML = ""; 
@@ -217,11 +346,10 @@
                 tr.setAttribute('data-id', cam.id);
                 tr.innerHTML = `
                     <td style="font-weight:bold;">${cam.name}</td>
-                    <td style="color:#888; font-family:monospace;">${cam.id}</td>
+                    <td style="color:#888; font-size:12px;">${cam.id}</td>
                     <td><span style="font-size:10px; background:#444; padding:2px 5px; border-radius:3px;">${cam.type}</span></td>
                 `;
                 tr.onclick = () => {
-                    // 行をクリックした瞬間にFirebaseを更新
                     update(ref(db, 'broadcast/current'), { 
                         cameraSource: cam.id,
                         updatedAt: Date.now()
@@ -231,12 +359,10 @@
             });
             loadingMsg.style.display = "none";
         } catch (e) {
-            loadingMsg.innerHTML = `<span style="color:var(--accent-red)">エラー: カメラリストを読み込めませんでした。</span>`;
-            console.error("Camera List Load Error:", e);
+            loadingMsg.innerHTML = `<span style="color:var(--accent-red)">エラー</span>`;
         }
     }
 
-    // 選択中のカメラ行をハイライトする
     function highlightSelectedCamera(selectedId) {
         document.querySelectorAll('#camera-list-body tr').forEach(tr => {
             if (tr.getAttribute('data-id') === selectedId) {
@@ -247,9 +373,7 @@
         });
     }
 
-    // ページ読み込み完了時に実行
     window.onload = initCameraSwitcher;
-
 </script>
 </body>
 </html>
