@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EQLive - Screen Program</title>
+    <style>
+        @font-face {
+            font-family: 'UDKakugo';
+            src: url('assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: black; overflow: hidden;
+            font-family: 'UDKakugo', sans-serif;
+        }
+
+        #screen-container {
+            position: relative; width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        .content-media {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; border: none;
+            object-fit: contain; background-color: #000;
+        }
+
+        #program-overlay {
+            position: absolute; top: 60px; left: 50px;
+            display: flex; align-items: center; color: white; z-index: 100;
+            transition: opacity 0.5s; opacity: 0; pointer-events: none;
+            filter: drop-shadow(0 0 4px rgba(0,0,0,1)) drop-shadow(0 0 8px rgba(0,0,0,1));
+        }
+
+        #program-overlay.active { opacity: 1; }
+        .live-icon { width: 140px; height: auto; margin-right: 15px; }
+        .program-title { 
+            font-size: 48px; font-weight: bold; letter-spacing: 0.08em;
+            text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000;
+        }
+
+        /* 画面共有開始ボタン（セキュリティ上必要） */
+        #share-btn {
+            position: absolute; z-index: 200;
+            padding: 20px 40px; font-size: 24px; font-family: 'UDKakugo';
+            background: #0078d4; color: white; border: none; border-radius: 8px;
+            cursor: pointer; display: none;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+
+<div id="screen-container">
+    <button id="share-btn" onclick="startScreenShare()">画面共有を開始する</button>
+
+    <div id="program-overlay">
+        <img src="assets/live.svg" class="live-icon" alt="投影">
+        <span id="target-title" class="program-title">---</span>
+    </div>
+
+    <div id="media-target" style="width:100%; height:100%;"></div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // Firebase設定（省略せずそのままお使いください）
+    const firebaseConfig = { /* あなたのConfig */ };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let hls = null;
+    let localStream = null;
+
+    function startSync() {
+        onValue(ref(db, 'broadcast/screen_program'), (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+            updateMedia(data);
+        });
+    }
+
+    async function updateMedia(data) {
+        const container = document.getElementById('media-target');
+        const overlay = document.getElementById('program-overlay');
+        const titleElement = document.getElementById('target-title');
+        const shareBtn = document.getElementById('share-btn');
+
+        // クリーンアップ
+        if (hls) { hls.destroy(); hls = null; }
+        if (localStream) { 
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
+        }
+        container.innerHTML = "";
+        shareBtn.style.display = "none";
+
+        // タイトル設定
+        if (data.title) {
+            titleElement.innerText = data.title;
+            overlay.classList.add('active');
+        } else {
+            overlay.classList.remove('active');
+        }
+
+        switch (data.type) {
+            case 'youtube':
+                let vidId = data.url.split('v=')[1] || data.url.split('/').pop();
+                container.innerHTML = `<iframe class="content-media" src="https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&rel=0&controls=0" allow="autoplay; encrypted-media"></iframe>`;
+                break;
+
+            case 'image':
+                container.innerHTML = `<img src="${data.url}" class="content-media">`;
+                break;
+
+            case 'video':
+                const video = document.createElement('video');
+                video.className = "content-media";
+                video.muted = true; video.autoplay = true; video.playsInline = true; video.loop = true;
+                container.appendChild(video);
+                if (data.url.includes('.m3u8')) {
+                    if (Hls.isSupported()) { hls = new Hls(); hls.loadSource(data.url); hls.attachMedia(video); }
+                } else { video.src = data.url; }
+                break;
+
+            case 'screenshare':
+                shareBtn.style.display = "block"; // ボタンを表示
+                break;
+        }
+    }
+
+    // 画面共有の開始（ユーザー操作が必要）
+    window.startScreenShare = async function() {
+        try {
+            localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+            const container = document.getElementById('media-target');
+            const video = document.createElement('video');
+            video.className = "content-media";
+            video.autoplay = true;
+            video.playsInline = true;
+            video.srcObject = localStream;
+            container.appendChild(video);
+            document.getElementById('share-btn').style.display = "none";
+        } catch (err) {
+            console.error("Error: " + err);
+        }
+    };
+
+    window.onload = startSync;
+</script>
+</body>
+</html>
