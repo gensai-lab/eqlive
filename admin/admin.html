@@ -2,300 +2,105 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EQLive Admin Pro - Responsive</title>
     <style>
-        :root {
-            --bg-color: #0f0f0f;
-            --card-bg: #1a1a1a;
-            --accent-blue: #0078d4;
-            --accent-red: #d13438;
-            --text-color: #f5f5f5;
-            --border-color: #2d2d2d;
-            --nav-width: 240px;
+        @font-face {
+            font-family: 'UDKakugo';
+            src: url('../assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
         }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
+        body, html {
+            margin: 0; padding: 0; width: 600px; height: auto;
+            background-color: transparent; overflow: hidden;
+            font-family: 'UDKakugo', sans-serif;
+            /* 文字色を一律 #1E1E1E に指定 */
+            color: #1E1E1E;
+        }
+        .container {
+            width: 600px;
             display: flex;
             flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
         }
-
-        /* ヘッダー */
-        header {
-            padding: 0 20px;
+        
+        /* タイトル行（余白なし） */
+        .header-img {
+            width: 600px;
             height: 60px;
-            background: #000;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 1000;
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
         }
 
-        .header-logo { font-size: 18px; font-weight: bold; letter-spacing: 1px; }
-        .header-logo span { font-size: 10px; color: var(--accent-blue); margin-left: 5px; border: 1px solid var(--accent-blue); padding: 2px 4px; border-radius: 3px; }
-
-        /* モバイル用メニューボタン */
-        .menu-toggle {
-            display: none;
-            background: transparent;
-            border: none;
-            color: white;
-            font-size: 24px;
-            cursor: pointer;
-            padding: 10px;
-        }
-
-        /* メインレイアウト */
-        main {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* サイドナビゲーション */
-        nav {
-            width: var(--nav-width);
-            background: #111;
-            border-right: 1px solid var(--border-color);
+        /* リストエリア */
+        .list-area {
             display: flex;
             flex-direction: column;
-            transition: transform 0.3s ease;
-            z-index: 900;
+        }
+        .row-img {
+            width: 600px;
+            height: 50px;
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            display: flex;
+            align-items: center;
         }
 
-        nav button {
-            background: transparent;
-            border: none;
-            color: #888;
-            padding: 20px;
-            text-align: left;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            border-left: 4px solid transparent;
-            transition: all 0.2s;
-        }
-
-        nav button.active {
-            background: #1a1a1a;
-            color: white;
-            border-left-color: var(--accent-blue);
-        }
-
-        /* コンテンツエリア */
-        .content {
-            flex: 1;
-            padding: 24px;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .tab-content {
-            display: none;
-            max-width: 800px;
-            margin: 0 auto;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .tab-content.active { display: block; }
-
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        h2 { font-size: 22px; margin: 0 0 20px 0; border-left: 4px solid var(--accent-blue); padding-left: 12px; }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
-
-        label { display: block; margin-bottom: 8px; color: #aaa; font-size: 12px; font-weight: bold; text-transform: uppercase; }
-
-        input, select, textarea {
+        /* テキスト配置設定 */
+        .row-content {
             width: 100%;
-            background: #252525;
-            border: 1px solid var(--border-color);
-            color: white;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 16px;
-            box-sizing: border-box;
-            margin-bottom: 16px;
-            transition: border-color 0.2s;
-        }
-
-        input:focus { border-color: var(--accent-blue); outline: none; }
-
-        .btn-group { display: flex; gap: 10px; }
-
-        button.primary {
-            background: var(--accent-blue);
-            color: white;
-            border: none;
-            padding: 16px;
-            border-radius: 8px;
-            cursor: pointer;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
             font-weight: bold;
-            font-size: 16px;
+            box-sizing: border-box;
+        }
+        /* 並び順：予報区名(左) -> 到達予想(右) */
+        .area-name {
             flex: 1;
-            transition: opacity 0.2s;
+            font-size: 26px;
+            padding-left: 20px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .time {
+            width: 150px;
+            font-size: 24px;
+            text-align: right;
+            padding-right: 20px;
         }
 
-        button.secondary { background: #333; color: white; border: none; padding: 16px; border-radius: 8px; cursor: pointer; flex: 1; }
-
-        button:active { opacity: 0.8; transform: scale(0.98); }
-
-        /* カメラテーブル */
-        .scroll-table {
-            height: 350px;
-            overflow-y: auto;
-            background: #111;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
+        /* 手動操作ボタン（admin用・画面上は極力邪魔しない位置） */
+        #manual-ctrl {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            display: none;
+            gap: 2px;
+            z-index: 100;
         }
-
-        table { width: 100%; border-collapse: collapse; }
-        th { background: #222; position: sticky; top: 0; padding: 12px; text-align: left; font-size: 12px; color: #666; border-bottom: 1px solid var(--border-color); }
-        td { padding: 16px 12px; border-bottom: 1px solid var(--border-color); font-size: 15px; }
-        tr.selected { background: rgba(0, 120, 212, 0.2) !important; color: var(--accent-blue); font-weight: bold; }
-
-        /* レスポンシブ設定 */
-        @media (max-width: 768px) {
-            .menu-toggle { display: block; }
-
-            nav {
-                position: absolute;
-                left: 0; top: 0; bottom: 0;
-                transform: translateX(-100%);
-                box-shadow: 10px 0 20px rgba(0,0,0,0.5);
-            }
-
-            nav.open { transform: translateX(0); }
-
-            .content { padding: 16px; }
-
-            .btn-group { flex-direction: column; }
-            
-            td { padding: 12px 8px; font-size: 14px; }
+        .ctrl-btn {
+            background: rgba(255,255,255,0.8);
+            border: 1px solid #ccc;
+            color: #000;
+            padding: 2px 5px;
+            font-size: 10px;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
 
-<header>
-    <button class="menu-toggle" onclick="toggleMenu()">☰</button>
-    <div class="header-logo">EQLive Admin<span>PRO</span></div>
-    <div style="width: 40px;"></div> 
-</header>
-
-<main>
-    <nav id="side-nav">
-        <button onclick="changeTab('broadcast')" id="btn-broadcast" class="active">放送制御</button>
-        <button onclick="changeTab('tsunami')" id="btn-tsunami">津波制御</button>
-        <button onclick="changeTab('screen')" id="btn-screen">投影制御</button>
-        <button onclick="changeTab('camera')" id="btn-camera">カメラ切替</button>
-        <button onclick="changeTab('ticker')" id="btn-ticker">テロップ</button>
-        <div style="margin-top: auto; padding: 20px; font-size: 10px; color: #444;">Kactuif System v2.0</div>
-    </nav>
-
-    <div class="content">
-        <div id="tab-broadcast" class="tab-content active">
-            <h2>放送制御</h2>
-            <div class="card">
-                <label>配信モード</label>
-                <select id="field-mode">
-                    <option value="normal">通常時</option>
-                    <option value="special">緊急特番</option>
-                </select>
-                <label>情報更新ソース</label>
-                <select id="field-statusType">
-                    <option value="bot">自動 (Bot)</option>
-                    <option value="ningen">手動 (Ningen)</option>
-                </select>
-            </div>
-            <button class="primary" onclick="syncBroadcast()">設定を保存</button>
+<div class="container">
+    <div id="header-area" class="header-img"></div>
+    <div class="list-area" id="list-container">
         </div>
+</div>
 
-        <div id="tab-tsunami" class="tab-content">
-            <h2>津波リスト制御</h2>
-            <div class="card">
-                <label>ヘッダー種別（タイトル画像）</label>
-                <select id="field-tsunami-grade">
-                    <option value="ot">大津波警報 (ot)</option>
-                    <option value="kt">津波警報 (kt)</option>
-                    <option value="ct">津波注意報 (ct)</option>
-                </select>
-                <label>ページ送り設定</label>
-                <select id="field-tsunami-auto">
-                    <option value="true">自動送り (10秒ごと)</option>
-                    <option value="false">手動送り (操作ボタン表示)</option>
-                </select>
-            </div>
-            <button class="primary" onclick="syncTsunamiConfig()">設定を反映</button>
-        </div>
-
-        <div id="tab-screen" class="tab-content">
-            <h2>投影制御</h2>
-            <div class="card">
-                <label>投影コンテンツ</label>
-                <select id="field-screen-type">
-                    <option value="none">投影なし</option>
-                    <option value="youtube">YouTubeライブ</option>
-                    <option value="image">静止画・画像</option>
-                    <option value="screenshare">画面共有</option>
-                </select>
-                <label>ソースURL</label>
-                <input type="text" id="field-screen-url" placeholder="https://...">
-            </div>
-            <button class="primary" onclick="syncScreen()">投影を開始</button>
-        </div>
-
-        <div id="tab-camera" class="tab-content">
-            <h2>ライブカメラ選択</h2>
-            <div class="card" style="margin-bottom: 10px;">
-                <label>選択中のカメラID</label>
-                <input type="text" id="field-cameraId" readonly style="background: #111; color: var(--accent-blue); border: none;">
-            </div>
-            <div class="scroll-table">
-                <table>
-                    <thead><tr><th>地点名</th><th>タイプ</th></tr></thead>
-                    <tbody id="camera-list-body"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="tab-ticker" class="tab-content">
-            <h2>テロップ管理</h2>
-            <div class="card">
-                <label>ジャンル</label>
-                <input type="text" id="field-news-genre" placeholder="鉄道情報">
-                <label>本文 1行目</label>
-                <input type="text" id="field-news-line1" placeholder="JR東日本 各線">
-                <label>本文 2行目</label>
-                <input type="text" id="field-news-line2" placeholder="運転見合わせの可能性">
-            </div>
-            <div class="btn-group">
-                <button class="primary" onclick="syncTicker()">テロップ更新</button>
-                <button class="secondary" onclick="clearTicker()">非表示</button>
-            </div>
-        </div>
-    </div>
-</main>
+<div id="manual-ctrl">
+    <button class="ctrl-btn" onclick="prevPage()">前</button>
+    <button class="ctrl-btn" onclick="nextPage()">次</button>
+</div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
@@ -310,114 +115,88 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // メニュー開閉
-    window.toggleMenu = () => {
-        document.getElementById('side-nav').classList.toggle('open');
-    };
+    // テストデータ
+    // height: '10m', '10mu', '5m', '3m', '1m', 'kyodai', 'takai', 'none'
+    const testData = [
+        { name: "岩手県", height: "kyodai", time: "14:50" },
+        { name: "宮城県", height: "kyodai", time: "14:52" },
+        { name: "福島県", height: "5m", time: "14:55" },
+        { name: "青森県太平洋沿岸", height: "3m", time: "15:01" },
+        { name: "茨城県", height: "3m", time: "15:10" },
+        { name: "千葉県九十九里・外房", height: "1m", time: "15:15" },
+        { name: "相模湾・三浦半島", height: "none", time: "15:20" }
+    ];
 
-    // タブ切り替え
-    window.changeTab = (tabId) => {
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-        document.getElementById('tab-' + tabId).classList.add('active');
-        document.getElementById('btn-' + tabId).classList.add('active');
-        if (window.innerWidth <= 768) toggleMenu();
-    };
+    let currentPage = 0;
+    let autoPage = true;
+    let tsunamiData = testData;
+    let currentGrade = "ot"; // ot: 大津波, kt: 警報, ct: 注意報
+    const rowsPerPage = 5;
 
-    // 初期データ取得
-    onValue(ref(db, 'broadcast'), (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
+    function render() {
+        const container = document.getElementById('list-container');
+        const header = document.getElementById('header-area');
         
-        if (data.current) {
-            document.getElementById('field-mode').value = data.current.mode || 'normal';
-            document.getElementById('field-statusType').value = data.current.statusType || 'bot';
-            document.getElementById('field-cameraId').value = data.current.cameraSource || '';
-            highlightSelectedCamera(data.current.cameraSource);
-        }
+        // ヘッダー背景画像の設定
+        header.style.backgroundImage = `url('../assets/banner/tsunami/tsunami-list_${currentGrade}.svg')`;
         
-        if (data.tsunami_config) {
-            document.getElementById('field-tsunami-grade').value = data.tsunami_config.grade || 'ot';
-            document.getElementById('field-tsunami-auto').value = data.tsunami_config.autoPage !== false ? 'true' : 'false';
-        }
+        container.innerHTML = "";
+        const totalPages = Math.ceil(tsunamiData.length / rowsPerPage) || 1;
+        if (currentPage >= totalPages) currentPage = 0;
 
-        if (data.manual_news) {
-            document.getElementById('field-news-genre').value = data.manual_news.genre || "";
-            document.getElementById('field-news-line1').value = data.manual_news.line1 || "";
-            document.getElementById('field-news-line2').value = data.manual_news.line2 || "";
-        }
-        
-        if (data.screen_program) {
-            document.getElementById('field-screen-type').value = data.screen_program.type || 'none';
-            document.getElementById('field-screen-url').value = data.screen_program.url || '';
-        }
-    });
+        const start = currentPage * rowsPerPage;
+        const pageItems = tsunamiData.slice(start, start + rowsPerPage);
 
-    // 放送設定保存
-    window.syncBroadcast = () => {
-        update(ref(db, 'broadcast/current'), {
-            mode: document.getElementById('field-mode').value,
-            statusType: document.getElementById('field-statusType').value,
-            updatedAt: Date.now()
-        }).then(() => alert("放送設定を更新しました"));
-    };
-
-    // 津波設定保存
-    window.syncTsunamiConfig = () => {
-        update(ref(db, 'broadcast/tsunami_config'), {
-            grade: document.getElementById('field-tsunami-grade').value,
-            autoPage: document.getElementById('field-tsunami-auto').value === 'true',
-            updatedAt: Date.now()
-        }).then(() => alert("津波制御設定を更新しました"));
-    };
-
-    // 投影設定保存
-    window.syncScreen = () => {
-        update(ref(db, 'broadcast/screen_program'), {
-            type: document.getElementById('field-screen-type').value,
-            url: document.getElementById('field-screen-url').value
-        }).then(() => alert("投影設定を更新しました"));
-    };
-
-    // テロップ更新
-    window.syncTicker = () => {
-        set(ref(db, 'broadcast/manual_news'), {
-            genre: document.getElementById('field-news-genre').value,
-            line1: document.getElementById('field-news-line1').value,
-            line2: document.getElementById('field-news-line2').value
-        }).then(() => alert("テロップを更新しました"));
-    };
-
-    window.clearTicker = () => { 
-        set(ref(db, 'broadcast/manual_news'), null).then(() => alert("テロップを消去しました")); 
-    };
-
-    // カメラリスト読み込み
-    async function initCameras() {
-        try {
-            const res = await fetch('https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json');
-            const cameraList = await res.json();
-            const tbody = document.getElementById('camera-list-body');
-            tbody.innerHTML = "";
-            cameraList.forEach(cam => {
-                const tr = document.createElement('tr');
-                tr.setAttribute('data-id', cam.id);
-                tr.innerHTML = `<td>${cam.name}</td><td><span style="font-size:10px; color:#666;">${cam.type}</span></td>`;
-                tr.onclick = () => {
-                    update(ref(db, 'broadcast/current'), { cameraSource: cam.id, updatedAt: Date.now() });
-                };
-                tbody.appendChild(tr);
-            });
-        } catch (e) { console.error("カメラリストの読み込みに失敗しました:", e); }
-    }
-
-    function highlightSelectedCamera(id) {
-        document.querySelectorAll('#camera-list-body tr').forEach(tr => {
-            tr.classList.toggle('selected', tr.getAttribute('data-id') === id);
+        pageItems.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'row-img';
+            row.style.backgroundImage = `url('../assets/banner/tsunami/tsunami-list_${item.height}.svg')`;
+            
+            // 順序：area-name(左) -> time(右)
+            row.innerHTML = `
+                <div class="row-content">
+                    <div class="area-name">${item.name}</div>
+                    <div class="time">${item.time}</div>
+                </div>
+            `;
+            container.appendChild(row);
         });
     }
 
-    window.onload = initCameras;
+    // 10秒ごとの自動切替
+    setInterval(() => {
+        if (autoPage) {
+            const total = Math.ceil(tsunamiData.length / rowsPerPage);
+            if (total > 1) {
+                currentPage = (currentPage + 1) % total;
+                render();
+            }
+        }
+    }, 10000);
+
+    window.nextPage = () => { 
+        const total = Math.ceil(tsunamiData.length / rowsPerPage);
+        currentPage = (currentPage + 1) % total; 
+        render(); 
+    };
+    window.prevPage = () => { 
+        const total = Math.ceil(tsunamiData.length / rowsPerPage);
+        currentPage = (currentPage - 1 + total) % total; 
+        render(); 
+    };
+
+    // Firebase連携
+    onValue(ref(db, 'broadcast/tsunami_config'), (snapshot) => {
+        const config = snapshot.val();
+        if (config) {
+            autoPage = config.autoPage !== false;
+            document.getElementById('manual-ctrl').style.display = autoPage ? 'none' : 'flex';
+            if(config.grade) currentGrade = config.grade;
+            render();
+        }
+    });
+
+    render();
 </script>
 </body>
 </html>
