@@ -196,11 +196,13 @@
 <header>
     <button class="menu-toggle" onclick="toggleMenu()">☰</button>
     <div class="header-logo">EQLive Admin<span>PRO</span></div>
-    <div style="width: 40px;"></div> </header>
+    <div style="width: 40px;"></div> 
+</header>
 
 <main>
     <nav id="side-nav">
         <button onclick="changeTab('broadcast')" id="btn-broadcast" class="active">放送制御</button>
+        <button onclick="changeTab('tsunami')" id="btn-tsunami">津波制御</button>
         <button onclick="changeTab('screen')" id="btn-screen">投影制御</button>
         <button onclick="changeTab('camera')" id="btn-camera">カメラ切替</button>
         <button onclick="changeTab('ticker')" id="btn-ticker">テロップ</button>
@@ -223,6 +225,24 @@
                 </select>
             </div>
             <button class="primary" onclick="syncBroadcast()">設定を保存</button>
+        </div>
+
+        <div id="tab-tsunami" class="tab-content">
+            <h2>津波リスト制御</h2>
+            <div class="card">
+                <label>ヘッダー種別（タイトル画像）</label>
+                <select id="field-tsunami-grade">
+                    <option value="ot">大津波警報 (ot)</option>
+                    <option value="kt">津波警報 (kt)</option>
+                    <option value="ct">津波注意報 (ct)</option>
+                </select>
+                <label>ページ送り設定</label>
+                <select id="field-tsunami-auto">
+                    <option value="true">自動送り (10秒ごと)</option>
+                    <option value="false">手動送り (操作ボタン表示)</option>
+                </select>
+            </div>
+            <button class="primary" onclick="syncTsunamiConfig()">設定を反映</button>
         </div>
 
         <div id="tab-screen" class="tab-content">
@@ -308,48 +328,69 @@
     onValue(ref(db, 'broadcast'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
+        
         if (data.current) {
             document.getElementById('field-mode').value = data.current.mode || 'normal';
             document.getElementById('field-statusType').value = data.current.statusType || 'bot';
             document.getElementById('field-cameraId').value = data.current.cameraSource || '';
             highlightSelectedCamera(data.current.cameraSource);
         }
+        
+        if (data.tsunami_config) {
+            document.getElementById('field-tsunami-grade').value = data.tsunami_config.grade || 'ot';
+            document.getElementById('field-tsunami-auto').value = data.tsunami_config.autoPage !== false ? 'true' : 'false';
+        }
+
         if (data.manual_news) {
             document.getElementById('field-news-genre').value = data.manual_news.genre || "";
             document.getElementById('field-news-line1').value = data.manual_news.line1 || "";
             document.getElementById('field-news-line2').value = data.manual_news.line2 || "";
         }
+        
         if (data.screen_program) {
             document.getElementById('field-screen-type').value = data.screen_program.type || 'none';
             document.getElementById('field-screen-url').value = data.screen_program.url || '';
         }
     });
 
-    // 各保存処理
+    // 放送設定保存
     window.syncBroadcast = () => {
         update(ref(db, 'broadcast/current'), {
             mode: document.getElementById('field-mode').value,
             statusType: document.getElementById('field-statusType').value,
             updatedAt: Date.now()
-        }).then(() => alert("放送設定を更新"));
+        }).then(() => alert("放送設定を更新しました"));
     };
 
+    // 津波設定保存
+    window.syncTsunamiConfig = () => {
+        update(ref(db, 'broadcast/tsunami_config'), {
+            grade: document.getElementById('field-tsunami-grade').value,
+            autoPage: document.getElementById('field-tsunami-auto').value === 'true',
+            updatedAt: Date.now()
+        }).then(() => alert("津波制御設定を更新しました"));
+    };
+
+    // 投影設定保存
     window.syncScreen = () => {
         update(ref(db, 'broadcast/screen_program'), {
             type: document.getElementById('field-screen-type').value,
             url: document.getElementById('field-screen-url').value
-        }).then(() => alert("投影を更新"));
+        }).then(() => alert("投影設定を更新しました"));
     };
 
+    // テロップ更新
     window.syncTicker = () => {
         set(ref(db, 'broadcast/manual_news'), {
             genre: document.getElementById('field-news-genre').value,
             line1: document.getElementById('field-news-line1').value,
             line2: document.getElementById('field-news-line2').value
-        });
+        }).then(() => alert("テロップを更新しました"));
     };
 
-    window.clearTicker = () => { set(ref(db, 'broadcast/manual_news'), null); };
+    window.clearTicker = () => { 
+        set(ref(db, 'broadcast/manual_news'), null).then(() => alert("テロップを消去しました")); 
+    };
 
     // カメラリスト読み込み
     async function initCameras() {
@@ -367,7 +408,7 @@
                 };
                 tbody.appendChild(tr);
             });
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("カメラリストの読み込みに失敗しました:", e); }
     }
 
     function highlightSelectedCamera(id) {
