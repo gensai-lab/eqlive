@@ -4,5 +4,6 @@
 <br>Screen Only : https://gensai-lab.github.io/eqlive/screen-program.html</br>
 <br>Emergency : https://gensai-lab.github.io/eqlive/emergency.html</br>
 
+
 ## Parts
-<br>Ticker : </br>
+<br>Ticker : https://gensai-lab.github.io/eqlive/parts/ticker.html</br>
