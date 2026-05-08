@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EQLive Command Center - Admin 2.0</title>
+    <title>EQLive Admin v2.0</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -13,124 +13,32 @@
             --text-color: #ffffff;
             --border-color: #333;
         }
-
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-
-        /* Header */
-        header {
-            padding: 15px 25px;
-            background: #000;
-            border-bottom: 2px solid var(--accent-blue);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .status-badge {
-            padding: 5px 12px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 14px;
-        }
-
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        header { padding: 15px 25px; background: #000; border-bottom: 2px solid var(--accent-blue); display: flex; justify-content: space-between; align-items: center; }
+        .status-badge { padding: 5px 12px; border-radius: 4px; font-weight: bold; font-size: 14px; }
         .status-normal { background: var(--accent-blue); }
         .status-special { background: var(--accent-red); animation: blink 1s infinite; }
-
         @keyframes blink { 50% { opacity: 0.5; } }
-
-        /* Main Layout */
-        main {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-        }
-
-        /* Sidebar Tabs */
-        nav {
-            width: 200px;
-            background: #181818;
-            border-right: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-        }
-
-        nav button {
-            background: transparent;
-            border: none;
-            color: #aaa;
-            padding: 20px;
-            text-align: left;
-            font-size: 16px;
-            cursor: pointer;
-            border-left: 4px solid transparent;
-        }
-
-        nav button.active {
-            background: #252525;
-            color: white;
-            border-left-color: var(--accent-blue);
-        }
-
-        /* Content Area */
-        .content {
-            flex: 1;
-            padding: 30px;
-            overflow-y: auto;
-        }
-
+        main { display: flex; flex: 1; overflow: hidden; }
+        nav { width: 200px; background: #181818; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        nav button { background: transparent; border: none; color: #aaa; padding: 20px; text-align: left; font-size: 16px; cursor: pointer; border-left: 4px solid transparent; }
+        nav button.active { background: #252525; color: white; border-left-color: var(--accent-blue); }
+        .content { flex: 1; padding: 30px; overflow-y: auto; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 25px;
-            border: 1px solid var(--border-color);
-        }
-
-        h2 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
-
-        /* Form Elements */
+        .card { background: var(--card-bg); border-radius: 8px; padding: 20px; margin-bottom: 25px; border: 1px solid var(--border-color); }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-        .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; color: #aaa; font-size: 14px; }
-        input, select, textarea {
-            width: 100%;
-            background: #2d2d2d;
-            border: 1px solid var(--border-color);
-            color: white;
-            padding: 10px;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-
-        button.primary {
-            background: var(--accent-blue);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        /* Camera List Table */
-        .scroll-table { height: 400px; overflow-y: auto; border: 1px solid var(--border-color); }
+        input, select, textarea { width: 100%; background: #2d2d2d; border: 1px solid var(--border-color); color: white; padding: 10px; border-radius: 4px; box-sizing: border-box; }
+        button.primary { background: var(--accent-blue); color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        /* Table Styles */
+        .scroll-table { height: 500px; overflow-y: auto; border: 1px solid var(--border-color); background: #1a1a1a; }
         table { width: 100%; border-collapse: collapse; }
-        th { background: #252525; position: sticky; top: 0; padding: 10px; text-align: left; }
-        td { padding: 8px 10px; border-bottom: 1px solid var(--border-color); font-size: 14px; }
-        tr:hover { background: #2d2d2d; cursor: pointer; }
-        tr.selected { background: #004a83; }
-
+        th { background: #252525; position: sticky; top: 0; padding: 12px; text-align: left; border-bottom: 2px solid var(--border-color); }
+        td { padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+        tr:hover { background: #333; cursor: pointer; }
+        tr.selected { background: #004a83 !important; }
+        #camera-loading { padding: 20px; text-align: center; color: #888; }
     </style>
 </head>
 <body>
@@ -153,7 +61,7 @@
             <div class="grid">
                 <div class="card">
                     <label>放送モード</label>
-                    <select id="field-mode" onchange="syncToFirebase()">
+                    <select id="field-mode">
                         <option value="normal">通常時 (Normal)</option>
                         <option value="special">特番 (Special)</option>
                         <option value="training">訓練 (Training)</option>
@@ -161,7 +69,7 @@
                 </div>
                 <div class="card">
                     <label>レイアウト</label>
-                    <select id="field-layout" onchange="syncToFirebase()">
+                    <select id="field-layout">
                         <option value="normal">全画面動画</option>
                         <option value="l_shape">L字放送</option>
                         <option value="tsunami">津波マップ</option>
@@ -170,19 +78,13 @@
                 </div>
                 <div class="card">
                     <label>オペレーター</label>
-                    <select id="field-statusType" onchange="syncToFirebase()">
+                    <select id="field-statusType">
                         <option value="bot">自動 (Bot)</option>
                         <option value="ningen">手動 (Ningen)</option>
                     </select>
                 </div>
             </div>
-            <div class="card">
-                <label>番組スケジュール連動</label>
-                <div style="display:flex; align-items:center; gap:20px;">
-                    <button id="btn-weather" onclick="toggleWeather()" class="primary" style="background:#444;">天気予報モード: OFF</button>
-                    <span style="color:#888;">※毎時55分に自動でONにする機能のテスト用</span>
-                </div>
-            </div>
+            <button class="primary" onclick="syncToFirebase()">設定を更新</button>
         </div>
 
         <div id="tab-camera" class="tab-content">
@@ -195,39 +97,40 @@
                 <table id="camera-table">
                     <thead>
                         <tr>
-                            <th>ID</th>
                             <th>地点名</th>
-                            <th>URL</th>
+                            <th>ID</th>
+                            <th>タイプ</th>
                         </tr>
                     </thead>
                     <tbody id="camera-list-body">
                         </tbody>
                 </table>
+                <div id="camera-loading">カメラリストを読み込んでいます...</div>
             </div>
         </div>
 
         <div id="tab-ticker" class="tab-content">
             <h2>テロップ・テキスト管理</h2>
             <div class="card">
-                <div class="form-group">
+                <div style="margin-bottom:15px;">
                     <label>メインタイトル</label>
-                    <input type="text" id="field-mainTitle" onchange="syncToFirebase()">
+                    <input type="text" id="field-mainTitle">
                 </div>
-                <div class="form-group">
+                <div>
                     <label>サブタイトル</label>
-                    <input type="text" id="field-subtitle" onchange="syncToFirebase()">
+                    <input type="text" id="field-subtitle">
                 </div>
             </div>
             <div class="card">
-                <label>下部テロップ (L字用など)</label>
-                <textarea id="field-leftText" rows="3" onchange="syncToFirebase()"></textarea>
+                <label>下部テキスト (L字用)</label>
+                <textarea id="field-leftText" rows="4"></textarea>
             </div>
+            <button class="primary" onclick="syncToFirebase()">テキストを更新</button>
         </div>
     </div>
 </main>
 
 <script type="module">
-    // バージョンを 10.8.0 に統一し、Realtime Database を追加
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
@@ -246,9 +149,8 @@
     const db = getDatabase(app);
 
     let cameraList = [];
-    let isWeather = false;
 
-    // --- タブ切り替えロジック ---
+    // --- タブ切り替え ---
     window.showTab = function(tabId) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
@@ -256,38 +158,27 @@
         document.getElementById('btn-' + tabId).classList.add('active');
     };
 
-    // --- Firebaseデータ読み込み (初期表示) ---
+    // --- Firebaseデータ受信 ---
     onValue(ref(db, 'broadcast'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
-        const current = data.current;
-        document.getElementById('field-mode').value = current.mode;
-        document.getElementById('field-layout').value = current.layoutMode;
-        document.getElementById('field-statusType').value = current.statusType;
-        document.getElementById('field-cameraId').value = current.cameraSource;
-        document.getElementById('field-mainTitle').value = current.mainTitle;
-        document.getElementById('field-subtitle').value = current.subtitle;
+        document.getElementById('field-mode').value = data.current.mode;
+        document.getElementById('field-layout').value = data.current.layoutMode;
+        document.getElementById('field-statusType').value = data.current.statusType;
+        document.getElementById('field-cameraId').value = data.current.cameraSource;
+        document.getElementById('field-mainTitle').value = data.current.mainTitle;
+        document.getElementById('field-subtitle').value = data.current.subtitle;
         document.getElementById('field-leftText').value = data.l_shape.leftText;
 
-        // ヘッダーの状態表示更新
         const statusBadge = document.getElementById('global-status');
-        if(current.mode === 'special') {
-            statusBadge.innerText = "SPECIAL MODE";
-            statusBadge.className = "status-badge status-special";
-        } else {
-            statusBadge.innerText = current.mode.toUpperCase() + " MODE";
-            statusBadge.className = "status-badge status-normal";
-        }
-
-        // 天気フラグ
-        isWeather = data.schedule.isWeatherTime;
-        const wBtn = document.getElementById('btn-weather');
-        wBtn.innerText = `天気予報モード: ${isWeather ? 'ON' : 'OFF'}`;
-        wBtn.style.background = isWeather ? '#d13438' : '#444';
+        statusBadge.innerText = data.current.mode.toUpperCase() + " MODE";
+        statusBadge.className = "status-badge status-" + (data.current.mode === 'special' ? 'special' : 'normal');
+        
+        highlightSelectedCamera(data.current.cameraSource);
     });
 
-    // --- Firebaseへ保存 ---
+    // --- Firebaseデータ送信 ---
     window.syncToFirebase = function() {
         const updates = {};
         updates['broadcast/current/mode'] = document.getElementById('field-mode').value;
@@ -298,36 +189,54 @@
         updates['broadcast/l_shape/leftText'] = document.getElementById('field-leftText').value;
         updates['broadcast/current/updatedAt'] = Date.now();
 
-        update(ref(db), updates);
+        update(ref(db), updates).then(() => alert("更新完了"));
     };
 
-    window.toggleWeather = function() {
-        update(ref(db, 'broadcast/schedule'), { isWeatherTime: !isWeather });
-    };
-
-    // --- カメラリスト読み込みとスイッチ ---
+    // --- カメラリスト生成 ---
     async function initCameraSwitcher() {
+        const loadingMsg = document.getElementById('camera-loading');
         try {
+            // パスを再確認してください
             const res = await fetch('assets/json/kh-livec.json');
+            if (!res.ok) throw new Error("JSON file not found");
+            
             cameraList = await res.json();
             const tbody = document.getElementById('camera-list-body');
-            
+            tbody.innerHTML = ""; // クリア
+
             cameraList.forEach(cam => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${cam.id}</td><td>${cam.name}</td><td>${cam.url.substring(0,30)}...</td>`;
+                tr.setAttribute('data-id', cam.id);
+                tr.innerHTML = `
+                    <td style="font-weight:bold;">${cam.name}</td>
+                    <td style="color:#888;">${cam.id}</td>
+                    <td><span style="font-size:10px; background:#444; padding:2px 5px; border-radius:3px;">${cam.type}</span></td>
+                `;
                 tr.onclick = () => {
                     update(ref(db, 'broadcast/current'), { cameraSource: cam.id });
-                    // 選択状態の見た目更新
-                    document.querySelectorAll('#camera-table tr').forEach(r => r.classList.remove('selected'));
-                    tr.classList.add('selected');
                 };
                 tbody.appendChild(tr);
             });
-        } catch (e) { console.error("Camera JSON load failed", e); }
+            loadingMsg.style.display = "none";
+        } catch (e) {
+            loadingMsg.innerText = "エラー: assets/json/kh-livec.json が見つかりません。";
+            console.error(e);
+        }
     }
 
-    initCameraSwitcher();
-</script>
+    function highlightSelectedCamera(selectedId) {
+        document.querySelectorAll('#camera-list-body tr').forEach(tr => {
+            if (tr.getAttribute('data-id') === selectedId) {
+                tr.classList.add('selected');
+            } else {
+                tr.classList.remove('selected');
+            }
+        });
+    }
 
+    // 起動
+    window.onload = initCameraSwitcher;
+
+</script>
 </body>
 </html>
