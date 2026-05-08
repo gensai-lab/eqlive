@@ -26,7 +26,6 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Header */
         header { 
             padding: 10px 20px; 
             background: #000; 
@@ -45,17 +44,14 @@
             border-radius: 4px; 
             font-weight: bold; 
             font-size: 12px; 
-            white-space: nowrap;
         }
         .status-normal { background: var(--accent-blue); }
         .status-special { background: var(--accent-red); animation: blink 1s infinite; }
 
         @keyframes blink { 50% { opacity: 0.5; } }
 
-        /* Main Layout */
         main { display: flex; flex: 1; overflow: hidden; flex-direction: row; }
 
-        /* Navigation */
         nav { 
             width: var(--nav-width); 
             background: #181818; 
@@ -83,7 +79,6 @@
             border-left-color: var(--accent-blue); 
         }
 
-        /* Content Area */
         .content { flex: 1; padding: 20px; overflow-y: auto; box-sizing: border-box; }
         .tab-content { display: none; max-width: 1000px; margin: 0 auto; }
         .tab-content.active { display: block; }
@@ -130,7 +125,6 @@
             width: 100%;
         }
 
-        /* Table Optimization */
         .scroll-table { 
             height: 50vh; 
             overflow-y: auto; 
@@ -146,25 +140,10 @@
 
         @media (max-width: 900px) {
             main { flex-direction: column; }
-            nav { 
-                width: 100%; 
-                flex-direction: row; 
-                border-right: none; 
-                border-bottom: 1px solid var(--border-color); 
-                overflow-x: auto;
-            }
-            nav button { 
-                flex: 1; 
-                text-align: center; 
-                padding: 15px 5px; 
-                font-size: 13px; 
-                border-left: none; 
-                border-bottom: 4px solid transparent; 
-                white-space: nowrap;
-            }
+            nav { width: 100%; flex-direction: row; border-right: none; border-bottom: 1px solid var(--border-color); overflow-x: auto; }
+            nav button { flex: 1; text-align: center; padding: 15px 5px; font-size: 13px; border-left: none; border-bottom: 4px solid transparent; white-space: nowrap; }
             nav button.active { border-bottom-color: var(--accent-blue); }
             .content { padding: 15px; }
-            .scroll-table { height: 40vh; }
         }
     </style>
 </head>
@@ -216,7 +195,7 @@
         </div>
 
         <div id="tab-screen" class="tab-content">
-            <h2>投影制御 (Screen Program)</h2>
+            <h2>投影制御</h2>
             <div class="card">
                 <label>投影種別</label>
                 <select id="field-screen-type">
@@ -228,12 +207,8 @@
                 </select>
             </div>
             <div class="card">
-                <label>投影ソースURL / ファイルパス</label>
-                <input type="text" id="field-screen-url" placeholder="https://www.youtube.com/watch?v=... または画像URL">
-            </div>
-            <div class="card">
-                <label>投影タイトル（テロップ表示名）</label>
-                <input type="text" id="field-screen-title" placeholder="例：〇〇地震の解説資料">
+                <label>投影ソースURL</label>
+                <input type="text" id="field-screen-url" placeholder="https://...">
             </div>
             <button class="primary" onclick="syncToFirebase()">投影を反映</button>
         </div>
@@ -246,9 +221,7 @@
             </div>
             <div class="scroll-table">
                 <table id="camera-table">
-                    <thead>
-                        <tr><th>地点名</th><th>ID</th><th>Type</th></tr>
-                    </thead>
+                    <thead><tr><th>地点名</th><th>ID</th><th>Type</th></tr></thead>
                     <tbody id="camera-list-body"></tbody>
                 </table>
                 <div id="camera-loading">読み込み中...</div>
@@ -264,7 +237,7 @@
                 <input type="text" id="field-subtitle" placeholder="例：避難を心がけてください">
             </div>
             <div class="card">
-                <label>詳細テキスト (L字下部)</label>
+                <label>詳細テキスト</label>
                 <textarea id="field-leftText" rows="4" placeholder="ここに情報を入力"></textarea>
             </div>
             <button class="primary" onclick="syncToFirebase()">テキスト送信</button>
@@ -299,12 +272,10 @@
         document.getElementById('btn-' + tabId).classList.add('active');
     };
 
-    // Firebaseデータの購読
     onValue(ref(db, 'broadcast'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
-        // 放送設定
         document.getElementById('field-mode').value = data.current.mode || 'normal';
         document.getElementById('field-layout').value = data.current.layoutMode || 'normal';
         document.getElementById('field-statusType').value = data.current.statusType || 'bot';
@@ -313,24 +284,19 @@
         document.getElementById('field-subtitle').value = data.current.subtitle || '';
         document.getElementById('field-leftText').value = data.l_shape?.leftText || '';
 
-        // 投影設定 (Screen Program)
         if (data.screen_program) {
             document.getElementById('field-screen-type').value = data.screen_program.type || 'none';
             document.getElementById('field-screen-url').value = data.screen_program.url || '';
-            document.getElementById('field-screen-title').value = data.screen_program.title || '';
         }
 
         const statusBadge = document.getElementById('global-status');
         statusBadge.innerText = (data.current.mode || 'NORMAL').toUpperCase() + " MODE";
         statusBadge.className = "status-badge status-" + (data.current.mode === 'special' ? 'special' : 'normal');
-        
         highlightSelectedCamera(data.current.cameraSource);
     });
 
-    // Firebaseへの更新同期
     window.syncToFirebase = function() {
         const updates = {};
-        // 放送設定
         updates['broadcast/current/mode'] = document.getElementById('field-mode').value;
         updates['broadcast/current/layoutMode'] = document.getElementById('field-layout').value;
         updates['broadcast/current/statusType'] = document.getElementById('field-statusType').value;
@@ -338,16 +304,11 @@
         updates['broadcast/current/subtitle'] = document.getElementById('field-subtitle').value;
         updates['broadcast/l_shape/leftText'] = document.getElementById('field-leftText').value;
 
-        // 投影設定
         updates['broadcast/screen_program/type'] = document.getElementById('field-screen-type').value;
         updates['broadcast/screen_program/url'] = document.getElementById('field-screen-url').value;
-        updates['broadcast/screen_program/title'] = document.getElementById('field-screen-title').value;
-
         updates['broadcast/current/updatedAt'] = Date.now();
 
-        update(ref(db), updates).then(() => {
-            alert("設定を送信しました。");
-        });
+        update(ref(db), updates).then(() => { alert("反映しました"); });
     };
 
     async function initCameraSwitcher() {
@@ -357,36 +318,20 @@
             cameraList = await res.json();
             const tbody = document.getElementById('camera-list-body');
             tbody.innerHTML = ""; 
-
             cameraList.forEach(cam => {
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', cam.id);
-                tr.innerHTML = `
-                    <td style="font-weight:bold;">${cam.name}</td>
-                    <td style="color:#888; font-size:12px;">${cam.id}</td>
-                    <td><span style="font-size:10px; background:#444; padding:2px 5px; border-radius:3px;">${cam.type}</span></td>
-                `;
-                tr.onclick = () => {
-                    update(ref(db, 'broadcast/current'), { 
-                        cameraSource: cam.id,
-                        updatedAt: Date.now()
-                    });
-                };
+                tr.innerHTML = `<td style="font-weight:bold;">${cam.name}</td><td style="color:#888; font-size:12px;">${cam.id}</td><td><span style="font-size:10px; background:#444; padding:2px 5px; border-radius:3px;">${cam.type}</span></td>`;
+                tr.onclick = () => { update(ref(db, 'broadcast/current'), { cameraSource: cam.id, updatedAt: Date.now() }); };
                 tbody.appendChild(tr);
             });
             loadingMsg.style.display = "none";
-        } catch (e) {
-            loadingMsg.innerHTML = `<span style="color:var(--accent-red)">読み込みエラー</span>`;
-        }
+        } catch (e) { loadingMsg.innerHTML = "エラー"; }
     }
 
     function highlightSelectedCamera(selectedId) {
         document.querySelectorAll('#camera-list-body tr').forEach(tr => {
-            if (tr.getAttribute('data-id') === selectedId) {
-                tr.classList.add('selected');
-            } else {
-                tr.classList.remove('selected');
-            }
+            tr.classList.toggle('selected', tr.getAttribute('data-id') === selectedId);
         });
     }
 
