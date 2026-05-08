@@ -30,18 +30,18 @@
         /* 中継テロップのスタイル */
         #live-location-overlay {
             position: absolute;
-            top: 40px; /* 左上より少し下 */
+            top: 50px; /* 左上より少し下 */
             left: 40px;
             display: flex;
             align-items: center;
             background: rgba(0, 0, 0, 0.7);
-            padding: 5px 15px 5px 8px;
+            padding: 8px 20px 8px 12px;
             border-radius: 4px;
-            border-left: 5px solid #ff0000; /* アクセントの赤 */
+            /* border-left を削除しました */
             color: white;
             z-index: 100;
             transition: opacity 0.5s;
-            opacity: 0; /* 初期は非表示 */
+            opacity: 0;
         }
 
         #live-location-overlay.active {
@@ -49,19 +49,18 @@
         }
 
         .live-icon {
-            width: 80px; /* SVGのサイズに合わせて調整 */
+            width: 100px; /* live.svgのサイズに合わせて調整 */
             height: auto;
-            margin-right: 10px;
+            margin-right: 12px;
         }
 
         .location-name {
-            font-size: 28px;
+            font-size: 32px;
             font-weight: bold;
             letter-spacing: 0.05em;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
         }
 
-        /* ログ（デバッグ用） */
         #log {
             position: absolute;
             bottom: 10px;
@@ -80,7 +79,7 @@
         <span id="target-location-name" class="location-name">---</span>
     </div>
 
-    <div id="player"></div>
+    <div id="player" style="width:100%; height:100%;"></div>
 </div>
 
 <div id="log">Initializing...</div>
@@ -111,7 +110,6 @@
         document.getElementById('log').innerText = msg;
     }
 
-    // 1. カメラリスト(JSON)を読み込む
     async function loadConfig() {
         try {
             const response = await fetch('https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json');
@@ -123,44 +121,45 @@
         }
     }
 
-    // 2. Firebase同期開始
     function startSync() {
         onValue(ref(db, 'broadcast/current'), (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
-
-            const newCameraId = data.cameraSource;
-            if (newCameraId !== currentCameraId) {
-                updateCamera(newCameraId);
+            if (data.cameraSource !== currentCameraId) {
+                updateCamera(data.cameraSource);
             }
         });
     }
 
-    // 3. 映像と地点名表示の更新
     function updateCamera(id) {
         currentCameraId = id;
         const cam = cameraList.find(c => c.id === id);
         const overlay = document.getElementById('live-location-overlay');
         const nameElement = document.getElementById('target-location-name');
+        const player = document.getElementById('player');
 
         if (cam) {
             log(`Switching to: ${cam.name}`);
-            
-            // 地点名の更新
             nameElement.innerText = cam.name;
             overlay.classList.add('active');
 
-            // 映像の切り替え（iframe等の実装に合わせて変更してください）
-            const player = document.getElementById('player');
-            // 例: cam.type が youtube なら iframe、hls なら video など
-            player.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+            // 自動再生対応の埋め込み処理
+            if (cam.url.includes('youtube.com') || cam.url.includes('youtu.be')) {
+                // YouTubeの場合: mute=1 と autoplay=1 を付与
+                let vidId = cam.url.split('v=')[1] || cam.url.split('/').pop();
+                player.innerHTML = `<iframe src="https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&rel=0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+            } else {
+                // HLSなどの汎用URLの場合: muted autoplay を属性に追加
+                // cam.urlが直接m3u8ならvideoタグ、埋め込みURLならiframeにパラメーターを付与
+                player.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+                
+                // ※もし自作のHLSプレイヤー(Video.js等)を使う場合は、videoタグに muted 属性を付けて .play() を呼び出してください。
+            }
         } else {
             overlay.classList.remove('active');
-            log(`Camera ID not found: ${id}`);
         }
     }
 
-    // 起動
     window.onload = loadConfig;
 </script>
 
