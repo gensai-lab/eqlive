@@ -4,74 +4,73 @@
     <meta charset="UTF-8">
     <style>
         @font-face {
-            font-family: 'UDKakugo';
+            font-family: 'UDKakugoLarge';
             src: url('../assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
+            font-weight: 400;
         }
 
-        body, html {
-            margin: 0; padding: 0; width: 600px; height: 135px;
-            background-color: transparent; overflow: hidden;
-            font-family: 'UDKakugo', sans-serif;
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            background: transparent; width: 600px; height: 135px;
+            font-family: 'UDKakugoLarge', sans-serif;
         }
 
-        #ticker-container {
-            width: 100%; height: 100%;
-            display: flex; align-items: center;
-            background-color: #000;
-            position: relative;
+        .main-container {
+            width: 600px; height: 135px;
+            background-color: white; display: flex;
+            overflow: hidden; position: relative;
         }
 
-        #default-view, #emergency-view {
-            width: 100%; height: 100%;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #waiting-banner {
             position: absolute; top: 0; left: 0;
-            transition: opacity 0.4s;
+            width: 100%; height: 100%;
+            background-image: url('../assets/ticker-t.svg'); /* パス修正 */
+            background-size: contain; background-repeat: no-repeat; background-position: center;
+            z-index: 10; transition: opacity 0.5s ease;
+        }
+
+        .genre-label {
+            background-color: #003EB3; /* デフォルト青 */
+            color: white; width: 80px; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 50px; line-height: 1.1; letter-spacing: 1px;
+            font-weight: bold; text-align: center;
+            word-break: break-all; padding: 0 5px; box-sizing: border-box;
             opacity: 0;
         }
 
-        .active { opacity: 1 !important; }
-
-        /* デフォルトSVG */
-        #default-view img { width: 100%; height: 100%; object-fit: cover; }
-
-        /* 有事表示レイアウト */
-        #emergency-view { display: flex; align-items: center; }
-
-        #genre-box {
-            width: 160px; height: 100%;
-            display: flex; justify-content: center; align-items: center;
-            font-size: 32px; font-weight: bold; color: white;
-            background-color: #0078d4;
-            text-align: center;
-            line-height: 1.2;
-            flex-shrink: 0;
+        .content-area {
+            flex: 1; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            padding: 0 15px; background-color: white;
+            opacity: 0; text-align: center;
         }
 
-        #text-area {
-            flex: 1; padding-left: 20px;
-            display: flex; flex-direction: column; justify-content: center;
-            color: white; overflow: hidden;
+        .news-line {
+            width: 100%; font-size: 43px; 
+            color: #1a1a1a; font-weight: bold;
+            white-space: nowrap; overflow: hidden;
+            text-overflow: ellipsis; line-height: 1.3;
         }
 
-        .line1 { font-size: 34px; font-weight: bold; margin-bottom: 2px; white-space: nowrap; }
-        .line2 { font-size: 28px; font-weight: bold; color: #ccc; white-space: nowrap; }
-
-        /* ジャンル別カラー */
-        .color-railway { background-color: #00429d !important; }
-        .color-tsunami { background-color: #d13438 !important; }
-        .color-news { background-color: #444 !important; }
+        .show-content {
+            animation: fadeIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
     </style>
 </head>
 <body>
 
-<div id="ticker-container">
-    <div id="default-view" class="active"><img src="../assets/ticker-t.svg"></div>
-
-    <div id="emergency-view">
-        <div id="genre-box" id="genre-text">ジャンル</div>
-        <div id="text-area">
-            <div class="line1" id="line1">本文1行目</div>
-            <div class="line2" id="line2">本文2行目</div>
-        </div>
+<div class="main-container">
+    <div id="waiting-banner"></div>
+    <div id="genre-text" class="genre-label"></div>
+    <div class="content-area" id="main-content">
+        <div id="text-line1" class="news-line"></div>
+        <div id="text-line2" class="news-line"></div>
     </div>
 </div>
 
@@ -86,35 +85,57 @@
         projectId: "mgl-eqlive",
         storageBucket: "mgl-eqlive.firebasestorage.app",
         messagingSenderId: "1060231327645",
-        appId: "1:1060231327645:web:642684f4640bbc21d5c974",
-        measurementId: "G-BK3MJJ0VR7"
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    onValue(ref(db, 'broadcast/ticker'), (snapshot) => {
+    const genreElement = document.getElementById('genre-text');
+    const line1Element = document.getElementById('text-line1');
+    const line2Element = document.getElementById('text-line2');
+    const contentArea = document.getElementById('main-content');
+    const waitingBanner = document.getElementById('waiting-banner');
+
+    let lastCombinedText = "";
+
+    // manual_news ノードを監視
+    onValue(ref(db, 'broadcast/manual_news'), (snapshot) => {
         const data = snapshot.val();
-        const def = document.getElementById('default-view');
-        const emg = document.getElementById('emergency-view');
+        const currentCombined = (data?.genre || "") + (data?.line1 || "") + (data?.line2 || "");
 
-        if (data && data.active) {
-            document.getElementById('genre-box').innerText = data.genre || "";
-            document.getElementById('line1').innerText = data.line1 || "";
-            document.getElementById('line2').innerText = data.line2 || "";
+        if (data && (data.line1 || data.line2)) {
+            waitingBanner.style.opacity = "0";
+            
+            if (currentCombined !== lastCombinedText) {
+                genreElement.classList.remove('show-content');
+                contentArea.classList.remove('show-content');
+                void genreElement.offsetWidth; // リフロー強制
 
-            const gb = document.getElementById('genre-box');
-            gb.className = ""; 
-            if (data.genre.includes("鉄道")) gb.classList.add('color-railway');
-            else if (data.genre.includes("津波")) gb.classList.add('color-tsunami');
-            else gb.classList.add('color-news');
+                let genreRaw = data.genre || "情報";
+                genreElement.innerHTML = genreRaw.length > 2 
+                    ? genreRaw.substring(0, 2) + "<br>" + genreRaw.substring(2, 4)
+                    : genreRaw.split('').join('<br>');
 
-            def.classList.remove('active');
-            emg.classList.add('active');
+                line1Element.innerText = data.line1 || "";
+                line2Element.innerText = data.line2 || "";
+
+                genreElement.classList.add('show-content');
+                contentArea.classList.add('show-content');
+            }
+            lastCombinedText = currentCombined;
         } else {
-            def.classList.add('active');
-            emg.classList.remove('active');
+            waitingBanner.style.opacity = "1";
+            genreElement.classList.remove('show-content');
+            contentArea.classList.remove('show-content');
+            lastCombinedText = "";
         }
+    });
+
+    onValue(ref(db, 'broadcast/current'), (snapshot) => {
+        const data = snapshot.val();
+        // 手動モード(ningen)の時は赤、それ以外は青
+        genreElement.style.backgroundColor = (data && data.statusType === 'ningen') ? "#de080a" : "#003EB3";
     });
 </script>
 </body>
