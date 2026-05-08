@@ -12,7 +12,6 @@
             background-position: center;
             overflow: hidden;
             font-family: sans-serif;
-            /* 画面全体へのパディングはなし */
         }
 
         .layout-root {
@@ -21,27 +20,26 @@
             height: 100%;
         }
 
-        /* メイン画面：マージンで位置を指定 */
+        /* メイン画面：1215x675, 指定マージン, 角丸8px */
         .main-screen {
             width: 1215px;
             height: 675px;
-            margin-top: 155px;   /* 上の余白 */
-            margin-left: 40px;   /* 左の余白 */
-            background-color: rgba(0, 0, 0, 0.5);
+            margin-top: 155px;
+            margin-left: 40px;
+            background-color: #000;
             border-radius: 8px;
             overflow: hidden;
             position: relative;
         }
 
-        /* 右側のグループ */
+        /* 右側のパーツグループ */
         .side-group {
             width: 600px;
             display: flex;
             flex-direction: column;
-            /* メイン画面との間隔（左40px + メイン1215px + 25px = 1280px付近） */
-            margin-left: 25px; 
-            margin-top: 40px; /* グループ全体の上に40pxの余白 */
-            gap: 20px;        /* 各パーツ間の隙間を20pxに設定 */
+            margin-left: 25px; /* メイン画面との間隔 */
+            margin-top: 40px;   /* 上の余白 */
+            gap: 20px;         /* パーツ間の垂直方向のギャップ */
         }
 
         /* 透明な四角形 (1つめ) */
@@ -82,7 +80,8 @@
 
 <div class="layout-root">
     <div class="main-screen" id="main-display">
-        </div>
+        <iframe id="main-iframe" src="screen-program.html"></iframe>
+    </div>
 
     <div class="side-group">
         <div class="spacer-top"></div>
@@ -98,6 +97,43 @@
         <div class="spacer-bottom"></div>
     </div>
 </div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const mainIframe = document.getElementById('main-iframe');
+    let currentSrc = "";
+
+    // Firebaseを監視してメインコンテンツを出し分け
+    onValue(ref(db, 'broadcast/current'), (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        // mainSourceの値に応じて読み込むHTMLを決定
+        const source = data.mainSource || 'screen';
+        let targetPage = (source === 'camera') ? 'live-only.html' : 'screen-program.html';
+
+        // ページが変更された時のみiframeをリロード
+        if (currentSrc !== targetPage) {
+            mainIframe.src = targetPage;
+            currentSrc = targetPage;
+            console.log("Main screen updated to:", targetPage);
+        }
+    });
+</script>
 
 </body>
 </html>
