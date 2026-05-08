@@ -8,80 +8,40 @@
             src: url('../assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
         }
         body, html {
-            margin: 0; padding: 0; width: 600px; height: auto;
+            margin: 0; padding: 0; width: 600px;
             background-color: transparent; overflow: hidden;
             font-family: 'UDKakugo', sans-serif;
-            /* 文字色を一律 #1E1E1E に指定 */
             color: #1E1E1E;
         }
-        .container {
-            width: 600px;
-            display: flex;
-            flex-direction: column;
-        }
+        .container { width: 600px; display: flex; flex-direction: column; }
         
-        /* タイトル行（余白なし） */
-        .header-img {
-            width: 600px;
-            height: 60px;
+        /* タイトル・リスト行共通：高さ52px、パディングなし */
+        .header-img, .row-img {
+            width: 600px; height: 52px;
             background-size: 100% 100%;
             background-repeat: no-repeat;
-        }
-
-        /* リストエリア */
-        .list-area {
-            display: flex;
-            flex-direction: column;
-        }
-        .row-img {
-            width: 600px;
-            height: 50px;
-            background-size: 100% 100%;
-            background-repeat: no-repeat;
-            display: flex;
-            align-items: center;
-        }
-
-        /* テキスト配置設定 */
-        .row-content {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            padding: 0 0px;
-            font-weight: bold;
+            display: flex; align-items: center;
             box-sizing: border-box;
         }
-        /* 並び順：予報区名(左) -> 到達予想(右) */
-        .area-name {
-            flex: 1;
-            font-size: 26px;
-            padding-left: 20px;
-            white-space: nowrap;
-            overflow: hidden;
-        }
-        .time {
-            width: 150px;
-            font-size: 24px;
-            text-align: right;
-            padding-right: 20px;
+
+        .row-content {
+            width: 100%; display: flex; align-items: center;
+            padding: 0; margin: 0; font-weight: bold;
         }
 
-        /* 手動操作ボタン（admin用・画面上は極力邪魔しない位置） */
-        #manual-ctrl {
-            position: fixed;
-            bottom: 0;
-            right: 0;
-            display: none;
-            gap: 2px;
-            z-index: 100;
+        /* 予報区名：32px、最大幅280pxで縮小 */
+        .area-wrapper {
+            width: 280px; margin-left: 100px; /* 画像のラベル位置に合わせるため調整 */
+            overflow: visible; display: flex; align-items: center;
         }
-        .ctrl-btn {
-            background: rgba(255,255,255,0.8);
-            border: 1px solid #ccc;
-            color: #000;
-            padding: 2px 5px;
-            font-size: 10px;
-            cursor: pointer;
+        .area-name {
+            font-size: 32px; white-space: nowrap; transform-origin: left center;
+        }
+
+        /* 到達予想：32px */
+        .time {
+            flex: 1; font-size: 32px; text-align: right;
+            padding-right: 25px; white-space: nowrap;
         }
     </style>
 </head>
@@ -89,114 +49,119 @@
 
 <div class="container">
     <div id="header-area" class="header-img"></div>
-    <div class="list-area" id="list-container">
-        </div>
-</div>
-
-<div id="manual-ctrl">
-    <button class="ctrl-btn" onclick="prevPage()">前</button>
-    <button class="ctrl-btn" onclick="nextPage()">次</button>
+    <div class="list-area" id="list-container"></div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
-        authDomain: "mgl-eqlive.firebaseapp.com",
-        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
-        projectId: "mgl-eqlive",
-        storageBucket: "mgl-eqlive.firebasestorage.app",
-        messagingSenderId: "1060231327645",
-        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    // --- 設定・辞書 ---
+    const CONDITION_DICT = {
+        "第１波の到達を確認": "第1波到達",
+        "津波到達中と推測": "津波到達中",
+        "ただちに到達と推測": "直ちに到達"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    const HEIGHT_TO_FILE = {
+        "10m": "10m", "10m超": "10mu", "5m": "5m", "3m": "3m", "1m": "1m",
+        "巨大": "kyodai", "高い": "takai", "none": "none"
+    };
 
-    // テストデータ
-    // height: '10m', '10mu', '5m', '3m', '1m', 'kyodai', 'takai', 'none'
-    const testData = [
-        { name: "岩手県", height: "kyodai", time: "14:50" },
-        { name: "宮城県", height: "kyodai", time: "14:52" },
-        { name: "福島県", height: "5m", time: "14:55" },
-        { name: "青森県太平洋沿岸", height: "3m", time: "15:01" },
-        { name: "茨城県", height: "3m", time: "15:10" },
-        { name: "千葉県九十九里・外房", height: "1m", time: "15:15" },
-        { name: "相模湾・三浦半島", height: "none", time: "15:20" }
-    ];
+    // --- 関数：文字幅の自動圧縮 ---
+    function adjustTextScale(el) {
+        el.style.transform = "scaleX(1)";
+        const width = el.offsetWidth;
+        if (width > 280) {
+            const scale = 280 / width;
+            el.style.transform = `scaleX(${scale})`;
+        }
+    }
 
+    // --- 関数：時刻・文言の整形 ---
+    function formatCondition(cond) {
+        if (!cond) return "";
+        if (CONDITION_DICT[cond]) return CONDITION_DICT[cond];
+        
+        // 日付形式 (例: 2026-04-20T23:45:00) の判定
+        const date = new Date(cond);
+        if (!isNaN(date.getTime()) && cond.includes(':')) {
+            const d = date.getDate();
+            const h = String(date.getHours()).padStart(2, '0');
+            const m = String(date.getMinutes()).padStart(2, '0');
+            return `${d}日 ${h}:${m}`;
+        }
+        return cond;
+    }
+
+    // --- メインレンダリング ---
     let currentPage = 0;
-    let autoPage = true;
-    let tsunamiData = testData;
-    let currentGrade = "ot"; // ot: 大津波, kt: 警報, ct: 注意報
     const rowsPerPage = 5;
+    let tsunamiAreas = [];
+    let currentGradeImg = "ot";
 
-    function render() {
+    function render(data) {
         const container = document.getElementById('list-container');
         const header = document.getElementById('header-area');
-        
-        // ヘッダー背景画像の設定
-        header.style.backgroundImage = `url('../assets/banner/tsunami/tsunami-list_${currentGrade}.svg')`;
-        
         container.innerHTML = "";
-        const totalPages = Math.ceil(tsunamiData.length / rowsPerPage) || 1;
-        if (currentPage >= totalPages) currentPage = 0;
+
+        if (!data || data.length === 0) return;
+
+        // 代表的な警報種別を決定 (一番高いvalueに合わせる)
+        const maxValue = Math.max(...data.map(a => a.maxHeight?.value || 0));
+        if (maxValue >= 5) currentGradeImg = "ot";      // 大津波
+        else if (maxValue >= 3) currentGradeImg = "kt"; // 警報
+        else currentGradeImg = "ct";                    // 注意報
+
+        header.style.backgroundImage = `url('../assets/banner/tsunami/tsunami-list_${currentGradeImg}.svg')`;
 
         const start = currentPage * rowsPerPage;
-        const pageItems = tsunamiData.slice(start, start + rowsPerPage);
+        const pageItems = data.slice(start, start + rowsPerPage);
 
         pageItems.forEach(item => {
             const row = document.createElement('div');
             row.className = 'row-img';
-            row.style.backgroundImage = `url('../assets/banner/tsunami/tsunami-list_${item.height}.svg')`;
             
-            // 順序：area-name(左) -> time(右)
+            // 画像ファイル名の決定
+            const hKey = item.maxHeight?.description || "none";
+            const fileName = HEIGHT_TO_FILE[hKey] || "none";
+            row.style.backgroundImage = `url('../assets/banner/tsunami/tsunami-list_${fileName}.svg')`;
+
+            const condText = formatCondition(item.firstHeight?.condition || item.firstHeight?.arrivalTime);
+
             row.innerHTML = `
                 <div class="row-content">
-                    <div class="area-name">${item.name}</div>
-                    <div class="time">${item.time}</div>
+                    <div class="area-wrapper">
+                        <div class="area-name">${item.name}</div>
+                    </div>
+                    <div class="time">${condText}</div>
                 </div>
             `;
             container.appendChild(row);
+            adjustTextScale(row.querySelector('.area-name'));
         });
     }
 
-    // 10秒ごとの自動切替
+    // P2P地震情報 API等からデータを取得する想定のダミーロジック
+    // 実際には fetch 等で data[1].areas を取得して渡してください
+    const sampleData = [
+        { name: "北海道太平洋沿岸東部", maxHeight: { description: "１ｍ", value: 1 }, firstHeight: { condition: "第１波の到達を確認" } },
+        { name: "青森県日本海沿岸", maxHeight: { description: "１ｍ", value: 1 }, firstHeight: { condition: "津波到達中と推測" } },
+        { name: "岩手県", maxHeight: { description: "３ｍ", value: 3 }, firstHeight: { condition: "2026-04-20T23:50:00" } }
+    ];
+
+    // 初期実行
+    tsunamiAreas = sampleData; 
+    render(tsunamiAreas);
+
+    // 10秒ごとにページ切り替え
     setInterval(() => {
-        if (autoPage) {
-            const total = Math.ceil(tsunamiData.length / rowsPerPage);
-            if (total > 1) {
-                currentPage = (currentPage + 1) % total;
-                render();
-            }
+        const totalPages = Math.ceil(tsunamiAreas.length / rowsPerPage);
+        if (totalPages > 1) {
+            currentPage = (currentPage + 1) % totalPages;
+            render(tsunamiAreas);
         }
     }, 10000);
-
-    window.nextPage = () => { 
-        const total = Math.ceil(tsunamiData.length / rowsPerPage);
-        currentPage = (currentPage + 1) % total; 
-        render(); 
-    };
-    window.prevPage = () => { 
-        const total = Math.ceil(tsunamiData.length / rowsPerPage);
-        currentPage = (currentPage - 1 + total) % total; 
-        render(); 
-    };
-
-    // Firebase連携
-    onValue(ref(db, 'broadcast/tsunami_config'), (snapshot) => {
-        const config = snapshot.val();
-        if (config) {
-            autoPage = config.autoPage !== false;
-            document.getElementById('manual-ctrl').style.display = autoPage ? 'none' : 'flex';
-            if(config.grade) currentGrade = config.grade;
-            render();
-        }
-    });
-
-    render();
 </script>
 </body>
 </html>
