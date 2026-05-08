@@ -17,14 +17,20 @@
         nav button { background: transparent; border: none; color: #aaa; padding: 18px 20px; text-align: left; cursor: pointer; border-left: 4px solid transparent; }
         nav button.active { background: #252525; color: white; border-left-color: var(--accent-blue); }
         .content { flex: 1; padding: 20px; overflow-y: auto; }
-        .tab-content { display: none; max-width: 800px; margin: 0 auto; }
+        .tab-content { display: none; max-width: 900px; margin: 0 auto; }
         .tab-content.active { display: block; }
         .card { background: var(--card-bg); border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border-color); }
         label { display: block; margin-bottom: 8px; color: #aaa; font-size: 13px; font-weight: bold; }
-        input, select, textarea { width: 100%; background: #2d2d2d; border: 1px solid var(--border-color); color: white; padding: 12px; border-radius: 6px; font-size: 16px; box-sizing: border-box; margin-bottom: 15px; }
+        input, select, textarea { width: 100%; background: #2d2d2d; border: 1px solid var(--border-color); color: white; padding: 12px; border-radius: 6px; font-size: 16px; box-sizing: border-box; margin-bottom: 10px; }
         button.primary { background: var(--accent-blue); color: white; border: none; padding: 15px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; }
-        .toggle-container { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; background: #333; padding: 10px; border-radius: 6px; }
-        input[type="checkbox"] { width: auto; margin: 0; }
+        
+        /* カメラテーブル用 */
+        .scroll-table { height: 400px; overflow-y: auto; background: #1a1a1a; border-radius: 6px; border: 1px solid var(--border-color); }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #252525; position: sticky; top: 0; padding: 12px; text-align: left; border-bottom: 2px solid var(--border-color); font-size: 13px; }
+        td { padding: 12px; border-bottom: 1px solid var(--border-color); font-size: 14px; cursor: pointer; }
+        tr:hover { background: #333; }
+        tr.selected { background: #004a83 !important; }
     </style>
 </head>
 <body>
@@ -35,6 +41,7 @@
     <nav>
         <button onclick="showTab('broadcast')" id="btn-broadcast" class="active">放送制御</button>
         <button onclick="showTab('screen')" id="btn-screen">投影制御</button>
+        <button onclick="showTab('camera')" id="btn-camera">カメラ切替</button>
         <button onclick="showTab('ticker')" id="btn-ticker">テロップ</button>
     </nav>
 
@@ -42,10 +49,10 @@
         <div id="tab-broadcast" class="tab-content active">
             <h2>放送制御</h2>
             <div class="card">
-                <label>放送モード</label>
+                <label>配信モード</label>
                 <select id="field-mode"><option value="normal">通常</option><option value="special">特番</option></select>
-                <label>レイアウト</label>
-                <select id="field-layout"><option value="normal">全画面</option><option value="l_shape">L字</option></select>
+                <label>担当</label>
+                <select id="field-statusType"><option value="bot">自動 (Bot)</option><option value="ningen">手動 (Ningen)</option></select>
             </div>
             <button class="primary" onclick="syncBroadcast()">反映</button>
         </div>
@@ -58,33 +65,39 @@
                 <label>URL</label>
                 <input type="text" id="field-screen-url">
             </div>
-            <button class="primary" onclick="syncScreen()">反映</button>
+            <button class="primary" onclick="syncScreen()">投影反映</button>
+        </div>
+
+        <div id="tab-camera" class="tab-content">
+            <h2>ライブカメラ切替</h2>
+            <div class="card"><label>現在選択中:</label><input type="text" id="field-cameraId" readonly></div>
+            <div class="scroll-table">
+                <table>
+                    <thead><tr><th>地点名</th><th>ID</th><th>タイプ</th></tr></thead>
+                    <tbody id="camera-list-body"></tbody>
+                </table>
+            </div>
         </div>
 
         <div id="tab-ticker" class="tab-content">
-            <h2>テロップ管理 (600x135)</h2>
-            <div class="toggle-container">
-                <input type="checkbox" id="field-ticker-active">
-                <label style="margin:0;">有事情報を表示する（OFFでデフォルトSVG表示）</label>
-            </div>
+            <h2>テロップ管理 (manual_news)</h2>
             <div class="card">
-                <label>ジャンル（例：鉄道情報、津波観測）</label>
-                <input type="text" id="field-ticker-genre" placeholder="鉄道情報">
-                
+                <label>ジャンル (2〜4文字)</label>
+                <input type="text" id="field-news-genre" placeholder="鉄道情報">
                 <label>本文 1行目</label>
-                <input type="text" id="field-ticker-line1" placeholder="JR山手線">
-
+                <input type="text" id="field-news-line1" placeholder="JR山手線">
                 <label>本文 2行目</label>
-                <input type="text" id="field-ticker-line2" placeholder="全線で運転見合わせ">
+                <input type="text" id="field-news-line2" placeholder="全線で運転見合わせ">
             </div>
-            <button class="primary" onclick="syncTicker()">テロップ更新</button>
+            <button class="primary" onclick="syncTicker()">テロップ送信</button>
+            <button style="margin-top:10px; background:#444;" class="primary" onclick="clearTicker()">テロップ消去 (SVGに戻す)</button>
         </div>
     </div>
 </main>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
@@ -93,8 +106,7 @@
         projectId: "mgl-eqlive",
         storageBucket: "mgl-eqlive.firebasestorage.app",
         messagingSenderId: "1060231327645",
-        appId: "1:1060231327645:web:642684f4640bbc21d5c974",
-        measurementId: "G-BK3MJJ0VR7"
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -107,30 +119,73 @@
         document.getElementById('btn-' + tabId).classList.add('active');
     };
 
-    // 初期値読み込み
+    // Firebaseデータの初期同期
     onValue(ref(db, 'broadcast'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
-        if (data.ticker) {
-            document.getElementById('field-ticker-active').checked = data.ticker.active;
-            document.getElementById('field-ticker-genre').value = data.ticker.genre || "";
-            document.getElementById('field-ticker-line1').value = data.ticker.line1 || "";
-            document.getElementById('field-ticker-line2').value = data.ticker.line2 || "";
+        
+        if (data.current) {
+            document.getElementById('field-mode').value = data.current.mode || 'normal';
+            document.getElementById('field-statusType').value = data.current.statusType || 'bot';
+            document.getElementById('field-cameraId').value = data.current.cameraSource || '';
+            highlightSelectedCamera(data.current.cameraSource);
+        }
+        if (data.manual_news) {
+            document.getElementById('field-news-genre').value = data.manual_news.genre || "";
+            document.getElementById('field-news-line1').value = data.manual_news.line1 || "";
+            document.getElementById('field-news-line2').value = data.manual_news.line2 || "";
         }
     });
 
-    window.syncTicker = function() {
-        const updates = {};
-        updates['broadcast/ticker/active'] = document.getElementById('field-ticker-active').checked;
-        updates['broadcast/ticker/genre'] = document.getElementById('field-ticker-genre').value;
-        updates['broadcast/ticker/line1'] = document.getElementById('field-ticker-line1').value;
-        updates['broadcast/ticker/line2'] = document.getElementById('field-ticker-line2').value;
-        update(ref(db), updates).then(() => alert("テロップを更新しました"));
+    // 放送制御反映
+    window.syncBroadcast = () => {
+        update(ref(db, 'broadcast/current'), {
+            mode: document.getElementById('field-mode').value,
+            statusType: document.getElementById('field-statusType').value,
+            updatedAt: Date.now()
+        }).then(() => alert("放送設定を更新しました"));
     };
 
-    window.syncBroadcast = function() { /* 既存の放送制御ロジック */ };
-    window.syncScreen = function() { /* 既存の投影制御ロジック */ };
+    // テロップ反映
+    window.syncTicker = () => {
+        set(ref(db, 'broadcast/manual_news'), {
+            genre: document.getElementById('field-news-genre').value,
+            line1: document.getElementById('field-news-line1').value,
+            line2: document.getElementById('field-news-line2').value
+        }).then(() => alert("テロップを更新しました"));
+    };
 
+    // テロップ消去
+    window.clearTicker = () => {
+        set(ref(db, 'broadcast/manual_news'), null).then(() => alert("テロップを消去しました"));
+    };
+
+    // カメラリスト初期化
+    async function initCameraSwitcher() {
+        try {
+            const res = await fetch('https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json');
+            const cameraList = await res.json();
+            const tbody = document.getElementById('camera-list-body');
+            tbody.innerHTML = "";
+            cameraList.forEach(cam => {
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-id', cam.id);
+                tr.innerHTML = `<td>${cam.name}</td><td>${cam.id}</td><td>${cam.type}</td>`;
+                tr.onclick = () => {
+                    update(ref(db, 'broadcast/current'), { cameraSource: cam.id, updatedAt: Date.now() });
+                };
+                tbody.appendChild(tr);
+            });
+        } catch (e) { console.error("Camera List Load Error"); }
+    }
+
+    function highlightSelectedCamera(id) {
+        document.querySelectorAll('#camera-list-body tr').forEach(tr => {
+            tr.classList.toggle('selected', tr.getAttribute('data-id') === id);
+        });
+    }
+
+    window.onload = initCameraSwitcher;
 </script>
 </body>
 </html>
