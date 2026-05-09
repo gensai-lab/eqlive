@@ -33,6 +33,7 @@
         th { background: #222; position: sticky; top: 0; padding: 12px; text-align: left; font-size: 11px; color: #666; }
         td { padding: 14px 12px; border-bottom: 1px solid var(--border-color); font-size: 14px; cursor: pointer; }
         tr.selected { background: rgba(0, 120, 212, 0.2); color: var(--accent-blue); font-weight: bold; }
+        select { width: 100%; padding: 12px; background: #111; color: white; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 10px; }
         @media (max-width: 768px) { header { display: flex; } nav { position: absolute; transform: translateX(-100%); } nav.open { transform: translateX(0); } .btn-group { flex-direction: column; } }
     </style>
 </head>
@@ -49,7 +50,7 @@
         <button onclick="changeTab('tsunami')" id="btn-tsunami" class="active">津波制御</button>
         <button onclick="changeTab('camera')" id="btn-camera">カメラ切替</button>
         <button onclick="changeTab('broadcast')" id="btn-broadcast">放送設定</button>
-        <div style="margin-top: auto; padding: 20px; font-size: 10px; color: #444;">Kactuif v2.1</div>
+        <div style="margin-top: auto; padding: 20px; font-size: 10px; color: #444;">Kactuif v2.2</div>
     </nav>
 
     <div class="content">
@@ -73,7 +74,7 @@
             <h2>ライブカメラ選択</h2>
             <div class="card">
                 <label>現在選択中</label>
-                <input type="text" id="field-cameraId" readonly style="width:100%; background:#111; color:var(--accent-blue); border:none; padding:10px; border-radius:5px;">
+                <input type="text" id="field-cameraId" readonly style="width:100%; background:#111; color:var(--accent-blue); border:none; padding:10px; border-radius:5px; font-weight: bold;">
             </div>
             <div class="scroll-table">
                 <table>
@@ -84,24 +85,42 @@
         </div>
 
         <div id="tab-broadcast" class="tab-content">
-            <h2>メイン画面ソース選択</h2>
+            <h2>全体レイアウト（sub-switcher）</h2>
             <div class="card">
-                <label>表示コンテンツ（emergency.html）</label>
+                <label>シーン選択</label>
                 <div class="btn-group">
-                    <button id="btn-src-screen" class="secondary" onclick="updateMainSource('screen')">画面共有</button>
-                    <button id="btn-src-camera" class="secondary" onclick="updateMainSource('camera')">ライブカメラ</button>
+                    <button id="btn-lay-live" class="secondary" onclick="updateLayout('live')">通常（ライブカメラ）</button>
+                    <button id="btn-lay-emer" class="secondary" onclick="updateLayout('emergency')">緊急（特番レイアウト）</button>
                 </div>
             </div>
 
-            <h2>基本放送設定</h2>
+            <h2>メイン画面ソース（emergency内）</h2>
             <div class="card">
-                <label>配信モード</label>
-                <select id="field-mode" style="width: 100%; padding: 10px; background: #111; color: white; border: 1px solid #333; border-radius: 5px;">
-                    <option value="normal">通常時</option>
+                <label>コンテンツ選択</label>
+                <div class="btn-group">
+                    <button id="btn-src-screen" class="secondary" onclick="updateMainSource('screen')">画面共有</button>
+                    <button id="btn-src-camera" class="secondary" onclick="updateMainSource('camera')">カメラ</button>
+                </div>
+            </div>
+
+            <h2>配信主体（parts/time表示）</h2>
+            <div class="card">
+                <label>バッジ切り替え</label>
+                <div class="btn-group">
+                    <button id="btn-dist-bot" class="secondary" onclick="updateDistributor('bot')">Bot配信</button>
+                    <button id="btn-dist-human" class="secondary" onclick="updateDistributor('ningen')">有人配信</button>
+                </div>
+            </div>
+
+            <h2>基本設定</h2>
+            <div class="card">
+                <label>配信モードタグ</label>
+                <select id="field-mode">
+                    <option value="normal">通常放送</option>
                     <option value="special">緊急特番</option>
                 </select>
+                <button class="primary" style="width:100%; margin-top: 10px;" onclick="syncBroadcast()">モードを反映</button>
             </div>
-            <button class="primary" style="width:100%;" onclick="syncBroadcast()">反映</button>
         </div>
     </div>
 </main>
@@ -136,25 +155,39 @@
         const data = snapshot.val();
         if (!data) return;
 
-        // 津波設定の反映
-        const isAuto = data.tsunami_config?.autoPage !== false;
+        const current = data.current || {};
+        const tsunami = data.tsunami_config || {};
+
+        // 津波設定
+        const isAuto = tsunami.autoPage !== false;
         document.getElementById('auto-status-text').innerText = isAuto ? "自動送り：ON" : "自動送り：OFF";
         document.getElementById('auto-status-text').style.color = isAuto ? "var(--accent-blue)" : "var(--accent-red)";
         document.getElementById('btn-prev').disabled = document.getElementById('btn-next').disabled = isAuto;
 
-        // カメラ設定の反映
-        document.getElementById('field-cameraId').value = data.current?.cameraSource || '';
-        highlightSelectedCamera(data.current?.cameraSource);
+        // カメラ設定
+        document.getElementById('field-cameraId').value = current.cameraSource || '';
+        highlightSelectedCamera(current.cameraSource);
 
-        // メイン画面ソース選択状態の反映
-        const source = data.current?.mainSource || 'screen';
-        document.getElementById('btn-src-screen').className = (source === 'screen') ? 'primary' : 'secondary';
-        document.getElementById('btn-src-camera').className = (source === 'camera') ? 'primary' : 'secondary';
+        // レイアウト選択 (sub-switcher)
+        const lay = current.layoutMode || 'live';
+        document.getElementById('btn-lay-live').className = (lay === 'live') ? 'primary' : 'secondary';
+        document.getElementById('btn-lay-emer').className = (lay === 'emergency') ? 'primary' : 'secondary';
 
-        // モード反映
-        document.getElementById('field-mode').value = data.current?.mode || 'normal';
+        // メイン画面ソース (emergency内)
+        const src = current.mainSource || 'screen';
+        document.getElementById('btn-src-screen').className = (src === 'screen') ? 'primary' : 'secondary';
+        document.getElementById('btn-src-camera').className = (src === 'camera') ? 'primary' : 'secondary';
+
+        // 配信主体 (parts/time)
+        const dist = current.distributor || 'bot';
+        document.getElementById('btn-dist-bot').className = (dist === 'bot') ? 'primary' : 'secondary';
+        document.getElementById('btn-dist-human').className = (dist === 'ningen') ? 'primary' : 'secondary';
+
+        // モード
+        document.getElementById('field-mode').value = current.mode || 'normal';
     });
 
+    // 各種更新関数
     window.toggleAutoPage = () => {
         const isAuto = document.getElementById('auto-status-text').innerText.includes("ON");
         update(ref(db, 'broadcast/tsunami_config'), { autoPage: !isAuto });
@@ -164,25 +197,37 @@
         update(ref(db, 'broadcast/tsunami_config'), { manualTrigger: { direction: dir, timestamp: Date.now() } });
     };
 
+    window.updateLayout = (mode) => {
+        update(ref(db, 'broadcast/current'), { layoutMode: mode });
+    };
+
     window.updateMainSource = (source) => {
         update(ref(db, 'broadcast/current'), { mainSource: source });
+    };
+
+    window.updateDistributor = (type) => {
+        update(ref(db, 'broadcast/current'), { distributor: type });
     };
 
     window.syncBroadcast = () => {
         update(ref(db, 'broadcast/current'), { mode: document.getElementById('field-mode').value });
     };
 
+    // カメラリスト初期化
     async function initCameras() {
-        const res = await fetch('https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json');
-        const list = await res.json();
-        const tbody = document.getElementById('camera-list-body');
-        list.forEach(cam => {
-            const tr = document.createElement('tr');
-            tr.setAttribute('data-id', cam.id);
-            tr.innerHTML = `<td>${cam.name}</td><td style="color:#666; font-size:10px;">${cam.type}</td>`;
-            tr.onclick = () => update(ref(db, 'broadcast/current'), { cameraSource: cam.id });
-            tbody.appendChild(tr);
-        });
+        try {
+            const res = await fetch('https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json');
+            const list = await res.json();
+            const tbody = document.getElementById('camera-list-body');
+            tbody.innerHTML = "";
+            list.forEach(cam => {
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-id', cam.id);
+                tr.innerHTML = `<td>${cam.name}</td><td style="color:#666; font-size:10px;">${cam.type}</td>`;
+                tr.onclick = () => update(ref(db, 'broadcast/current'), { cameraSource: cam.id });
+                tbody.appendChild(tr);
+            });
+        } catch (e) { console.error("Camera list load failed", e); }
     }
 
     function highlightSelectedCamera(id) {
