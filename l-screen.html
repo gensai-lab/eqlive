@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>EQLive L-Screen</title>
+    <style>
+        @font-face {
+            font-family: 'A-OTF UD Shin Go';
+            src: local('A-OTF UD Shin Go Regular');
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 1920px; height: 1080px;
+            background-color: black;
+            overflow: hidden;
+            font-family: 'A-OTF UD Shin Go', sans-serif;
+        }
+
+        /* L字背景画像 */
+        #l-background {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px; height: 1080px;
+            z-index: 1;
+        }
+
+        /* メインコンテンツ（Sub-Switcher）を表示するエリア */
+        #main-content {
+            position: absolute;
+            top: 40px; /* 背景画像の設計に合わせて調整してください */
+            left: 360px; /* L字の縦帯分右に寄せる */
+            width: 1520px; 
+            height: 855px; /* 16:9比率を維持して縮小 */
+            z-index: 2;
+            background-color: #000;
+        }
+
+        #main-content iframe {
+            width: 1920px;
+            height: 1080px;
+            border: none;
+            transform: scale(0.7916); /* 1520 / 1920 = 0.7916 */
+            transform-origin: top left;
+        }
+
+        /* テキスト表示エリア */
+        .text-overlay {
+            position: absolute;
+            z-index: 10;
+            color: white;
+            transition: opacity 1s ease-in-out;
+        }
+
+        /* 画面左のL字タイトル */
+        #l-title {
+            top: 40px;
+            left: 40px;
+            width: 280px;
+            font-size: 32px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        /* 画面上のジャンル */
+        #info-genre {
+            top: 920px; /* L字の下帯部分 */
+            left: 40px;
+            width: 280px;
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+            color: #FFFF00; /* ジャンルは黄色などで目立たせる */
+        }
+
+        /* 画面上のメインテキスト */
+        #info-main {
+            top: 920px;
+            left: 360px;
+            width: 1520px;
+            font-size: 36px;
+            line-height: 1.5;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .fade-out { opacity: 0; }
+        .fade-in { opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <img id="l-background" src="https://gensai-lab.github.io/eqlive/assets/cover/Lscreen.png" alt="L-Screen BG">
+
+    <div id="main-content">
+        <iframe src="sub-switcher.html"></iframe>
+    </div>
+
+    <div id="l-title" class="text-overlay">L-TITLE</div>
+    <div id="info-genre" class="text-overlay">GENRE</div>
+    <div id="info-main" class="text-overlay">Loading information...</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const titleEl = document.getElementById('l-title');
+    const genreEl = document.getElementById('info-genre');
+    const mainEl = document.getElementById('info-main');
+
+    let infoList = [];
+    let currentIndex = 0;
+
+    // FirebaseからL字設定とニュース情報を取得
+    onValue(ref(db, 'broadcast/lscreen'), (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        // タイトルを更新
+        titleEl.textContent = data.title || "みんなの減災ラボ";
+
+        // ニュースリストを更新
+        if (data.news) {
+            // オブジェクト形式を配列に変換
+            infoList = Object.values(data.news);
+            if (infoList.length > 0 && !mainEl.classList.contains('active')) {
+                startTextLoop();
+            }
+        }
+    });
+
+    function startTextLoop() {
+        showText();
+        setInterval(nextText, 15000); // 15秒ごとに切り替え
+    }
+
+    function showText() {
+        if (infoList.length === 0) return;
+        const current = infoList[currentIndex];
+
+        // フェードアウト
+        genreEl.style.opacity = 0;
+        mainEl.style.opacity = 0;
+
+        setTimeout(() => {
+            genreEl.textContent = current.genre;
+            mainEl.textContent = current.text;
+
+            // フェードイン
+            genreEl.style.opacity = 1;
+            mainEl.style.opacity = 1;
+        }, 1000);
+    }
+
+    function nextText() {
+        if (infoList.length === 0) return;
+        currentIndex = (currentIndex + 1) % infoList.length;
+        showText();
+    }
+</script>
+</body>
+</html>
