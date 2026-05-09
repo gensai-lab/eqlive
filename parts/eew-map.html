@@ -17,37 +17,36 @@
 
         #map-container { 
             position: relative;
-            width: 100%; 
-            height: 100%;
+            /* 画面全体ではなく、少し余裕を持たせたサイズにします */
+            width: 90vw; 
+            height: 90vh;
+            border: 1px solid rgba(255,255,255,0.1); /* デバッグ用：枠が見えるように */
         }
 
         svg {
             width: 100%;
             height: 100%;
+            display: block;
         }
 
-        /* 地図の基本スタイル */
         .pref-path { 
             fill: #BFBFBF; 
             stroke: #7F7F7F; 
-            stroke-width: 0.2px; 
+            stroke-width: 0.5px; 
         }
 
-        /* 強い揺れが予想される地域（黄色） */
         .eew-active-area {
             fill: #FFF300 !important;
         }
 
-        /* 震源地アイコン（shingen.svg） */
         #shingen-icon {
             position: absolute;
-            width: 60px;
-            height: 60px;
+            width: 50px;
+            height: 50px;
             transform: translate(-50%, -50%);
             z-index: 100;
             display: none;
             pointer-events: none;
-            filter: drop-shadow(0 0 5px rgba(0,0,0,0.5));
         }
     </style>
 </head>
@@ -69,33 +68,32 @@
 
     async function init() {
         try {
-            // 1. GeoJSON読み込み
             const geoData = await d3.json(GEOJSON_URL);
             
-            const width = window.innerWidth;
-            const height = window.innerHeight;
+            const container = document.getElementById("map-container");
+            const width = container.clientWidth;
+            const height = container.clientHeight;
 
-            // 2. 投影法の設定（GeoJSONを画面いっぱいにフィットさせる）
+            // 1. まず標準的な日本中心の投影法を作成
             projection = d3.geoMercator()
-                .fitExtent([[20, 20], [width - 20, height - 20]], geoData);
+                .center([137.5, 38.0])
+                .translate([width / 2, height / 2]);
+
+            // 2. 地図データに基づいて、コンテナにぴったり収まるスケールを自動計算
+            // これにより「大きすぎて画面外」という問題を防ぎます
+            projection.fitSize([width, height], geoData);
 
             const pathGenerator = d3.geoPath().projection(projection);
 
-            // 3. 地図の描画
+            // 3. 地図描画
             mapSvg.selectAll("path")
                 .data(geoData.features)
                 .enter()
                 .append("path")
                 .attr("d", pathGenerator)
                 .attr("class", "pref-path")
-                .attr("id", d => {
-                    // IDとして都道府県名を取得（mapshaperの書き出し設定に依存）
-                    return d.properties.name || d.properties.pref || d.properties.nam_ja;
-                });
+                .attr("id", d => d.properties.name || d.properties.pref || d.properties.nam_ja);
 
-            console.log("EEW Map Initialized.");
-
-            // 4. 定期監視（3秒ごと）
             fetchEEW();
             setInterval(fetchEEW, 3000);
 
@@ -108,61 +106,42 @@
         try {
             const res = await fetch(API_URL);
             const data = await res.json();
-            if (!data || data.length === 0) return;
-
-            const eew = data[0];
-            // 更新があった場合のみ処理
-            if (eew.id === lastEventId) return;
-            lastEventId = eew.id;
-
-            updateMapDisplay(eew);
-        } catch (e) {
-            console.error("API Error:", e);
-        }
+            if (data && data.length > 0) {
+                if (data[0].id !== lastEventId) {
+                    lastEventId = data[0].id;
+                    updateMapDisplay(data[0]);
+                }
+            }
+        } catch (e) { console.error(e); }
     }
 
     function updateMapDisplay(eew) {
-        // リセット
         mapSvg.selectAll(".eew-active-area").classed("eew-active-area", false);
         const shingen = document.getElementById("shingen-icon");
         shingen.style.display = "none";
 
-        // 発表キャンセル時は何もしない
-        if (eew.cancelled) return;
-
-        // 1. 警告地域（pref）の塗りつぶし
         if (eew.areas) {
             eew.areas.forEach(area => {
-                const prefName = area.pref; // 例: "奈良"
-                
                 mapSvg.selectAll("path")
                     .filter(function(d) {
-                        const geoId = d3.select(this).attr("id") || "";
-                        // GeoJSON側のIDが "奈良" または "奈良県" の場合にマッチ
-                        return geoId === prefName || geoId.includes(prefName);
+                        const id = d3.select(this).attr("id") || "";
+                        return id.includes(area.pref);
                     })
                     .classed("eew-active-area", true);
             });
         }
 
-        // 2. 震源地のプロット
-        if (eew.earthquake && eew.earthquake.hypocenter) {
+        if (eew.earthquake?.hypocenter) {
             const { latitude, longitude } = eew.earthquake.hypocenter;
             if (latitude && longitude && latitude !== -1) {
-                // 緯度経度からピクセル座標を算出
                 const [x, y] = projection([longitude, latitude]);
-                
+                // コンテナの相対位置に合わせて調整
                 shingen.style.left = `${x}px`;
                 shingen.style.top = `${y}px`;
                 shingen.style.display = "block";
             }
         }
     }
-
-    // リサイズ対応
-    window.addEventListener('resize', () => {
-        location.reload();
-    });
 
     window.onload = init;
 </script>
