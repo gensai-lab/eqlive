@@ -8,12 +8,12 @@
             margin: 0;
             padding: 0;
             background: transparent;
-            width: 600px;  /* 全体サイズ固定 */
+            width: 600px;  /* キャンバスサイズ固定 */
             height: 350px;
             overflow: hidden;
             display: flex;
             justify-content: flex-start;
-            align-items: flex-start;
+            align-items: center;
         }
 
         #main-canvas {
@@ -21,30 +21,28 @@
             width: 600px;
             height: 350px;
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             justify-content: flex-start;
             overflow: hidden;
         }
 
         #background-cover {
-            width: 600px;  /* 背景画像を600x350に固定 */
-            height: 350px;
+            width: 100%;
+            height: 100%;
             object-fit: cover;
-            display: block;
             z-index: 1;
+            position: absolute;
         }
 
         #map-container {
             position: absolute;
             z-index: 2;
             pointer-events: none;
-            
-            /* ご指定の位置設定 */
-            top: 40px;
-            left: -30px;
-            /* マップ自体の描画エリアもコンテナサイズに合わせる */
-            width: 600px;
-            height: 350px;
+            /* 1500x1000から600x350に合わせて調整 */
+            top: 0;
+            left: -10px; 
+            width: 100%;
+            height: 100%;
         }
 
         #svg-area {
@@ -97,6 +95,14 @@
 <script type="module">
     let tsunamiSvg = null;
 
+    // --- 【設定項目】サイズや位置を個別に微調整したい場合はここを変更 ---
+    const config = {
+        prefScale: 1.0,    // 都道府県の大きさ倍率
+        tsunamiScale: 1.0, // 津波予報区の大きさ倍率
+        offsetX: 0,        // 左右位置微調整
+        offsetY: 0         // 上下位置微調整
+    };
+
     async function initMap() {
         try {
             const [prefXml, tsunamiXml] = await Promise.all([
@@ -106,6 +112,7 @@
 
             const svgArea = d3.select("#svg-area");
             
+            // 各レイヤーの生成
             const prefNode = svgArea.append(() => prefXml.documentElement);
             prefNode.selectAll("path").classed("pref-path", true);
 
@@ -113,27 +120,36 @@
             tsunamiSvg = tsunamiLayer.append(() => tsunamiXml.documentElement);
             tsunamiSvg.selectAll("path").classed("tsunami-path", true);
 
-            // 元のサイズ属性を削除
-            [prefNode, tsunamiSvg].forEach(svg => {
-                svg.attr("width", null).attr("height", null);
-            });
+            [prefNode, tsunamiSvg].forEach(svg => svg.attr("width", null).attr("height", null));
 
-            // 座標範囲の計算
+            // 座標範囲の取得
             const pBbox = prefNode.node().getBBox();
             const tBbox = tsunamiSvg.node().getBBox();
 
+            // 共通のベースとなるViewBoxを計算
             const minX = Math.min(pBbox.x, tBbox.x);
             const minY = Math.min(pBbox.y, tBbox.y);
-            const maxX = Math.max(pBbox.x + pBbox.width, tBbox.x + tBbox.width);
-            const maxY = Math.max(pBbox.y + pBbox.height, tBbox.y + tBbox.height);
+            const width = Math.max(pBbox.x + pBbox.width, tBbox.x + tBbox.width) - minX;
+            const height = Math.max(pBbox.y + pBbox.height, tBbox.y + tBbox.height) - minY;
 
-            // 表示比率を保ちつつ枠いっぱいに広げる設定
-            const commonViewBox = `${minX} ${minY} ${maxX - minX} ${maxY - minY}`;
+            /**
+             * 個別にスケールを適用したViewBoxを計算する関数
+             * @param {number} scale - 倍率 (1.0が標準)
+             */
+            const getAdjustedViewBox = (scale) => {
+                const adjW = width / scale;
+                const adjH = height / scale;
+                const diffW = (adjW - width) / 2;
+                const diffH = (adjH - height) / 2;
+                return `${minX - diffW - config.offsetX} ${minY - diffH - config.offsetY} ${adjW} ${adjH}`;
+            };
 
-            [prefNode, tsunamiSvg].forEach(svg => {
-                svg.attr("viewBox", commonViewBox)
-                   .attr("preserveAspectRatio", "xMidYMid meet");
-            });
+            // 個別にViewBoxを適用
+            prefNode.attr("viewBox", getAdjustedViewBox(config.prefScale))
+                    .attr("preserveAspectRatio", "xMidYMid meet");
+
+            tsunamiSvg.attr("viewBox", getAdjustedViewBox(config.tsunamiScale))
+                      .attr("preserveAspectRatio", "xMidYMid meet");
 
         } catch (error) {
             console.error("Map initialization failed:", error);
