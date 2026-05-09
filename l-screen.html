@@ -7,6 +7,8 @@
         @font-face {
             font-family: 'FOT-UDKakugo_LargePr6-DB';
             src: url('assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
+            /* フォント本来の太さを維持するため normal 指定 */
+            font-weight: normal; 
         }
 
         body, html {
@@ -15,6 +17,8 @@
             background-color: black;
             overflow: hidden;
             font-family: 'FOT-UDKakugo_LargePr6-DB', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         #l-background {
@@ -44,8 +48,7 @@
         .text-overlay {
             position: absolute;
             z-index: 10;
-            color: white;
-            line-height: 1;
+            line-height: 1.1;
         }
 
         /* 左側タイトル */
@@ -60,12 +63,16 @@
         }
 
         #l-title {
+            color: #003EB3; /* 指定の色に変更 */
             font-size: 115px;
             writing-mode: vertical-rl;
             text-orientation: upright;
-            font-weight: bold;
-            letter-spacing: 0.05em;
+            /* 合成太字を避けるため normal に設定 */
+            font-weight: normal; 
+            letter-spacing: 0.12em; /* 文字の間隔を広げて高級感を出す */
             white-space: nowrap;
+            /* アンチエイリアスを綺麗に出すための設定 */
+            text-rendering: optimizeLegibility;
         }
 
         #genre-container {
@@ -77,12 +84,14 @@
             justify-content: center;
             align-items: center;
             text-align: center;
+            color: white;
         }
 
         #info-genre {
             font-size: 46px;
             white-space: nowrap;
             display: inline-block;
+            font-weight: normal;
         }
 
         #main-text-container {
@@ -92,11 +101,13 @@
             height: 60px;
             display: flex;
             align-items: center;
+            color: white;
         }
 
         #info-main {
             font-size: 46px;
             white-space: nowrap;
+            font-weight: normal;
             transition: opacity 0.8s ease-in-out;
         }
 
@@ -181,22 +192,17 @@
     });
     adjustIframeScale();
 
-    // Firebase同期設定 (l_shape を監視)
     onValue(ref(db, 'broadcast/l_shape'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
-        // 左側縦書きタイトル
         if (data.leftText !== undefined) {
             titleEl.textContent = data.leftText;
             setTimeout(adjustTitleSize, 50);
         }
 
-        // 上部情報カードリスト
         if (data.topItems) {
-            // 配列形式かオブジェクト形式かを問わずリスト化
             infoList = Object.values(data.topItems);
-            
             if (infoList.length > 0 && !isLooping) {
                 isLooping = true;
                 startTextLoop();
@@ -210,13 +216,11 @@
 
     function startTextLoop() {
         showText();
-        setInterval(nextText, 10000); // 10秒おき
+        setInterval(nextText, 10000);
     }
 
     function showText() {
         if (infoList.length === 0) return;
-        
-        // インデックスが範囲外にならないよう調整
         if (currentIndex >= infoList.length) currentIndex = 0;
         const current = infoList[currentIndex];
 
@@ -225,7 +229,6 @@
         setTimeout(() => {
             genreEl.textContent = current.genre || "";
             mainEl.textContent = current.text || "";
-            
             adjustGenreFontSize();
             mainEl.classList.remove('fade-out');
         }, 800);
