@@ -10,3 +10,4 @@
 <br>Tsunami List : https://gensai-lab.github.io/eqlive/parts/tsunami-list.html</br>
 <br>Time : https://gensai-lab.github.io/eqlive/parts/time.html</br>
 <br>Title : https://gensai-lab.github.io/eqlive/parts/title.html</br>
+<br>Tsunami Map : https://gensai-lab.github.io/eqlive/parts/tsunami-map.html</br>
