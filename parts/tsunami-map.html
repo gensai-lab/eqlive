@@ -6,177 +6,181 @@
     <style>
         body { 
             margin: 0; 
-            background: transparent; /* Switcher側で背景色を設定しているため透過 */
+            background: transparent; 
             width: 100vw; 
             height: 100vh; 
             display: flex; 
             align-items: center; 
+            justify-content: center;
             overflow: hidden; 
             position: relative; 
         }
 
         #main-canvas { 
-            height: 100vh; 
+            width: 100%;
+            height: 100%;
             position: relative; 
             display: flex; 
             align-items: center; 
             justify-content: center; 
-            overflow: hidden; 
-            opacity: 0; /* 初期状態は非表示 */
-            transition: opacity 0.5s ease-in-out; /* ふわっと表示させるアニメーション */
-        }
-
-        #background-cover { 
-            position: relative; 
-            height: 100%; 
-            width: auto;   
-            z-index: -1; 
-            display: block;
         }
 
         #map-container { 
-            position: absolute;
-            top: 0;
-            left: -75px; 
-            width: 100%; 
-            height: 100%; 
+            position: relative;
+            width: 95%; 
+            height: 95%;
             display: flex; 
             justify-content: center; 
             align-items: center; 
-            pointer-events: none; 
-        }
-        
-        .pref-svg {
-            position: absolute; 
-            width: 90% !important; 
-            height: 90% !important; 
-            object-fit: contain;
-            z-index: 10;
         }
 
-        .tsunami-svg { 
-            position: absolute; 
-            width: 89% !important; 
-            height: 89% !important; 
-            object-fit: contain; 
-            z-index: 1;
+        /* 地図SVGのスタイル */
+        .eew-map-svg {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
-        
-        .pref-path { fill: #BFBFBF; stroke: #BFBFBF; stroke-width: 1px; }
-        .tsunami-path { fill: none; stroke: none; transition: stroke 0.3s, stroke-width 0.3s; }
+
+        /* 地図の基本色設定 */
+        .map-path { 
+            fill: #BFBFBF; /* 地図の背景色 */
+            stroke: #7F7F7F; /* 地図の枠線 */
+            stroke-width: 0.5px; 
+        }
+
+        /* 警告地域（黄色） */
+        .eew-active-area {
+            fill: #FFF300 !important;
+            transition: fill 0.3s;
+        }
+
+        /* 震源地アイコン（shingen.svg） */
+        #shingen-icon {
+            position: absolute;
+            width: 60px; /* サイズは適宜調整してください */
+            height: 60px;
+            transform: translate(-50%, -50%); /* 中心合わせ */
+            z-index: 100;
+            display: none;
+            filter: drop-shadow(0 0 4px rgba(0,0,0,0.5));
+        }
     </style>
 </head>
 <body>
 
 <div id="main-canvas">
-    <img id="background-cover" src="https://gensai-lab.github.io/eqlive/assets/cover/tsunami_cover.png" alt="background">
-    <div id="map-container"></div>
+    <div id="map-container">
+        <img id="shingen-icon" src="../assets/svg/shingen.svg" alt="震源地">
+    </div>
 </div>
 
 <script type="module">
-    let tsunamiSvgElement = null;
-    let prefSvgElement = null;
-    const mainCanvas = document.getElementById('main-canvas');
+    let mapSvgElement = null;
+    const API_URL = "https://api.p2pquake.net/v2/history?codes=556&limit=1";
+    const SVG_URL = "../assets/svg/eew-mapdate.svg";
 
-    async function applyTsunamiData(tsunamiSvg, data) {
-        if (!tsunamiSvg) return;
+    // 【重要】緯度経度計算用の基準範囲
+    // 地図がズレる場合は、ここの数値を調整してください
+    const MAP_CONFIG = {
+        north: 46.0, // 地図の北端緯度
+        south: 22.0, // 地図の南端緯度（小笠原などを含む場合は低めに設定）
+        west: 122.0, // 地図の西端経度
+        east: 149.0  // 地図の東端経度
+    };
 
-        // すべての線をリセット
-        tsunamiSvg.selectAll("path")
-            .style("stroke", "none")
-            .style("stroke-width", "0");
+    /**
+     * 緯度経度をSVGコンテナ上のパーセント座標に変換
+     */
+    function latLonToPercent(lat, lon) {
+        const latRange = MAP_CONFIG.north - MAP_CONFIG.south;
+        const lonRange = MAP_CONFIG.east - MAP_CONFIG.west;
 
-        // 津波情報がない、またはキャンセル（解除）されている場合
-        if (!data || data.cancelled === true || !data.areas) {
-            mainCanvas.style.opacity = "0"; // 非表示にする
-            return;
-        }
+        const xRatio = (lon - MAP_CONFIG.west) / lonRange;
+        const yRatio = (MAP_CONFIG.north - lat) / latRange;
 
-        // 津波情報がある場合のみ表示する
-        mainCanvas.style.opacity = "1";
-
-        data.areas.forEach(area => {
-            const areaName = area.name.trim();
-            const grade = area.grade;
-            const baseWidth = 24; 
-            
-            let color = "none";
-            let width = "0px";
-
-            if (grade === "MajorWarning") { 
-                color = "#C91EFB"; width = `${baseWidth * 6}px`;
-            } else if (grade === "Warning") { 
-                color = "#DE080A"; width = `${baseWidth}px`; 
-            } else if (grade === "Watch") { 
-                color = "#FEDC00"; width = `${baseWidth}px`; 
-            }
-
-            const target = tsunamiSvg.selectAll("path").filter(function() {
-                const id = d3.select(this).attr("id");
-                return id && (id === areaName || id.includes(areaName));
-            });
-
-            if (!target.empty()) {
-                target
-                    .style("stroke", color)
-                    .style("stroke-width", width)
-                    .style("stroke-linecap", "round")
-                    .style("stroke-linejoin", "round");
-            }
-        });
+        return {
+            x: xRatio * 100,
+            y: yRatio * 100
+        };
     }
 
-    async function fetchTsunamiInfo() {
+    /**
+     * P2P地震情報のデータを地図に反映
+     */
+    async function applyEEWData(data) {
+        if (!mapSvgElement || !data) return;
+
+        // リセット
+        mapSvgElement.selectAll("path").classed("eew-active-area", false);
+        const shingen = document.getElementById('shingen-icon');
+        shingen.style.display = "none";
+
+        // 1. 強い揺れが予想される地域（pref）を黄色に
+        if (data.areas) {
+            data.areas.forEach(area => {
+                const prefName = area.pref;
+                // SVG内のIDとpref名が一致する要素を選択
+                const target = mapSvgElement.select(`#${prefName}`);
+                if (!target.empty()) {
+                    target.classed("eew-active-area", true);
+                }
+            });
+        }
+
+        // 2. 震源地のプロット
+        if (data.earthquake && data.earthquake.hypocenter) {
+            const { latitude, longitude } = data.earthquake.hypocenter;
+            if (latitude !== -1 && longitude !== -1) {
+                const pos = latLonToPercent(latitude, longitude);
+                shingen.style.left = `${pos.x}%`;
+                shingen.style.top = `${pos.y}%`;
+                shingen.style.display = "block";
+            }
+        }
+    }
+
+    async function fetchEEWInfo() {
         try {
-            const response = await fetch("https://api.p2pquake.net/v2/history?codes=552&limit=5");
+            const response = await fetch(API_URL);
             const history = await response.json();
-            // cancelledがfalse（発表中）の最新データを取得
-            const latestActive = history.find(item => item.cancelled === false);
-            
-            applyTsunamiData(tsunamiSvgElement, latestActive || { cancelled: true });
+            if (history && history.length > 0) {
+                applyEEWData(history[0]);
+            }
         } catch (e) {
-            console.error("API取得エラー:", e);
+            console.error("EEW API取得エラー:", e);
         }
     }
 
     async function init() {
         try {
-            const [prefXml, tsunamiXml] = await Promise.all([
-                d3.xml("https://gensai-lab.github.io/eqlive/assets/svg/pref.svg"),
-                d3.xml("https://gensai-lab.github.io/eqlive/assets/svg/tsunami2_id.svg")
-            ]);
-
+            // 1. 地図SVGの読み込み
+            const mapXml = await d3.xml(SVG_URL);
             const container = d3.select("#map-container");
 
-            tsunamiSvgElement = container.append(() => tsunamiXml.documentElement);
-            prefSvgElement = container.append(() => prefXml.documentElement);
-            
-            tsunamiSvgElement.attr("class", "tsunami-svg");
-            prefSvgElement.attr("class", "pref-svg");
+            // 2. SVG要素をDOMに追加
+            mapSvgElement = container.append(() => mapXml.documentElement);
+            mapSvgElement.attr("class", "eew-map-svg");
 
-            prefSvgElement.selectAll("path").classed("pref-path", true);
-            tsunamiSvgElement.selectAll("path").classed("tsunami-path", true);
+            // 3. 全てのpathに基本クラスを付与
+            mapSvgElement.selectAll("path").classed("map-path", true);
 
-            const fitToContainer = (svgNode, margin) => {
+            // 4. ViewBoxの調整（サイズをコンテナに合わせる）
+            const fitToContainer = (svgNode) => {
                 const bbox = svgNode.getBBox();
-                svgNode.setAttribute("viewBox", `${bbox.x - margin} ${bbox.y - margin} ${bbox.width + margin * 2} ${bbox.height + margin * 2}`);
+                svgNode.setAttribute("viewBox", `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`);
                 svgNode.removeAttribute("width");
                 svgNode.removeAttribute("height");
                 svgNode.setAttribute("preserveAspectRatio", "xMidYMid meet");
             };
+            
+            fitToContainer(mapSvgElement.node());
 
-            setTimeout(() => {
-                fitToContainer(prefSvgElement.node(), 10);
-                fitToContainer(tsunamiSvgElement.node(), 0);
-                
-                // 初回チェック
-                fetchTsunamiInfo();
-                // 10秒毎にチェック
-                setInterval(fetchTsunamiInfo, 10000);
-            }, 300);
+            // 5. 初回実行と定期チェック（3秒毎）
+            fetchEEWInfo();
+            setInterval(fetchEEWInfo, 3000);
 
         } catch (error) {
-            console.error("読み込み失敗:", error);
+            console.error("初期化失敗:", error);
         }
     }
 
