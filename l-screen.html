@@ -66,7 +66,7 @@
         #l-title {
             color: #003EB3;
             font-family: 'FOT-UDKakugo_LargePr6-B', sans-serif;
-            font-size: 116px; /* 基準サイズを116pxに変更 */
+            font-size: 116px; /* 基準サイズを116pxに設定 */
             writing-mode: vertical-rl;
             text-orientation: upright;
             font-weight: normal;
@@ -77,11 +77,10 @@
             transform-origin: top center;
         }
 
-        /* --- 文字別の個別調整 --- */
-        
+        /* タイトル内の中黒・スペースの個別調整 */
         .tight-space {
             display: inline-block;
-            height: 0.3em; /* 縦書き時のスペースの幅（高さ） */
+            height: 0.15em;
             letter-spacing: 0;
             visibility: hidden;
         }
@@ -93,6 +92,7 @@
             transform: scaleY(1.1);
         }
 
+        /* ジャンル表示 */
         #genre-container {
             top: 32px;
             left: 217px;
@@ -109,9 +109,12 @@
             font-size: 46px;
             white-space: nowrap;
             display: inline-block;
-            transform-origin: center center; /* 中央基準で横に縮める */
+            transform-origin: center center;
+            /* プロポーショナルメトリクス適用 */
+            font-feature-settings: "palt";
         }
 
+        /* メインテキスト表示 */
         #main-text-container {
             top: 32px;
             left: 466px;
@@ -126,6 +129,8 @@
             font-size: 46px;
             white-space: nowrap;
             transition: opacity 0.8s ease-in-out;
+            /* プロポーショナルメトリクス適用 */
+            font-feature-settings: "palt";
         }
 
         .fade-out { opacity: 0; }
@@ -176,37 +181,30 @@
     let currentIndex = 0;
     let isLooping = false;
 
-    /**
-     * 文字詰め処理（完全リセット版）
-     * 文字列を一度プレーンテキストにしてから、一文字ずつ再構築します。
-     */
+    // 左側タイトルの文字詰め（配列分解による安全な構築）
     function applyTightText(element, text) {
         if (!text) {
             element.innerHTML = "";
             return;
         }
-
-        // 1. まず既存のタグを完全に除去（テキストのみ抽出）
         const temp = document.createElement("div");
         temp.innerHTML = text;
         const pureText = temp.textContent || temp.innerText || "";
 
-        // 2. 文字を配列に分解して、一文字ずつチェック
         const chars = Array.from(pureText);
         const htmlOutput = chars.map(char => {
             if (char === '・') {
                 return `<span class="tight-dot">・</span>`;
-            } else if (char === ' ' || char === '　') { // 半角・全角スペース両対応
+            } else if (char === ' ' || char === '　') {
                 return `<span class="tight-space"> </span>`;
             } else {
-                return char; // 普通の文字はそのまま
+                return char;
             }
         }).join('');
 
         element.innerHTML = htmlOutput;
     }
 
-    // タイトルの縦幅調整（980px超過時）
     function adjustTitleSize() {
         const maxHeight = 980;
         titleEl.style.transform = "scaleY(1)";
@@ -217,10 +215,9 @@
         }
     }
 
-    // ジャンルの横幅調整（210px超過時、横方向のみ縮小）
     function adjustGenreFontSize() {
         const maxWidth = 210;
-        genreEl.style.transform = "scaleX(1)"; // 一旦リセット
+        genreEl.style.transform = "scaleX(1)";
         const currentWidth = genreEl.offsetWidth;
         if (currentWidth > maxWidth) {
             const scaleX = maxWidth / currentWidth;
@@ -240,14 +237,12 @@
     });
     adjustIframeScale();
 
-    // Firebaseデータの購読
     onValue(ref(db, 'broadcast/l_shape'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
         if (data.leftText !== undefined) {
             applyTightText(titleEl, data.leftText);
-            // DOM更新後に高さを測るため少し待機
             setTimeout(adjustTitleSize, 50);
         }
 
@@ -275,7 +270,7 @@
         setTimeout(() => {
             genreEl.textContent = current.genre || "";
             mainEl.textContent = current.text || "";
-            adjustGenreFontSize(); // ジャンルのリサイズを実行
+            adjustGenreFontSize(); 
             mainEl.classList.remove('fade-out');
         }, 800);
     }
