@@ -17,9 +17,8 @@
 
         #map-container { 
             position: relative;
-            /* 表示したいサイズに合わせて調整してください */
-            width: 95vw; 
-            height: 95vh;
+            width: 100vw; 
+            height: 100vh;
         }
 
         svg {
@@ -32,10 +31,10 @@
         .pref-path { 
             fill: #BFBFBF; 
             stroke: #7F7F7F; 
-            stroke-width: 0.2px; /* 小さすぎる場合は0.5px程度に上げてください */
+            stroke-width: 0.2px; 
         }
 
-        /* 警告地域（黄色） */
+        /* 強い揺れが予想される地域（黄色） */
         .eew-active-area {
             fill: #FFF300 !important;
             transition: fill 0.3s ease;
@@ -44,8 +43,8 @@
         /* 震源地アイコン */
         #shingen-icon {
             position: absolute;
-            width: 50px;
-            height: 50px;
+            width: 60px;
+            height: 60px;
             transform: translate(-50%, -50%);
             z-index: 100;
             display: none;
@@ -58,11 +57,12 @@
 
 <div id="map-container">
     <svg id="map-svg"></svg>
-    <img id="shingen-icon" src="../assets/svg/shingen.svg" alt="震源地">
+    <img id="shingen-icon" src="https://gensai-lab.github.io/eqlive/assets/svg/shingen.svg" alt="震源地">
 </div>
 
 <script type="module">
-    const GEOJSON_URL = "../assets/json/eew-mapdate-geo.json";
+    const BASE_URL = "https://gensai-lab.github.io/eqlive/";
+    const GEOJSON_URL = BASE_URL + "assets/json/eew-mapdate-geo.json";
     const API_URL = "https://api.p2pquake.net/v2/history?codes=556&limit=1";
 
     let projection;
@@ -75,14 +75,12 @@
             const geoData = await d3.json(GEOJSON_URL);
             
             // 2. コンテナのサイズを取得
-            const container = document.getElementById("map-container");
-            const width = container.clientWidth;
-            const height = container.clientHeight;
+            const width = window.innerWidth;
+            const height = window.innerHeight;
 
-            // 3. 投影法の設定
-            // 緯度経度のデータを、指定したサイズ([width, height])の中に自動的に収める設定
+            // 3. 投影法の設定（画面いっぱいにフィットさせる）
             projection = d3.geoMercator()
-                .fitSize([width, height], geoData); // これで自動拡大・中央配置されます
+                .fitExtent([[10, 10], [width - 10, height - 10]], geoData);
 
             const pathGenerator = d3.geoPath().projection(projection);
 
@@ -94,11 +92,11 @@
                 .attr("d", pathGenerator)
                 .attr("class", "pref-path")
                 .attr("id", d => {
-                    // GeoJSON内のプロパティ名を確認してください（name, pref, nam_ja等）
+                    // GeoJSON内のプロパティ名。mapshaperでの出力に合わせて調整
                     return d.properties.name || d.properties.pref || d.properties.nam_ja;
                 });
 
-            console.log("Map rendering complete.");
+            console.log("EEW Map initialized with absolute paths.");
 
             // 5. データ監視開始
             fetchEEW();
@@ -126,7 +124,7 @@
     }
 
     function updateDisplay(eew) {
-        // リセット
+        // 全地域の色をリセット
         mapSvg.selectAll(".eew-active-area").classed("eew-active-area", false);
         const shingen = document.getElementById("shingen-icon");
         shingen.style.display = "none";
@@ -138,7 +136,7 @@
                 mapSvg.selectAll("path")
                     .filter(function(d) {
                         const id = d3.select(this).attr("id") || "";
-                        // IDが "奈良" の場合も "奈良県" の場合もマッチするように判定
+                        // "奈良" と "奈良県" のどちらでもマッチするように前方一致等で判定
                         return id === prefName || id.includes(prefName);
                     })
                     .classed("eew-active-area", true);
@@ -158,6 +156,11 @@
             }
         }
     }
+
+    // 画面リサイズ時に再計算してフィットさせる
+    window.addEventListener('resize', () => {
+        location.reload();
+    });
 
     window.onload = init;
 </script>
