@@ -4,15 +4,53 @@
     <meta charset="UTF-8">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body { margin: 0; background: transparent; width: 100vw; height: 100vh; overflow: hidden; }
-        #map-container { width: 100%; height: 100%; position: relative; }
-        svg { width: 100%; height: 100%; display: block; }
-        .pref-path { fill: #BFBFBF; stroke: #7F7F7F; stroke-width: 0.5px; }
-        .eew-active-area { fill: #FFF300 !important; }
+        body { 
+            margin: 0; 
+            background: transparent; 
+            width: 100vw; 
+            height: 100vh; 
+            overflow: hidden; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #map-container { 
+            position: relative;
+            /* 表示したいサイズに合わせて調整してください */
+            width: 95vw; 
+            height: 95vh;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* 地図の基本スタイル */
+        .pref-path { 
+            fill: #BFBFBF; 
+            stroke: #7F7F7F; 
+            stroke-width: 0.2px; /* 小さすぎる場合は0.5px程度に上げてください */
+        }
+
+        /* 警告地域（黄色） */
+        .eew-active-area {
+            fill: #FFF300 !important;
+            transition: fill 0.3s ease;
+        }
+
+        /* 震源地アイコン */
         #shingen-icon {
-            position: absolute; width: 50px; height: 50px;
-            transform: translate(-50%, -50%); z-index: 100;
-            display: none; pointer-events: none;
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            display: none;
+            pointer-events: none;
+            filter: drop-shadow(0 0 5px rgba(0,0,0,0.5));
         }
     </style>
 </head>
@@ -20,43 +58,54 @@
 
 <div id="map-container">
     <svg id="map-svg"></svg>
-    <img id="shingen-icon" src="https://gensai-lab.github.io/eqlive/assets/svg/shingen.svg" alt="震源地">
+    <img id="shingen-icon" src="../assets/svg/shingen.svg" alt="震源地">
 </div>
 
 <script type="module">
-    const GEOJSON_URL = "https://gensai-lab.github.io/eqlive/assets/json/eew-mapdate-geo.json";
+    const GEOJSON_URL = "../assets/json/eew-mapdate-geo.json";
     const API_URL = "https://api.p2pquake.net/v2/history?codes=556&limit=1";
 
     let projection;
     let mapSvg = d3.select("#map-svg");
+    let lastId = "";
 
     async function init() {
         try {
+            // 1. GeoJSON読み込み
             const geoData = await d3.json(GEOJSON_URL);
             
-            const width = window.innerWidth;
-            const height = window.innerHeight;
+            // 2. コンテナのサイズを取得
+            const container = document.getElementById("map-container");
+            const width = container.clientWidth;
+            const height = container.clientHeight;
 
-            // 【改善】地図が画面に収まるように自動計算
-            projection = d3.geoMercator().fitSize([width, height], geoData);
+            // 3. 投影法の設定
+            // 緯度経度のデータを、指定したサイズ([width, height])の中に自動的に収める設定
+            projection = d3.geoMercator()
+                .fitSize([width, height], geoData); // これで自動拡大・中央配置されます
+
             const pathGenerator = d3.geoPath().projection(projection);
 
+            // 4. 地図の描画
             mapSvg.selectAll("path")
                 .data(geoData.features)
                 .enter()
                 .append("path")
                 .attr("d", pathGenerator)
                 .attr("class", "pref-path")
-                .attr("id", d => d.properties.name || d.properties.pref || d.properties.nam_ja);
+                .attr("id", d => {
+                    // GeoJSON内のプロパティ名を確認してください（name, pref, nam_ja等）
+                    return d.properties.name || d.properties.pref || d.properties.nam_ja;
+                });
 
-            console.log("Map initialized successfully");
-            
+            console.log("Map rendering complete.");
+
+            // 5. データ監視開始
             fetchEEW();
             setInterval(fetchEEW, 3000);
+
         } catch (e) {
-            console.error("Error loading map:", e);
-            // 画面にエラーを表示（デバッグ用）
-            document.body.innerHTML += `<div style="color:red; position:absolute; top:0;">Error: ${e.message}</div>`;
+            console.error("Initialization Error:", e);
         }
     }
 
@@ -64,29 +113,45 @@
         try {
             const res = await fetch(API_URL);
             const data = await res.json();
-            if (data && data.length > 0) updateDisplay(data[0]);
-        } catch (e) { console.error("API error:", e); }
+            if (!data || data.length === 0) return;
+
+            const eew = data[0];
+            if (eew.id === lastId) return;
+            lastId = eew.id;
+
+            updateDisplay(eew);
+        } catch (e) {
+            console.error("API Error:", e);
+        }
     }
 
     function updateDisplay(eew) {
+        // リセット
         mapSvg.selectAll(".eew-active-area").classed("eew-active-area", false);
         const shingen = document.getElementById("shingen-icon");
-        
+        shingen.style.display = "none";
+
+        // 1. 警告地域の塗りつぶし
         if (eew.areas) {
             eew.areas.forEach(area => {
+                const prefName = area.pref;
                 mapSvg.selectAll("path")
                     .filter(function(d) {
                         const id = d3.select(this).attr("id") || "";
-                        return id === area.pref || id.includes(area.pref);
+                        // IDが "奈良" の場合も "奈良県" の場合もマッチするように判定
+                        return id === prefName || id.includes(prefName);
                     })
                     .classed("eew-active-area", true);
             });
         }
 
-        if (eew.earthquake?.hypocenter) {
+        // 2. 震源地のプロット
+        if (eew.earthquake && eew.earthquake.hypocenter) {
             const { latitude, longitude } = eew.earthquake.hypocenter;
             if (latitude && longitude && latitude !== -1) {
+                // 投影関数を使って座標変換
                 const [x, y] = projection([longitude, latitude]);
+                
                 shingen.style.left = `${x}px`;
                 shingen.style.top = `${y}px`;
                 shingen.style.display = "block";
