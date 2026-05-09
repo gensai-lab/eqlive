@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>EQLive L-Screen</title>
     <style>
-        /* フォントの読み込み */
         @font-face {
             font-family: 'FOT-UDKakugo_LargePr6-DB';
             src: url('assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
@@ -18,7 +17,6 @@
             font-family: 'FOT-UDKakugo_LargePr6-DB', sans-serif;
         }
 
-        /* L字背景画像：全面配置 */
         #l-background {
             position: absolute;
             top: 0; left: 0;
@@ -26,15 +24,12 @@
             z-index: 1;
         }
 
-        /* Sub Switcher エリア：パーセントで調整可能 */
         #main-content {
             position: absolute;
-            top: 105px;  /* 背景デザインに合わせて微調整してください */
+            top: 105px;
             left: 210px; 
-            /* --- ここでサイズ（％）を調整 --- */
             width: 87.5%; 
             height: 87.5%;
-            /* ---------------------------- */
             z-index: 2;
             overflow: hidden;
         }
@@ -43,11 +38,9 @@
             width: 1920px;
             height: 1080px;
             border: none;
-            /* 親要素に合わせて自動フィット */
             transform-origin: top left;
         }
 
-        /* --- 各種テキスト：絶対座標指定 --- */
         .text-overlay {
             position: absolute;
             z-index: 10;
@@ -55,23 +48,31 @@
             line-height: 1;
         }
 
-        /* 左側タイトル（縦書き） */
-        #l-title {
+        /* 左側タイトル：コンテナを設置して制御 */
+        #title-container {
+            position: absolute;
             top: 50px;
             left: 50px;
+            height: 980px; /* 制限の高さ */
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+        }
+
+        #l-title {
             font-size: 115px;
             writing-mode: vertical-rl;
             text-orientation: upright;
             font-weight: bold;
             letter-spacing: 0.05em;
+            white-space: nowrap; /* 2行化を強制防止 */
         }
 
-        /* ジャンル（透明ボックス・中央揃え） */
         #genre-container {
             top: 39px;
             left: 217px;
             width: 220px;
-            height: 60px; /* サイズに余裕を持たせる */
+            height: 60px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -84,7 +85,6 @@
             display: inline-block;
         }
 
-        /* メインテキスト（透明ボックス・左揃え） */
         #main-text-container {
             top: 39px;
             left: 466px;
@@ -111,14 +111,16 @@
         <iframe id="sub-switcher-frame" src="sub-switcher.html"></iframe>
     </div>
 
-    <div id="l-title" class="text-overlay">北海道・東北 津波警報</div>
+    <div id="title-container" class="text-overlay">
+        <div id="l-title"></div>
+    </div>
 
     <div id="genre-container" class="text-overlay">
-        <div id="info-genre">地震</div>
+        <div id="info-genre"></div>
     </div>
 
     <div id="main-text-container" class="text-overlay">
-        <div id="info-main">情報を読み込んでいます...</div>
+        <div id="info-main"></div>
     </div>
 
 <script type="module">
@@ -146,16 +148,20 @@
     let currentIndex = 0;
     let isLooping = false;
 
-    // iframeのスケールをコンテナに合わせて自動計算
-    function adjustIframeScale() {
-        const container = document.getElementById('main-content');
-        const scale = container.offsetWidth / 1920;
-        iframe.style.transform = `scale(${scale})`;
+    // タイトルの高さ調整（980pxを超えたら縮小）
+    function adjustTitleSize() {
+        const maxHeight = 980;
+        titleEl.style.transform = "scale(1)";
+        const currentHeight = titleEl.offsetHeight;
+        
+        if (currentHeight > maxHeight) {
+            const scale = maxHeight / currentHeight;
+            titleEl.style.transform = `scale(${scale})`;
+            titleEl.style.transformOrigin = "top center";
+        }
     }
-    window.addEventListener('resize', adjustIframeScale);
-    adjustIframeScale();
 
-    // ジャンルの文字溢れ調整（210pxを超えたら縮小）
+    // ジャンルの幅調整（210pxを超えたら縮小）
     function adjustGenreFontSize() {
         const maxWidth = 210;
         genreEl.style.transform = "scale(1)";
@@ -167,12 +173,28 @@
         }
     }
 
+    // Iframeのスケール調整
+    function adjustIframeScale() {
+        const container = document.getElementById('main-content');
+        const scale = container.offsetWidth / 1920;
+        iframe.style.transform = `scale(${scale})`;
+    }
+    window.addEventListener('resize', () => {
+        adjustIframeScale();
+        adjustTitleSize();
+    });
+    adjustIframeScale();
+
     // Firebase監視
     onValue(ref(db, 'broadcast/lscreen'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
-        if (data.title) titleEl.textContent = data.title;
+        if (data.title) {
+            titleEl.textContent = data.title;
+            // テキスト更新後にサイズ調整
+            setTimeout(adjustTitleSize, 50);
+        }
 
         if (data.news) {
             infoList = Object.values(data.news);
@@ -198,7 +220,7 @@
             genreEl.textContent = current.genre || "情報";
             mainEl.textContent = current.text || "";
             
-            adjustGenreFontSize(); // 文字数に応じた縮小適用
+            adjustGenreFontSize();
             mainEl.classList.remove('fade-out');
         }, 800);
     }
