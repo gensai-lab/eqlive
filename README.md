@@ -14,3 +14,4 @@
 <br>Tsunami List : https://gensai-lab.github.io/eqlive/parts/tsunami-list.html</br>
 <br>Tsunami Map : https://gensai-lab.github.io/eqlive/parts/tsunami-map.html</br>
 <br>Tsunami Yobikake : https://gensai-lab.github.io/eqlive/parts/tsunami-yobikake.html</br>
+<br>EEW Map : https://gensai-lab.github.io/eqlive/parts/eew-map.html</br>
