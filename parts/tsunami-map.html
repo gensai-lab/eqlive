@@ -5,56 +5,81 @@
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body, html {
-            margin: 0; padding: 0; background: transparent;
-            width: 100vw; height: 100vh; overflow: hidden;
-            display: flex; justify-content: flex-start; align-items: flex-end;
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            width: 600px;  /* 全体サイズ固定 */
+            height: 350px;
+            overflow: hidden;
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-start;
         }
 
         #main-canvas {
-            position: relative; height: 100vh; width: auto;
-            display: flex; align-items: center; justify-content: flex-start;
+            position: relative;
+            width: 600px;
+            height: 350px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            overflow: hidden;
         }
 
-        #background-cover { height: 100%; width: auto; display: block; z-index: 1; }
+        #background-cover {
+            width: 600px;  /* 背景画像を600x350に固定 */
+            height: 350px;
+            object-fit: cover;
+            display: block;
+            z-index: 1;
+        }
 
         #map-container {
-            position: absolute; z-index: 2; pointer-events: none;
-            top: 40px; left: -30px; width: 1500px; height: 1000px;
+            position: absolute;
+            z-index: 2;
+            pointer-events: none;
+            
+            /* ご指定の位置設定 */
+            top: 40px;
+            left: -30px;
+            /* マップ自体の描画エリアもコンテナサイズに合わせる */
+            width: 600px;
+            height: 350px;
         }
 
-        #svg-area { position: relative; width: 100%; height: 100%; }
-
-        /* --- 個別の大きさ調整用 --- */
-        #pref-layer {
-            position: absolute; width: 100%; height: 100%;
-            /* 都道府県の大きさを調整 (1.0 = 100%) */
-            transform: scale(1.0); 
-            transform-origin: center;
-        }
-
-        #tsunami-ctrl-layer {
-            position: absolute; width: 100%; height: 100%;
-            /* 予報区の線の大きさを調整 (1.05 = 105%) */
-            transform: scale(1.0); 
-            transform-origin: center;
+        #svg-area {
+            position: relative;
+            width: 100%;
+            height: 100%;
         }
 
         svg {
-            position: absolute; top: 0; left: 0;
-            width: 100% !important; height: 100% !important;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
         }
 
-        .pref-path { fill: #333333; stroke: #555555; stroke-width: 0.2px; }
+        .pref-path {
+            fill: #333333;
+            stroke: #555555;
+            stroke-width: 0.2px;
+        }
 
         @keyframes tsunami-blink {
             0%, 75% { opacity: 1; }
             75.1%, 100% { opacity: 0; }
         }
 
-        .tsunami-blink-anim { animation: tsunami-blink 4s infinite; }
+        .tsunami-layer {
+            animation: tsunami-blink 4s infinite;
+        }
 
         .tsunami-path {
-            fill: none; stroke-linecap: round; stroke-linejoin: round;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
             transition: stroke 0.3s;
         }
     </style>
@@ -63,11 +88,9 @@
 
 <div id="main-canvas">
     <img id="background-cover" src="../assets/cover/tsunami_cover.png" alt="tsunami-bg">
+    
     <div id="map-container">
-        <div id="svg-area">
-            <div id="pref-layer"></div>
-            <div id="tsunami-ctrl-layer"></div>
-        </div>
+        <div id="svg-area"></div>
     </div>
 </div>
 
@@ -81,52 +104,63 @@
                 d3.xml("../assets/svg/tsunami2_id.svg")
             ]);
 
-            const prefNode = d3.select("#pref-layer").append(() => prefXml.documentElement);
+            const svgArea = d3.select("#svg-area");
+            
+            const prefNode = svgArea.append(() => prefXml.documentElement);
             prefNode.selectAll("path").classed("pref-path", true);
 
-            const tsunamiLayer = d3.select("#tsunami-ctrl-layer").append("div").attr("class", "tsunami-blink-anim");
+            const tsunamiLayer = svgArea.append("div").attr("class", "tsunami-layer");
             tsunamiSvg = tsunamiLayer.append(() => tsunamiXml.documentElement);
             tsunamiSvg.selectAll("path").classed("tsunami-path", true);
 
+            // 元のサイズ属性を削除
             [prefNode, tsunamiSvg].forEach(svg => {
                 svg.attr("width", null).attr("height", null);
             });
 
-            // 共通のViewBox計算
+            // 座標範囲の計算
             const pBbox = prefNode.node().getBBox();
             const tBbox = tsunamiSvg.node().getBBox();
+
             const minX = Math.min(pBbox.x, tBbox.x);
             const minY = Math.min(pBbox.y, tBbox.y);
             const maxX = Math.max(pBbox.x + pBbox.width, tBbox.x + tBbox.width);
             const maxY = Math.max(pBbox.y + pBbox.height, tBbox.y + tBbox.height);
-            const padding = 10;
-            const commonViewBox = `${minX - padding} ${minY - padding} ${maxX - minX + padding*2} ${maxY - minY + padding*2}`;
+
+            // 表示比率を保ちつつ枠いっぱいに広げる設定
+            const commonViewBox = `${minX} ${minY} ${maxX - minX} ${maxY - minY}`;
 
             [prefNode, tsunamiSvg].forEach(svg => {
-                svg.attr("viewBox", commonViewBox).attr("preserveAspectRatio", "xMidYMid meet");
+                svg.attr("viewBox", commonViewBox)
+                   .attr("preserveAspectRatio", "xMidYMid meet");
             });
 
-        } catch (error) { console.error(error); }
+        } catch (error) {
+            console.error("Map initialization failed:", error);
+        }
     }
 
     window.updateTsunamiMap = (data) => {
         if (!tsunamiSvg) return;
         tsunamiSvg.selectAll("path").style("stroke", "none").style("stroke-width", "0");
         if (!data || !data.areas) return;
+
         data.areas.forEach(area => {
             const grade = area.grade;
             let color = "none", width = 0;
             switch (grade) {
-                case "MajorWarning": color = "#C91EFB"; width = 15; break;
-                case "Warning": color = "#DE080A"; width = 10; break;
-                case "Watch": color = "#FEDC00"; width = 8; break;
+                case "MajorWarning": color = "#C91EFB"; width = 12; break;
+                case "Warning": color = "#DE080A"; width = 8; break;
+                case "Watch": color = "#FEDC00"; width = 6; break;
             }
             tsunamiSvg.selectAll("path")
                 .filter(function() {
                     const id = d3.select(this).attr("id");
                     return id === area.name || (id && id.includes(area.name));
                 })
-                .style("stroke", color).style("stroke-width", `${width}px`).raise();
+                .style("stroke", color)
+                .style("stroke-width", `${width}px`)
+                .raise();
         });
     };
 
