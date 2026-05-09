@@ -37,11 +37,11 @@
             z-index: 2;
             pointer-events: none;
             
-            /* --- ここで位置を微調整できます --- */
-            top: 40px;      /* 上マージン */
-            left: 20px;     /* 左マージン */
-            width: 800px;   /* マップを表示する領域の幅 */
-            height: 600px;  /* マップを表示する領域の高さ */
+            /* ご指定の数値設定 */
+            top: 40px;
+            left: -30px;
+            width: 1500px;
+            height: 1000px;
         }
 
         #svg-area {
@@ -50,7 +50,6 @@
             height: 100%;
         }
 
-        /* SVG共通設定 */
         svg {
             position: absolute;
             top: 0;
@@ -60,7 +59,7 @@
         }
 
         .pref-path {
-            fill: #333333; /* 陸地の色 */
+            fill: #333333;
             stroke: #555555;
             stroke-width: 0.2px;
         }
@@ -104,22 +103,20 @@
 
             const svgArea = d3.select("#svg-area");
             
-            // 1. 都道府県
+            // 各レイヤーを生成
             const prefNode = svgArea.append(() => prefXml.documentElement);
             prefNode.selectAll("path").classed("pref-path", true);
 
-            // 2. 津波（点滅レイヤー）
             const tsunamiLayer = svgArea.append("div").attr("class", "tsunami-layer");
             tsunamiSvg = tsunamiLayer.append(() => tsunamiXml.documentElement);
             tsunamiSvg.selectAll("path").classed("tsunami-path", true);
 
-            // 3. スケール統一ロジック
-            // SVG内の元のwidth/height属性が邪魔をするので削除
+            // 元のSVGサイズ属性を削除（干渉防止）
             [prefNode, tsunamiSvg].forEach(svg => {
                 svg.attr("width", null).attr("height", null);
             });
 
-            // 両方の図形の座標範囲を合算する
+            // 座標範囲の計算
             const pBbox = prefNode.node().getBBox();
             const tBbox = tsunamiSvg.node().getBBox();
 
@@ -128,9 +125,10 @@
             const maxX = Math.max(pBbox.x + pBbox.width, tBbox.x + tBbox.width);
             const maxY = Math.max(pBbox.y + pBbox.height, tBbox.y + tBbox.height);
 
-            const commonViewBox = `${minX} ${minY} ${maxX - minX} ${maxY - minY}`;
+            // 少しマージンを持たせた共通の表示枠を設定
+            const padding = 10;
+            const commonViewBox = `${minX - padding} ${minY - padding} ${maxX - minX + padding*2} ${maxY - minY + padding*2}`;
 
-            // 全く同じViewBoxを適用
             [prefNode, tsunamiSvg].forEach(svg => {
                 svg.attr("viewBox", commonViewBox)
                    .attr("preserveAspectRatio", "xMidYMid meet");
