@@ -8,96 +8,95 @@
         @font-face {
             font-family: 'FOT-UDKakugo_LargePr6-DB';
             src: url('assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
-            font-weight: normal;
-            font-style: normal;
         }
 
         body, html {
             margin: 0; padding: 0;
             width: 1920px; height: 1080px;
-            background-color: #002080; /* L字背景の濃い青 */
+            background-color: black;
             overflow: hidden;
             font-family: 'FOT-UDKakugo_LargePr6-DB', sans-serif;
         }
 
-        /* 配信映像エリア（右下に配置） */
+        /* L字背景画像：全面配置 */
+        #l-background {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+        }
+
+        /* Sub Switcher エリア：パーセントで調整可能 */
         #main-content {
             position: absolute;
-            top: 105px;  /* 上帯の高さ分 */
-            left: 210px; /* 左帯の幅分 */
-            width: 1670px; 
-            height: 940px; 
-            background-color: #000;
+            top: 105px;  /* 背景デザインに合わせて微調整してください */
+            left: 210px; 
+            /* --- ここでサイズ（％）を調整 --- */
+            width: 87.5%; 
+            height: 87.5%;
+            /* ---------------------------- */
             z-index: 2;
+            overflow: hidden;
         }
 
         #main-content iframe {
             width: 1920px;
             height: 1080px;
             border: none;
-            transform: scale(0.87); /* 枠にフィットさせるための倍率 */
+            /* 親要素に合わせて自動フィット */
             transform-origin: top left;
         }
 
-        /* --- 左側：タイトルエリア --- */
-        #l-title-container {
+        /* --- 各種テキスト：絶対座標指定 --- */
+        .text-overlay {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            width: 160px;
-            height: 1040px;
-            background-color: white;
+            z-index: 10;
+            color: white;
+            line-height: 1;
+        }
+
+        /* 左側タイトル（縦書き） */
+        #l-title {
+            top: 50px;
+            left: 50px;
+            font-size: 115px;
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            font-weight: bold;
+            letter-spacing: 0.05em;
+        }
+
+        /* ジャンル（透明ボックス・中央揃え） */
+        #genre-container {
+            top: 39px;
+            left: 217px;
+            width: 220px;
+            height: 60px; /* サイズに余裕を持たせる */
             display: flex;
             justify-content: center;
             align-items: center;
-            border-radius: 4px;
-            z-index: 10;
-        }
-
-        #l-title {
-            writing-mode: vertical-rl;
-            text-orientation: upright;
-            font-size: 85px;
-            font-weight: bold;
-            color: #002080;
-            letter-spacing: 0.1em;
-            line-height: 1.1;
-        }
-
-        /* --- 上側：情報エリア --- */
-        #info-bar {
-            position: absolute;
-            top: 20px;
-            left: 210px;
-            width: 1670px;
-            height: 65px;
-            background-color: #001040;
-            display: flex;
-            align-items: center;
-            padding: 0 20px;
-            z-index: 10;
-            box-sizing: border-box;
-            border-radius: 4px;
-        }
-
-        #info-genre {
-            background-color: #0040D0; /* ジャンル枠の青 */
-            color: white;
-            font-size: 32px;
-            font-weight: bold;
-            padding: 4px 30px;
-            border-radius: 4px;
-            margin-right: 25px;
-            min-width: 160px;
             text-align: center;
         }
 
-        #info-main {
-            color: white;
-            font-size: 42px;
-            font-weight: bold;
+        #info-genre {
+            font-size: 46px;
             white-space: nowrap;
-            overflow: hidden;
+            display: inline-block;
+        }
+
+        /* メインテキスト（透明ボックス・左揃え） */
+        #main-text-container {
+            top: 39px;
+            left: 466px;
+            width: 1380px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+        }
+
+        #info-main {
+            font-size: 46px;
+            white-space: nowrap;
             transition: opacity 0.8s ease-in-out;
         }
 
@@ -106,16 +105,19 @@
 </head>
 <body>
 
+    <img id="l-background" src="assets/cover/Lscreen.png" alt="L-Screen BG">
+
     <div id="main-content">
-        <iframe src="sub-switcher.html"></iframe>
+        <iframe id="sub-switcher-frame" src="sub-switcher.html"></iframe>
     </div>
 
-    <div id="l-title-container">
-        <div id="l-title">北海道・東北 津波警報</div>
-    </div>
+    <div id="l-title" class="text-overlay">北海道・東北 津波警報</div>
 
-    <div id="info-bar">
+    <div id="genre-container" class="text-overlay">
         <div id="info-genre">地震</div>
+    </div>
+
+    <div id="main-text-container" class="text-overlay">
         <div id="info-main">情報を読み込んでいます...</div>
     </div>
 
@@ -138,10 +140,32 @@
     const titleEl = document.getElementById('l-title');
     const genreEl = document.getElementById('info-genre');
     const mainEl = document.getElementById('info-main');
+    const iframe = document.getElementById('sub-switcher-frame');
 
     let infoList = [];
     let currentIndex = 0;
     let isLooping = false;
+
+    // iframeのスケールをコンテナに合わせて自動計算
+    function adjustIframeScale() {
+        const container = document.getElementById('main-content');
+        const scale = container.offsetWidth / 1920;
+        iframe.style.transform = `scale(${scale})`;
+    }
+    window.addEventListener('resize', adjustIframeScale);
+    adjustIframeScale();
+
+    // ジャンルの文字溢れ調整（210pxを超えたら縮小）
+    function adjustGenreFontSize() {
+        const maxWidth = 210;
+        genreEl.style.transform = "scale(1)";
+        const currentWidth = genreEl.offsetWidth;
+        if (currentWidth > maxWidth) {
+            const scale = maxWidth / currentWidth;
+            genreEl.style.transform = `scale(${scale})`;
+            genreEl.style.transformOrigin = "center center";
+        }
+    }
 
     // Firebase監視
     onValue(ref(db, 'broadcast/lscreen'), (snapshot) => {
@@ -161,7 +185,7 @@
 
     function startTextLoop() {
         showText();
-        setInterval(nextText, 10000); // 10秒毎に切り替え
+        setInterval(nextText, 10000);
     }
 
     function showText() {
@@ -173,6 +197,8 @@
         setTimeout(() => {
             genreEl.textContent = current.genre || "情報";
             mainEl.textContent = current.text || "";
+            
+            adjustGenreFontSize(); // 文字数に応じた縮小適用
             mainEl.classList.remove('fade-out');
         }, 800);
     }
