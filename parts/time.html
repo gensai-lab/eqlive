@@ -5,7 +5,7 @@
     <style>
         @font-face {
             font-family: 'UDKakugo';
-            src: url('../assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
+            src: url('../assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
         }
 
         body, html {
@@ -14,36 +14,54 @@
             background-color: transparent;
             overflow: hidden;
             font-family: 'UDKakugo', sans-serif;
-            /* プロポーショナルメトリクスを有効にして文字詰めを適用 */
             font-feature-settings: "palt";
         }
 
         .container {
             display: flex;
             align-items: center;
-            gap: 15px; /* 時計とバッジの間隔 */
-            padding: 10px;
+            gap: 12px;
+            padding: 20px;
+            /* 全体的に中央寄りの薄い影を付与 */
+            filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.4));
         }
 
-        #clock-box {
-            background-color: #003EB3;
-            color: #FFFFFF;
-            border: 5px solid #FFFFFF; /* 白枠 */
-            border-radius: 16px;       /* 16pxのラウンド */
-            padding: 5px 25px;
-            font-size: 54px;
+        /* 文字を重ねるためのコンテナ */
+        .clock-wrapper {
+            position: relative;
+            display: inline-block;
+            line-height: 1;
+        }
+
+        .clock-base {
+            font-size: 64px;
             font-weight: bold;
-            line-height: 1.2;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            white-space: nowrap;
         }
 
+        /* 背面の文字（白い縁取り用） */
+        .clock-border {
+            color: #FFFFFF;
+            -webkit-text-stroke: 16px #FFFFFF;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* 前面の文字（青色） */
+        .clock-main {
+            color: #003EB3;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* 配信主体バッジ */
         .distributor-badge {
-            height: 70px; /* 時計の高さに合わせて調整 */
+            height: 50px; /* 少し小さめに調整 */
             display: flex;
             align-items: center;
+            z-index: 3;
         }
 
         .distributor-badge img {
@@ -56,8 +74,9 @@
 <body>
 
 <div class="container">
-    <div id="clock-box">
-        <span id="clock-text">00：00</span>
+    <div class="clock-wrapper">
+        <div id="clock-border" class="clock-base clock-border">00：00</div>
+        <div id="clock-main" class="clock-base clock-main">00：00</div>
     </div>
 
     <div class="distributor-badge">
@@ -81,23 +100,23 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // 時計の更新（秒なし・全角コロン）
     function updateClock() {
         const now = new Date();
         const hours = String(now.getHours()).padStart(2, '0');
         const minutes = String(now.getMinutes()).padStart(2, '0');
-        // 全角コロンを使用して表示
-        document.getElementById('clock-text').textContent = `${hours}：${minutes}`;
+        const timeStr = `${hours}：${minutes}`;
+        
+        // 前後両方のテキストを更新
+        document.getElementById('clock-border').textContent = timeStr;
+        document.getElementById('clock-main').textContent = timeStr;
     }
     
     setInterval(updateClock, 1000);
     updateClock();
 
-    // Firebaseから配信主体を監視して画像を切り替え
     const distImg = document.getElementById('dist-img');
     onValue(ref(db, 'broadcast/current/distributor'), (snapshot) => {
         const val = snapshot.val() || 'bot';
-        // assets/banner/distributor/bot.png または ningen.png
         distImg.src = `../assets/banner/distributor/${val}.png`;
     });
 </script>
