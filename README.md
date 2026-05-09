@@ -4,6 +4,7 @@
 <br>Screen Only : https://gensai-lab.github.io/eqlive/screen-program.html</br>
 <br>Emergency : https://gensai-lab.github.io/eqlive/emergency.html</br>
 <br>Sub Switcher : https://gensai-lab.github.io/eqlive/sub-switcher.html</br>
+<br>L Screen : https://gensai-lab.github.io/eqlive/l-screen.html</br>
 
 <br>**Parts**</br>
 <br>Ticker : https://gensai-lab.github.io/eqlive/parts/ticker.html</br>
