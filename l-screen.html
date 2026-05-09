@@ -54,7 +54,7 @@
         #title-container {
             position: absolute;
             top: 40px;
-            left: 21px;
+            left: 22px;
             height: 980px;
             width: 180px;
             display: flex;
@@ -66,7 +66,7 @@
         #l-title {
             color: #003EB3;
             font-family: 'FOT-UDKakugo_LargePr6-B', sans-serif;
-            font-size: 116px; /* 文字サイズを160pxに設定 */
+            font-size: 116px; /* 基準サイズを116pxに設定 */
             writing-mode: vertical-rl;
             text-orientation: upright;
             font-weight: normal;
@@ -77,22 +77,20 @@
             transform-origin: top center;
         }
 
-        /* --- 特定の文字に対する余白調整 --- */
+        /* --- 文字別の個別調整 --- */
         
-        /* 半角スペースの調整：高さを最小限にして詰める */
         .tight-space {
             display: inline-block;
-            height: 0.1em;
+            height: 0.1em; /* スペースの縦幅を極小にする */
             letter-spacing: 0;
-            visibility: hidden; /* スペースそのものは見えなくて良いため */
+            visibility: hidden;
         }
 
-        /* 中黒（・）の調整：上下の余白をマイナスマージンで削る */
         .tight-dot {
             display: inline-block;
             margin-top: -0.2em;
             margin-bottom: -0.2em;
-            transform: scaleY(1.1); /* 縦に少し伸ばしてバランス調整 */
+            transform: scaleY(1.1);
         }
 
         #genre-container {
@@ -105,12 +103,14 @@
             align-items: center;
             text-align: center;
             color: white;
+            overflow: visible; /* scaleXの表示を許容 */
         }
 
         #info-genre {
             font-size: 46px;
             white-space: nowrap;
             display: inline-block;
+            transform-origin: center center;
         }
 
         #main-text-container {
@@ -177,26 +177,24 @@
     let currentIndex = 0;
     let isLooping = false;
 
-    // 文字別に異なるクラスを適用（二重タグ防止クリーン版）
+    // 二重タグを防ぐために一旦テキストに戻してから置換
     function applyTightText(element, text) {
         if (!text) {
             element.innerHTML = "";
             return;
         }
-        // HTMLタグが含まれている場合に備え、テキストのみを抽出
+        // タグを除去して純粋な文字のみを取得
         const tempDiv = document.createElement("div");
         tempDiv.innerHTML = text;
-        let pureText = tempDiv.textContent || tempDiv.innerText || "";
+        const pureText = tempDiv.textContent || tempDiv.innerText || "";
 
-        // 置換処理
-        let processed = pureText
+        const processed = pureText
             .replace(/・/g, '<span class="tight-dot">・</span>')
             .replace(/ /g, '<span class="tight-space"> </span>');
         
         element.innerHTML = processed;
     }
 
-    // 縦サイズが980pxを超えたら縦に縮める（scaleY）
     function adjustTitleSize() {
         const maxHeight = 980;
         titleEl.style.transform = "scaleY(1)";
@@ -209,12 +207,12 @@
 
     function adjustGenreFontSize() {
         const maxWidth = 210;
-        genreEl.style.transform = "scale(1)";
+        genreEl.style.transform = "scaleX(1)"; // scaleXをリセット
         const currentWidth = genreEl.offsetWidth;
         if (currentWidth > maxWidth) {
-            const scale = maxWidth / currentWidth;
-            genreEl.style.transform = `scale(${scale})`;
-            genreEl.style.transformOrigin = "center center";
+            const scaleX = maxWidth / currentWidth;
+            // 横方向のみ縮小
+            genreEl.style.transform = `scaleX(${scaleX})`;
         }
     }
 
