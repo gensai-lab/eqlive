@@ -35,7 +35,7 @@
         #map-container { 
             position: absolute;
             top: 0;
-            left: -72px;
+            left: -225px;
             width: 100%; 
             height: 100%; 
             display: flex; 
@@ -51,9 +51,23 @@
             object-fit: contain; 
         }
         
-        .pref-path { fill: #BFBFBF; stroke: #BFBFBF; stroke-width: 0.5px; }
+        /* 陸地と都道府県境界（前面） */
+        .pref-path { 
+            fill: #BFBFBF; 
+            stroke: #BFBFBF; 
+            stroke-width: 0.5px; 
+            position: relative;
+            z-index: 5;
+        }
         
-        .tsunami-path { fill: none; stroke: none; transition: stroke 0.3s, stroke-width 0.3s; }
+        /* 津波線の基本設定（背面） */
+        .tsunami-path { 
+            fill: none; 
+            stroke: none; 
+            transition: stroke 0.3s, stroke-width 0.3s; 
+            position: relative;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
@@ -65,19 +79,15 @@
 
 <script type="module">
     let tsunamiSvgElement = null;
+    let prefSvgElement = null;
 
-    /**
-     * 津波データを地図に反映させる関数
-     */
     async function applyTsunamiData(tsunamiSvg, data) {
         if (!tsunamiSvg) return;
 
-        // 全ての線をリセット
         tsunamiSvg.selectAll("path")
             .style("stroke", "none")
             .style("stroke-width", "0");
 
-        // 解除時、またはデータがない場合は終了
         if (!data || data.cancelled || !data.areas) {
             console.log("津波予報は発表されていません");
             return;
@@ -91,23 +101,21 @@
             let color = "none";
             let width = "0px";
 
-            // 凡例に基づいた色分け
             if (grade === "MajorWarning") { 
-                color = "#C91EFB"; // 大津波警報
+                color = "#C91EFB"; 
                 width = `${baseWidth * 2}px`;
             } 
             else if (grade === "Warning") { 
-                color = "#DE080A"; // 津波警報
+                color = "#DE080A"; 
                 width = `${baseWidth}px`; 
             } 
             else if (grade === "Watch") { 
-                color = "#FEDC00"; // 津波注意報
+                color = "#FEDC00"; 
                 width = `${baseWidth}px`; 
             }
 
             const target = tsunamiSvg.selectAll("path").filter(function() {
                 const id = d3.select(this).attr("id");
-                // IDとエリア名が一致、またはIDにエリア名が含まれているかチェック
                 return id && (id === areaName || id.includes(areaName));
             });
 
@@ -116,28 +124,21 @@
                     .style("stroke", color)
                     .style("stroke-width", width)
                     .style("stroke-linecap", "round")
-                    .style("stroke-linejoin", "round")
-                    .raise();
+                    .style("stroke-linejoin", "round");
+                // .raise() を削除：津波レイヤーの中で最前面に行くと都道府県を隠す可能性があるため
             }
         });
     }
 
-    /**
-     * P2P地震情報APIから最新の津波情報を取得
-     */
     async function fetchTsunamiInfo() {
         try {
-            // codes=552 は津波予報
             const response = await fetch("https://api.p2pquake.net/v2/history?codes=552&limit=5");
             const history = await response.json();
-            
-            // 履歴の中から cancelled が false（発表中）の最新の1件を探す
             const latestActive = history.find(item => item.cancelled === false);
             
             if (latestActive) {
                 applyTsunamiData(tsunamiSvgElement, latestActive);
             } else {
-                // すべて解除されている、または有効なデータがない場合
                 applyTsunamiData(tsunamiSvgElement, { cancelled: true });
             }
         } catch (e) {
@@ -153,11 +154,16 @@
             ]);
 
             const container = d3.select("#map-container");
-            const prefSvg = container.append(() => prefXml.documentElement);
+
+            // --- 順番を入れ替え：先に津波（後ろ）、次に都道府県（前）を追加 ---
             tsunamiSvgElement = container.append(() => tsunamiXml.documentElement);
+            prefSvgElement = container.append(() => prefXml.documentElement);
             
-            tsunamiSvgElement.style("position", "absolute").style("z-index", "10");
-            prefSvg.selectAll("path").classed("pref-path", true);
+            // z-index を明示的に設定
+            tsunamiSvgElement.style("position", "absolute").style("z-index", "1");
+            prefSvgElement.style("position", "absolute").style("z-index", "10");
+
+            prefSvgElement.selectAll("path").classed("pref-path", true);
             tsunamiSvgElement.selectAll("path").classed("tsunami-path", true);
 
             const autoFit = (svgNode) => {
@@ -170,13 +176,10 @@
             };
 
             setTimeout(() => {
-                autoFit(prefSvg.node());
+                autoFit(prefSvgElement.node());
                 autoFit(tsunamiSvgElement.node());
                 
-                // 初期化完了後に最初のデータ取得
                 fetchTsunamiInfo();
-                
-                // 以降、10秒ごとに自動更新
                 setInterval(fetchTsunamiInfo, 10000);
             }, 300);
 
@@ -185,7 +188,6 @@
         }
     }
 
-    // 手動更新・管理パネルからの制御用
     window.updateTsunamiMap = (data) => {
         applyTsunamiData(tsunamiSvgElement, data);
     };
