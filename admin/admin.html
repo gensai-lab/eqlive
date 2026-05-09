@@ -21,12 +21,13 @@
         .content { flex: 1; padding: 24px; overflow-y: auto; }
         .tab-content { display: none; max-width: 800px; margin: 0 auto; }
         .tab-content.active { display: block; }
-        .card { background: var(--card-bg); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border-color); }
+        .card { background: var(--card-bg); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border-color); position: relative;}
         h2 { font-size: 20px; margin-top: 0; margin-bottom: 20px; border-left: 4px solid var(--accent-blue); padding-left: 10px; }
         label { display: block; margin-bottom: 8px; color: #aaa; font-size: 11px; font-weight: bold; }
         .btn-group { display: flex; gap: 10px; }
         button.primary { background: var(--accent-blue); color: white; border: none; padding: 16px; border-radius: 8px; cursor: pointer; font-weight: bold; flex: 1; }
         button.secondary { background: #333; color: white; border: none; padding: 16px; border-radius: 8px; cursor: pointer; flex: 1; }
+        button.danger { background: var(--accent-red); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px;}
         button:disabled { opacity: 0.3; }
         .scroll-table { height: 350px; overflow-y: auto; background: #111; border-radius: 8px; border: 1px solid var(--border-color); }
         table { width: 100%; border-collapse: collapse; }
@@ -34,6 +35,11 @@
         td { padding: 14px 12px; border-bottom: 1px solid var(--border-color); font-size: 14px; cursor: pointer; }
         tr.selected { background: rgba(0, 120, 212, 0.2); color: var(--accent-blue); font-weight: bold; }
         input[type="text"] { width: 100%; padding: 12px; background: #111; color: white; border: 1px solid var(--border-color); border-radius: 8px; box-sizing: border-box; margin-bottom: 10px; }
+        
+        /* L字カード用スタイル */
+        .l-item-card { border-left: 4px solid #444; margin-bottom: 15px; padding-left: 15px; background: #222; padding: 15px; border-radius: 8px; }
+        .l-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+
         @media (max-width: 768px) { header { display: flex; } nav { position: absolute; transform: translateX(-100%); } nav.open { transform: translateX(0); } .btn-group { flex-direction: column; } }
     </style>
 </head>
@@ -49,6 +55,7 @@
     <nav id="side-nav">
         <button onclick="changeTab('tsunami')" id="btn-tsunami" class="active">津波制御</button>
         <button onclick="changeTab('camera')" id="btn-camera">カメラ切替</button>
+        <button onclick="changeTab('lshape')" id="btn-lshape">L字設定</button>
         <button onclick="changeTab('broadcast')" id="btn-broadcast">放送設定</button>
         <div style="margin-top: auto; padding: 20px; font-size: 10px; color: #444;">Kactuif v2.2</div>
     </nav>
@@ -82,6 +89,20 @@
                     <tbody id="camera-list-body"></tbody>
                 </table>
             </div>
+        </div>
+
+        <div id="tab-lshape" class="tab-content">
+            <h2>L字表示設定</h2>
+            <div class="card">
+                <label>左側縦書きテロップ</label>
+                <input type="text" id="field-l-leftText" placeholder="例：備えは、知ることから。みんなの減災ラボ">
+            </div>
+
+            <h2>情報カード（上部スライド）</h2>
+            <div id="l-items-container">
+                </div>
+            <button class="secondary" style="width:100%; margin-bottom: 20px;" onclick="addLItem()">＋ 新しい情報を追加</button>
+            <button class="primary" style="width:100%; position: sticky; bottom: 0; box-shadow: 0 -5px 15px rgba(0,0,0,0.5);" onclick="saveLShape()">L字設定をすべて保存</button>
         </div>
 
         <div id="tab-broadcast" class="tab-content">
@@ -126,7 +147,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
@@ -156,6 +177,7 @@
 
         const current = data.current || {};
         const tsunami = data.tsunami_config || {};
+        const lshape = data.l_shape || { leftText: "", topItems: [] };
 
         // 津波設定
         const isAuto = tsunami.autoPage !== false;
@@ -167,9 +189,20 @@
         document.getElementById('field-cameraId').value = current.cameraSource || '';
         highlightSelectedCamera(current.cameraSource);
 
-        // テロップ内容（入力欄に反映）
+        // テロップ内容
         document.getElementById('field-subtitle').value = current.subtitle || '';
         document.getElementById('field-mainTitle').value = current.mainTitle || '';
+
+        // L字設定の反映（一度だけ実行、または手動更新を考慮して空の場合のみ反映）
+        const lTitleField = document.getElementById('field-l-leftText');
+        if (document.activeElement !== lTitleField) {
+            lTitleField.value = lshape.leftText || "";
+        }
+        
+        // カードリストの描画（編集中の衝突を避けるため、初回か明示的な同期が必要な場合のみ）
+        if (!window.lItemsEditing) {
+            renderLItems(lshape.topItems || []);
+        }
 
         // レイアウト選択状態
         const lay = current.layoutMode || 'live';
@@ -187,7 +220,64 @@
         document.getElementById('btn-dist-human').className = (dist === 'ningen') ? 'primary' : 'secondary';
     });
 
-    // テロップ更新
+    // --- L字設定ロジック ---
+    function renderLItems(items) {
+        const container = document.getElementById('l-items-container');
+        container.innerHTML = "";
+        items.forEach((item, index) => {
+            container.appendChild(createItemDOM(item.genre, item.text, index));
+        });
+    }
+
+    function createItemDOM(genre = "", text = "", index) {
+        const div = document.createElement('div');
+        div.className = "l-item-card";
+        div.innerHTML = `
+            <div class="l-item-header">
+                <label>情報 #${index + 1}</label>
+                <button class="danger" onclick="removeLItem(this)">削除</button>
+            </div>
+            <label>ジャンル</label>
+            <input type="text" class="l-genre-input" value="${genre}" placeholder="例：地震">
+            <label>内容</label>
+            <input type="text" class="l-text-input" value="${text}" placeholder="例：現在、大きな地震は発生していません">
+        `;
+        // 入力開始したら自動同期を止める
+        div.querySelectorAll('input').forEach(input => {
+            input.onfocus = () => { window.lItemsEditing = true; };
+        });
+        return div;
+    }
+
+    window.addLItem = () => {
+        window.lItemsEditing = true;
+        const container = document.getElementById('l-items-container');
+        container.appendChild(createItemDOM("", "", container.children.length));
+    };
+
+    window.removeLItem = (btn) => {
+        window.lItemsEditing = true;
+        btn.closest('.l-item-card').remove();
+    };
+
+    window.saveLShape = () => {
+        const leftText = document.getElementById('field-l-leftText').value;
+        const cards = document.querySelectorAll('.l-item-card');
+        const topItems = Array.from(cards).map(card => ({
+            genre: card.querySelector('.l-genre-input').value,
+            text: card.querySelector('.l-text-input').value
+        }));
+
+        set(ref(db, 'broadcast/l_shape'), {
+            leftText: leftText,
+            topItems: topItems
+        }).then(() => {
+            alert("L字設定を保存しました。");
+            window.lItemsEditing = false;
+        });
+    };
+
+    // --- その他既存機能 ---
     window.updateTitles = () => {
         update(ref(db, 'broadcast/current'), {
             subtitle: document.getElementById('field-subtitle').value,
@@ -216,7 +306,6 @@
         update(ref(db, 'broadcast/current'), { distributor: type });
     };
 
-    // カメラリスト初期化
     async function initCameras() {
         try {
             const res = await fetch('https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json');
