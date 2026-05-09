@@ -11,18 +11,20 @@
             width: 100vw;
             height: 100vh;
             overflow: hidden;
+            /* 左下に配置される想定 */
             display: flex;
-            justify-content: flex-end; /* 右下に配置される想定で右寄せ */
+            justify-content: flex-start; 
             align-items: flex-end;
         }
 
         #main-canvas {
             position: relative;
             height: 100vh;
+            /* 背景画像の横幅に合わせるため auto */
             width: auto;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
         }
 
         #background-cover {
@@ -34,34 +36,32 @@
 
         #map-container {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 90%;
-            height: 90%;
-            z-index: 2;
-            pointer-events: none;
-        }
-
-        svg {
-            position: absolute;
+            /* 左寄せに固定 */
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            /* 背景画像に対して微調整が必要な場合はここを調整 */
+            padding: 20px; 
+            box-sizing: border-box;
         }
 
-        /* 都道府県の塗り */
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+
         .pref-path {
-            fill: #444444; /* マップのベースカラー */
+            fill: #444444;
             stroke: #666666;
             stroke-width: 0.5px;
         }
 
-        /* 津波線の点滅アニメーション (3秒表示 / 1秒非表示) */
         @keyframes tsunami-blink {
-            0%, 75% { opacity: 1; }   /* 0s ~ 3s は表示 */
-            75.1%, 100% { opacity: 0; } /* 3s ~ 4s は非表示 */
+            0%, 75% { opacity: 1; }
+            75.1%, 100% { opacity: 0; }
         }
 
         .tsunami-layer {
@@ -82,8 +82,7 @@
     <img id="background-cover" src="../assets/cover/tsunami_cover.png" alt="tsunami-bg">
     
     <div id="map-container">
-        <div id="pref-layer"></div>
-        <div id="tsunami-layer" class="tsunami-layer"></div>
+        <div id="svg-area" style="position: relative; width: 100%; height: 100%;"></div>
     </div>
 </div>
 
@@ -92,23 +91,31 @@
 
     async function initMap() {
         try {
-            // SVGの読み込み
             const [prefXml, tsunamiXml] = await Promise.all([
                 d3.xml("../assets/svg/pref.svg"),
                 d3.xml("../assets/svg/tsunami2_id.svg")
             ]);
 
-            // 都道府県レイヤーの設置
-            const prefContainer = d3.select("#pref-layer");
-            const prefNode = prefContainer.append(() => prefXml.documentElement);
+            const svgArea = d3.select("#svg-area");
+            
+            // 重ね合わせるために絶対座標で配置
+            const prefNode = svgArea.append("div")
+                .style("position", "absolute")
+                .style("width", "100%")
+                .style("height", "100%")
+                .append(() => prefXml.documentElement);
+                
             prefNode.selectAll("path").classed("pref-path", true);
 
-            // 津波予報区レイヤーの設置
-            const tsunamiContainer = d3.select("#tsunami-layer");
-            tsunamiSvg = tsunamiContainer.append(() => tsunamiXml.documentElement);
+            const tsunamiLayer = svgArea.append("div")
+                .attr("class", "tsunami-layer")
+                .style("position", "absolute")
+                .style("width", "100%")
+                .style("height", "100%");
+                
+            tsunamiSvg = tsunamiLayer.append(() => tsunamiXml.documentElement);
             tsunamiSvg.selectAll("path").classed("tsunami-path", true);
 
-            // viewBoxの自動調整（両方のSVGを合わせる）
             const autoFit = (svgElement) => {
                 const bbox = svgElement.node().getBBox();
                 const margin = 20;
@@ -127,42 +134,19 @@
         }
     }
 
-    /**
-     * 津波情報を地図に適用する
-     * @param {Object} data - { areas: [{ name: "地区名", grade: "MajorWarning|Warning|Watch" }] }
-     */
     window.updateTsunamiMap = (data) => {
         if (!tsunamiSvg) return;
-
-        // 一旦すべての線を消す
-        tsunamiSvg.selectAll("path")
-            .style("stroke", "none")
-            .style("stroke-width", "0");
-
+        tsunamiSvg.selectAll("path").style("stroke", "none").style("stroke-width", "0");
         if (!data || !data.areas) return;
 
         data.areas.forEach(area => {
             const grade = area.grade;
-            let color = "none";
-            let width = 0;
-
-            // 等級に応じた色と太さ（放送基準に近い設定）
+            let color = "none", width = 0;
             switch (grade) {
-                case "MajorWarning":
-                    color = "#C91EFB"; // 大津波警報（紫）
-                    width = 18;
-                    break;
-                case "Warning":
-                    color = "#DE080A"; // 津波警報（赤）
-                    width = 12;
-                    break;
-                case "Watch":
-                    color = "#FEDC00"; // 津波注意報（黄）
-                    width = 10;
-                    break;
+                case "MajorWarning": color = "#C91EFB"; width = 18; break;
+                case "Warning": color = "#DE080A"; width = 12; break;
+                case "Watch": color = "#FEDC00"; width = 10; break;
             }
-
-            // IDまたはクラス名から該当する予報区を探して適用
             tsunamiSvg.selectAll("path")
                 .filter(function() {
                     const id = d3.select(this).attr("id");
@@ -170,7 +154,7 @@
                 })
                 .style("stroke", color)
                 .style("stroke-width", `${width}px`)
-                .raise(); // 線を最前面へ
+                .raise();
         });
     };
 
