@@ -2,19 +2,39 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background: transparent; }
-        #map-container { position: relative; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
-        
-        /* 地図SVGのラッパー */
-        #map-svg-wrapper { width: 100%; height: 100%; }
-        #map-svg-wrapper svg { width: 100%; height: 100%; }
+        body { 
+            margin: 0; 
+            background: transparent; 
+            width: 100vw; 
+            height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            overflow: hidden; 
+            position: relative; 
+        }
 
-        /* 地図の基本色 */
-        path, polygon, polyline {
-            fill: #BFBFBF; /* 地図の背景色 */
+        #map-container { 
+            position: relative;
+            width: 100%; 
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 地図の基本スタイル */
+        .pref-path { 
+            fill: #BFBFBF; /* 地図の色 */
             stroke: #7F7F7F; /* 地図の枠線 */
-            stroke-width: 0.5;
+            stroke-width: 0.5px; 
         }
 
         /* 強い揺れが予想される地域（黄色） */
@@ -22,15 +42,16 @@
             fill: #FFF300 !important;
             transition: fill 0.3s ease;
         }
-        
-        /* 震源地アイコン */
+
+        /* 震源地アイコン（shingen.svg） */
         #shingen-icon {
             position: absolute;
-            width: 50px; 
-            height: 50px;
-            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            transform: translate(-50%, -50%); /* 中心合わせ */
             z-index: 100;
             display: none;
+            pointer-events: none;
             filter: drop-shadow(0 0 5px rgba(0,0,0,0.5));
         }
     </style>
@@ -38,91 +59,113 @@
 <body>
 
 <div id="map-container">
-    <div id="map-svg-wrapper">
-        </div>
+    <svg id="map-svg"></svg>
     <img id="shingen-icon" src="../assets/svg/shingen.svg" alt="震源地">
 </div>
 
-<script>
-    const CONFIG = {
-        API_URL: "https://api.p2pquake.net/v2/history?codes=556&limit=1",
-        SVG_PATH: "../assets/svg/eew-mapdate.svg",
-        // お手持ちの地図の投影範囲に合わせて調整してください
-        MAP_BOUNDS: { latMin: 24, latMax: 46, lonMin: 122, lonMax: 149 }
-    };
+<script type="module">
+    const API_URL = "https://api.p2pquake.net/v2/history?codes=556&limit=1";
+    const GEOJSON_URL = "../assets/json/eew-mapdate-geo.json";
 
-    let lastEventId = "";
+    let projection;
+    let mapSvg;
+    let lastId = "";
 
     async function init() {
         try {
-            const res = await fetch(CONFIG.SVG_PATH);
-            const svgText = await res.text();
-            document.getElementById('map-svg-wrapper').innerHTML = svgText;
-            
-            // 初回実行と定期監視
-            checkEEW();
-            setInterval(checkEEW, 3000); // 3秒間隔でチェック
+            // 1. GeoJSONデータの読み込み
+            const geoData = await d3.json(GEOJSON_URL);
+
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            // 2. 投影法（メルカトル図法）の設定
+            // center: 日本の中心付近 [経度, 緯度]
+            // scale: 描画倍率（画面サイズに合わせて調整）
+            projection = d3.geoMercator()
+                .center([137.5, 38.0]) 
+                .scale(width * 2.0) // 全国表示ならこの程度。ズームしたい場合は数値を上げる
+                .translate([width / 2, height / 2]);
+
+            const pathGenerator = d3.geoPath().projection(projection);
+
+            // 3. 地図の描画
+            mapSvg = d3.select("#map-svg");
+            mapSvg.selectAll("path")
+                .data(geoData.features)
+                .enter()
+                .append("path")
+                .attr("d", pathGenerator)
+                .attr("class", "pref-path")
+                // GeoJSONのプロパティから都道府県名をIDとして付与
+                // (properties.name や properties.pref など、ファイルの中身に合わせて調整)
+                .attr("id", d => {
+                    return d.properties.name || d.properties.pref || d.properties.nam_ja;
+                });
+
+            // 4. 定期監視開始
+            fetchEEW();
+            setInterval(fetchEEW, 3000);
+
         } catch (e) {
-            console.error("Map Load Error:", e);
+            console.error("地図の初期化に失敗しました:", e);
         }
     }
 
-    async function checkEEW() {
+    async function fetchEEW() {
         try {
-            const res = await fetch(CONFIG.API_URL);
-            const data = await res.json();
+            const response = await fetch(API_URL);
+            const data = await response.json();
             if (!data || data.length === 0) return;
 
             const eew = data[0];
-            // EventIdが変わった場合のみ更新
-            if (eew.issue.eventId === lastEventId) return;
-            lastEventId = eew.issue.eventId;
+            if (eew.id === lastId) return;
+            lastId = eew.id;
 
             updateDisplay(eew);
         } catch (e) {
-            console.error("API Fetch Error:", e);
+            console.error("EEWデータの取得に失敗しました:", e);
         }
     }
 
     function updateDisplay(eew) {
-        // 1. リセット
-        document.querySelectorAll('.eew-active-area').forEach(el => el.classList.remove('eew-active-area'));
-        const shingen = document.getElementById('shingen-icon');
+        // 全体の色をリセット
+        mapSvg.selectAll(".eew-active-area").classed("eew-active-area", false);
+        const shingen = document.getElementById("shingen-icon");
         shingen.style.display = "none";
 
-        // 2. 強い揺れが予想される地域（pref）を色付け
+        // 1. 警告地域（pref）の塗りつぶし
         if (eew.areas) {
             eew.areas.forEach(area => {
-                // SVG内のID（"奈良", "和歌山"など）と一致する要素を探す
-                const target = document.getElementById(area.pref);
-                if (target) {
-                    target.classList.add('eew-active-area');
-                }
+                const prefName = area.pref;
+                // IDが "奈良" のように短い場合と "奈良県" の場合があるため、両方に対応
+                mapSvg.selectAll("path")
+                    .filter(function(d) {
+                        const targetId = d3.select(this).attr("id") || "";
+                        return targetId === prefName || targetId.includes(prefName);
+                    })
+                    .classed("eew-active-area", true);
             });
         }
 
-        // 3. 震源地のプロット (latitude / longitude)
+        // 2. 震源地のプロット（projection関数で緯度経度を座標に変換）
         if (eew.earthquake && eew.earthquake.hypocenter) {
             const { latitude, longitude } = eew.earthquake.hypocenter;
-            if (latitude && longitude) {
-                const pos = latLonToPercent(latitude, longitude);
-                shingen.style.left = `${pos.x}%`;
-                shingen.style.top = `${pos.y}%`;
+            if (latitude && longitude && latitude !== -1) {
+                // [経度, 緯度] の順で渡すと [x, y] が返ってくる
+                const [coordsX, coordsY] = projection([longitude, latitude]);
+                
+                shingen.style.left = `${coordsX}px`;
+                shingen.style.top = `${coordsY}px`;
                 shingen.style.display = "block";
             }
         }
     }
 
-    /**
-     * 緯度経度を画面上の%座標に変換
-     * ※地図SVGの投影法が「正距円筒図法」に近い場合。
-     * ズレる場合は、MAP_BOUNDSの値を微調整してください。
-     */
-    function latLonToPercent(lat, lon) {
-        const x = ((lon - CONFIG.MAP_BOUNDS.lonMin) / (CONFIG.MAP_BOUNDS.lonMax - CONFIG.MAP_BOUNDS.lonMin)) * 100;
-        const y = (1 - (lat - CONFIG.MAP_BOUNDS.latMin) / (CONFIG.MAP_BOUNDS.latMax - CONFIG.MAP_BOUNDS.latMin)) * 100;
-        return { x, y };
-    }
+    // 画面サイズが変更された時に再読み込み（リサイズ対応）
+    window.addEventListener('resize', () => {
+        location.reload();
+    });
 
     window.onload = init;
 </script>
