@@ -33,7 +33,7 @@
         th { background: #222; position: sticky; top: 0; padding: 12px; text-align: left; font-size: 11px; color: #666; }
         td { padding: 14px 12px; border-bottom: 1px solid var(--border-color); font-size: 14px; cursor: pointer; }
         tr.selected { background: rgba(0, 120, 212, 0.2); color: var(--accent-blue); font-weight: bold; }
-        select { width: 100%; padding: 12px; background: #111; color: white; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 10px; }
+        input[type="text"] { width: 100%; padding: 12px; background: #111; color: white; border: 1px solid var(--border-color); border-radius: 8px; box-sizing: border-box; margin-bottom: 10px; }
         @media (max-width: 768px) { header { display: flex; } nav { position: absolute; transform: translateX(-100%); } nav.open { transform: translateX(0); } .btn-group { flex-direction: column; } }
     </style>
 </head>
@@ -74,7 +74,7 @@
             <h2>ライブカメラ選択</h2>
             <div class="card">
                 <label>現在選択中</label>
-                <input type="text" id="field-cameraId" readonly style="width:100%; background:#111; color:var(--accent-blue); border:none; padding:10px; border-radius:5px; font-weight: bold;">
+                <input type="text" id="field-cameraId" readonly style="color:var(--accent-blue); font-weight: bold;">
             </div>
             <div class="scroll-table">
                 <table>
@@ -85,12 +85,21 @@
         </div>
 
         <div id="tab-broadcast" class="tab-content">
+            <h2>テロップ編集（title.html）</h2>
+            <div class="card">
+                <label>サブタイトル</label>
+                <input type="text" id="field-subtitle" placeholder="例：ニュース特報">
+                <label>メインタイトル</label>
+                <input type="text" id="field-mainTitle" placeholder="例：大規模な津波の恐れ">
+                <button class="primary" style="width:100%; margin-top: 10px;" onclick="updateTitles()">テロップを更新</button>
+            </div>
+
             <h2>全体レイアウト（sub-switcher）</h2>
             <div class="card">
-                <label>シーン選択</label>
+                <label>表示シーン</label>
                 <div class="btn-group">
-                    <button id="btn-lay-live" class="secondary" onclick="updateLayout('live')">通常（ライブカメラ）</button>
-                    <button id="btn-lay-emer" class="secondary" onclick="updateLayout('emergency')">緊急（特番レイアウト）</button>
+                    <button id="btn-lay-live" class="secondary" onclick="updateLayout('live')">通常ライブカメラ</button>
+                    <button id="btn-lay-emer" class="secondary" onclick="updateLayout('emergency')">緊急特番モード</button>
                 </div>
             </div>
 
@@ -99,7 +108,7 @@
                 <label>コンテンツ選択</label>
                 <div class="btn-group">
                     <button id="btn-src-screen" class="secondary" onclick="updateMainSource('screen')">画面共有</button>
-                    <button id="btn-src-camera" class="secondary" onclick="updateMainSource('camera')">カメラ</button>
+                    <button id="btn-src-camera" class="secondary" onclick="updateMainSource('camera')">ライブカメラ</button>
                 </div>
             </div>
 
@@ -110,16 +119,6 @@
                     <button id="btn-dist-bot" class="secondary" onclick="updateDistributor('bot')">Bot配信</button>
                     <button id="btn-dist-human" class="secondary" onclick="updateDistributor('ningen')">有人配信</button>
                 </div>
-            </div>
-
-            <h2>基本設定</h2>
-            <div class="card">
-                <label>配信モードタグ</label>
-                <select id="field-mode">
-                    <option value="normal">通常放送</option>
-                    <option value="special">緊急特番</option>
-                </select>
-                <button class="primary" style="width:100%; margin-top: 10px;" onclick="syncBroadcast()">モードを反映</button>
             </div>
         </div>
     </div>
@@ -168,26 +167,34 @@
         document.getElementById('field-cameraId').value = current.cameraSource || '';
         highlightSelectedCamera(current.cameraSource);
 
-        // レイアウト選択 (sub-switcher)
+        // テロップ内容（入力欄に反映）
+        document.getElementById('field-subtitle').value = current.subtitle || '';
+        document.getElementById('field-mainTitle').value = current.mainTitle || '';
+
+        // レイアウト選択状態
         const lay = current.layoutMode || 'live';
         document.getElementById('btn-lay-live').className = (lay === 'live') ? 'primary' : 'secondary';
         document.getElementById('btn-lay-emer').className = (lay === 'emergency') ? 'primary' : 'secondary';
 
-        // メイン画面ソース (emergency内)
+        // メイン画面ソース状態
         const src = current.mainSource || 'screen';
         document.getElementById('btn-src-screen').className = (src === 'screen') ? 'primary' : 'secondary';
         document.getElementById('btn-src-camera').className = (src === 'camera') ? 'primary' : 'secondary';
 
-        // 配信主体 (parts/time)
+        // 配信主体状態
         const dist = current.distributor || 'bot';
         document.getElementById('btn-dist-bot').className = (dist === 'bot') ? 'primary' : 'secondary';
         document.getElementById('btn-dist-human').className = (dist === 'ningen') ? 'primary' : 'secondary';
-
-        // モード
-        document.getElementById('field-mode').value = current.mode || 'normal';
     });
 
-    // 各種更新関数
+    // テロップ更新
+    window.updateTitles = () => {
+        update(ref(db, 'broadcast/current'), {
+            subtitle: document.getElementById('field-subtitle').value,
+            mainTitle: document.getElementById('field-mainTitle').value
+        });
+    };
+
     window.toggleAutoPage = () => {
         const isAuto = document.getElementById('auto-status-text').innerText.includes("ON");
         update(ref(db, 'broadcast/tsunami_config'), { autoPage: !isAuto });
@@ -207,10 +214,6 @@
 
     window.updateDistributor = (type) => {
         update(ref(db, 'broadcast/current'), { distributor: type });
-    };
-
-    window.syncBroadcast = () => {
-        update(ref(db, 'broadcast/current'), { mode: document.getElementById('field-mode').value });
     };
 
     // カメラリスト初期化
