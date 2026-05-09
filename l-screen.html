@@ -77,13 +77,22 @@
             transform-origin: top center;
         }
 
-        /* --- 特定の文字に対する余白調整 --- */
-        /* 半角スペースと中黒の上下（縦書きなので前後）を詰める */
-        .tight-char {
+        /* --- 文字別の個別調整 --- */
+        
+        /* 半角スペースの調整 */
+        .tight-space {
             display: inline-block;
-            margin-top: -0.2em;
-            margin-bottom: -0.2em;
-            letter-spacing: -0.2em; /* 字間も詰める */
+            height: 0.2em;      /* スペースの高さを強制的に小さくする */
+            letter-spacing: 0;
+            vertical-align: middle;
+        }
+
+        /* 中黒（・）の調整 */
+        .tight-dot {
+            display: inline-block;
+            margin-top: -0.15em;    /* 上の余白を削る */
+            margin-bottom: -0.15em; /* 下の余白を削る */
+            transform: scaleY(1.1);  /* 縦に少し伸ばして中心に寄せる等の微調整も可能 */
         }
 
         #genre-container {
@@ -168,10 +177,14 @@
     let currentIndex = 0;
     let isLooping = false;
 
-    // 特定の文字を個別に詰めるための処理
+    // 文字別に異なるクラスを適用
     function applyTightText(element, text) {
-        // 半角スペースと中黒をspanで囲む
-        const processed = text.replace(/([ ・])/g, '<span class="tight-char">$1</span>');
+        let processed = text;
+        // 中黒（・）を置換
+        processed = processed.replace(/・/g, '<span class="tight-dot">・</span>');
+        // 半角スペースを置換
+        processed = processed.replace(/ /g, '<span class="tight-space"> </span>');
+        
         element.innerHTML = processed;
     }
 
@@ -213,7 +226,6 @@
         if (!data) return;
 
         if (data.leftText !== undefined) {
-            // 文字詰め処理を適用してセット
             applyTightText(titleEl, data.leftText);
             setTimeout(adjustTitleSize, 100);
         }
@@ -241,7 +253,6 @@
 
         setTimeout(() => {
             genreEl.textContent = current.genre || "";
-            // 上部テロップにも同様の処理が必要な場合は applyTightText を使う
             mainEl.textContent = current.text || "";
             adjustGenreFontSize();
             mainEl.classList.remove('fade-out');
