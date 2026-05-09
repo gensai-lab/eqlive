@@ -7,32 +7,48 @@
             font-family: 'UDKakugo';
             src: url('../assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
         }
+
         body, html {
-            margin: 0; padding: 0;
-            width: 400px; height: 100px;
+            margin: 0;
+            padding: 0;
             background-color: transparent;
             overflow: hidden;
             font-family: 'UDKakugo', sans-serif;
-            color: white;
+            /* プロポーショナルメトリクスを有効にして文字詰めを適用 */
+            font-feature-settings: "palt";
         }
+
         .container {
             display: flex;
-            flex-direction: column;
-            gap: 5px;
+            align-items: center;
+            gap: 15px; /* 時計とバッジの間隔 */
             padding: 10px;
         }
-        #clock {
-            font-size: 48px;
+
+        #clock-box {
+            background-color: #003EB3;
+            color: #FFFFFF;
+            border: 5px solid #FFFFFF; /* 白枠 */
+            border-radius: 16px;       /* 16pxのラウンド */
+            padding: 5px 25px;
+            font-size: 54px;
             font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-            letter-spacing: 2px;
+            line-height: 1.2;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
+
         .distributor-badge {
-            width: 240px;
-            height: auto;
+            height: 70px; /* 時計の高さに合わせて調整 */
+            display: flex;
+            align-items: center;
         }
-        img {
-            width: 100%;
+
+        .distributor-badge img {
+            height: 100%;
+            width: auto;
             display: block;
         }
     </style>
@@ -40,7 +56,10 @@
 <body>
 
 <div class="container">
-    <div id="clock">00:00:00</div>
+    <div id="clock-box">
+        <span id="clock-text">00：00</span>
+    </div>
+
     <div class="distributor-badge">
         <img id="dist-img" src="../assets/banner/distributor/bot.png" alt="distributor">
     </div>
@@ -62,20 +81,23 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // 時計の更新
+    // 時計の更新（秒なし・全角コロン）
     function updateClock() {
         const now = new Date();
-        document.getElementById('clock').textContent = now.toLocaleTimeString('ja-JP', {
-            hour: '2-digit', minute: '2-digit', second: '2-digit'
-        });
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        // 全角コロンを使用して表示
+        document.getElementById('clock-text').textContent = `${hours}：${minutes}`;
     }
+    
     setInterval(updateClock, 1000);
     updateClock();
 
-    // 管理画面からの切り替えを監視
+    // Firebaseから配信主体を監視して画像を切り替え
     const distImg = document.getElementById('dist-img');
     onValue(ref(db, 'broadcast/current/distributor'), (snapshot) => {
         const val = snapshot.val() || 'bot';
+        // assets/banner/distributor/bot.png または ningen.png
         distImg.src = `../assets/banner/distributor/${val}.png`;
     });
 </script>
