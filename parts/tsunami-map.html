@@ -126,8 +126,8 @@
     async function init() {
         try {
             const [prefXml, tsunamiXml] = await Promise.all([
-                d3.xml("assets/svg/pref.svg"),
-                d3.xml("assets/svg/tsunami2_id.svg")
+                d3.xml("https://gensai-lab.github.io/eqlive/assets/svg/pref.svg"),
+                d3.xml("https://gensai-lab.github.io/eqlive/assets/svg/tsunami2_id.svg")
             ]);
 
             const container = d3.select("#map-container");
