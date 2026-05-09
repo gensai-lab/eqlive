@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background: transparent; }
+        #map-container { position: relative; width: 600px; height: 600px; }
+        
+        /* 地図SVGのベーススタイル */
+        #eew-map-svg { width: 100%; height: 100%; }
+        
+        /* 震源地アイコン（shingen.svg）のスタイル */
+        #shingen-icon {
+            position: absolute;
+            width: 40px; height: 40px;
+            transform: translate(-50%, -50%); /* 中心を合わせる */
+            z-index: 10;
+            display: none; /* 初期は非表示 */
+        }
+
+        /* 警告色の定義（黄色で塗りつぶし） */
+        .eew-active-area {
+            fill: #ff0 !important;
+            transition: fill 0.5s;
+        }
+    </style>
+</head>
+<body>
+
+<div id="map-container">
+    <div id="map-svg-wrapper">
+        </div>
+    
+    <img id="shingen-icon" src="../assets/svg/shingen.svg" alt="震源地">
+</div>
+
+<script>
+    const API_URL = "https://api.p2pquake.net/v2/history?codes=556&limit=1";
+    let lastId = "";
+
+    // 地図の緯度経度範囲（使用するSVGの投影法に合わせて調整が必要です）
+    // 以下は一般的な簡易投影の例です
+    const MAP_RANGE = {
+        latMin: 24, latMax: 46,
+        lonMin: 122, lonMax: 149
+    };
+
+    async function initMap() {
+        // 1. 地図SVGの読み込み
+        try {
+            const response = await fetch('../assets/svg/eew-mapdate.svg');
+            const svgText = await response.text();
+            document.getElementById('map-svg-wrapper').innerHTML = svgText;
+            
+            // 定期チェック開始
+            checkEEW();
+            setInterval(checkEEW, 5000); // 5秒更新
+        } catch (e) {
+            console.error("Map SVG Load Error:", e);
+        }
+    }
+
+    async function checkEEW() {
+        try {
+            const response = await fetch(API_URL);
+            const data = await response.json();
+            if (!data || data.length === 0) return;
+
+            const eew = data[0];
+            if (eew.id === lastId) return;
+            lastId = eew.id;
+
+            updateMap(eew);
+        } catch (e) {
+            console.error("EEW API Error:", e);
+        }
+    }
+
+    function updateMap(eew) {
+        // 全地域の塗りつぶしをリセット
+        document.querySelectorAll('.eew-active-area').forEach(el => {
+            el.classList.remove('eew-active-area');
+        });
+
+        // 1. 震源地のプロット
+        if (eew.earthquake && eew.earthquake.hypocenter) {
+            const { latitude, longitude } = eew.earthquake.hypocenter;
+            if (latitude !== -1) {
+                const pos = latLonToPixel(latitude, longitude);
+                const icon = document.getElementById('shingen-icon');
+                icon.style.left = pos.x + "%";
+                icon.style.top = pos.y + "%";
+                icon.style.display = "block";
+            }
+        }
+
+        // 2. 対象都道府県の塗りつぶし
+        // eew-mapdate.svg内のIDが都道府県名（例: "東京都"）またはコードであることを想定
+        if (eew.areas) {
+            eew.areas.forEach(area => {
+                // SVG内のIDを検索（お使いのSVGのID形式に合わせて調整してください）
+                const targetPath = document.getElementById(area.name);
+                if (targetPath) {
+                    targetPath.classList.add('eew-active-area');
+                }
+            });
+        }
+    }
+
+    // 緯度経度をSVG上の%座標に変換する簡易関数
+    // ※お手持ちのeew-mapdate.svgの描画範囲に合わせて微調整が必要です
+    function latLonToPixel(lat, lon) {
+        const x = ((lon - MAP_RANGE.lonMin) / (MAP_RANGE.lonMax - MAP_RANGE.lonMin)) * 100;
+        const y = (1 - (lat - MAP_RANGE.latMin) / (MAP_RANGE.latMax - MAP_RANGE.latMin)) * 100;
+        return { x, y };
+    }
+
+    window.onload = initMap;
+</script>
+</body>
+</html>
