@@ -66,7 +66,7 @@
         #l-title {
             color: #003EB3;
             font-family: 'FOT-UDKakugo_LargePr6-B', sans-serif;
-            font-size: 116px; /* 基準サイズを116pxに設定 */
+            font-size: 116px; /* 基準サイズを116pxに変更 */
             writing-mode: vertical-rl;
             text-orientation: upright;
             font-weight: normal;
@@ -81,15 +81,15 @@
         
         .tight-space {
             display: inline-block;
-            height: 0.1em; /* スペースの縦幅を極小にする */
+            height: 0.15em; /* 縦書き時のスペースの幅（高さ） */
             letter-spacing: 0;
             visibility: hidden;
         }
 
         .tight-dot {
             display: inline-block;
-            margin-top: -0.2em;
-            margin-bottom: -0.2em;
+            margin-top: -0.25em;
+            margin-bottom: -0.25em;
             transform: scaleY(1.1);
         }
 
@@ -103,14 +103,13 @@
             align-items: center;
             text-align: center;
             color: white;
-            overflow: visible; /* scaleXの表示を許容 */
         }
 
         #info-genre {
             font-size: 46px;
             white-space: nowrap;
             display: inline-block;
-            transform-origin: center center;
+            transform-origin: center center; /* 中央基準で横に縮める */
         }
 
         #main-text-container {
@@ -177,24 +176,37 @@
     let currentIndex = 0;
     let isLooping = false;
 
-    // 二重タグを防ぐために一旦テキストに戻してから置換
+    /**
+     * 文字詰め処理（完全リセット版）
+     * 文字列を一度プレーンテキストにしてから、一文字ずつ再構築します。
+     */
     function applyTightText(element, text) {
         if (!text) {
             element.innerHTML = "";
             return;
         }
-        // タグを除去して純粋な文字のみを取得
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = text;
-        const pureText = tempDiv.textContent || tempDiv.innerText || "";
 
-        const processed = pureText
-            .replace(/・/g, '<span class="tight-dot">・</span>')
-            .replace(/ /g, '<span class="tight-space"> </span>');
-        
-        element.innerHTML = processed;
+        // 1. まず既存のタグを完全に除去（テキストのみ抽出）
+        const temp = document.createElement("div");
+        temp.innerHTML = text;
+        const pureText = temp.textContent || temp.innerText || "";
+
+        // 2. 文字を配列に分解して、一文字ずつチェック
+        const chars = Array.from(pureText);
+        const htmlOutput = chars.map(char => {
+            if (char === '・') {
+                return `<span class="tight-dot">・</span>`;
+            } else if (char === ' ' || char === '　') { // 半角・全角スペース両対応
+                return `<span class="tight-space"> </span>`;
+            } else {
+                return char; // 普通の文字はそのまま
+            }
+        }).join('');
+
+        element.innerHTML = htmlOutput;
     }
 
+    // タイトルの縦幅調整（980px超過時）
     function adjustTitleSize() {
         const maxHeight = 980;
         titleEl.style.transform = "scaleY(1)";
@@ -205,13 +217,13 @@
         }
     }
 
+    // ジャンルの横幅調整（210px超過時、横方向のみ縮小）
     function adjustGenreFontSize() {
         const maxWidth = 210;
-        genreEl.style.transform = "scaleX(1)"; // scaleXをリセット
+        genreEl.style.transform = "scaleX(1)"; // 一旦リセット
         const currentWidth = genreEl.offsetWidth;
         if (currentWidth > maxWidth) {
             const scaleX = maxWidth / currentWidth;
-            // 横方向のみ縮小
             genreEl.style.transform = `scaleX(${scaleX})`;
         }
     }
@@ -228,13 +240,15 @@
     });
     adjustIframeScale();
 
+    // Firebaseデータの購読
     onValue(ref(db, 'broadcast/l_shape'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
         if (data.leftText !== undefined) {
             applyTightText(titleEl, data.leftText);
-            setTimeout(adjustTitleSize, 100);
+            // DOM更新後に高さを測るため少し待機
+            setTimeout(adjustTitleSize, 50);
         }
 
         if (data.topItems) {
@@ -261,7 +275,7 @@
         setTimeout(() => {
             genreEl.textContent = current.genre || "";
             mainEl.textContent = current.text || "";
-            adjustGenreFontSize();
+            adjustGenreFontSize(); // ジャンルのリサイズを実行
             mainEl.classList.remove('fade-out');
         }, 800);
     }
