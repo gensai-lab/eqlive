@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>EQLive L-Screen</title>
     <style>
-        /* ご指定の B (ボールド) フォントを読み込み */
         @font-face {
             font-family: 'FOT-UDKakugo_LargePr6-B';
             src: url('assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
@@ -17,7 +16,6 @@
             width: 1920px; height: 1080px;
             background-color: black;
             overflow: hidden;
-            /* 全体のデフォルトフォント */
             font-family: 'FOT-UDKakugo_LargePr6-B', sans-serif;
             -webkit-font-smoothing: antialiased;
         }
@@ -29,12 +27,13 @@
             z-index: 1;
         }
 
+        /* --- sub-switcherの画面サイズ設定 --- */
         #main-content {
             position: absolute;
-            top: 105px;
-            left: 210px; 
-            width: 87.5%; 
-            height: 87.5%;
+            top: 100px;  /* 少し上に（元105px） */
+            left: 200px; /* 少し左に（元210px） */
+            width: 90%;  /* 少し大きく（元87.5%） */
+            height: 90%; /* 少し大きく（元87.5%） */
             z-index: 2;
             overflow: hidden;
         }
@@ -46,41 +45,39 @@
             transform-origin: top left;
         }
 
-        /* 共通設定：行間100% */
         .text-overlay {
             position: absolute;
             z-index: 10;
-            line-height: 100%; /* 全て100%に設定 */
+            line-height: 100%;
         }
 
         /* 左側タイトル */
         #title-container {
             position: absolute;
-            top: 50px;
-            left: 50px;
-            height: 980px;
-            width: 120px; /* タイトルの幅を確保 */
+            top: 40px;
+            left: 30px;  /* 160pxに合わせて少し左に寄せる */
+            height: 1000px;
+            width: 180px; /* 160pxが収まる幅に広げる */
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* 上端合わせに変更 */
+            align-items: flex-start;
             overflow: hidden;
         }
 
         #l-title {
             color: #003EB3;
             font-family: 'FOT-UDKakugo_LargePr6-B', sans-serif;
-            font-size: 160px;
+            font-size: 160px; /* 160pxに拡大 */
             writing-mode: vertical-rl;
             text-orientation: upright;
-            font-weight: normal; /* 合成ボールドを無効化 */
-            letter-spacing: 0.05em;
+            font-weight: normal;
+            letter-spacing: 0.02em; /* 大きい文字に合わせて字間を微調整 */
             white-space: nowrap;
-            /* 上部が切れるのを防ぐための調整 */
-            padding-top: 0px; 
+            padding-top: 10px; 
             display: block;
         }
 
-        /* 上部情報エリア */
+        /* 上部情報エリア（ここも必要に応じて位置調整してください） */
         #genre-container {
             top: 39px;
             left: 217px;
@@ -163,9 +160,8 @@
     let currentIndex = 0;
     let isLooping = false;
 
-    // タイトルの高さ調整
     function adjustTitleSize() {
-        const maxHeight = 980;
+        const maxHeight = 1000; // コンテナの高さに合わせる
         titleEl.style.transform = "scale(1)";
         const currentHeight = titleEl.offsetHeight;
         if (currentHeight > maxHeight) {
@@ -175,7 +171,6 @@
         }
     }
 
-    // ジャンルの幅調整
     function adjustGenreFontSize() {
         const maxWidth = 210;
         genreEl.style.transform = "scale(1)";
@@ -189,6 +184,7 @@
 
     function adjustIframeScale() {
         const container = document.getElementById('main-content');
+        // コンテナの幅に1920pxのコンテンツを合わせる
         const scale = container.offsetWidth / 1920;
         iframe.style.transform = `scale(${scale})`;
     }
@@ -199,14 +195,12 @@
     });
     adjustIframeScale();
 
-    // Firebase同期
     onValue(ref(db, 'broadcast/l_shape'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
         if (data.leftText !== undefined) {
             titleEl.textContent = data.leftText;
-            // フォント読み込み後のタイミングを考慮して微調整
             setTimeout(adjustTitleSize, 100);
         }
 
