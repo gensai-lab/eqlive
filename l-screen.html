@@ -27,13 +27,12 @@
             z-index: 1;
         }
 
-        /* --- sub-switcherの画面サイズ設定 --- */
         #main-content {
             position: absolute;
-            top: 121px;  /* 少し上に（元105px） */
-            left: 216px; /* 少し左に（元210px） */
-            width: 88%;  /* 少し大きく（元87.5%） */
-            height: 88%; /* 少し大きく（元87.5%） */
+            top: 121px;
+            left: 216px;
+            width: 88%;
+            height: 88%;
             z-index: 2;
             overflow: hidden;
         }
@@ -55,29 +54,30 @@
         #title-container {
             position: absolute;
             top: 40px;
-            left: 30px;  /* 160pxに合わせて少し左に寄せる */
-            height: 1000px;
-            width: 180px; /* 160pxが収まる幅に広げる */
+            left: 30px;
+            height: 980px; /* 制限の高さ */
+            width: 180px;
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            overflow: hidden;
+            overflow: visible; /* scaleYで突き抜けないよう制御 */
         }
 
         #l-title {
             color: #003EB3;
             font-family: 'FOT-UDKakugo_LargePr6-B', sans-serif;
-            font-size: 160px; /* 160pxに拡大 */
+            font-size: 160px;
             writing-mode: vertical-rl;
             text-orientation: upright;
             font-weight: normal;
-            letter-spacing: 0.02em; /* 大きい文字に合わせて字間を微調整 */
+            letter-spacing: 0.02em;
             white-space: nowrap;
-            padding-top: 10px; 
+            padding-top: 10px;
             display: block;
+            /* transformの起点。文字の頂点を基準に圧縮する */
+            transform-origin: top center;
         }
 
-        /* 上部情報エリア（ここも必要に応じて位置調整してください） */
         #genre-container {
             top: 32px;
             left: 217px;
@@ -160,14 +160,18 @@
     let currentIndex = 0;
     let isLooping = false;
 
+    // タイトルの高さを調整（縦にのみ圧縮）
     function adjustTitleSize() {
-        const maxHeight = 1000; // コンテナの高さに合わせる
-        titleEl.style.transform = "scale(1)";
+        const maxHeight = 980; // 指定された制限値
+        titleEl.style.transform = "scaleY(1)"; // 一旦リセット
+        
         const currentHeight = titleEl.offsetHeight;
+        
         if (currentHeight > maxHeight) {
-            const scale = maxHeight / currentHeight;
-            titleEl.style.transform = `scale(${scale})`;
-            titleEl.style.transformOrigin = "top center";
+            // 高さの比率だけを計算
+            const scaleY = maxHeight / currentHeight;
+            // 横幅（scaleX）は1のまま、縦（scaleY）だけを縮める
+            titleEl.style.transform = `scaleY(${scaleY})`;
         }
     }
 
@@ -184,7 +188,6 @@
 
     function adjustIframeScale() {
         const container = document.getElementById('main-content');
-        // コンテナの幅に1920pxのコンテンツを合わせる
         const scale = container.offsetWidth / 1920;
         iframe.style.transform = `scale(${scale})`;
     }
@@ -201,6 +204,7 @@
 
         if (data.leftText !== undefined) {
             titleEl.textContent = data.leftText;
+            // テキスト挿入直後だと高さが正しく取れないことがあるため少し待つ
             setTimeout(adjustTitleSize, 100);
         }
 
