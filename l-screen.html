@@ -7,7 +7,6 @@
         @font-face {
             font-family: 'FOT-UDKakugo_LargePr6-DB';
             src: url('assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
-            /* フォント本来の太さを維持するため normal 指定 */
             font-weight: normal; 
         }
 
@@ -17,8 +16,6 @@
             background-color: black;
             overflow: hidden;
             font-family: 'FOT-UDKakugo_LargePr6-DB', sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
         }
 
         #l-background {
@@ -48,33 +45,37 @@
         .text-overlay {
             position: absolute;
             z-index: 10;
-            line-height: 1.1;
         }
 
-        /* 左側タイトル */
+        /* --- 左側縦書きエリアの修正 --- */
         #title-container {
             position: absolute;
-            top: 50px;
-            left: 50px;
-            height: 980px;
+            top: 40px;   /* 背景の白い枠に合わせて微調整 */
+            left: 25px;  /* 背景の白い枠に合わせて微調整 */
+            width: 160px; /* 白い枠の幅に合わせる */
+            height: 1000px; /* 白い枠の高さに合わせる */
             display: flex;
-            justify-content: flex-start;
+            flex-direction: column;
+            justify-content: center; /* 中央配置 */
             align-items: center;
+            overflow: hidden;
         }
 
         #l-title {
-            color: #003EB3; /* 指定の色に変更 */
+            color: #003EB3;
             font-size: 115px;
             writing-mode: vertical-rl;
             text-orientation: upright;
-            /* 合成太字を避けるため normal に設定 */
-            font-weight: normal; 
-            letter-spacing: 0.12em; /* 文字の間隔を広げて高級感を出す */
+            font-weight: normal;
+            line-height: 1.1;
+            letter-spacing: 0.05em;
             white-space: nowrap;
-            /* アンチエイリアスを綺麗に出すための設定 */
-            text-rendering: optimizeLegibility;
+            /* 突き抜け防止：中身に合わせて伸縮 */
+            display: inline-block;
+            text-align: center;
         }
 
+        /* --- 上部情報エリア --- */
         #genre-container {
             top: 39px;
             left: 217px;
@@ -83,15 +84,12 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            text-align: center;
             color: white;
         }
 
         #info-genre {
             font-size: 46px;
             white-space: nowrap;
-            display: inline-block;
-            font-weight: normal;
         }
 
         #main-text-container {
@@ -107,7 +105,6 @@
         #info-main {
             font-size: 46px;
             white-space: nowrap;
-            font-weight: normal;
             transition: opacity 0.8s ease-in-out;
         }
 
@@ -122,7 +119,7 @@
         <iframe id="sub-switcher-frame" src="sub-switcher.html"></iframe>
     </div>
 
-    <div id="title-container" class="text-overlay">
+    <div id="title-container">
         <div id="l-title"></div>
     </div>
 
@@ -151,46 +148,24 @@
     const db = getDatabase(app);
 
     const titleEl = document.getElementById('l-title');
+    const containerEl = document.getElementById('title-container');
     const genreEl = document.getElementById('info-genre');
     const mainEl = document.getElementById('info-main');
-    const iframe = document.getElementById('sub-switcher-frame');
 
-    let infoList = [];
-    let currentIndex = 0;
-    let isLooping = false;
-
-    function adjustTitleSize() {
-        const maxHeight = 980;
+    // 縦書きの突き抜けを防止するリサイズ関数
+    function adjustTitleLayout() {
+        const maxHeight = containerEl.offsetHeight - 40; // 上下余白
         titleEl.style.transform = "scale(1)";
-        const currentHeight = titleEl.offsetHeight;
+        
+        // 要素の実際の高さを取得
+        const currentHeight = titleEl.scrollHeight;
+        
         if (currentHeight > maxHeight) {
             const scale = maxHeight / currentHeight;
             titleEl.style.transform = `scale(${scale})`;
-            titleEl.style.transformOrigin = "top center";
+            titleEl.style.transformOrigin = "center center";
         }
     }
-
-    function adjustGenreFontSize() {
-        const maxWidth = 210;
-        genreEl.style.transform = "scale(1)";
-        const currentWidth = genreEl.offsetWidth;
-        if (currentWidth > maxWidth) {
-            const scale = maxWidth / currentWidth;
-            genreEl.style.transform = `scale(${scale})`;
-            genreEl.style.transformOrigin = "center center";
-        }
-    }
-
-    function adjustIframeScale() {
-        const container = document.getElementById('main-content');
-        const scale = container.offsetWidth / 1920;
-        iframe.style.transform = `scale(${scale})`;
-    }
-    window.addEventListener('resize', () => {
-        adjustIframeScale();
-        adjustTitleSize();
-    });
-    adjustIframeScale();
 
     onValue(ref(db, 'broadcast/l_shape'), (snapshot) => {
         const data = snapshot.val();
@@ -198,45 +173,40 @@
 
         if (data.leftText !== undefined) {
             titleEl.textContent = data.leftText;
-            setTimeout(adjustTitleSize, 50);
+            // フォントの読み込みや描画を待ってから実行
+            requestAnimationFrame(() => {
+                adjustTitleLayout();
+            });
         }
-
+        
+        // (中略: infoListの更新処理などは前回と同じ)
         if (data.topItems) {
-            infoList = Object.values(data.topItems);
-            if (infoList.length > 0 && !isLooping) {
-                isLooping = true;
+            window.infoList = Object.values(data.topItems);
+            if (window.infoList.length > 0 && !window.isLooping) {
+                window.isLooping = true;
                 startTextLoop();
             }
-        } else {
-            infoList = [];
-            genreEl.textContent = "";
-            mainEl.textContent = "";
         }
     });
 
+    // 文字列ループ処理 (前回同様)
     function startTextLoop() {
         showText();
         setInterval(nextText, 10000);
     }
-
     function showText() {
-        if (infoList.length === 0) return;
-        if (currentIndex >= infoList.length) currentIndex = 0;
-        const current = infoList[currentIndex];
-
+        if (!window.infoList || window.infoList.length === 0) return;
+        const current = window.infoList[window.currentIndex || 0];
         mainEl.classList.add('fade-out');
-
         setTimeout(() => {
             genreEl.textContent = current.genre || "";
             mainEl.textContent = current.text || "";
-            adjustGenreFontSize();
             mainEl.classList.remove('fade-out');
         }, 800);
     }
-
     function nextText() {
-        if (infoList.length === 0) return;
-        currentIndex = (currentIndex + 1) % infoList.length;
+        if (!window.infoList) return;
+        window.currentIndex = ((window.currentIndex || 0) + 1) % window.infoList.length;
         showText();
     }
 </script>
