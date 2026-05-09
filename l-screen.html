@@ -4,10 +4,12 @@
     <meta charset="UTF-8">
     <title>EQLive L-Screen</title>
     <style>
+        /* ご指定の B (ボールド) フォントを読み込み */
         @font-face {
-            font-family: 'FOT-UDKakugo_LargePr6-DB';
-            src: url('assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
-            font-weight: normal; 
+            font-family: 'FOT-UDKakugo_LargePr6-B';
+            src: url('assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
         }
 
         body, html {
@@ -15,7 +17,9 @@
             width: 1920px; height: 1080px;
             background-color: black;
             overflow: hidden;
-            font-family: 'FOT-UDKakugo_LargePr6-DB', sans-serif;
+            /* 全体のデフォルトフォント */
+            font-family: 'FOT-UDKakugo_LargePr6-B', sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
 
         #l-background {
@@ -42,40 +46,41 @@
             transform-origin: top left;
         }
 
+        /* 共通設定：行間100% */
         .text-overlay {
             position: absolute;
             z-index: 10;
+            line-height: 100%; /* 全て100%に設定 */
         }
 
-        /* --- 左側縦書きエリアの修正 --- */
+        /* 左側タイトル */
         #title-container {
             position: absolute;
-            top: 40px;   /* 背景の白い枠に合わせて微調整 */
-            left: 25px;  /* 背景の白い枠に合わせて微調整 */
-            width: 160px; /* 白い枠の幅に合わせる */
-            height: 1000px; /* 白い枠の高さに合わせる */
+            top: 50px;
+            left: 50px;
+            height: 980px;
+            width: 120px; /* タイトルの幅を確保 */
             display: flex;
-            flex-direction: column;
-            justify-content: center; /* 中央配置 */
-            align-items: center;
+            justify-content: center;
+            align-items: flex-start; /* 上端合わせに変更 */
             overflow: hidden;
         }
 
         #l-title {
             color: #003EB3;
+            font-family: 'FOT-UDKakugo_LargePr6-B', sans-serif;
             font-size: 115px;
             writing-mode: vertical-rl;
             text-orientation: upright;
-            font-weight: normal;
-            line-height: 1.1;
+            font-weight: normal; /* 合成ボールドを無効化 */
             letter-spacing: 0.05em;
             white-space: nowrap;
-            /* 突き抜け防止：中身に合わせて伸縮 */
-            display: inline-block;
-            text-align: center;
+            /* 上部が切れるのを防ぐための調整 */
+            padding-top: 5px; 
+            display: block;
         }
 
-        /* --- 上部情報エリア --- */
+        /* 上部情報エリア */
         #genre-container {
             top: 39px;
             left: 217px;
@@ -84,12 +89,14 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            text-align: center;
             color: white;
         }
 
         #info-genre {
             font-size: 46px;
             white-space: nowrap;
+            display: inline-block;
         }
 
         #main-text-container {
@@ -119,7 +126,7 @@
         <iframe id="sub-switcher-frame" src="sub-switcher.html"></iframe>
     </div>
 
-    <div id="title-container">
+    <div id="title-container" class="text-overlay">
         <div id="l-title"></div>
     </div>
 
@@ -148,65 +155,93 @@
     const db = getDatabase(app);
 
     const titleEl = document.getElementById('l-title');
-    const containerEl = document.getElementById('title-container');
     const genreEl = document.getElementById('info-genre');
     const mainEl = document.getElementById('info-main');
+    const iframe = document.getElementById('sub-switcher-frame');
 
-    // 縦書きの突き抜けを防止するリサイズ関数
-    function adjustTitleLayout() {
-        const maxHeight = containerEl.offsetHeight - 40; // 上下余白
+    let infoList = [];
+    let currentIndex = 0;
+    let isLooping = false;
+
+    // タイトルの高さ調整
+    function adjustTitleSize() {
+        const maxHeight = 980;
         titleEl.style.transform = "scale(1)";
-        
-        // 要素の実際の高さを取得
-        const currentHeight = titleEl.scrollHeight;
-        
+        const currentHeight = titleEl.offsetHeight;
         if (currentHeight > maxHeight) {
             const scale = maxHeight / currentHeight;
             titleEl.style.transform = `scale(${scale})`;
-            titleEl.style.transformOrigin = "center center";
+            titleEl.style.transformOrigin = "top center";
         }
     }
 
+    // ジャンルの幅調整
+    function adjustGenreFontSize() {
+        const maxWidth = 210;
+        genreEl.style.transform = "scale(1)";
+        const currentWidth = genreEl.offsetWidth;
+        if (currentWidth > maxWidth) {
+            const scale = maxWidth / currentWidth;
+            genreEl.style.transform = `scale(${scale})`;
+            genreEl.style.transformOrigin = "center center";
+        }
+    }
+
+    function adjustIframeScale() {
+        const container = document.getElementById('main-content');
+        const scale = container.offsetWidth / 1920;
+        iframe.style.transform = `scale(${scale})`;
+    }
+
+    window.addEventListener('resize', () => {
+        adjustIframeScale();
+        adjustTitleSize();
+    });
+    adjustIframeScale();
+
+    // Firebase同期
     onValue(ref(db, 'broadcast/l_shape'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
         if (data.leftText !== undefined) {
             titleEl.textContent = data.leftText;
-            // フォントの読み込みや描画を待ってから実行
-            requestAnimationFrame(() => {
-                adjustTitleLayout();
-            });
+            // フォント読み込み後のタイミングを考慮して微調整
+            setTimeout(adjustTitleSize, 100);
         }
-        
-        // (中略: infoListの更新処理などは前回と同じ)
+
         if (data.topItems) {
-            window.infoList = Object.values(data.topItems);
-            if (window.infoList.length > 0 && !window.isLooping) {
-                window.isLooping = true;
+            infoList = Object.values(data.topItems);
+            if (infoList.length > 0 && !isLooping) {
+                isLooping = true;
                 startTextLoop();
             }
         }
     });
 
-    // 文字列ループ処理 (前回同様)
     function startTextLoop() {
         showText();
         setInterval(nextText, 10000);
     }
+
     function showText() {
-        if (!window.infoList || window.infoList.length === 0) return;
-        const current = window.infoList[window.currentIndex || 0];
+        if (infoList.length === 0) return;
+        if (currentIndex >= infoList.length) currentIndex = 0;
+        const current = infoList[currentIndex];
+
         mainEl.classList.add('fade-out');
+
         setTimeout(() => {
             genreEl.textContent = current.genre || "";
             mainEl.textContent = current.text || "";
+            adjustGenreFontSize();
             mainEl.classList.remove('fade-out');
         }, 800);
     }
+
     function nextText() {
-        if (!window.infoList) return;
-        window.currentIndex = ((window.currentIndex || 0) + 1) % window.infoList.length;
+        if (infoList.length === 0) return;
+        currentIndex = (currentIndex + 1) % infoList.length;
         showText();
     }
 </script>
