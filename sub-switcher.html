@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>EQLive Sub-Switcher</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0;
+            width: 1920px; height: 1080px;
+            background-color: black;
+            overflow: hidden;
+        }
+
+        /* 背面のメインコンテンツエリア */
+        #bg-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px; height: 1080px;
+            z-index: 1;
+        }
+
+        /* 前面の共通パーツ（オーバーレイ） */
+        .overlay-part {
+            position: absolute;
+            z-index: 10;
+            pointer-events: none; /* 下の階層を操作可能にする場合 */
+        }
+
+        /* 左上: 時刻と配信主体 */
+        .top-left { top: 30px; left: 30px; width: 400px; height: 150px; }
+        
+        /* 右上: 津波呼びかけ */
+        .top-right { top: 30px; right: 30px; width: 500px; height: 300px; }
+
+        /* 左下: タイトルバナー */
+        .bottom-left { bottom: 30px; left: 30px; width: 800px; height: 150px; }
+
+        /* 右下: 津波地図 */
+        .bottom-right { bottom: 30px; right: 30px; width: 450px; height: 450px; }
+
+        iframe {
+            width: 100%; height: 100%;
+            border: none; display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="bg-layer">
+        <iframe id="switcher-iframe" src="live-only.html"></iframe>
+    </div>
+
+    <div class="overlay-part top-left">
+        <iframe src="parts/time.html"></iframe>
+    </div>
+
+    <div class="overlay-part top-right">
+        <iframe src="parts/tsunami-yobikake.html"></iframe>
+    </div>
+
+    <div class="overlay-part bottom-left">
+        <iframe src="parts/title.html"></iframe>
+    </div>
+
+    <div class="overlay-part bottom-right">
+        <iframe src="parts/tsunami-map.html"></iframe>
+    </div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const switcherIframe = document.getElementById('switcher-iframe');
+    let currentLayout = "";
+
+    // 管理画面からの配信レイアウト切り替えを監視
+    onValue(ref(db, 'broadcast/current/layoutMode'), (snapshot) => {
+        const mode = snapshot.val() || 'live'; // デフォルトはlive
+        let target = (mode === 'emergency') ? 'emergency.html' : 'live-only.html';
+
+        if (currentLayout !== target) {
+            switcherIframe.src = target;
+            currentLayout = target;
+            console.log("Layout switched to:", target);
+        }
+    });
+</script>
+</body>
+</html>
