@@ -56,8 +56,8 @@
         /* 津波予報区SVGの設定（100%に拡大） */
         .tsunami-svg { 
             position: absolute; 
-            width: 100% !important; 
-            height: 100% !important; 
+            width: 89% !important; 
+            height: 89% !important; 
             object-fit: contain; 
             z-index: 1;
         }
@@ -89,13 +89,13 @@
         data.areas.forEach(area => {
             const areaName = area.name.trim();
             const grade = area.grade;
-            const baseWidth = 14; 
+            const baseWidth = 24; 
             
             let color = "none";
             let width = "0px";
 
             if (grade === "MajorWarning") { 
-                color = "#C91EFB"; width = `${baseWidth * 2}px`;
+                color = "#C91EFB"; width = `${baseWidth * 6}px`;
             } else if (grade === "Warning") { 
                 color = "#DE080A"; width = `${baseWidth}px`; 
             } else if (grade === "Watch") { 
