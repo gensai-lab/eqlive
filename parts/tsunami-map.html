@@ -6,7 +6,7 @@
     <style>
         body { 
             margin: 0; 
-            background: rgba(0, 0, 0, 0.9); 
+            background: transparent; /* Switcher側で背景色を設定しているため透過 */
             width: 100vw; 
             height: 100vh; 
             display: flex; 
@@ -22,6 +22,8 @@
             align-items: center; 
             justify-content: center; 
             overflow: hidden; 
+            opacity: 0; /* 初期状態は非表示 */
+            transition: opacity 0.5s ease-in-out; /* ふわっと表示させるアニメーション */
         }
 
         #background-cover { 
@@ -35,7 +37,7 @@
         #map-container { 
             position: absolute;
             top: 0;
-            left: -75px; /* 必要に応じて位置を微調整してください */
+            left: -75px; 
             width: 100%; 
             height: 100%; 
             display: flex; 
@@ -44,7 +46,6 @@
             pointer-events: none; 
         }
         
-        /* 都道府県SVGの設定 */
         .pref-svg {
             position: absolute; 
             width: 90% !important; 
@@ -53,7 +54,6 @@
             z-index: 10;
         }
 
-        /* 津波予報区SVGの設定（100%に拡大） */
         .tsunami-svg { 
             position: absolute; 
             width: 89% !important; 
@@ -76,15 +76,24 @@
 <script type="module">
     let tsunamiSvgElement = null;
     let prefSvgElement = null;
+    const mainCanvas = document.getElementById('main-canvas');
 
     async function applyTsunamiData(tsunamiSvg, data) {
         if (!tsunamiSvg) return;
 
+        // すべての線をリセット
         tsunamiSvg.selectAll("path")
             .style("stroke", "none")
             .style("stroke-width", "0");
 
-        if (!data || data.cancelled || !data.areas) return;
+        // 津波情報がない、またはキャンセル（解除）されている場合
+        if (!data || data.cancelled === true || !data.areas) {
+            mainCanvas.style.opacity = "0"; // 非表示にする
+            return;
+        }
+
+        // 津波情報がある場合のみ表示する
+        mainCanvas.style.opacity = "1";
 
         data.areas.forEach(area => {
             const areaName = area.name.trim();
@@ -121,7 +130,9 @@
         try {
             const response = await fetch("https://api.p2pquake.net/v2/history?codes=552&limit=5");
             const history = await response.json();
+            // cancelledがfalse（発表中）の最新データを取得
             const latestActive = history.find(item => item.cancelled === false);
+            
             applyTsunamiData(tsunamiSvgElement, latestActive || { cancelled: true });
         } catch (e) {
             console.error("API取得エラー:", e);
@@ -137,18 +148,15 @@
 
             const container = d3.select("#map-container");
 
-            // 背面に津波、前面に都道府県
             tsunamiSvgElement = container.append(() => tsunamiXml.documentElement);
             prefSvgElement = container.append(() => prefXml.documentElement);
             
-            // クラスを付与してCSSで制御
             tsunamiSvgElement.attr("class", "tsunami-svg");
             prefSvgElement.attr("class", "pref-svg");
 
             prefSvgElement.selectAll("path").classed("pref-path", true);
             tsunamiSvgElement.selectAll("path").classed("tsunami-path", true);
 
-            // フィット調整関数
             const fitToContainer = (svgNode, margin) => {
                 const bbox = svgNode.getBBox();
                 svgNode.setAttribute("viewBox", `${bbox.x - margin} ${bbox.y - margin} ${bbox.width + margin * 2} ${bbox.height + margin * 2}`);
@@ -158,12 +166,12 @@
             };
 
             setTimeout(() => {
-                // 都道府県は少し余白(10)を持たせてバランス調整
                 fitToContainer(prefSvgElement.node(), 10);
-                // 津波予報区は余白なし(0)で100%表示
                 fitToContainer(tsunamiSvgElement.node(), 0);
                 
+                // 初回チェック
                 fetchTsunamiInfo();
+                // 10秒毎にチェック
                 setInterval(fetchTsunamiInfo, 10000);
             }, 300);
 
