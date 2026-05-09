@@ -4,138 +4,117 @@
     <meta charset="UTF-8">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            background: transparent;
-            width: 600px;
-            height: 350px;
-            overflow: hidden;
-            display: flex;
-            justify-content: flex-start;
-            align-items: center;
+        body { 
+            margin: 0; 
+            background: transparent; 
+            width: 100vw; 
+            height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            overflow: hidden; 
+            position: relative; 
         }
 
-        #main-canvas {
-            position: relative;
-            width: 600px;
-            height: 350px;
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            overflow: hidden;
+        #main-canvas { 
+            height: 100vh; 
+            position: relative; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            overflow: hidden; 
         }
 
-        #background-cover {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: 1;
-            position: absolute;
+        #background-cover { 
+            position: relative; 
+            height: 100%; 
+            width: auto;   
+            z-index: -1; 
+            display: block;
         }
 
-        #map-container {
-            position: absolute;
-            z-index: 2;
-            pointer-events: none;
-            top: 0;
-            left: -10px; 
-            width: 100%;
-            height: 100%;
-        }
-
-        #svg-area {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-
-        svg {
+        #map-container { 
             position: absolute;
             top: 0;
-            left: 0;
-            width: 100% !important;
-            height: 100% !important;
+            left: -72px;
+            width: 100%; 
+            height: 100%; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            pointer-events: none; 
         }
-
-        .pref-path {
-            fill: #333333;
-            stroke: #555555;
-            stroke-width: 0.2px;
+        
+        svg { 
+            position: absolute; 
+            width: 90% !important; 
+            height: 90% !important; 
+            object-fit: contain; 
         }
-
-        @keyframes tsunami-blink {
-            0%, 75% { opacity: 1; }
-            75.1%, 100% { opacity: 0; }
-        }
-
-        .tsunami-layer {
-            animation: tsunami-blink 4s infinite;
-        }
-
-        .tsunami-path {
-            fill: none;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            transition: stroke 0.3s;
-        }
+        
+        .pref-path { fill: #BFBFBF; stroke: #BFBFBF; stroke-width: 0.5px; }
+        
+        .tsunami-path { fill: none; stroke: none; transition: stroke 0.3s, stroke-width 0.3s; }
     </style>
 </head>
 <body>
 
 <div id="main-canvas">
-    <img id="background-cover" src="https://gensai-lab.github.io/eqlive/assets/cover/tsunami_cover.png" alt="tsunami-bg">
-    <div id="map-container">
-        <div id="svg-area"></div>
-    </div>
+    <img id="background-cover" src="assets/cover/tsunami_cover.png" alt="background">
+    <div id="map-container"></div>
 </div>
 
 <script type="module">
     let tsunamiSvgElement = null;
 
-    const config = {
-        prefScale: 1.0,
-        tsunamiScale: 1.0,
-        offsetX: 0,
-        offsetY: 0,
-        apiUrl: "https://api.p2pquake.net/v2/history?codes=552&limit=5"
-    };
-
+    /**
+     * 津波データを地図に反映させる関数
+     */
     async function applyTsunamiData(tsunamiSvg, data) {
         if (!tsunamiSvg) return;
 
+        // 全ての線をリセット
         tsunamiSvg.selectAll("path")
             .style("stroke", "none")
             .style("stroke-width", "0");
 
+        // 解除時、またはデータがない場合は終了
         if (!data || data.cancelled || !data.areas) {
-            console.log("津波予報なし");
+            console.log("津波予報は発表されていません");
             return;
         }
 
         data.areas.forEach(area => {
             const areaName = area.name.trim();
             const grade = area.grade;
+            const baseWidth = 14; 
+            
             let color = "none";
-            let width = 0;
+            let width = "0px";
 
+            // 凡例に基づいた色分け
             if (grade === "MajorWarning") { 
-                color = "#C91EFB"; width = 12;
-            } else if (grade === "Warning") { 
-                color = "#DE080A"; width = 8;
-            } else if (grade === "Watch") { 
-                color = "#FEDC00"; width = 6;
+                color = "#C91EFB"; // 大津波警報
+                width = `${baseWidth * 2}px`;
+            } 
+            else if (grade === "Warning") { 
+                color = "#DE080A"; // 津波警報
+                width = `${baseWidth}px`; 
+            } 
+            else if (grade === "Watch") { 
+                color = "#FEDC00"; // 津波注意報
+                width = `${baseWidth}px`; 
             }
 
             const target = tsunamiSvg.selectAll("path").filter(function() {
                 const id = d3.select(this).attr("id");
+                // IDとエリア名が一致、またはIDにエリア名が含まれているかチェック
                 return id && (id === areaName || id.includes(areaName));
             });
 
             if (!target.empty()) {
                 target
                     .style("stroke", color)
-                    .style("stroke-width", `${width}px`)
+                    .style("stroke-width", width)
                     .style("stroke-linecap", "round")
                     .style("stroke-linejoin", "round")
                     .raise();
@@ -143,15 +122,22 @@
         });
     }
 
+    /**
+     * P2P地震情報APIから最新の津波情報を取得
+     */
     async function fetchTsunamiInfo() {
         try {
-            const response = await fetch(config.apiUrl);
+            // codes=552 は津波予報
+            const response = await fetch("https://api.p2pquake.net/v2/history?codes=552&limit=5");
             const history = await response.json();
+            
+            // 履歴の中から cancelled が false（発表中）の最新の1件を探す
             const latestActive = history.find(item => item.cancelled === false);
             
             if (latestActive) {
                 applyTsunamiData(tsunamiSvgElement, latestActive);
             } else {
+                // すべて解除されている、または有効なデータがない場合
                 applyTsunamiData(tsunamiSvgElement, { cancelled: true });
             }
         } catch (e) {
@@ -162,46 +148,47 @@
     async function init() {
         try {
             const [prefXml, tsunamiXml] = await Promise.all([
-                d3.xml("https://gensai-lab.github.io/eqlive/assets/svg/pref.svg"),
-                d3.xml("https://gensai-lab.github.io/eqlive/assets/svg/tsunami2_id.svg")
+                d3.xml("assets/svg/pref.svg"),
+                d3.xml("assets/svg/tsunami2_id.svg")
             ]);
 
-            const svgArea = d3.select("#svg-area");
-            const prefNode = svgArea.append(() => prefXml.documentElement);
-            prefNode.selectAll("path").classed("pref-path", true);
-
-            const tsunamiLayer = svgArea.append("div").attr("class", "tsunami-layer");
-            tsunamiSvgElement = tsunamiLayer.append(() => tsunamiXml.documentElement);
+            const container = d3.select("#map-container");
+            const prefSvg = container.append(() => prefXml.documentElement);
+            tsunamiSvgElement = container.append(() => tsunamiXml.documentElement);
+            
+            tsunamiSvgElement.style("position", "absolute").style("z-index", "10");
+            prefSvg.selectAll("path").classed("pref-path", true);
             tsunamiSvgElement.selectAll("path").classed("tsunami-path", true);
 
-            [prefNode, tsunamiSvgElement].forEach(svg => svg.attr("width", null).attr("height", null));
-
-            const pBbox = prefNode.node().getBBox();
-            const tBbox = tsunamiSvgElement.node().getBBox();
-            const minX = Math.min(pBbox.x, tBbox.x);
-            const minY = Math.min(pBbox.y, tBbox.y);
-            const width = Math.max(pBbox.x + pBbox.width, tBbox.x + tBbox.width) - minX;
-            const height = Math.max(pBbox.y + pBbox.height, tBbox.y + tBbox.height) - minY;
-
-            const getAdjustedViewBox = (scale) => {
-                const adjW = width / scale;
-                const adjH = height / scale;
-                const diffW = (adjW - width) / 2;
-                const diffH = (adjH - height) / 2;
-                return `${minX - diffW - config.offsetX} ${minY - diffH - config.offsetY} ${adjW} ${adjH}`;
+            const autoFit = (svgNode) => {
+                const bbox = svgNode.getBBox();
+                const margin = 10;
+                svgNode.setAttribute("viewBox", `${bbox.x - margin} ${bbox.y - margin} ${bbox.width + margin * 2} ${bbox.height + margin * 2}`);
+                svgNode.removeAttribute("width");
+                svgNode.removeAttribute("height");
+                svgNode.setAttribute("preserveAspectRatio", "xMidYMid meet");
             };
 
-            prefNode.attr("viewBox", getAdjustedViewBox(config.prefScale)).attr("preserveAspectRatio", "xMidYMid meet");
-            tsunamiSvgElement.attr("viewBox", getAdjustedViewBox(config.tsunamiScale)).attr("preserveAspectRatio", "xMidYMid meet");
-
-            // 10秒ごとに自動更新するように設定
-            fetchTsunamiInfo();
-            setInterval(fetchTsunamiInfo, 10000);
+            setTimeout(() => {
+                autoFit(prefSvg.node());
+                autoFit(tsunamiSvgElement.node());
+                
+                // 初期化完了後に最初のデータ取得
+                fetchTsunamiInfo();
+                
+                // 以降、10秒ごとに自動更新
+                setInterval(fetchTsunamiInfo, 10000);
+            }, 300);
 
         } catch (error) {
-            console.error("初期化失敗:", error);
+            console.error("読み込みに失敗しました:", error);
         }
     }
+
+    // 手動更新・管理パネルからの制御用
+    window.updateTsunamiMap = (data) => {
+        applyTsunamiData(tsunamiSvgElement, data);
+    };
 
     init();
 </script>
