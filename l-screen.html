@@ -48,12 +48,12 @@
             line-height: 1;
         }
 
-        /* 左側タイトル：コンテナを設置して制御 */
+        /* 左側タイトル */
         #title-container {
             position: absolute;
             top: 50px;
             left: 50px;
-            height: 980px; /* 制限の高さ */
+            height: 980px;
             display: flex;
             justify-content: flex-start;
             align-items: center;
@@ -65,7 +65,7 @@
             text-orientation: upright;
             font-weight: bold;
             letter-spacing: 0.05em;
-            white-space: nowrap; /* 2行化を強制防止 */
+            white-space: nowrap;
         }
 
         #genre-container {
@@ -148,12 +148,10 @@
     let currentIndex = 0;
     let isLooping = false;
 
-    // タイトルの高さ調整（980pxを超えたら縮小）
     function adjustTitleSize() {
         const maxHeight = 980;
         titleEl.style.transform = "scale(1)";
         const currentHeight = titleEl.offsetHeight;
-        
         if (currentHeight > maxHeight) {
             const scale = maxHeight / currentHeight;
             titleEl.style.transform = `scale(${scale})`;
@@ -161,7 +159,6 @@
         }
     }
 
-    // ジャンルの幅調整（210pxを超えたら縮小）
     function adjustGenreFontSize() {
         const maxWidth = 210;
         genreEl.style.transform = "scale(1)";
@@ -173,7 +170,6 @@
         }
     }
 
-    // Iframeのスケール調整
     function adjustIframeScale() {
         const container = document.getElementById('main-content');
         const scale = container.offsetWidth / 1920;
@@ -185,39 +181,49 @@
     });
     adjustIframeScale();
 
-    // Firebase監視
-    onValue(ref(db, 'broadcast/lscreen'), (snapshot) => {
+    // Firebase同期設定 (l_shape を監視)
+    onValue(ref(db, 'broadcast/l_shape'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
-        if (data.title) {
-            titleEl.textContent = data.title;
-            // テキスト更新後にサイズ調整
+        // 左側縦書きタイトル
+        if (data.leftText !== undefined) {
+            titleEl.textContent = data.leftText;
             setTimeout(adjustTitleSize, 50);
         }
 
-        if (data.news) {
-            infoList = Object.values(data.news);
+        // 上部情報カードリスト
+        if (data.topItems) {
+            // 配列形式かオブジェクト形式かを問わずリスト化
+            infoList = Object.values(data.topItems);
+            
             if (infoList.length > 0 && !isLooping) {
                 isLooping = true;
                 startTextLoop();
             }
+        } else {
+            infoList = [];
+            genreEl.textContent = "";
+            mainEl.textContent = "";
         }
     });
 
     function startTextLoop() {
         showText();
-        setInterval(nextText, 10000);
+        setInterval(nextText, 10000); // 10秒おき
     }
 
     function showText() {
         if (infoList.length === 0) return;
+        
+        // インデックスが範囲外にならないよう調整
+        if (currentIndex >= infoList.length) currentIndex = 0;
         const current = infoList[currentIndex];
 
         mainEl.classList.add('fade-out');
 
         setTimeout(() => {
-            genreEl.textContent = current.genre || "情報";
+            genreEl.textContent = current.genre || "";
             mainEl.textContent = current.text || "";
             
             adjustGenreFontSize();
