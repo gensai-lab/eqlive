@@ -54,19 +54,19 @@
         #title-container {
             position: absolute;
             top: 40px;
-            left: 21px;
-            height: 980px; /* 制限の高さ */
+            left: 30px;
+            height: 980px;
             width: 180px;
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            overflow: visible; /* scaleYで突き抜けないよう制御 */
+            overflow: visible;
         }
 
         #l-title {
             color: #003EB3;
             font-family: 'FOT-UDKakugo_LargePr6-B', sans-serif;
-            font-size: 116px;
+            font-size: 160px;
             writing-mode: vertical-rl;
             text-orientation: upright;
             font-weight: normal;
@@ -74,8 +74,16 @@
             white-space: nowrap;
             padding-top: 10px;
             display: block;
-            /* transformの起点。文字の頂点を基準に圧縮する */
             transform-origin: top center;
+        }
+
+        /* --- 特定の文字に対する余白調整 --- */
+        /* 半角スペースと中黒の上下（縦書きなので前後）を詰める */
+        .tight-char {
+            display: inline-block;
+            margin-top: -0.2em;
+            margin-bottom: -0.2em;
+            letter-spacing: -0.2em; /* 字間も詰める */
         }
 
         #genre-container {
@@ -160,17 +168,19 @@
     let currentIndex = 0;
     let isLooping = false;
 
-    // タイトルの高さを調整（縦にのみ圧縮）
+    // 特定の文字を個別に詰めるための処理
+    function applyTightText(element, text) {
+        // 半角スペースと中黒をspanで囲む
+        const processed = text.replace(/([ ・])/g, '<span class="tight-char">$1</span>');
+        element.innerHTML = processed;
+    }
+
     function adjustTitleSize() {
-        const maxHeight = 980; // 指定された制限値
-        titleEl.style.transform = "scaleY(1)"; // 一旦リセット
-        
+        const maxHeight = 980;
+        titleEl.style.transform = "scaleY(1)";
         const currentHeight = titleEl.offsetHeight;
-        
         if (currentHeight > maxHeight) {
-            // 高さの比率だけを計算
             const scaleY = maxHeight / currentHeight;
-            // 横幅（scaleX）は1のまま、縦（scaleY）だけを縮める
             titleEl.style.transform = `scaleY(${scaleY})`;
         }
     }
@@ -203,8 +213,8 @@
         if (!data) return;
 
         if (data.leftText !== undefined) {
-            titleEl.textContent = data.leftText;
-            // テキスト挿入直後だと高さが正しく取れないことがあるため少し待つ
+            // 文字詰め処理を適用してセット
+            applyTightText(titleEl, data.leftText);
             setTimeout(adjustTitleSize, 100);
         }
 
@@ -231,6 +241,7 @@
 
         setTimeout(() => {
             genreEl.textContent = current.genre || "";
+            // 上部テロップにも同様の処理が必要な場合は applyTightText を使う
             mainEl.textContent = current.text || "";
             adjustGenreFontSize();
             mainEl.classList.remove('fade-out');
