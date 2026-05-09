@@ -66,7 +66,7 @@
         #l-title {
             color: #003EB3;
             font-family: 'FOT-UDKakugo_LargePr6-B', sans-serif;
-            font-size: 116px;
+            font-size: 160px; /* 文字サイズを160pxに設定 */
             writing-mode: vertical-rl;
             text-orientation: upright;
             font-weight: normal;
@@ -77,22 +77,22 @@
             transform-origin: top center;
         }
 
-        /* --- 文字別の個別調整 --- */
+        /* --- 特定の文字に対する余白調整 --- */
         
-        /* 半角スペースの調整 */
+        /* 半角スペースの調整：高さを最小限にして詰める */
         .tight-space {
             display: inline-block;
-            height: 0.2em;      /* スペースの高さを強制的に小さくする */
+            height: 0.1em;
             letter-spacing: 0;
-            vertical-align: middle;
+            visibility: hidden; /* スペースそのものは見えなくて良いため */
         }
 
-        /* 中黒（・）の調整 */
+        /* 中黒（・）の調整：上下の余白をマイナスマージンで削る */
         .tight-dot {
             display: inline-block;
-            margin-top: -0.15em;    /* 上の余白を削る */
-            margin-bottom: -0.15em; /* 下の余白を削る */
-            transform: scaleY(1.1);  /* 縦に少し伸ばして中心に寄せる等の微調整も可能 */
+            margin-top: -0.2em;
+            margin-bottom: -0.2em;
+            transform: scaleY(1.1); /* 縦に少し伸ばしてバランス調整 */
         }
 
         #genre-container {
@@ -177,17 +177,26 @@
     let currentIndex = 0;
     let isLooping = false;
 
-    // 文字別に異なるクラスを適用
+    // 文字別に異なるクラスを適用（二重タグ防止クリーン版）
     function applyTightText(element, text) {
-        let processed = text;
-        // 中黒（・）を置換
-        processed = processed.replace(/・/g, '<span class="tight-dot">・</span>');
-        // 半角スペースを置換
-        processed = processed.replace(/ /g, '<span class="tight-space"> </span>');
+        if (!text) {
+            element.innerHTML = "";
+            return;
+        }
+        // HTMLタグが含まれている場合に備え、テキストのみを抽出
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = text;
+        let pureText = tempDiv.textContent || tempDiv.innerText || "";
+
+        // 置換処理
+        let processed = pureText
+            .replace(/・/g, '<span class="tight-dot">・</span>')
+            .replace(/ /g, '<span class="tight-space"> </span>');
         
         element.innerHTML = processed;
     }
 
+    // 縦サイズが980pxを超えたら縦に縮める（scaleY）
     function adjustTitleSize() {
         const maxHeight = 980;
         titleEl.style.transform = "scaleY(1)";
