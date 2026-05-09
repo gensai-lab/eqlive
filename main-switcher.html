@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>EQLive Main Switcher</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0;
+            width: 1920px; height: 1080px;
+            background-color: black;
+            overflow: hidden;
+        }
+
+        #view-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        iframe {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px;
+            height: 1080px;
+            border: none;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            z-index: 1;
+        }
+
+        /* 表示中のiframeを前面に出して表示 */
+        iframe.active {
+            opacity: 1;
+            z-index: 2;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="view-container">
+        <iframe id="frame-l-screen" src="l-screen.html"></iframe>
+        <iframe id="frame-sub-switcher" src="sub-switcher.html"></iframe>
+    </div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const frameL = document.getElementById('frame-l-screen');
+    const frameSub = document.getElementById('frame-sub-switcher');
+
+    /**
+     * 表示の切り替え処理
+     * @param {string} viewType 'l-screen' か 'sub-switcher'
+     */
+    function switchView(viewType) {
+        if (viewType === 'l-screen') {
+            frameL.classList.add('active');
+            frameSub.classList.remove('active');
+        } else {
+            frameSub.classList.add('active');
+            frameL.classList.remove('active');
+        }
+    }
+
+    // Firebaseの 'broadcast/current_mode' を監視して切り替え
+    // ※管理画面（admin）でこの値を書き換えるように設定してください
+    const modeRef = ref(db, 'broadcast/current_mode');
+    onValue(modeRef, (snapshot) => {
+        const mode = snapshot.val();
+        if (mode) {
+            switchView(mode);
+        } else {
+            // デフォルトは通常画面
+            switchView('sub-switcher');
+        }
+    });
+</script>
+</body>
+</html>
