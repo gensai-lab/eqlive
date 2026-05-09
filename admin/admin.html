@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EQLive Admin Pro</title>
     <style>
-        /* 既存スタイル維持 */
         :root {
             --bg-color: #0f0f0f; --card-bg: #1a1a1a;
             --accent-blue: #0078d4; --accent-red: #d13438;
@@ -29,7 +28,6 @@
         button.primary { background: var(--accent-blue); color: white; border: none; padding: 16px; border-radius: 8px; cursor: pointer; font-weight: bold; flex: 1; }
         button.secondary { background: #333; color: white; border: none; padding: 16px; border-radius: 8px; cursor: pointer; flex: 1; }
         button.danger { background: var(--accent-red); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px;}
-        button:disabled { opacity: 0.3; }
         .scroll-table { height: 350px; overflow-y: auto; background: #111; border-radius: 8px; border: 1px solid var(--border-color); }
         table { width: 100%; border-collapse: collapse; }
         th { background: #222; position: sticky; top: 0; padding: 12px; text-align: left; font-size: 11px; color: #666; }
@@ -44,7 +42,7 @@
 
 <header>
     <button class="menu-toggle" onclick="toggleMenu()">☰</button>
-    <div class="header-logo">EQLive Admin</div>
+    <div class="header-logo">EQLive Admin Pro</div>
 </header>
 
 <main>
@@ -53,7 +51,7 @@
         <button onclick="changeTab('camera')" id="btn-camera">カメラ切替</button>
         <button onclick="changeTab('lshape')" id="btn-lshape">L字設定</button>
         <button onclick="changeTab('broadcast')" id="btn-broadcast">放送設定</button>
-        <div style="margin-top: auto; padding: 20px; font-size: 10px; color: #444;">Kactuif v2.3</div>
+        <div style="margin-top: auto; padding: 20px; font-size: 10px; color: #444;">Kactuif v2.4</div>
     </nav>
 
     <div class="content">
@@ -62,12 +60,12 @@
             <div class="card">
                 <label>ページ送り自動/手動</label>
                 <div style="display:flex; align-items:center; justify-content:space-between; background:#252525; padding:15px; border-radius:8px; margin-bottom:20px;">
-                    <span id="auto-status-text">自動送り：ON</span>
+                    <span id="auto-status-text">自動送り：---</span>
                     <button class="secondary" style="width:100px;" onclick="toggleAutoPage()">切替</button>
                 </div>
                 <div class="btn-group">
-                    <button id="btn-prev" class="primary" onclick="manualPageMove('prev')" disabled>前のページ</button>
-                    <button id="btn-next" class="primary" onclick="manualPageMove('next')" disabled>次のページ</button>
+                    <button id="btn-prev" class="primary" onclick="manualPageMove('prev')">前のページ</button>
+                    <button id="btn-next" class="primary" onclick="manualPageMove('next')">次のページ</button>
                 </div>
             </div>
         </div>
@@ -108,52 +106,43 @@
                 </div>
             </div>
 
-            <h2>画面共有ソース設定（screen-program）</h2>
+            <h2>画面共有ソース設定</h2>
             <div class="card">
                 <label>投影タイトル</label>
-                <input type="text" id="field-screen-title" placeholder="例：今後の震度予想">
-                
+                <input type="text" id="field-screen-title">
                 <label>メディアの種類</label>
                 <select id="select-screen-type">
-                    <option value="screenshare">PC画面共有（要操作）</option>
+                    <option value="screenshare">PC画面共有</option>
                     <option value="image">画像URL</option>
-                    <option value="video">動画URL (.mp4 / .m3u8)</option>
-                    <option value="youtube">YouTube URL</option>
+                    <option value="video">動画URL</option>
+                    <option value="youtube">YouTube</option>
                 </select>
-
-                <label>URL / ソースパス</label>
-                <input type="text" id="field-screen-url" placeholder="https://...">
-                
-                <button class="primary" style="width:100%; margin-top: 10px;" onclick="updateScreenProgram()">共有ソースを更新</button>
+                <label>URL / ソース</label>
+                <input type="text" id="field-screen-url">
+                <button class="primary" style="width:100%;" onclick="updateScreenProgram()">ソース更新</button>
             </div>
 
-            <h2>テロップ編集（title.html）</h2>
+            <h2>テロップ / レイアウト</h2>
             <div class="card">
                 <label>メインタイトル</label>
-                <input type="text" id="field-mainTitle" placeholder="メインタイトル">
-                <button class="primary" style="width:100%; margin-top: 10px;" onclick="updateTitles()">テロップを更新</button>
-            </div>
-
-            <h2>全体レイアウト（sub-switcher内）</h2>
-            <div class="card">
-                <label>表示シーン</label>
+                <input type="text" id="field-mainTitle">
+                <button class="primary" style="width:100%; margin-bottom:15px;" onclick="updateTitles()">更新</button>
+                
+                <label>表示シーン（sub-switcher）</label>
                 <div class="btn-group">
-                    <button id="btn-lay-live" class="secondary" onclick="updateLayout('live')">通常ライブカメラ</button>
-                    <button id="btn-lay-emer" class="secondary" onclick="updateLayout('emergency')">緊急特番モード</button>
+                    <button id="btn-lay-live" class="secondary" onclick="updateLayout('live')">ライブカメラ</button>
+                    <button id="btn-lay-emer" class="secondary" onclick="updateLayout('emergency')">緊急特番</button>
                 </div>
             </div>
 
-            <h2>メイン画面ソース（emergency内）</h2>
+            <h2>メイン画面ソース / 配信主体</h2>
             <div class="card">
-                <label>コンテンツ選択</label>
-                <div class="btn-group">
+                <label>緊急特番時のソース</label>
+                <div class="btn-group" style="margin-bottom:15px;">
                     <button id="btn-src-screen" class="secondary" onclick="updateMainSource('screen')">画面共有</button>
                     <button id="btn-src-camera" class="secondary" onclick="updateMainSource('camera')">ライブカメラ</button>
                 </div>
-            </div>
-            
-            <h2>配信主体</h2>
-            <div class="card">
+                <label>配信主体</label>
                 <div class="btn-group">
                     <button id="btn-dist-bot" class="secondary" onclick="updateDistributor('bot')">Bot配信</button>
                     <button id="btn-dist-human" class="secondary" onclick="updateDistributor('ningen')">有人配信</button>
@@ -167,18 +156,170 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
-        authDomain: "mgl-eqlive.firebaseapp.com",
-        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
-        projectId: "mgl-eqlive",
-        storageBucket: "mgl-eqlive.firebasestorage.app",
-        messagingSenderId: "1060231327645",
-        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    // ==========================================
+    // 1. 設定・URLまとめ
+    // ==========================================
+    const CONFIG = {
+        CAMERA_LIST_URL: 'assets/json/kh-livec.json',
+        FIREBASE: {
+            apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+            authDomain: "mgl-eqlive.firebaseapp.com",
+            databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+            projectId: "mgl-eqlive",
+            storageBucket: "mgl-eqlive.firebasestorage.app",
+            messagingSenderId: "1060231327645",
+            appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+        },
+        PATHS: {
+            BROADCAST: 'broadcast',
+            CURRENT: 'broadcast/current',
+            L_SHAPE: 'broadcast/l_shape',
+            SCREEN: 'broadcast/screen_program',
+            MODE: 'broadcast/current_mode',
+            TSUNAMI: 'broadcast/tsunami_config'
+        }
     };
-    const app = initializeApp(firebaseConfig);
+
+    const app = initializeApp(CONFIG.FIREBASE);
     const db = getDatabase(app);
 
+    // ==========================================
+    // 2. 初期化 & カメラリスト取得
+    // ==========================================
+    async function initCameras() {
+        try {
+            const res = await fetch(CONFIG.CAMERA_LIST_URL);
+            if (!res.ok) throw new Error("Load failed");
+            const list = await res.json();
+            const tbody = document.getElementById('camera-list-body');
+            tbody.innerHTML = "";
+            list.forEach(cam => {
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-id', cam.id);
+                tr.innerHTML = `<td>${cam.name}</td><td style="color:#666; font-size:10px;">${cam.type}</td>`;
+                tr.onclick = () => update(ref(db, CONFIG.PATHS.CURRENT), { cameraSource: cam.id });
+                tbody.appendChild(tr);
+            });
+            // 読み込み後に現在の選択状態を反映
+            syncCurrentState();
+        } catch (e) {
+            console.error("Camera List Error:", e);
+        }
+    }
+
+    // ==========================================
+    // 3. データ同期
+    // ==========================================
+    function syncCurrentState() {
+        onValue(ref(db, CONFIG.PATHS.BROADCAST), (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            const cur = data.current || {};
+            const screen = data.screen_program || {};
+            const mode = data.current_mode || 'sub-switcher';
+            const lshape = data.l_shape || { leftText: "", topItems: [] };
+
+            // モード・レイアウト・ソースの強調表示
+            updateBtnClass('btn-mode-sub', mode === 'sub-switcher');
+            updateBtnClass('btn-mode-l', mode === 'l-screen');
+            updateBtnClass('btn-lay-live', cur.layoutMode === 'live');
+            updateBtnClass('btn-lay-emer', cur.layoutMode === 'emergency');
+            updateBtnClass('btn-src-screen', cur.mainSource === 'screen');
+            updateBtnClass('btn-src-camera', cur.mainSource === 'camera');
+            updateBtnClass('btn-dist-bot', cur.distributor === 'bot');
+            updateBtnClass('btn-dist-human', cur.distributor === 'ningen');
+
+            // フィールド同期（フォーカス時は除く）
+            if(document.activeElement.id !== 'field-mainTitle') document.getElementById('field-mainTitle').value = cur.mainTitle || '';
+            if(document.activeElement.id !== 'field-screen-title') document.getElementById('field-screen-title').value = screen.title || '';
+            if(document.activeElement.id !== 'field-screen-url') document.getElementById('field-screen-url').value = screen.url || '';
+            document.getElementById('select-screen-type').value = screen.type || 'screenshare';
+            
+            // カメラ選択
+            document.getElementById('field-cameraId').value = cur.cameraSource || '';
+            document.querySelectorAll('#camera-list-body tr').forEach(tr => {
+                tr.classList.toggle('selected', tr.getAttribute('data-id') === cur.cameraSource);
+            });
+
+            // 津波
+            const isAuto = data.tsunami_config?.autoPage !== false;
+            const statusEl = document.getElementById('auto-status-text');
+            statusEl.innerText = isAuto ? "自動送り：ON" : "自動送り：OFF";
+            statusEl.style.color = isAuto ? "var(--accent-blue)" : "var(--accent-red)";
+
+            // L字（初回または同期時のみ）
+            if (!window.lItemsEditing) {
+                document.getElementById('field-l-leftText').value = lshape.leftText || "";
+                renderLItems(lshape.topItems || []);
+            }
+        });
+    }
+
+    function updateBtnClass(id, isActive) {
+        const btn = document.getElementById(id);
+        if (btn) btn.className = isActive ? 'primary' : 'secondary';
+    }
+
+    // ==========================================
+    // 4. アクション関数
+    // ==========================================
+    window.updateMainMode = (mode) => set(ref(db, CONFIG.PATHS.MODE), mode);
+    window.updateLayout = (mode) => update(ref(db, CONFIG.PATHS.CURRENT), { layoutMode: mode });
+    window.updateMainSource = (source) => update(ref(db, CONFIG.PATHS.CURRENT), { mainSource: source });
+    window.updateDistributor = (type) => update(ref(db, CONFIG.PATHS.CURRENT), { distributor: type });
+    window.updateTitles = () => update(ref(db, CONFIG.PATHS.CURRENT), { mainTitle: document.getElementById('field-mainTitle').value });
+    window.toggleAutoPage = () => {
+        const isAuto = document.getElementById('auto-status-text').innerText.includes("ON");
+        update(ref(db, CONFIG.PATHS.TSUNAMI), { autoPage: !isAuto });
+    };
+    window.manualPageMove = (dir) => update(ref(db, CONFIG.PATHS.TSUNAMI), { manualTrigger: { direction: dir, timestamp: Date.now() } });
+    
+    window.updateScreenProgram = () => {
+        update(ref(db, CONFIG.PATHS.SCREEN), {
+            title: document.getElementById('field-screen-title').value,
+            type: document.getElementById('select-screen-type').value,
+            url: document.getElementById('field-screen-url').value
+        });
+    };
+
+    // --- L字アイテム操作 ---
+    window.addLItem = () => {
+        window.lItemsEditing = true;
+        const container = document.getElementById('l-items-container');
+        container.appendChild(createItemDOM("", "", container.children.length));
+    };
+    window.saveLShape = () => {
+        const topItems = Array.from(document.querySelectorAll('.l-item-card')).map(card => ({
+            genre: card.querySelector('.l-genre-input').value,
+            text: card.querySelector('.l-text-input').value
+        }));
+        set(ref(db, CONFIG.PATHS.L_SHAPE), {
+            leftText: document.getElementById('field-l-leftText').value,
+            topItems: topItems
+        }).then(() => {
+            alert("保存完了");
+            window.lItemsEditing = false;
+        });
+    };
+
+    function renderLItems(items) {
+        const container = document.getElementById('l-items-container');
+        container.innerHTML = "";
+        items.forEach((item, index) => container.appendChild(createItemDOM(item.genre, item.text, index)));
+    }
+
+    function createItemDOM(genre = "", text = "", index) {
+        const div = document.createElement('div');
+        div.className = "l-item-card";
+        div.innerHTML = `<div class="l-item-header"><label>#${index+1}</label><button class="danger" onclick="this.closest('.l-item-card').remove()">削除</button></div>
+                         <input type="text" class="l-genre-input" value="${genre}" placeholder="ジャンル">
+                         <input type="text" class="l-text-input" value="${text}" placeholder="内容">`;
+        div.querySelectorAll('input').forEach(i => i.onfocus = () => window.lItemsEditing = true);
+        return div;
+    }
+
+    // UI操作用
     window.toggleMenu = () => document.getElementById('side-nav').classList.toggle('open');
     window.changeTab = (id) => {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -187,74 +328,7 @@
         document.getElementById('btn-' + id).classList.add('active');
     };
 
-    onValue(ref(db, 'broadcast'), (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-
-        const cur = data.current || {};
-        const screen = data.screen_program || {};
-        const mode = data.current_mode || 'sub-switcher';
-
-        // L字モード選択状態
-        document.getElementById('btn-mode-sub').className = (mode === 'sub-switcher') ? 'primary' : 'secondary';
-        document.getElementById('btn-mode-l').className = (mode === 'l-screen') ? 'primary' : 'secondary';
-
-        // 共有ソース情報の同期
-        document.getElementById('field-screen-title').value = screen.title || '';
-        document.getElementById('select-screen-type').value = screen.type || 'screenshare';
-        document.getElementById('field-screen-url').value = screen.url || '';
-
-        // その他既存の同期処理（省略せずに維持）
-        const isAuto = data.tsunami_config?.autoPage !== false;
-        document.getElementById('auto-status-text').innerText = isAuto ? "自動送り：ON" : "自動送り：OFF";
-        document.getElementById('btn-prev').disabled = document.getElementById('btn-next').disabled = isAuto;
-        document.getElementById('field-mainTitle').value = cur.mainTitle || '';
-        
-        // レイアウト/ソースボタンの強調表示
-        const lay = cur.layoutMode || 'live';
-        document.getElementById('btn-lay-live').className = (lay === 'live') ? 'primary' : 'secondary';
-        document.getElementById('btn-lay-emer').className = (lay === 'emergency') ? 'primary' : 'secondary';
-        const src = cur.mainSource || 'screen';
-        document.getElementById('btn-src-screen').className = (src === 'screen') ? 'primary' : 'secondary';
-        document.getElementById('btn-src-camera').className = (src === 'camera') ? 'primary' : 'secondary';
-    });
-
-    // メインスイッチャーの切り替え
-    window.updateMainMode = (mode) => {
-        set(ref(db, 'broadcast/current_mode'), mode);
-    };
-
-    // 画面共有プログラムの更新
-    window.updateScreenProgram = () => {
-        update(ref(db, 'broadcast/screen_program'), {
-            title: document.getElementById('field-screen-title').value,
-            type: document.getElementById('select-screen-type').value,
-            url: document.getElementById('field-screen-url').value
-        }).then(() => alert("共有ソースを更新しました。"));
-    };
-
-    // 既存機能（維持）
-    window.updateTitles = () => {
-        update(ref(db, 'broadcast/current'), { mainTitle: document.getElementById('field-mainTitle').value });
-    };
-    window.updateLayout = (mode) => update(ref(db, 'broadcast/current'), { layoutMode: mode });
-    window.updateMainSource = (source) => update(ref(db, 'broadcast/current'), { mainSource: source });
-    window.updateDistributor = (type) => update(ref(db, 'broadcast/current'), { distributor: type });
-    window.toggleAutoPage = () => {
-        const isAuto = document.getElementById('auto-status-text').innerText.includes("ON");
-        update(ref(db, 'broadcast/tsunami_config'), { autoPage: !isAuto });
-    };
-    window.saveLShape = () => {
-        const topItems = Array.from(document.querySelectorAll('.l-item-card')).map(card => ({
-            genre: card.querySelector('.l-genre-input').value,
-            text: card.querySelector('.l-text-input').value
-        }));
-        set(ref(db, 'broadcast/l_shape'), {
-            leftText: document.getElementById('field-l-leftText').value,
-            topItems: topItems
-        }).then(() => alert("保存完了"));
-    };
-    // カメラ初期化等は既存のまま継続...
+    window.onload = initCameras;
 </script>
 </body>
 </html>
