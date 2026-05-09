@@ -1,4 +1,4 @@
-# EQLive / Gensai_Lab
+# EQLive / Gensai Lab
 <br>**Main**</br>
 <br>Live Only : https://gensai-lab.github.io/eqlive/live-only.html</br>
 <br>Screen Only : https://gensai-lab.github.io/eqlive/screen-program.html</br>
