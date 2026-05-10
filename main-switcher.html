@@ -33,6 +33,19 @@
             opacity: 1;
             z-index: 2;
         }
+
+        /* EEWパーツの配置設定 */
+        #frame-eew {
+            position: absolute;
+            bottom: 50px; /* 下から50px */
+            left: 50%;
+            transform: translateX(-50%); /* 中央寄せ */
+            width: 1300px;
+            height: 371px;
+            z-index: 100; /* 常に最前面 */
+            opacity: 1; /* eew.html内のコンテナがdisplay:noneで制御されるため常時1でOK */
+            background: transparent;
+        }
     </style>
 </head>
 <body>
@@ -40,7 +53,10 @@
     <div id="view-container">
         <iframe id="frame-l-screen" src="l-screen.html"></iframe>
         <iframe id="frame-sub-switcher" src="sub-switcher.html"></iframe>
+        <iframe id="frame-eew" src="eew.html"></iframe>
     </div>
+
+    <audio id="eew-audio" src="../assets/eew-audio.mp3" preload="auto"></audio>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -60,10 +76,10 @@
 
     const frameL = document.getElementById('frame-l-screen');
     const frameSub = document.getElementById('frame-sub-switcher');
+    const eewAudio = document.getElementById('eew-audio');
 
     /**
      * 表示の切り替え処理
-     * @param {string} viewType 'l-screen' か 'sub-switcher'
      */
     function switchView(viewType) {
         if (viewType === 'l-screen') {
@@ -75,16 +91,25 @@
         }
     }
 
-    // Firebaseの 'broadcast/current_mode' を監視して切り替え
-    // ※管理画面（admin）でこの値を書き換えるように設定してください
+    // Firebaseの監視
     const modeRef = ref(db, 'broadcast/current_mode');
     onValue(modeRef, (snapshot) => {
         const mode = snapshot.val();
         if (mode) {
             switchView(mode);
         } else {
-            // デフォルトは通常画面
             switchView('sub-switcher');
+        }
+    });
+
+    /**
+     * 子要素(eew.html)からのメッセージ待受
+     * 発表時に音声を流す処理
+     */
+    window.addEventListener('message', (event) => {
+        if (event.data === 'playEEWAudio') {
+            eewAudio.currentTime = 0; // 最初から再生
+            eewAudio.play().catch(e => console.warn("音声再生に失敗しました（ブラウザの制限など）:", e));
         }
     });
 </script>
