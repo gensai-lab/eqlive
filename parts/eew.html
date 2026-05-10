@@ -49,19 +49,20 @@
             text-align: right;
             line-height: 1;
             white-space: nowrap;
-            font-weight: normal;
+            font-weight: normal; /* 太字補正をオフ */
         }
 
-        /* マップサイズを拡大 */
         #map-frame {
             position: absolute;
-            left: 820px; /* 少し左に寄せて大きく */
-            top: 92px;  /* 少し上に寄せて大きく */
-            width: 480px;
-            height: 278px;
+            left: 815px; 
+            top: 88px;  
+            width: 485px; /* マップをさらに微拡大 */
+            height: 283px;
             z-index: 2;
             border: none;
-            background: #002060; /* 読み込み中のチラつき防止 */
+            background: #002060;
+            /* 右下だけ角丸8pxを適用 */
+            border-bottom-right-radius: 8px;
         }
 
         .area-text {
@@ -75,10 +76,12 @@
             color: #FFFFFF;
             text-align: left;
             line-height: 1.1;
-            font-weight: 100; /* 数値で細く指定 */
-            -webkit-font-smoothing: antialiased; /* 文字の滲みを防ぐ */
+            /* 「無理やり太字」を消すための設定群 */
+            font-weight: normal !important; 
+            -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-            letter-spacing: 0.02em;
+            text-rendering: optimizeLegibility;
+            letter-spacing: 0.01em;
         }
 
         #area-row1 { top: 187px; }
@@ -168,10 +171,9 @@
         const mapFrame = document.getElementById("map-frame");
         const sendData = () => {
             mapFrame.contentWindow.updateMapFromParent(eew);
-            // 地図の処理が走るコンマ数秒後に本体を表示（日本全体が映るのを防ぐ）
             setTimeout(() => {
                 document.getElementById("eew-container").style.display = "block";
-            }, 100);
+            }, 150);
         };
 
         if (mapFrame.contentWindow && typeof mapFrame.contentWindow.updateMapFromParent === 'function') {
