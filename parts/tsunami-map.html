@@ -2,189 +2,92 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <title>EEW Map - Leaflet</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { 
-            margin: 0; 
-            background: transparent; 
-            width: 100vw; 
-            height: 100vh; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center;
-            overflow: hidden; 
-            position: relative; 
-        }
-
-        #main-canvas { 
-            width: 100%;
-            height: 100%;
-            position: relative; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-        }
-
-        #map-container { 
-            position: relative;
-            width: 95%; 
-            height: 95%;
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-        }
-
-        /* 地図SVGのスタイル */
-        .eew-map-svg {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-
-        /* 地図の基本色設定 */
-        .map-path { 
-            fill: #BFBFBF; /* 地図の背景色 */
-            stroke: #7F7F7F; /* 地図の枠線 */
-            stroke-width: 0.5px; 
-        }
-
-        /* 警告地域（黄色） */
-        .eew-active-area {
-            fill: #FFF300 !important;
-            transition: fill 0.3s;
-        }
-
-        /* 震源地アイコン（shingen.svg） */
-        #shingen-icon {
-            position: absolute;
-            width: 60px; /* サイズは適宜調整してください */
-            height: 60px;
-            transform: translate(-50%, -50%); /* 中心合わせ */
-            z-index: 100;
-            display: none;
-            filter: drop-shadow(0 0 4px rgba(0,0,0,0.5));
-        }
+        body { margin: 0; padding: 0; background: transparent; width: 100vw; height: 100vh; overflow: hidden; }
+        #map { width: 100%; height: 100%; background: transparent; }
+        .leaflet-interactive { fill-opacity: 1; }
+        .shingen-icon-style { pointer-events: none; }
     </style>
 </head>
 <body>
+<div id="map"></div>
+<script>
+    const BASE_URL = "https://gensai-lab.github.io/eqlive/";
+    const GEOJSON_URL = BASE_URL + "assets/json/eew-mapdate-geo.json";
+    const SHINGEN_SVG = BASE_URL + "assets/svg/shingen.svg";
 
-<div id="main-canvas">
-    <div id="map-container">
-        <img id="shingen-icon" src="../assets/svg/shingen.svg" alt="震源地">
-    </div>
-</div>
+    let map;
+    let geoJsonLayer;
+    let shingenMarker;
 
-<script type="module">
-    let mapSvgElement = null;
-    const API_URL = "https://api.p2pquake.net/v2/history?codes=556&limit=1";
-    const SVG_URL = "../assets/svg/eew-mapdate.svg";
+    async function init() {
+        map = L.map('map', {
+            zoomControl: false, attributionControl: false, dragging: false,
+            scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false
+        }).setView([38.0, 137.5], 5);
 
-    // 【重要】緯度経度計算用の基準範囲
-    // 地図がズレる場合は、ここの数値を調整してください
-    const MAP_CONFIG = {
-        north: 46.0, // 地図の北端緯度
-        south: 22.0, // 地図の南端緯度（小笠原などを含む場合は低めに設定）
-        west: 122.0, // 地図の西端経度
-        east: 149.0  // 地図の東端経度
-    };
+        try {
+            const response = await fetch(GEOJSON_URL);
+            const geoData = await response.json();
 
-    /**
-     * 緯度経度をSVGコンテナ上のパーセント座標に変換
-     */
-    function latLonToPercent(lat, lon) {
-        const latRange = MAP_CONFIG.north - MAP_CONFIG.south;
-        const lonRange = MAP_CONFIG.east - MAP_CONFIG.west;
+            geoJsonLayer = L.geoJSON(geoData, {
+                style: { color: "#7F7F7F", weight: 0.5, fillColor: "#BFBFBF", fillOpacity: 1 },
+                onEachFeature: (feature, layer) => {
+                    layer._prefName = feature.properties.name || feature.properties.nam_ja || feature.properties.pref || "";
+                }
+            }).addTo(map);
 
-        const xRatio = (lon - MAP_CONFIG.west) / lonRange;
-        const yRatio = (MAP_CONFIG.north - lat) / latRange;
+            // 親からデータが来るのを待つ準備
+            window.addEventListener('message', (event) => {
+                if (event.data.type === 'UPDATE_EEW') {
+                    updateMap(event.data.eew);
+                }
+            });
 
-        return {
-            x: xRatio * 100,
-            y: yRatio * 100
-        };
+            // 親に準備完了を通知
+            window.parent.postMessage({ type: 'MAP_READY' }, '*');
+
+        } catch (e) { console.error("Map Init Error:", e); }
     }
 
-    /**
-     * P2P地震情報のデータを地図に反映
-     */
-    async function applyEEWData(data) {
-        if (!mapSvgElement || !data) return;
+    function updateMap(eew) {
+        // iFrameのサイズ変更を再認識させる（重要）
+        map.invalidateSize();
 
-        // リセット
-        mapSvgElement.selectAll("path").classed("eew-active-area", false);
-        const shingen = document.getElementById('shingen-icon');
-        shingen.style.display = "none";
+        geoJsonLayer.setStyle({ fillColor: "#BFBFBF" });
+        if (shingenMarker) map.removeLayer(shingenMarker);
 
-        // 1. 強い揺れが予想される地域（pref）を黄色に
-        if (data.areas) {
-            data.areas.forEach(area => {
-                const prefName = area.pref;
-                // SVG内のIDとpref名が一致する要素を選択
-                const target = mapSvgElement.select(`#${prefName}`);
-                if (!target.empty()) {
-                    target.classed("eew-active-area", true);
+        let bounds = L.latLngBounds();
+        if (eew.areas) {
+            const activePrefs = eew.areas.map(a => a.pref);
+            geoJsonLayer.eachLayer(layer => {
+                if (activePrefs.some(p => layer._prefName.includes(p))) {
+                    layer.setStyle({ fillColor: "#FFF300" });
+                    bounds.extend(layer.getBounds());
                 }
             });
         }
 
-        // 2. 震源地のプロット
-        if (data.earthquake && data.earthquake.hypocenter) {
-            const { latitude, longitude } = data.earthquake.hypocenter;
-            if (latitude !== -1 && longitude !== -1) {
-                const pos = latLonToPercent(latitude, longitude);
-                shingen.style.left = `${pos.x}%`;
-                shingen.style.top = `${pos.y}%`;
-                shingen.style.display = "block";
+        if (eew.earthquake && eew.earthquake.hypocenter) {
+            const { latitude, longitude } = eew.earthquake.hypocenter;
+            if (latitude && longitude && latitude !== -1) {
+                shingenMarker = L.marker([latitude, longitude], {
+                    icon: L.icon({ iconUrl: SHINGEN_SVG, iconSize: [80, 80], iconAnchor: [40, 40], className: 'shingen-icon-style' })
+                }).addTo(map);
+                bounds.extend([latitude, longitude]);
             }
         }
-    }
 
-    async function fetchEEWInfo() {
-        try {
-            const response = await fetch(API_URL);
-            const history = await response.json();
-            if (history && history.length > 0) {
-                applyEEWData(history[0]);
-            }
-        } catch (e) {
-            console.error("EEW API取得エラー:", e);
+        if (bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [20, 20], maxZoom: 8 });
+        } else {
+            map.fitBounds(geoJsonLayer.getBounds());
         }
     }
-
-    async function init() {
-        try {
-            // 1. 地図SVGの読み込み
-            const mapXml = await d3.xml(SVG_URL);
-            const container = d3.select("#map-container");
-
-            // 2. SVG要素をDOMに追加
-            mapSvgElement = container.append(() => mapXml.documentElement);
-            mapSvgElement.attr("class", "eew-map-svg");
-
-            // 3. 全てのpathに基本クラスを付与
-            mapSvgElement.selectAll("path").classed("map-path", true);
-
-            // 4. ViewBoxの調整（サイズをコンテナに合わせる）
-            const fitToContainer = (svgNode) => {
-                const bbox = svgNode.getBBox();
-                svgNode.setAttribute("viewBox", `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`);
-                svgNode.removeAttribute("width");
-                svgNode.removeAttribute("height");
-                svgNode.setAttribute("preserveAspectRatio", "xMidYMid meet");
-            };
-            
-            fitToContainer(mapSvgElement.node());
-
-            // 5. 初回実行と定期チェック（3秒毎）
-            fetchEEWInfo();
-            setInterval(fetchEEWInfo, 3000);
-
-        } catch (error) {
-            console.error("初期化失敗:", error);
-        }
-    }
-
-    init();
+    window.onload = init;
 </script>
 </body>
 </html>
