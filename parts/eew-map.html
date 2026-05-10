@@ -9,7 +9,7 @@
         body { 
             margin: 0; 
             padding: 0; 
-            background: transparent; /* 背景は親の eew.html 側で制御 */
+            background: transparent; 
             width: 100vw; 
             height: 100vh; 
             overflow: hidden; 
@@ -68,7 +68,6 @@
                 },
                 onEachFeature: (feature, layer) => {
                     const props = feature.properties;
-                    // 都道府県名を識別するためのプロパティを保存
                     layer._prefName = props.name || props.nam_ja || props.pref || "";
                 }
             }).addTo(map);
@@ -103,7 +102,6 @@
         }
 
         let bounds = L.latLngBounds();
-        let hasActiveArea = false;
 
         // 1. 強い揺れが予想される地域を黄色く塗る
         if (eew.areas) {
@@ -114,9 +112,8 @@
                 const isMatch = activePrefs.some(p => geoName.includes(p));
                 
                 if (isMatch) {
-                    layer.setStyle({ fillColor: "#FFF300" }); // 警告色：黄色
+                    layer.setStyle({ fillColor: "#FFF300" }); // 黄色
                     bounds.extend(layer.getBounds());
-                    hasActiveArea = true;
                 }
             });
         }
@@ -127,8 +124,10 @@
             if (latitude && longitude && latitude !== -1) {
                 const shingenIcon = L.icon({
                     iconUrl: SHINGEN_SVG,
-                    iconSize: [80, 80],
-                    iconAnchor: [40, 40],
+                    // 【調整】サイズを少し小さく (80->60)
+                    iconSize: [60, 60],
+                    // 【調整】アンカー位置を調整 (40->30)
+                    iconAnchor: [30, 30],
                     className: 'shingen-icon-style'
                 });
 
@@ -140,12 +139,13 @@
         // 3. 自動ズーム実行
         if (bounds.isValid()) {
             map.fitBounds(bounds, { 
-                padding: [40, 40], // 画面端に少し余白を作る
-                maxZoom: 8,       // ズームしすぎ防止
+                // 【調整】余白を小さくして拡大率を上げる
+                padding: [20, 20], 
+                // 【調整】最大ズームを上げてよりドアップに (8->10)
+                maxZoom: 10,       
                 animate: true 
             });
         } else {
-            // 範囲が不明な場合は全国を表示
             map.fitBounds(geoJsonLayer.getBounds());
         }
     }
