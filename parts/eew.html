@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background: transparent;
+            overflow: hidden;
+            font-family: "A-OTF UD Shin Go Pr6N", sans-serif; /* 指定のフォント */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 全体コンテナ（最初は非表示） */
+        #eew-wrapper {
+            position: relative;
+            width: 1920px; /* フルHD想定 */
+            height: 400px; /* 真ん中下に表示する高さ */
+            display: none; 
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ベースとなる背景SVG */
+        #base-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* 情報表示エリア */
+        #info-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            color: white;
+        }
+
+        /* 震源地などのテキスト */
+        .shingen-name { position: absolute; top: 120px; left: 150px; font-size: 48px; font-weight: bold; }
+        .magnitude { position: absolute; top: 200px; left: 150px; font-size: 36px; }
+        .depth { position: absolute; top: 200px; left: 350px; font-size: 36px; }
+
+        /* 右側に配置する地図iframe */
+        #map-frame {
+            position: absolute;
+            top: 50px;
+            right: 80px;
+            width: 700px;  /* SVG内の地図スペースに合わせて調整 */
+            height: 300px; /* SVG内の地図スペースに合わせて調整 */
+            border: none;
+            z-index: 3;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+
+<audio id="eew-sound" src="https://gensai-lab.github.io/eqlive/assets/eew-audio.mp3"></audio>
+
+<div id="eew-wrapper">
+    <img id="base-svg" src="https://gensai-lab.github.io/eqlive/assets/svg/eew.svg">
+
+    <div id="info-overlay">
+        <div class="shingen-name" id="display-hypocenter">---</div>
+        <div class="magnitude" id="display-mag">M-.--</div>
+        <div class="depth" id="display-depth">深さ ---km</div>
+    </div>
+
+    <iframe id="map-frame" src="https://gensai-lab.github.io/eqlive/parts/eew-map.html"></iframe>
+</div>
+
+<script>
+    const API_URL = "https://api.p2pquake.net/v2/history?codes=556&limit=1";
+    let lastId = "";
+    let hideTimer = null;
+
+    async function checkEEW() {
+        try {
+            const res = await fetch(API_URL);
+            const data = await res.json();
+            if (!data || data.length === 0) return;
+
+            const eew = data[0];
+
+            // 新しいIDを受信した場合
+            if (eew.id !== lastId) {
+                lastId = eew.id;
+                showEEW(eew);
+            }
+        } catch (e) {
+            console.error("Fetch Error:", e);
+        }
+    }
+
+    function showEEW(eew) {
+        // キャンセル報の場合は非表示にする
+        if (eew.cancelled) {
+            document.getElementById("eew-wrapper").style.display = "none";
+            return;
+        }
+
+        // テキスト更新
+        document.getElementById("display-hypocenter").innerText = eew.earthquake.hypocenter.name;
+        document.getElementById("display-mag").innerText = "M" + eew.earthquake.hypocenter.magnitude;
+        document.getElementById("display-depth").innerText = "深さ " + eew.earthquake.hypocenter.depth + "km";
+
+        // 表示開始
+        const wrapper = document.getElementById("eew-wrapper");
+        wrapper.style.display = "block";
+
+        // 音声を再生
+        const sound = document.getElementById("eew-sound");
+        sound.currentTime = 0;
+        sound.play().catch(e => console.log("Audio play blocked by browser."));
+
+        // iframe（地図）を再読み込みして最新状態にする
+        document.getElementById("map-frame").contentWindow.location.reload();
+
+        // すでにタイマーが動いていたらクリア
+        if (hideTimer) clearTimeout(hideTimer);
+
+        // 1分（60000ms）後に非表示にする
+        hideTimer = setTimeout(() => {
+            wrapper.style.animation = "fadeIn 0.5s reverse forwards"; // 消えるアニメーション
+            setTimeout(() => {
+                wrapper.style.display = "none";
+                wrapper.style.animation = "fadeIn 0.5s ease-out"; // アニメーション設定を戻す
+            }, 500);
+        }, 60000);
+    }
+
+    // 3秒ごとにチェック
+    setInterval(checkEEW, 3000);
+    // 初回実行
+    checkEEW();
+</script>
+</body>
+</html>
