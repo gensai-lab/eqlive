@@ -5,10 +5,13 @@
     <title>EQLive L-Screen</title>
     <style>
         @font-face {
-            font-family: 'FOT-UDKakugo_LargePr6-B';
+            font-family: 'UDKakugo-B';
             src: url('assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
-            font-weight: normal;
-            font-style: normal;
+        }
+        /* 追加：DBウェイトのフォント定義 */
+        @font-face {
+            font-family: 'UDKakugo-DB';
+            src: url('assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
         }
 
         body, html {
@@ -16,7 +19,7 @@
             width: 1920px; height: 1080px;
             background-color: black;
             overflow: hidden;
-            font-family: 'FOT-UDKakugo_LargePr6-B', sans-serif;
+            font-family: 'UDKakugo-B', sans-serif;
             -webkit-font-smoothing: antialiased;
         }
 
@@ -55,7 +58,7 @@
             position: absolute;
             top: 30px;
             left: 35px;
-            height: 920px;
+            height: 920px; /* ここを920pxに合わせる */
             width: 100px;
             display: flex;
             justify-content: center;
@@ -65,8 +68,8 @@
 
         #l-title {
             color: #FFFFFF;
-            font-family: 'FOT-UDKakugo_LargePr6-B', sans-serif;
-            font-size: 100px; /* 基準サイズを116pxに設定 */
+            font-family: 'UDKakugo-B', sans-serif;
+            font-size: 100px;
             writing-mode: vertical-rl;
             text-orientation: upright;
             font-weight: normal;
@@ -77,7 +80,6 @@
             transform-origin: top center;
         }
 
-        /* タイトル内の中黒・スペースの個別調整 */
         .tight-space {
             display: inline-block;
             height: 0.3em;
@@ -92,7 +94,7 @@
             transform: scaleY(1.1);
         }
 
-        /* ジャンル表示 */
+        /* ジャンル表示 - DBフォント適用 */
         #genre-container {
             bottom: 32px;
             left: 24px;
@@ -106,15 +108,15 @@
         }
 
         #info-genre {
+            font-family: 'UDKakugo-DB', sans-serif;
             font-size: 46px;
             white-space: nowrap;
             display: inline-block;
             transform-origin: center center;
-            /* プロポーショナルメトリクス適用 */
             font-feature-settings: "palt";
         }
 
-        /* メインテキスト表示 */
+        /* メインテキスト表示 - DBフォント適用 */
         #main-text-container {
             bottom: 32px;
             left: 270px;
@@ -126,10 +128,10 @@
         }
 
         #info-main {
+            font-family: 'UDKakugo-DB', sans-serif;
             font-size: 46px;
             white-space: nowrap;
             transition: opacity 0.8s ease-in-out;
-            /* プロポーショナルメトリクス適用 */
             font-feature-settings: "palt";
         }
 
@@ -181,7 +183,6 @@
     let currentIndex = 0;
     let isLooping = false;
 
-    // 左側タイトルの文字詰め（配列分解による安全な構築）
     function applyTightText(element, text) {
         if (!text) {
             element.innerHTML = "";
@@ -206,7 +207,7 @@
     }
 
     function adjustTitleSize() {
-        const maxHeight = 980;
+        const maxHeight = 920; // 920pxに修正
         titleEl.style.transform = "scaleY(1)";
         const currentHeight = titleEl.offsetHeight;
         if (currentHeight > maxHeight) {
