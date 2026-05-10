@@ -100,6 +100,7 @@
     const API_URL = "https://api.p2pquake.net/v2/history?codes=556&limit=1";
     let lastId = "";
     let expireTime = null; 
+    let isFirstCheck = true; // 初回チェック判定フラグ
 
     async function checkEEW() {
         try {
@@ -108,7 +109,15 @@
             if (!data || data.length === 0) return;
             const eew = data[0];
 
-            // 新しい情報を検知した場合のみ処理
+            // 1. 初回起動時は最新のIDを覚えるだけで、表示はしない
+            if (isFirstCheck) {
+                lastId = eew.id;
+                isFirstCheck = false;
+                console.log("Monitoring started. Last ID set to:", lastId);
+                return;
+            }
+
+            // 2. IDが変わった（新しい速報が出た）時だけ処理を行う
             if (eew.id !== lastId) {
                 lastId = eew.id;
                 processEEW(eew);
@@ -124,10 +133,9 @@
             return;
         }
 
-        // 親要素(main-switcher.html)へ音声再生のメッセージを送信
+        // 親要素へ通知
         window.parent.postMessage('playEEWAudio', '*');
 
-        // 表示期限を60秒後に設定
         expireTime = new Date(Date.now() + 60000); 
         document.getElementById("display-hypocenter-name").innerText = eew.earthquake.hypocenter.name + "で地震";
 
@@ -178,7 +186,6 @@
         requestAnimationFrame(monitorTime);
     }
 
-    // 3秒ごとにAPIを確認
     setInterval(checkEEW, 3000);
     checkEEW();
     monitorTime();
