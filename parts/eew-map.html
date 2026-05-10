@@ -2,14 +2,14 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>EEW Map - Leaflet</title>
+    <title>EEW Map - Focus Zoom</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { 
             margin: 0; 
             padding: 0;
-            background: transparent; 
+            background: #002060; /* 背景色を指定 */
             width: 100vw; 
             height: 100vh; 
             overflow: hidden; 
@@ -18,15 +18,13 @@
         #map { 
             width: 100%; 
             height: 100%; 
-            background: transparent; /* 地図の背景を透明に */
+            background: #002060; /* 地図の背景も統一 */
         }
 
-        /* GeoJSONのポリゴンの基本スタイル */
         .leaflet-interactive {
-            fill-opacity: 1; /* 透明度をなくしてしっかり色を塗る */
+            fill-opacity: 1;
         }
 
-        /* 震源地アイコンのスタイル */
         .shingen-icon-style {
             pointer-events: none;
         }
@@ -48,8 +46,6 @@
     let lastEventId = "";
 
     async function init() {
-        // 1. 地図の初期化
-        // ズームコントロールなどは不要なので非表示。背景も透明にする。
         map = L.map('map', {
             zoomControl: false,
             attributionControl: false,
@@ -57,32 +53,28 @@
             scrollWheelZoom: false,
             doubleClickZoom: false,
             boxZoom: false
-        }).setView([38.0, 137.5], 5); // 日本全体が見える位置
+        }).setView([38.0, 137.5], 5);
 
         try {
-            // 2. GeoJSONデータの読み込み
             const response = await fetch(GEOJSON_URL);
             const geoData = await response.json();
 
-            // 3. 地図にGeoJSONを表示
             geoJsonLayer = L.geoJSON(geoData, {
                 style: {
                     color: "#7F7F7F",   // 枠線の色
-                    weight: 0.5,        // 枠線の太さ
+                    weight: 0.5,
                     fillColor: "#BFBFBF", // 地図の基本色
                     fillOpacity: 1
                 },
                 onEachFeature: (feature, layer) => {
-                    // IDをレイヤーに紐付け（P2Pのprefとの照合用）
                     const props = feature.properties;
                     layer._prefName = props.name || props.nam_ja || props.pref || "";
                 }
             }).addTo(map);
 
-            // 4. 地図をGeoJSONの範囲にぴったり合わせる（これで巨大化を防ぎます）
-            map.fitBounds(geoJsonLayer.getBounds(), { padding: [10, 10] });
+            // 初期状態では全国を表示
+            map.fitBounds(geoJsonLayer.getBounds());
 
-            // 5. データ監視開始
             fetchEEW();
             setInterval(fetchEEW, 3000);
 
@@ -108,19 +100,21 @@
     }
 
     function updateMap(eew) {
-        // 全地域の色をリセット
+        // リセット
         geoJsonLayer.setStyle({ fillColor: "#BFBFBF" });
-        
-        // 前の震源地を消去
-        if (shingenMarker) {
-            map.removeLayer(shingenMarker);
+        if (shingenMarker) map.removeLayer(shingenMarker);
+
+        if (eew.cancelled) {
+            map.fitBounds(geoJsonLayer.getBounds()); // 全国表示に戻す
+            return;
         }
 
-        if (eew.cancelled) return;
+        // ズーム対象の範囲を保持するオブジェクト
+        let bounds = L.latLngBounds();
 
-        // 1. 警告地域（黄色）の塗りつぶし
+        // 1. 警告地域（黄色）の塗りつぶしと範囲計算
         if (eew.areas) {
-            const activePrefs = eew.areas.map(a => a.pref); // ["奈良", "和歌山"...]
+            const activePrefs = eew.areas.map(a => a.pref);
             
             geoJsonLayer.eachLayer(layer => {
                 const geoName = layer._prefName;
@@ -128,6 +122,8 @@
                 
                 if (isMatch) {
                     layer.setStyle({ fillColor: "#FFF300" });
+                    // 黄色くなった地域の範囲をズーム対象に加える
+                    bounds.extend(layer.getBounds());
                 }
             });
         }
@@ -138,13 +134,26 @@
             if (latitude && longitude && latitude !== -1) {
                 const shingenIcon = L.icon({
                     iconUrl: SHINGEN_SVG,
-                    iconSize: [60, 60],
-                    iconAnchor: [30, 30], // 中心合わせ
+                    iconSize: [80, 80], // 少し大きくしました
+                    iconAnchor: [40, 40],
                     className: 'shingen-icon-style'
                 });
 
                 shingenMarker = L.marker([latitude, longitude], { icon: shingenIcon }).addTo(map);
+                // 震源地の位置もズーム対象に加える
+                bounds.extend([latitude, longitude]);
             }
+        }
+
+        // 3. 拡大（ズーム）の実行
+        if (bounds.isValid()) {
+            // 震源地と黄色い地域がすべて収まるようにズーム
+            // padding を入れることで、端が切れないように余裕を持たせます
+            map.fitBounds(bounds, { 
+                padding: [50, 50],
+                maxZoom: 8, // 拡大しすぎを防ぐ
+                animate: true 
+            });
         }
     }
 
