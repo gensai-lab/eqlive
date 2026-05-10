@@ -2,103 +2,87 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <title>EEW Map - Leaflet</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { 
             margin: 0; 
+            padding: 0;
             background: transparent; 
             width: 100vw; 
             height: 100vh; 
             overflow: hidden; 
-            display: flex;
-            justify-content: center;
-            align-items: center;
         }
 
-        #map-container { 
-            position: relative;
-            /* 画面に対して少し余裕を持たせる */
-            width: 95vw; 
-            height: 95vh;
+        #map { 
+            width: 100%; 
+            height: 100%; 
+            background: transparent; /* 地図の背景を透明に */
         }
 
-        svg {
-            width: 100%;
-            height: 100%;
-            display: block;
+        /* GeoJSONのポリゴンの基本スタイル */
+        .leaflet-interactive {
+            fill-opacity: 1; /* 透明度をなくしてしっかり色を塗る */
         }
 
-        /* 地図の基本色（指定通り） */
-        .pref-path { 
-            fill: #BFBFBF; 
-            stroke: #7F7F7F; 
-            stroke-width: 0.3px; 
-        }
-
-        /* 強い揺れが予想される地域（指定通り：黄色） */
-        .eew-active-area {
-            fill: #FFF300 !important;
-            transition: fill 0.3s ease;
-        }
-
-        /* 震源地アイコン（shingen.svg） */
-        #shingen-icon {
-            position: absolute;
-            width: 60px;
-            height: 60px;
-            transform: translate(-50%, -50%);
-            z-index: 100;
-            display: none;
+        /* 震源地アイコンのスタイル */
+        .shingen-icon-style {
             pointer-events: none;
-            filter: drop-shadow(0 0 5px rgba(0,0,0,0.5));
         }
     </style>
 </head>
 <body>
 
-<div id="map-container">
-    <svg id="map-svg"></svg>
-    <img id="shingen-icon" src="https://gensai-lab.github.io/eqlive/assets/svg/shingen.svg" alt="震源地">
-</div>
+<div id="map"></div>
 
-<script type="module">
+<script>
     const BASE_URL = "https://gensai-lab.github.io/eqlive/";
     const GEOJSON_URL = BASE_URL + "assets/json/eew-mapdate-geo.json";
     const API_URL = "https://api.p2pquake.net/v2/history?codes=556&limit=1";
+    const SHINGEN_SVG = BASE_URL + "assets/svg/shingen.svg";
 
-    let projection;
-    let mapSvg = d3.select("#map-svg");
+    let map;
+    let geoJsonLayer;
+    let shingenMarker;
     let lastEventId = "";
 
     async function init() {
+        // 1. 地図の初期化
+        // ズームコントロールなどは不要なので非表示。背景も透明にする。
+        map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false,
+            dragging: false,
+            scrollWheelZoom: false,
+            doubleClickZoom: false,
+            boxZoom: false
+        }).setView([38.0, 137.5], 5); // 日本全体が見える位置
+
         try {
-            const geoData = await d3.json(GEOJSON_URL);
-            
-            const width = window.innerWidth;
-            const height = window.innerHeight;
+            // 2. GeoJSONデータの読み込み
+            const response = await fetch(GEOJSON_URL);
+            const geoData = await response.json();
 
-            // 投影法の設定: 日本全体をバランスよく配置
-            // fitSizeでデータ全体を収めつつ、中心を微調整します
-            projection = d3.geoMercator()
-                .fitSize([width, height], geoData);
+            // 3. 地図にGeoJSONを表示
+            geoJsonLayer = L.geoJSON(geoData, {
+                style: {
+                    color: "#7F7F7F",   // 枠線の色
+                    weight: 0.5,        // 枠線の太さ
+                    fillColor: "#BFBFBF", // 地図の基本色
+                    fillOpacity: 1
+                },
+                onEachFeature: (feature, layer) => {
+                    // IDをレイヤーに紐付け（P2Pのprefとの照合用）
+                    const props = feature.properties;
+                    layer._prefName = props.name || props.nam_ja || props.pref || "";
+                }
+            }).addTo(map);
 
-            const pathGenerator = d3.geoPath().projection(projection);
+            // 4. 地図をGeoJSONの範囲にぴったり合わせる（これで巨大化を防ぎます）
+            map.fitBounds(geoJsonLayer.getBounds(), { padding: [10, 10] });
 
-            // 地図の描画
-            mapSvg.selectAll("path")
-                .data(geoData.features)
-                .enter()
-                .append("path")
-                .attr("d", pathGenerator)
-                .attr("class", "pref-path")
-                .attr("id", d => {
-                    // GeoJSONのpropertiesから名前を抽出
-                    // あなたのデータに合わせて、存在するプロパティを優先順位で取得
-                    return d.properties.name || d.properties.nam_ja || d.properties.pref || "";
-                });
-
-            console.log("EEW Map Loaded Successfully.");
-
+            // 5. データ監視開始
             fetchEEW();
             setInterval(fetchEEW, 3000);
 
@@ -124,38 +108,42 @@
     }
 
     function updateMap(eew) {
-        // 全地域のリセット
-        mapSvg.selectAll(".eew-active-area").classed("eew-active-area", false);
-        const shingen = document.getElementById("shingen-icon");
-        shingen.style.display = "none";
+        // 全地域の色をリセット
+        geoJsonLayer.setStyle({ fillColor: "#BFBFBF" });
+        
+        // 前の震源地を消去
+        if (shingenMarker) {
+            map.removeLayer(shingenMarker);
+        }
 
         if (eew.cancelled) return;
 
-        // 1. 警告地域の色塗り
+        // 1. 警告地域（黄色）の塗りつぶし
         if (eew.areas) {
-            eew.areas.forEach(area => {
-                const prefName = area.pref; // 例: "奈良"
+            const activePrefs = eew.areas.map(a => a.pref); // ["奈良", "和歌山"...]
+            
+            geoJsonLayer.eachLayer(layer => {
+                const geoName = layer._prefName;
+                const isMatch = activePrefs.some(p => geoName.includes(p));
                 
-                mapSvg.selectAll("path")
-                    .filter(function(d) {
-                        const targetId = d3.select(this).attr("id") || "";
-                        // P2Pの "奈良" が GeoJSONの "奈良県" に含まれるかを判定
-                        return targetId.includes(prefName);
-                    })
-                    .classed("eew-active-area", true);
+                if (isMatch) {
+                    layer.setStyle({ fillColor: "#FFF300" });
+                }
             });
         }
 
-        // 2. 震源地の表示
+        // 2. 震源地のプロット
         if (eew.earthquake && eew.earthquake.hypocenter) {
             const { latitude, longitude } = eew.earthquake.hypocenter;
             if (latitude && longitude && latitude !== -1) {
-                const [x, y] = projection([longitude, latitude]);
-                
-                // SVGコンテナ内の座標に配置
-                shingen.style.left = `${x}px`;
-                shingen.style.top = `${y}px`;
-                shingen.style.display = "block";
+                const shingenIcon = L.icon({
+                    iconUrl: SHINGEN_SVG,
+                    iconSize: [60, 60],
+                    iconAnchor: [30, 30], // 中心合わせ
+                    className: 'shingen-icon-style'
+                });
+
+                shingenMarker = L.marker([latitude, longitude], { icon: shingenIcon }).addTo(map);
             }
         }
     }
