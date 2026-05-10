@@ -2,18 +2,38 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>EEW Map - Leaflet</title>
+    <title>EEW Map - Focus Zoom</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; padding: 0; background: transparent; width: 100vw; height: 100vh; overflow: hidden; }
-        #map { width: 100%; height: 100%; background: transparent; }
-        .leaflet-interactive { fill-opacity: 1; }
-        .shingen-icon-style { pointer-events: none; }
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background: transparent; /* 背景は親の eew.html 側で制御 */
+            width: 100vw; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+
+        #map { 
+            width: 100%; 
+            height: 100%; 
+            background: #002060; /* 指定の背景色 */
+        }
+
+        .leaflet-interactive {
+            fill-opacity: 1;
+        }
+
+        .shingen-icon-style {
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
+
 <div id="map"></div>
+
 <script>
     const BASE_URL = "https://gensai-lab.github.io/eqlive/";
     const GEOJSON_URL = BASE_URL + "assets/json/eew-mapdate-geo.json";
@@ -24,69 +44,112 @@
     let shingenMarker;
 
     async function init() {
+        // 地図の初期化
         map = L.map('map', {
-            zoomControl: false, attributionControl: false, dragging: false,
-            scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false
+            zoomControl: false,
+            attributionControl: false,
+            dragging: false,
+            scrollWheelZoom: false,
+            doubleClickZoom: false,
+            boxZoom: false
         }).setView([38.0, 137.5], 5);
 
         try {
+            // 地形データの読み込み
             const response = await fetch(GEOJSON_URL);
             const geoData = await response.json();
 
             geoJsonLayer = L.geoJSON(geoData, {
-                style: { color: "#7F7F7F", weight: 0.5, fillColor: "#BFBFBF", fillOpacity: 1 },
+                style: {
+                    color: "#7F7F7F",   // 境界線の色
+                    weight: 0.5,
+                    fillColor: "#BFBFBF", // 通常時の陸地の色
+                    fillOpacity: 1
+                },
                 onEachFeature: (feature, layer) => {
-                    layer._prefName = feature.properties.name || feature.properties.nam_ja || feature.properties.pref || "";
+                    const props = feature.properties;
+                    // 都道府県名を識別するためのプロパティを保存
+                    layer._prefName = props.name || props.nam_ja || props.pref || "";
                 }
             }).addTo(map);
 
-            // 親からデータが来るのを待つ準備
-            window.addEventListener('message', (event) => {
-                if (event.data.type === 'UPDATE_EEW') {
-                    updateMap(event.data.eew);
-                }
-            });
+            // 初期状態で全国を表示
+            map.fitBounds(geoJsonLayer.getBounds());
 
-            // 親に準備完了を通知
-            window.parent.postMessage({ type: 'MAP_READY' }, '*');
-
-        } catch (e) { console.error("Map Init Error:", e); }
+        } catch (e) {
+            console.error("Map Init Error:", e);
+        }
     }
 
+    /**
+     * 親画面 (eew.html) から呼び出される更新関数
+     */
+    window.updateMapFromParent = function(eew) {
+        if (!map || !geoJsonLayer) return;
+        updateMap(eew);
+    };
+
     function updateMap(eew) {
-        // iFrameのサイズ変更を再認識させる（重要）
+        // iFrameのサイズ変更をLeafletに再認識させる
         map.invalidateSize();
 
+        // 状態のリセット
         geoJsonLayer.setStyle({ fillColor: "#BFBFBF" });
         if (shingenMarker) map.removeLayer(shingenMarker);
 
+        if (eew.cancelled) {
+            map.fitBounds(geoJsonLayer.getBounds());
+            return;
+        }
+
         let bounds = L.latLngBounds();
+        let hasActiveArea = false;
+
+        // 1. 強い揺れが予想される地域を黄色く塗る
         if (eew.areas) {
             const activePrefs = eew.areas.map(a => a.pref);
+            
             geoJsonLayer.eachLayer(layer => {
-                if (activePrefs.some(p => layer._prefName.includes(p))) {
-                    layer.setStyle({ fillColor: "#FFF300" });
+                const geoName = layer._prefName;
+                const isMatch = activePrefs.some(p => geoName.includes(p));
+                
+                if (isMatch) {
+                    layer.setStyle({ fillColor: "#FFF300" }); // 警告色：黄色
                     bounds.extend(layer.getBounds());
+                    hasActiveArea = true;
                 }
             });
         }
 
+        // 2. 震源地をプロット
         if (eew.earthquake && eew.earthquake.hypocenter) {
             const { latitude, longitude } = eew.earthquake.hypocenter;
             if (latitude && longitude && latitude !== -1) {
-                shingenMarker = L.marker([latitude, longitude], {
-                    icon: L.icon({ iconUrl: SHINGEN_SVG, iconSize: [80, 80], iconAnchor: [40, 40], className: 'shingen-icon-style' })
-                }).addTo(map);
+                const shingenIcon = L.icon({
+                    iconUrl: SHINGEN_SVG,
+                    iconSize: [80, 80],
+                    iconAnchor: [40, 40],
+                    className: 'shingen-icon-style'
+                });
+
+                shingenMarker = L.marker([latitude, longitude], { icon: shingenIcon }).addTo(map);
                 bounds.extend([latitude, longitude]);
             }
         }
 
+        // 3. 自動ズーム実行
         if (bounds.isValid()) {
-            map.fitBounds(bounds, { padding: [20, 20], maxZoom: 8 });
+            map.fitBounds(bounds, { 
+                padding: [40, 40], // 画面端に少し余白を作る
+                maxZoom: 8,       // ズームしすぎ防止
+                animate: true 
+            });
         } else {
+            // 範囲が不明な場合は全国を表示
             map.fitBounds(geoJsonLayer.getBounds());
         }
     }
+
     window.onload = init;
 </script>
 </body>
