@@ -8,7 +8,6 @@
             font-family: 'UDKakugo-B';
             src: url('assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');
         }
-        /* 追加：DBウェイトのフォント定義 */
         @font-face {
             font-family: 'UDKakugo-DB';
             src: url('assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
@@ -38,6 +37,8 @@
             height: 90.5%;
             z-index: 2;
             overflow: hidden;
+            /* 左下に角丸を追加 */
+            border-bottom-left-radius: 8px;
         }
 
         #main-content iframe {
@@ -58,7 +59,7 @@
             position: absolute;
             top: 30px;
             left: 35px;
-            height: 920px; /* ここを920pxに合わせる */
+            height: 920px;
             width: 100px;
             display: flex;
             justify-content: center;
@@ -94,7 +95,7 @@
             transform: scaleY(1.1);
         }
 
-        /* ジャンル表示 - DBフォント適用 */
+        /* ジャンル表示 */
         #genre-container {
             bottom: 32px;
             left: 24px;
@@ -116,7 +117,7 @@
             font-feature-settings: "palt";
         }
 
-        /* メインテキスト表示 - DBフォント適用 */
+        /* メインテキスト表示 */
         #main-text-container {
             bottom: 32px;
             left: 270px;
@@ -207,7 +208,7 @@
     }
 
     function adjustTitleSize() {
-        const maxHeight = 920; // 920pxに修正
+        const maxHeight = 920; 
         titleEl.style.transform = "scaleY(1)";
         const currentHeight = titleEl.offsetHeight;
         if (currentHeight > maxHeight) {
