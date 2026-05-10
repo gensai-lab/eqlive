@@ -36,7 +36,7 @@
             const response = await fetch(GEOJSON_URL);
             const geoData = await response.json();
             geoJsonLayer = L.geoJSON(geoData, {
-                style: { color: "#7F7F7F", weight: 0.5, fillColor: "#BFBFBF", fillOpacity: 1 },
+                style: { color: "#7F7F7F", weight: 3, fillColor: "#BFBFBF", fillOpacity: 1 },
                 onEachFeature: (feature, layer) => {
                     layer._prefName = feature.properties.name || feature.properties.nam_ja || feature.properties.pref || "";
                 }
