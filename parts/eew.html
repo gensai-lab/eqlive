@@ -124,6 +124,9 @@
             return;
         }
 
+        // 親要素(main-switcher.html)へ音声再生のメッセージを送信
+        window.parent.postMessage('playEEWAudio', '*');
+
         // 表示期限を60秒後に設定
         expireTime = new Date(Date.now() + 60000); 
         document.getElementById("display-hypocenter-name").innerText = eew.earthquake.hypocenter.name + "で地震";
