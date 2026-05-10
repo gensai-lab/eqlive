@@ -2,57 +2,31 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>EEW Map - Focus Zoom</title>
+    <title>EEW Map - Leaflet</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { 
-            margin: 0; 
-            padding: 0;
-            background: #002060; /* 背景色を指定 */
-            width: 100vw; 
-            height: 100vh; 
-            overflow: hidden; 
-        }
-
-        #map { 
-            width: 100%; 
-            height: 100%; 
-            background: #002060; /* 地図の背景も統一 */
-        }
-
-        .leaflet-interactive {
-            fill-opacity: 1;
-        }
-
-        .shingen-icon-style {
-            pointer-events: none;
-        }
+        body { margin: 0; padding: 0; background: transparent; width: 100vw; height: 100vh; overflow: hidden; }
+        #map { width: 100%; height: 100%; background: transparent; }
+        .leaflet-interactive { fill-opacity: 1; }
+        .shingen-icon-style { pointer-events: none; }
     </style>
 </head>
 <body>
-
 <div id="map"></div>
-
 <script>
     const BASE_URL = "https://gensai-lab.github.io/eqlive/";
     const GEOJSON_URL = BASE_URL + "assets/json/eew-mapdate-geo.json";
-    const API_URL = "https://api.p2pquake.net/v2/history?codes=556&limit=1";
     const SHINGEN_SVG = BASE_URL + "assets/svg/shingen.svg";
 
     let map;
     let geoJsonLayer;
     let shingenMarker;
-    let lastEventId = "";
 
     async function init() {
         map = L.map('map', {
-            zoomControl: false,
-            attributionControl: false,
-            dragging: false,
-            scrollWheelZoom: false,
-            doubleClickZoom: false,
-            boxZoom: false
+            zoomControl: false, attributionControl: false, dragging: false,
+            scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false
         }).setView([38.0, 137.5], 5);
 
         try {
@@ -60,103 +34,59 @@
             const geoData = await response.json();
 
             geoJsonLayer = L.geoJSON(geoData, {
-                style: {
-                    color: "#7F7F7F",   // 枠線の色
-                    weight: 1.8,
-                    fillColor: "#BFBFBF", // 地図の基本色
-                    fillOpacity: 1
-                },
+                style: { color: "#7F7F7F", weight: 0.5, fillColor: "#BFBFBF", fillOpacity: 1 },
                 onEachFeature: (feature, layer) => {
-                    const props = feature.properties;
-                    layer._prefName = props.name || props.nam_ja || props.pref || "";
+                    layer._prefName = feature.properties.name || feature.properties.nam_ja || feature.properties.pref || "";
                 }
             }).addTo(map);
 
-            // 初期状態では全国を表示
-            map.fitBounds(geoJsonLayer.getBounds());
+            // 親からデータが来るのを待つ準備
+            window.addEventListener('message', (event) => {
+                if (event.data.type === 'UPDATE_EEW') {
+                    updateMap(event.data.eew);
+                }
+            });
 
-            fetchEEW();
-            setInterval(fetchEEW, 3000);
+            // 親に準備完了を通知
+            window.parent.postMessage({ type: 'MAP_READY' }, '*');
 
-        } catch (e) {
-            console.error("Map Init Error:", e);
-        }
-    }
-
-    async function fetchEEW() {
-        try {
-            const res = await fetch(API_URL);
-            const data = await res.json();
-            if (!data || data.length === 0) return;
-
-            const eew = data[0];
-            if (eew.id === lastEventId) return;
-            lastEventId = eew.id;
-
-            updateMap(eew);
-        } catch (e) {
-            console.error("Fetch Error:", e);
-        }
+        } catch (e) { console.error("Map Init Error:", e); }
     }
 
     function updateMap(eew) {
-        // リセット
+        // iFrameのサイズ変更を再認識させる（重要）
+        map.invalidateSize();
+
         geoJsonLayer.setStyle({ fillColor: "#BFBFBF" });
         if (shingenMarker) map.removeLayer(shingenMarker);
 
-        if (eew.cancelled) {
-            map.fitBounds(geoJsonLayer.getBounds()); // 全国表示に戻す
-            return;
-        }
-
-        // ズーム対象の範囲を保持するオブジェクト
         let bounds = L.latLngBounds();
-
-        // 1. 警告地域（黄色）の塗りつぶしと範囲計算
         if (eew.areas) {
             const activePrefs = eew.areas.map(a => a.pref);
-            
             geoJsonLayer.eachLayer(layer => {
-                const geoName = layer._prefName;
-                const isMatch = activePrefs.some(p => geoName.includes(p));
-                
-                if (isMatch) {
+                if (activePrefs.some(p => layer._prefName.includes(p))) {
                     layer.setStyle({ fillColor: "#FFF300" });
-                    // 黄色くなった地域の範囲をズーム対象に加える
                     bounds.extend(layer.getBounds());
                 }
             });
         }
 
-        // 2. 震源地のプロット
         if (eew.earthquake && eew.earthquake.hypocenter) {
             const { latitude, longitude } = eew.earthquake.hypocenter;
             if (latitude && longitude && latitude !== -1) {
-                const shingenIcon = L.icon({
-                    iconUrl: SHINGEN_SVG,
-                    iconSize: [80, 80], // 少し大きくしました
-                    iconAnchor: [40, 40],
-                    className: 'shingen-icon-style'
-                });
-
-                shingenMarker = L.marker([latitude, longitude], { icon: shingenIcon }).addTo(map);
-                // 震源地の位置もズーム対象に加える
+                shingenMarker = L.marker([latitude, longitude], {
+                    icon: L.icon({ iconUrl: SHINGEN_SVG, iconSize: [80, 80], iconAnchor: [40, 40], className: 'shingen-icon-style' })
+                }).addTo(map);
                 bounds.extend([latitude, longitude]);
             }
         }
 
-        // 3. 拡大（ズーム）の実行
         if (bounds.isValid()) {
-            // 震源地と黄色い地域がすべて収まるようにズーム
-            // padding を入れることで、端が切れないように余裕を持たせます
-            map.fitBounds(bounds, { 
-                padding: [50, 50],
-                maxZoom: 8, // 拡大しすぎを防ぐ
-                animate: true 
-            });
+            map.fitBounds(bounds, { padding: [20, 20], maxZoom: 8 });
+        } else {
+            map.fitBounds(geoJsonLayer.getBounds());
         }
     }
-
     window.onload = init;
 </script>
 </body>
