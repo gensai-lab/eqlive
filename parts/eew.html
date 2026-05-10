@@ -101,16 +101,48 @@
     const API_URL = "https://api.p2pquake.net/v2/history?codes=556&limit=1";
     let lastId = "";
     let expireTime = null; // 非表示にする時刻（Dateオブジェクト）
+    let isTested = false;  // テスト実行フラグ
 
-    // 定期的なデータ取得
+    // テスト・定期的なデータ取得
     async function checkEEW() {
+        // --- テスト用ロジック ---
+        if (!isTested) {
+            const testData = {
+                "id": "test-data-20260510",
+                "time": "2026/05/10 10:35:00", // この時刻の1分後に消える設定
+                "earthquake": {
+                    "hypocenter": {
+                        "name": "奈良県",
+                        "magnitude": 5.7,
+                        "depth": 80
+                    }
+                },
+                "areas": [
+                    { "pref": "奈良" }, { "pref": "和歌山" }, { "pref": "大阪" },
+                    { "pref": "三重" }, { "pref": "兵庫" }, { "pref": "京都" }
+                ],
+                "cancelled": false
+            };
+
+            const now = new Date();
+            const triggerTime = new Date("2026/05/10 10:35:00");
+
+            // 指定時刻を過ぎていたら表示
+            if (now >= triggerTime) {
+                lastId = testData.id;
+                processEEW(testData);
+                isTested = true; // 一度表示したら本番モードへ（あるいはテスト完了）
+                return;
+            }
+        }
+        // --- ここまでテスト用 ---
+
+        // 通常のAPI取得
         try {
             const res = await fetch(API_URL);
             const data = await res.json();
             if (!data || data.length === 0) return;
-
             const eew = data[0];
-
             if (eew.id !== lastId) {
                 lastId = eew.id;
                 processEEW(eew);
@@ -127,7 +159,6 @@
         }
 
         // 1. 非表示時刻の計算 (timeの1分後)
-        // APIの "2026/05/02 18:29:08.817" 形式をパース
         const reportTime = new Date(eew.time.replace(/\//g, '-'));
         expireTime = new Date(reportTime.getTime() + 60000); 
 
@@ -135,7 +166,7 @@
         const hypocenterName = eew.earthquake.hypocenter.name;
         document.getElementById("display-hypocenter-name").innerText = hypocenterName + "で地震";
 
-        // 3. 都道府県の処理（重複排除と14文字折り返し）
+        // 3. 都道府県の処理
         const prefSet = new Set();
         eew.areas.forEach(area => prefSet.add(area.pref));
         const uniquePrefs = Array.from(prefSet);
@@ -144,8 +175,7 @@
         let row2 = "";
         let currentText = "";
 
-        uniquePrefs.forEach((pref, index) => {
-            // 次に足した時のシミュレーション（全角スペースを考慮）
+        uniquePrefs.forEach((pref) => {
             const nextPart = (currentText === "" ? "" : "　") + pref;
             
             if ((currentText + nextPart).length <= 14 && row2 === "") {
@@ -153,11 +183,9 @@
                 row1 = currentText;
             } else {
                 if (row2 === "") {
-                    // 1行目が埋まったので2行目開始
                     currentText = pref;
                     row2 = currentText;
                 } else {
-                    // 2行目に追記
                     const nextPartRow2 = "　" + pref;
                     if ((row2 + nextPartRow2).length <= 14) {
                         row2 += nextPartRow2;
@@ -169,9 +197,7 @@
         document.getElementById("area-row1").innerText = row1;
         document.getElementById("area-row2").innerText = row2;
 
-        // 表示開始
         document.getElementById("eew-container").style.display = "block";
-        // Mapの再読み込み
         document.getElementById("map-frame").contentWindow.location.reload();
     }
 
@@ -180,7 +206,6 @@
         expireTime = null;
     }
 
-    // 時刻監視ループ（1分後になったら即消す）
     function monitorTime() {
         if (expireTime) {
             const now = new Date();
@@ -191,8 +216,7 @@
         requestAnimationFrame(monitorTime);
     }
 
-    // 起動
-    setInterval(checkEEW, 3000);
+    setInterval(checkEEW, 1000); // テスト時は1秒ごとにチェック
     checkEEW();
     monitorTime();
 </script>
