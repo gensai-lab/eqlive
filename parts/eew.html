@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        /* フォント設定 */
         @font-face {
             font-family: 'UDKakugo-DB';
             src: url('../assets/fonts/FOT-UDKakugo_LargePr6-DB.otf');
@@ -20,16 +19,14 @@
             overflow: hidden;
         }
 
-        /* 全体サイズ 1300x371 */
         #eew-container {
             position: relative;
             width: 1300px;
             height: 371px;
             background: transparent;
-            display: none;
+            display: none; 
         }
 
-        /* 背景SVG */
         #base-svg {
             position: absolute;
             top: 0;
@@ -39,7 +36,6 @@
             z-index: 1;
         }
 
-        /* 震源地の表示 (文字) */
         #display-hypocenter-name {
             position: absolute;
             left: 701px;
@@ -53,21 +49,21 @@
             text-align: right;
             line-height: 1;
             white-space: nowrap;
-            font-weight: normal; 
+            font-weight: normal;
         }
 
-        /* マップ (iframe) */
+        /* マップサイズを拡大 */
         #map-frame {
             position: absolute;
-            left: 850px;
-            top: 93px;
-            width: 450.23px;
-            height: 276.83px;
+            left: 810px; /* 少し左に寄せて大きく */
+            top: 75px;  /* 少し上に寄せて大きく */
+            width: 480px;
+            height: 290px;
             z-index: 2;
             border: none;
+            background: #002060; /* 読み込み中のチラつき防止 */
         }
 
-        /* 強い揺れが予想される地域（共通設定） */
         .area-text {
             position: absolute;
             left: 39px;
@@ -78,8 +74,11 @@
             font-size: 61px;
             color: #FFFFFF;
             text-align: left;
-            line-height: 1.2;
-            font-weight: normal; 
+            line-height: 1.1;
+            font-weight: 100; /* 数値で細く指定 */
+            -webkit-font-smoothing: antialiased; /* 文字の滲みを防ぐ */
+            -moz-osx-font-smoothing: grayscale;
+            letter-spacing: 0.02em;
         }
 
         #area-row1 { top: 189px; }
@@ -90,12 +89,9 @@
 
 <div id="eew-container">
     <img id="base-svg" src="../assets/svg/eew.svg">
-
     <div id="display-hypocenter-name"></div>
-
     <div id="area-row1" class="area-text"></div>
     <div id="area-row2" class="area-text"></div>
-
     <iframe id="map-frame" src="eew-map.html"></iframe>
 </div>
 
@@ -110,13 +106,7 @@
             const testData = {
                 "id": "test-" + Date.now(),
                 "earthquake": {
-                    "hypocenter": {
-                        "name": "奈良県",
-                        "latitude": 34.4, // 地図に渡すための緯度
-                        "longitude": 135.8, // 地図に渡すための経度
-                        "magnitude": 5.7,
-                        "depth": 80
-                    }
+                    "hypocenter": { "name": "奈良県", "latitude": 34.4, "longitude": 135.8, "magnitude": 5.7, "depth": 80 }
                 },
                 "areas": [
                     { "pref": "奈良" }, { "pref": "和歌山" }, { "pref": "大阪" },
@@ -124,7 +114,6 @@
                 ],
                 "cancelled": false
             };
-
             lastId = testData.id;
             processEEW(testData);
             isTested = true;
@@ -152,33 +141,23 @@
         }
 
         expireTime = new Date(Date.now() + 60000); 
-
-        // 震源地テキスト更新
         document.getElementById("display-hypocenter-name").innerText = eew.earthquake.hypocenter.name + "で地震";
 
-        // 都道府県テキスト更新
         const prefSet = new Set();
         eew.areas.forEach(area => prefSet.add(area.pref));
         const uniquePrefs = Array.from(prefSet);
 
-        let row1 = "";
-        let row2 = "";
-        let currentText = "";
-
+        let row1 = "", row2 = "", currentText = "";
         uniquePrefs.forEach((pref) => {
             const nextPart = (currentText === "" ? "" : "　") + pref;
             if ((currentText + nextPart).length <= 14 && row2 === "") {
                 currentText += nextPart;
                 row1 = currentText;
             } else {
-                if (row2 === "") {
-                    currentText = pref;
-                    row2 = currentText;
-                } else {
+                if (row2 === "") { currentText = pref; row2 = currentText; }
+                else {
                     const nextPartRow2 = "　" + pref;
-                    if ((row2 + nextPartRow2).length <= 14) {
-                        row2 += nextPartRow2;
-                    }
+                    if ((row2 + nextPartRow2).length <= 14) row2 += nextPartRow2;
                 }
             }
         });
@@ -186,18 +165,19 @@
         document.getElementById("area-row1").innerText = row1;
         document.getElementById("area-row2").innerText = row2;
 
-        // 表示開始
-        document.getElementById("eew-container").style.display = "block";
-
-        // 【ここが重要】iframeのリロードではなく、中の関数にデータを直接渡す
         const mapFrame = document.getElementById("map-frame");
-        if (mapFrame.contentWindow && typeof mapFrame.contentWindow.updateMapFromParent === 'function') {
+        const sendData = () => {
             mapFrame.contentWindow.updateMapFromParent(eew);
+            // 地図の処理が走るコンマ数秒後に本体を表示（日本全体が映るのを防ぐ）
+            setTimeout(() => {
+                document.getElementById("eew-container").style.display = "block";
+            }, 100);
+        };
+
+        if (mapFrame.contentWindow && typeof mapFrame.contentWindow.updateMapFromParent === 'function') {
+            sendData();
         } else {
-            // iframeのロードがまだの場合は少し待ってから実行
-            mapFrame.onload = () => {
-                mapFrame.contentWindow.updateMapFromParent(eew);
-            };
+            mapFrame.onload = sendData;
         }
     }
 
@@ -207,12 +187,7 @@
     }
 
     function monitorTime() {
-        if (expireTime) {
-            const now = new Date();
-            if (now >= expireTime) {
-                hideContainer();
-            }
-        }
+        if (expireTime && new Date() >= expireTime) hideContainer();
         requestAnimationFrame(monitorTime);
     }
 
