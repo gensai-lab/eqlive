@@ -49,19 +49,18 @@
             text-align: right;
             line-height: 1;
             white-space: nowrap;
-            font-weight: normal; /* 太字補正をオフ */
+            font-weight: normal;
         }
 
         #map-frame {
             position: absolute;
             left: 815px; 
             top: 91px;  
-            width: 485px; /* マップをさらに微拡大 */
+            width: 485px;
             height: 279px;
             z-index: 2;
             border: none;
             background: #002060;
-            /* 右下だけ角丸8pxを適用 */
             border-bottom-right-radius: 12px;
         }
 
@@ -76,7 +75,6 @@
             color: #FFFFFF;
             text-align: left;
             line-height: 1.1;
-            /* 「無理やり太字」を消すための設定群 */
             font-weight: normal !important; 
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
@@ -102,32 +100,15 @@
     const API_URL = "https://api.p2pquake.net/v2/history?codes=556&limit=1";
     let lastId = "";
     let expireTime = null; 
-    let isTested = false;
 
     async function checkEEW() {
-        if (!isTested) {
-            const testData = {
-                "id": "test-" + Date.now(),
-                "earthquake": {
-                    "hypocenter": { "name": "奈良県", "latitude": 34.4, "longitude": 135.8, "magnitude": 5.7, "depth": 80 }
-                },
-                "areas": [
-                    { "pref": "奈良" }, { "pref": "和歌山" }, { "pref": "大阪" },
-                    { "pref": "三重" }, { "pref": "兵庫" }, { "pref": "京都" }
-                ],
-                "cancelled": false
-            };
-            lastId = testData.id;
-            processEEW(testData);
-            isTested = true;
-            return;
-        }
-
         try {
             const res = await fetch(API_URL);
             const data = await res.json();
             if (!data || data.length === 0) return;
             const eew = data[0];
+
+            // 新しい情報を検知した場合のみ処理
             if (eew.id !== lastId) {
                 lastId = eew.id;
                 processEEW(eew);
@@ -143,6 +124,7 @@
             return;
         }
 
+        // 表示期限を60秒後に設定
         expireTime = new Date(Date.now() + 60000); 
         document.getElementById("display-hypocenter-name").innerText = eew.earthquake.hypocenter.name + "で地震";
 
@@ -193,6 +175,7 @@
         requestAnimationFrame(monitorTime);
     }
 
+    // 3秒ごとにAPIを確認
     setInterval(checkEEW, 3000);
     checkEEW();
     monitorTime();
