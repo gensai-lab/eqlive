@@ -53,7 +53,7 @@
             text-align: right;
             line-height: 1;
             white-space: nowrap;
-            font-weight: normal; /* フォント本来の太さを活かす */
+            font-weight: normal; 
         }
 
         /* マップ (iframe) */
@@ -79,7 +79,7 @@
             color: #FFFFFF;
             text-align: left;
             line-height: 1.2;
-            font-weight: normal; /* フォント本来の太さを活かす */
+            font-weight: normal; 
         }
 
         #area-row1 { top: 189px; }
@@ -106,13 +106,14 @@
     let isTested = false;
 
     async function checkEEW() {
-        // --- テスト用：一度だけ強制表示 ---
         if (!isTested) {
             const testData = {
                 "id": "test-" + Date.now(),
                 "earthquake": {
                     "hypocenter": {
                         "name": "奈良県",
+                        "latitude": 34.4, // 地図に渡すための緯度
+                        "longitude": 135.8, // 地図に渡すための経度
                         "magnitude": 5.7,
                         "depth": 80
                     }
@@ -130,7 +131,6 @@
             return;
         }
 
-        // 通常取得
         try {
             const res = await fetch(API_URL);
             const data = await res.json();
@@ -151,12 +151,12 @@
             return;
         }
 
-        // 【修正】APIのtimeに関わらず、「今この瞬間」から60秒後に設定
         expireTime = new Date(Date.now() + 60000); 
 
-        const hypocenterName = eew.earthquake.hypocenter.name;
-        document.getElementById("display-hypocenter-name").innerText = hypocenterName + "で地震";
+        // 震源地テキスト更新
+        document.getElementById("display-hypocenter-name").innerText = eew.earthquake.hypocenter.name + "で地震";
 
+        // 都道府県テキスト更新
         const prefSet = new Set();
         eew.areas.forEach(area => prefSet.add(area.pref));
         const uniquePrefs = Array.from(prefSet);
@@ -186,8 +186,19 @@
         document.getElementById("area-row1").innerText = row1;
         document.getElementById("area-row2").innerText = row2;
 
+        // 表示開始
         document.getElementById("eew-container").style.display = "block";
-        document.getElementById("map-frame").contentWindow.location.reload();
+
+        // 【ここが重要】iframeのリロードではなく、中の関数にデータを直接渡す
+        const mapFrame = document.getElementById("map-frame");
+        if (mapFrame.contentWindow && typeof mapFrame.contentWindow.updateMapFromParent === 'function') {
+            mapFrame.contentWindow.updateMapFromParent(eew);
+        } else {
+            // iframeのロードがまだの場合は少し待ってから実行
+            mapFrame.onload = () => {
+                mapFrame.contentWindow.updateMapFromParent(eew);
+            };
+        }
     }
 
     function hideContainer() {
@@ -205,7 +216,6 @@
         requestAnimationFrame(monitorTime);
     }
 
-    // 3秒ごとにAPIチェック（テスト用データは初回のみ実行）
     setInterval(checkEEW, 3000);
     checkEEW();
     monitorTime();
