@@ -17,7 +17,8 @@
             position: relative;
         }
 
-        iframe {
+        /* L字画面やサブスイッチ用のiframe */
+        .base-frame {
             position: absolute;
             top: 0; left: 0;
             width: 1920px;
@@ -29,12 +30,12 @@
         }
 
         /* 表示中のiframeを前面に出して表示 */
-        iframe.active {
+        .base-frame.active {
             opacity: 1;
-            z-index: 2;
+            z-index: 10; /* 通常画面の前面へ */
         }
 
-        /* EEWパーツの配置設定 */
+        /* EEWパーツ：位置を中央下部・最前面に固定 */
         #frame-eew {
             position: absolute;
             bottom: 50px; /* 下から50px */
@@ -42,21 +43,23 @@
             transform: translateX(-50%); /* 中央寄せ */
             width: 1300px;
             height: 371px;
-            z-index: 100; /* 常に最前面 */
-            opacity: 1; /* eew.html内のコンテナがdisplay:noneで制御されるため常時1でOK */
+            z-index: 999; /* どんな画面よりも上に表示 */
+            border: none;
             background: transparent;
+            pointer-events: none; /* 下の画面の操作を邪魔しない */
         }
     </style>
 </head>
 <body>
 
     <div id="view-container">
-        <iframe id="frame-l-screen" src="l-screen.html"></iframe>
-        <iframe id="frame-sub-switcher" src="sub-switcher.html"></iframe>
-        <iframe id="frame-eew" src="eew.html"></iframe>
+        <iframe id="frame-l-screen" class="base-frame" src="l-screen.html"></iframe>
+        <iframe id="frame-sub-switcher" class="base-frame" src="sub-switcher.html"></iframe>
+        
+        <iframe id="frame-eew" src="parts/eew.html"></iframe>
     </div>
 
-    <audio id="eew-audio" src="../assets/eew-audio.mp3" preload="auto"></audio>
+    <audio id="eew-audio" src="assets/eew-audio.mp3" preload="auto"></audio>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -103,13 +106,12 @@
     });
 
     /**
-     * 子要素(eew.html)からのメッセージ待受
-     * 発表時に音声を流す処理
+     * parts/eew.html からの音声再生命令を受け取る
      */
     window.addEventListener('message', (event) => {
         if (event.data === 'playEEWAudio') {
-            eewAudio.currentTime = 0; // 最初から再生
-            eewAudio.play().catch(e => console.warn("音声再生に失敗しました（ブラウザの制限など）:", e));
+            eewAudio.currentTime = 0; 
+            eewAudio.play().catch(e => console.warn("音声再生に失敗:", e));
         }
     });
 </script>
