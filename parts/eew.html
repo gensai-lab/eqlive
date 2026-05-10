@@ -53,8 +53,7 @@
             text-align: right;
             line-height: 1;
             white-space: nowrap;
-            /* 太字補正を解除 */
-            font-weight: normal; 
+            font-weight: normal; /* フォント本来の太さを活かす */
         }
 
         /* マップ (iframe) */
@@ -80,8 +79,7 @@
             color: #FFFFFF;
             text-align: left;
             line-height: 1.2;
-            /* 太字補正を解除 */
-            font-weight: normal; 
+            font-weight: normal; /* フォント本来の太さを活かす */
         }
 
         #area-row1 { top: 189px; }
@@ -107,20 +105,11 @@
     let expireTime = null; 
     let isTested = false;
 
-    // 現在の時刻を "YYYY/MM/DD HH:mm:ss" 形式で取得する関数（テスト用）
-    function getNowString() {
-        const d = new Date();
-        const pad = (n) => n.toString().padStart(2, '0');
-        return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    }
-
     async function checkEEW() {
-        // --- テスト用ロジック：リロードしたら「今の時刻」で発報させる ---
+        // --- テスト用：一度だけ強制表示 ---
         if (!isTested) {
-            const nowStr = getNowString(); 
             const testData = {
                 "id": "test-" + Date.now(),
-                "time": nowStr, // 現在時刻をセットすることで、ここから1分間表示される
                 "earthquake": {
                     "hypocenter": {
                         "name": "奈良県",
@@ -137,7 +126,7 @@
 
             lastId = testData.id;
             processEEW(testData);
-            isTested = true; 
+            isTested = true;
             return;
         }
 
@@ -162,8 +151,8 @@
             return;
         }
 
-        const reportTime = new Date(eew.time.replace(/\//g, '-'));
-        expireTime = new Date(reportTime.getTime() + 60000); 
+        // 【修正】APIのtimeに関わらず、「今この瞬間」から60秒後に設定
+        expireTime = new Date(Date.now() + 60000); 
 
         const hypocenterName = eew.earthquake.hypocenter.name;
         document.getElementById("display-hypocenter-name").innerText = hypocenterName + "で地震";
@@ -216,6 +205,7 @@
         requestAnimationFrame(monitorTime);
     }
 
+    // 3秒ごとにAPIチェック（テスト用データは初回のみ実行）
     setInterval(checkEEW, 3000);
     checkEEW();
     monitorTime();
