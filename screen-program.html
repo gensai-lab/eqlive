@@ -27,11 +27,11 @@
             object-fit: contain; background-color: #000;
         }
 
-        /* プログラムタイトル（右上配置に変更） */
+        /* プログラムタイトル（左上配置に修正） */
         #program-overlay {
             position: absolute; 
             top: 40px; 
-            right: 40px; /* 右上に配置 */
+            left: 40px; /* 左上に配置 */
             display: flex; 
             align-items: center; 
             z-index: 100;
@@ -39,20 +39,20 @@
             opacity: 0; 
             pointer-events: none;
             
-            /* 黒背景ボックスの設定 */
-            background-color: rgba(0, 0, 0, 0.9); /* 90%の黒 */
-            padding: 15px 30px;
-            border-radius: 8px; /* 角丸8px */
+            /* 90%の黒背景ボックス */
+            background-color: rgba(0, 0, 0, 0.9);
+            padding: 12px 28px;
+            border-radius: 8px; /* 各丸8px */
         }
 
         #program-overlay.active { opacity: 1; }
 
         .program-title { 
             color: white;
-            font-size: 36px; /* 少しサイズ調整 */
+            font-size: 34px; 
             font-weight: bold; 
             letter-spacing: 0.05em;
-            text-shadow: none; /* 装飾を解除 */
+            text-shadow: none; /* 文字装飾を解除 */
         }
 
         /* 画面共有ボタン */
