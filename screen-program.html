@@ -27,18 +27,32 @@
             object-fit: contain; background-color: #000;
         }
 
+        /* プログラムタイトル（右上配置に変更） */
         #program-overlay {
-            position: absolute; top: 60px; left: 50px;
-            display: flex; align-items: center; color: white; z-index: 100;
-            transition: opacity 0.5s; opacity: 0; pointer-events: none;
-            filter: drop-shadow(0 0 4px rgba(0,0,0,1)) drop-shadow(0 0 8px rgba(0,0,0,1));
+            position: absolute; 
+            top: 40px; 
+            right: 40px; /* 右上に配置 */
+            display: flex; 
+            align-items: center; 
+            z-index: 100;
+            transition: opacity 0.5s; 
+            opacity: 0; 
+            pointer-events: none;
+            
+            /* 黒背景ボックスの設定 */
+            background-color: rgba(0, 0, 0, 0.9); /* 90%の黒 */
+            padding: 15px 30px;
+            border-radius: 8px; /* 角丸8px */
         }
 
         #program-overlay.active { opacity: 1; }
-        .live-icon { width: 140px; height: auto; margin-right: 15px; }
+
         .program-title { 
-            font-size: 48px; font-weight: bold; letter-spacing: 0.08em;
-            text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000;
+            color: white;
+            font-size: 36px; /* 少しサイズ調整 */
+            font-weight: bold; 
+            letter-spacing: 0.05em;
+            text-shadow: none; /* 装飾を解除 */
         }
 
         /* 画面共有ボタン */
@@ -58,7 +72,6 @@
     <button id="share-btn">画面共有を開始する</button>
 
     <div id="program-overlay">
-        <img src="assets/live.svg" class="live-icon" alt="投影">
         <span id="target-title" class="program-title">---</span>
     </div>
 
@@ -69,7 +82,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // Firebase設定を正しく適用
     const firebaseConfig = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
         authDomain: "mgl-eqlive.firebaseapp.com",
@@ -99,12 +111,10 @@
             const data = snapshot.val();
             if (!data) return;
             
-            // 状態が変化したときだけ更新
             if (data.type !== currentType || data.url !== currentUrl) {
                 updateMedia(data);
             }
 
-            // タイトルは随時更新
             if (data.title) {
                 titleElement.innerText = data.title;
                 overlay.classList.add('active');
@@ -118,7 +128,6 @@
         currentType = data.type;
         currentUrl = data.url;
 
-        // クリーンアップ
         if (hls) { hls.destroy(); hls = null; }
         if (localStream) { 
             localStream.getTracks().forEach(track => track.stop());
@@ -158,7 +167,6 @@
         }
     }
 
-    // 画面共有ボタンのクリックイベント
     shareBtn.addEventListener('click', async () => {
         try {
             localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
