@@ -14,6 +14,8 @@
             margin: 0; padding: 0; width: 100%; height: 100%;
             background-color: black; overflow: hidden;
             font-family: 'UDKakugo', sans-serif;
+            /* 全体的に文字の詰めを有効にする */
+            font-feature-settings: "palt";
         }
 
         #screen-container {
@@ -27,11 +29,11 @@
             object-fit: contain; background-color: #000;
         }
 
-        /* プログラムタイトル（左上配置に修正） */
+        /* プログラムタイトル */
         #program-overlay {
             position: absolute; 
             top: 30px; 
-            right: 30px; /* 左上に配置 */
+            left: 30px; /* 左上配置 */
             display: flex; 
             align-items: center; 
             z-index: 100;
@@ -39,10 +41,9 @@
             opacity: 0; 
             pointer-events: none;
             
-            /* 90%の黒背景ボックス */
             background-color: rgba(0, 0, 0, 0.9);
             padding: 0px 24px;
-            border-radius: 8px; /* 各丸8px */
+            border-radius: 8px;
         }
 
         #program-overlay.active { opacity: 1; }
@@ -52,7 +53,9 @@
             font-size: 48px; 
             font-weight: bold; 
             letter-spacing: 0.05em;
-            text-shadow: none; /* 文字装飾を解除 */
+            text-shadow: none;
+            /* タイトル部分で明示的に詰めを適用 */
+            font-feature-settings: "palt" 1;
         }
 
         /* 画面共有ボタン */
