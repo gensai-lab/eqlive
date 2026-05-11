@@ -2,6 +2,7 @@
 <br>**Main**</br>
 <br>Live Only : https://gensai-lab.github.io/eqlive/live-only.html</br>
 <br>Screen Only : https://gensai-lab.github.io/eqlive/screen-program.html</br>
+<br>Main Screen : https://gensai-lab.github.io/eqlive/main-screen.html</br>
 <br>Emergency : https://gensai-lab.github.io/eqlive/emergency.html</br>
 <br>Sub Switcher : https://gensai-lab.github.io/eqlive/sub-switcher.html</br>
 <br>L-Screen : https://gensai-lab.github.io/eqlive/l-screen.html</br>
