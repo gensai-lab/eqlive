@@ -11,7 +11,7 @@
             overflow: hidden;
         }
 
-        /* 背面のメインコンテンツエリア（main-screen.htmlを表示） */
+        /* 背面のメインコンテンツエリア */
         #bg-layer {
             position: absolute;
             top: 0; left: 0;
@@ -24,7 +24,6 @@
             position: absolute;
             z-index: 10;
             pointer-events: none;
-            /* 非表示時のアニメーション */
             transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
         }
 
@@ -33,7 +32,7 @@
         .top-right { top: 40px; right: 40px; width: 600px; height: 145px; }
         .bottom-left { bottom: 40px; left: 0px; width: 1250px; height: 176px; }
 
-        /* 右下: 津波地図（初期状態は非表示） */
+        /* 右下: 津波地図 */
         .bottom-right { 
             bottom: 40px; 
             right: 40px; 
@@ -46,7 +45,6 @@
             transform: translateY(20px);
         }
 
-        /* 表示状態のクラス */
         .is-active {
             opacity: 1;
             transform: translateY(0);
@@ -61,7 +59,7 @@
 <body>
 
     <div id="bg-layer">
-        <iframe src="main-screen.html"></iframe>
+        <iframe id="switcher-iframe" src="live-only.html"></iframe>
     </div>
 
     <div class="overlay-part top-left">
@@ -81,24 +79,51 @@
     </div>
 
 <script type="module">
-    // 津波情報の自動表示/非表示のみを管理
-    const tsunamiContainer = document.getElementById('tsunami-map-container');
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+    // Firebase初期化
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const switcherIframe = document.getElementById('switcher-iframe');
+    const tsunamiContainer = document.getElementById('tsunami-map-container');
+    let currentLayout = "";
+
+    // --- レイアウト切り替え (Firebase) ---
+    // ここで mainSource ではなく layoutMode に基づいて切り替える元のロジックに戻しました
+    onValue(ref(db, 'broadcast/current/layoutMode'), (snapshot) => {
+        const mode = snapshot.val() || 'live'; 
+        let target = (mode === 'emergency') ? 'emergency.html' : 'live-only.html';
+
+        if (currentLayout !== target) {
+            switcherIframe.src = target;
+            currentLayout = target;
+            console.log("Layout switched to:", target);
+        }
+    });
+
+    // --- 津波情報監視 ---
     async function checkTsunamiStatus() {
         try {
-            // P2P地震情報APIから最新の津波予報を取得
             const response = await fetch("https://api.p2pquake.net/v2/history?codes=552&limit=1");
             const history = await response.json();
             
             if (history && history.length > 0) {
                 const latest = history[0];
-                // 発表中(cancelled: false)なら表示、解除(true)なら非表示
                 if (latest.cancelled === false) {
                     tsunamiContainer.classList.add('is-active');
-                    console.log("TSUNAMI ALERT: Active");
                 } else {
                     tsunamiContainer.classList.remove('is-active');
-                    console.log("TSUNAMI ALERT: Cancelled");
                 }
             }
         } catch (e) {
@@ -106,7 +131,6 @@
         }
     }
 
-    // 10秒ごとにAPIをチェックしてオーバーレイを制御
     checkTsunamiStatus();
     setInterval(checkTsunamiStatus, 10000);
 
