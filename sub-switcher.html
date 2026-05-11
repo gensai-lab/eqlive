@@ -103,7 +103,7 @@
     // ここで mainSource ではなく layoutMode に基づいて切り替える元のロジックに戻しました
     onValue(ref(db, 'broadcast/current/layoutMode'), (snapshot) => {
         const mode = snapshot.val() || 'live'; 
-        let target = (mode === 'emergency') ? 'emergency.html' : 'live-only.html';
+        let target = (mode === 'emergency') ? 'emergency.html' : 'main-screen.html';
 
         if (currentLayout !== target) {
             switcherIframe.src = target;
