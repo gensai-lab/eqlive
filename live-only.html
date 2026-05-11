@@ -25,63 +25,76 @@
             background: black;
         }
 
-        /* 映像要素の共通スタイル */
+        /* 映像レイヤー */
         .player-layer {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
             border: none;
-            opacity: 0;
-            transition: opacity 1.5s ease-in-out; /* 1.5秒かけてフェード */
             z-index: 1;
             background: black;
+            /* clip-pathで切り取り範囲を制御 */
+            clip-path: inset(0 0 0 0); 
         }
 
-        /* 表示中のレイヤー */
         .player-layer.active {
-            opacity: 1;
             z-index: 2;
         }
 
-        video, iframe {
-            width: 100%;
+        /* 切り替わり時のアニメーション用クラス */
+        .wipe-transition {
+            animation: wipe-effect 1.2s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+        }
+
+        @keyframes wipe-effect {
+            0% { clip-path: inset(0 100% 0 0); }
+            100% { clip-path: inset(0 0 0 0); }
+        }
+
+        /* スイープバー（白い線） */
+        #sweep-bar {
+            position: absolute;
+            top: 0;
+            left: -10px;
+            width: 15px;
             height: 100%;
-            border: none;
-            object-fit: cover;
+            background: white;
+            box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.8);
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .bar-anim {
+            animation: bar-move 1.2s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+        }
+
+        @keyframes bar-move {
+            0% { left: -20px; opacity: 1; }
+            90% { opacity: 1; }
+            100% { left: 100%; opacity: 0; }
+        }
+
+        video, iframe {
+            width: 100%; height: 100%;
+            border: none; object-fit: cover;
         }
 
         /* 中継テロップ */
         #live-location-overlay {
             position: absolute;
-            top: 140px;
-            left: 60px;
-            display: flex;
-            align-items: center;
-            color: white;
-            z-index: 100;
-            transition: opacity 0.8s;
+            top: 140px; left: 60px;
+            display: flex; align-items: center;
+            color: white; z-index: 110;
+            transition: opacity 0.5s;
             opacity: 0;
-            pointer-events: none;
             filter: drop-shadow(0 0 4px rgba(0,0,0,1)) drop-shadow(0 0 8px rgba(0,0,0,1));
         }
-
         #live-location-overlay.active { opacity: 1; }
-
-        .live-icon {
-            width: 115px;
-            height: auto;
-            margin-right: 24px;
-        }
-
+        .live-icon { width: 115px; height: auto; margin-right: 24px; }
         .location-name {
-            font-size: 48px;
-            font-weight: bold;
-            letter-spacing: 0.08em;
-            text-shadow: 
-                2px 2px 0 #000, -2px -2px 0 #000,
-                -2px 2px 0 #000, 2px -2px 0 #000,
-                0px 2px 0 #000, 0px -2px 0 #000,
-                -2px 0px 0 #000, 2px 0px 0 #000;
+            font-size: 48px; font-weight: bold; letter-spacing: 0.08em;
+            text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000;
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -89,12 +102,14 @@
 <body>
 
 <div id="video-container">
+    <div id="sweep-bar"></div>
+    
     <div id="live-location-overlay">
         <img src="assets/live.svg" class="live-icon" alt="中継">
         <span id="target-location-name" class="location-name">---</span>
     </div>
 
-    <div id="layer-1" class="player-layer"></div>
+    <div id="layer-1" class="player-layer active"></div>
     <div id="layer-2" class="player-layer"></div>
 </div>
 
@@ -117,22 +132,21 @@
 
     let cameraList = [];
     let currentCameraId = "";
-    let hls = null;
     let activeLayerId = 1;
+    let hls = null;
 
     async function loadConfig() {
         try {
             const response = await fetch('https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json');
             cameraList = await response.json();
             startSync();
-        } catch (e) { console.error("JSON Load Error:", e); }
+        } catch (e) { console.error(e); }
     }
 
     function startSync() {
         onValue(ref(db, 'broadcast/current'), (snapshot) => {
             const data = snapshot.val();
-            if (!data) return;
-            if (data.cameraSource !== currentCameraId) {
+            if (data && data.cameraSource !== currentCameraId) {
                 updateCamera(data.cameraSource);
             }
         });
@@ -141,60 +155,57 @@
     function updateCamera(id) {
         currentCameraId = id;
         const cam = cameraList.find(c => c.id === id);
-        const overlay = document.getElementById('live-location-overlay');
-        const nameElement = document.getElementById('target-location-name');
-        
-        // 切り替え先のレイヤーを決定
+        if (!cam) return;
+
         const nextLayerId = activeLayerId === 1 ? 2 : 1;
         const currentLayer = document.getElementById(`layer-${activeLayerId}`);
         const nextLayer = document.getElementById(`layer-${nextLayerId}`);
+        const bar = document.getElementById('sweep-bar');
+        const overlay = document.getElementById('live-location-overlay');
 
-        if (cam) {
+        // 1. 次の映像を背面で準備（非表示状態でロード）
+        nextLayer.classList.remove('wipe-transition');
+        nextLayer.style.zIndex = 3; // 一時的に最前面に
+        nextLayer.innerHTML = "";
+
+        if (cam.type === 'hls' || cam.url.includes('.m3u8')) {
+            const video = document.createElement('video');
+            video.muted = true; video.autoplay = true; video.playsInline = true;
+            nextLayer.appendChild(video);
+            if (hls) hls.destroy();
+            hls = new Hls();
+            hls.loadSource(cam.url); hls.attachMedia(video);
+        } else {
+            const vidId = cam.url.split('v=')[1] || cam.url.split('/').pop();
+            const embedUrl = cam.url.includes('youtu') 
+                ? `https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&controls=0` 
+                : cam.url;
+            nextLayer.innerHTML = `<iframe src="${embedUrl}" allow="autoplay; encrypted-media"></iframe>`;
+        }
+
+        // 2. 映像のロード時間を考慮して少し待機してからアニメーション開始
+        setTimeout(() => {
             // テロップ更新
-            nameElement.innerText = cam.name;
+            document.getElementById('target-location-name').innerText = cam.name;
             overlay.classList.add('active');
 
-            // 次のレイヤーに映像を準備
-            nextLayer.innerHTML = "";
-            if (cam.type === 'hls' || cam.url.includes('.m3u8')) {
-                const video = document.createElement('video');
-                video.muted = true; video.autoplay = true; video.playsInline = true;
-                nextLayer.appendChild(video);
+            // アニメーション適用
+            bar.classList.remove('bar-anim');
+            void bar.offsetWidth; // リフロー強制
+            bar.classList.add('bar-anim');
 
-                if (Hls.isSupported()) {
-                    if (hls) hls.destroy();
-                    hls = new Hls();
-                    hls.loadSource(cam.url);
-                    hls.attachMedia(video);
-                } else {
-                    video.src = cam.url;
-                }
-            } else if (cam.url.includes('youtube.com') || cam.url.includes('youtu.be')) {
-                let vidId = cam.url.split('v=')[1] || cam.url.split('/').pop();
-                nextLayer.innerHTML = `<iframe src="https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&rel=0&controls=0" allow="autoplay; encrypted-media"></iframe>`;
-            } else {
-                nextLayer.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media"></iframe>`;
-            }
+            nextLayer.classList.add('wipe-transition');
 
-            // フェード切り替え
+            // 3. アニメーション終了後の後処理
             setTimeout(() => {
-                nextLayer.classList.add('active');
                 currentLayer.classList.remove('active');
+                currentLayer.style.zIndex = 1;
+                currentLayer.innerHTML = "";
+                nextLayer.classList.remove('wipe-transition');
+                nextLayer.classList.add('active');
                 activeLayerId = nextLayerId;
-
-                // 古いレイヤーの中身を少し遅れて消去（残像防止）
-                setTimeout(() => {
-                    if (!currentLayer.classList.contains('active')) {
-                        currentLayer.innerHTML = "";
-                    }
-                }, 1500);
-            }, 500); // 読み込み待ちの微調整
-
-        } else {
-            overlay.classList.remove('active');
-            currentLayer.classList.remove('active');
-            nextLayer.classList.remove('active');
-        }
+            }, 1200);
+        }, 800); 
     }
 
     window.onload = loadConfig;
