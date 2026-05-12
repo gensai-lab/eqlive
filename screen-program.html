@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EQLive - Screen Program (Sender)</title>
+    <title>EQLive - Screen Program</title>
     <style>
         @font-face {
             font-family: 'UDKakugo';
@@ -24,7 +24,6 @@
             width: 100%; height: 100%; border: none;
             object-fit: contain; background-color: #000;
         }
-        .content-media.web-frame { background-color: #fff; }
         #program-overlay {
             position: absolute; top: 30px; right: 30px;
             display: flex; align-items: center; z-index: 100;
@@ -33,19 +32,12 @@
         }
         #program-overlay.active { opacity: 1; }
         .program-title { color: white; font-size: 48px; font-weight: bold; letter-spacing: 0.05em; }
-        #share-btn {
-            position: absolute; z-index: 200;
-            padding: 25px 50px; font-size: 28px; font-family: 'UDKakugo';
-            background: #0078d4; color: white; border: 2px solid white; border-radius: 12px;
-            cursor: pointer; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
 <body>
 
 <div id="screen-container">
-    <button id="share-btn">画面共有を開始して転送する</button>
     <div id="program-overlay">
         <span id="target-title" class="program-title">---</span>
     </div>
@@ -54,7 +46,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, onChildAdded, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
@@ -71,111 +63,84 @@
     const db = getDatabase(app);
 
     let hls = null;
-    let localStream = null;
-    let peerConnection = null;
     let currentType = "";
-    let currentUrl = "";
-
     const container = document.getElementById('media-target');
     const overlay = document.getElementById('program-overlay');
     const titleElement = document.getElementById('target-title');
-    const shareBtn = document.getElementById('share-btn');
-
-    const pcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
     function startSync() {
         onValue(ref(db, 'broadcast/screen_program'), (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
-            if (data.type !== currentType || data.url !== currentUrl) updateMedia(data);
-            if (data.title) {
-                titleElement.innerText = data.title;
-                overlay.classList.add('active');
-            } else {
-                overlay.classList.remove('active');
-            }
+            if (data.type !== currentType) updateMedia(data);
+            titleElement.innerText = data.title || "";
+            data.title ? overlay.classList.add('active') : overlay.classList.remove('active');
         });
     }
 
     async function updateMedia(data) {
-        currentType = data.type; currentUrl = data.url;
+        currentType = data.type;
         if (hls) { hls.destroy(); hls = null; }
-        // 画面共有以外に切り替わったらストリームを止める
-        if (data.type !== 'screenshare' && localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            localStream = null;
-            if (peerConnection) { peerConnection.close(); peerConnection = null; }
-            remove(ref(db, 'webrtc'));
-        }
         container.innerHTML = "";
-        shareBtn.style.display = (data.type === 'screenshare') ? "block" : "none";
 
         switch (data.type) {
+            case 'screenshare':
+                const v = document.createElement('video');
+                v.id = "shared-video";
+                v.className = "content-media";
+                v.autoplay = true; v.muted = true; v.playsInline = true;
+                container.appendChild(v);
+                // 最上位の親に映像があるか確認するリクエスト
+                window.top.postMessage({ type: 'EQLIVE_GET_STREAM' }, '*');
+                break;
             case 'web':
-                const iframe = document.createElement('iframe');
-                iframe.src = data.url; iframe.className = "content-media web-frame";
-                container.appendChild(iframe);
+                container.innerHTML = `<iframe src="${data.url}" class="content-media" style="background:#fff"></iframe>`;
                 break;
             case 'youtube':
                 let vidId = data.url.split('v=')[1]?.split('&')[0] || data.url.split('/').pop();
                 container.innerHTML = `<iframe class="content-media" src="https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1" allow="autoplay"></iframe>`;
                 break;
             case 'image':
-                const img = new Image(); img.src = data.url; img.className = "content-media";
-                container.appendChild(img);
+                container.innerHTML = `<img src="${data.url}" class="content-media">`;
                 break;
             case 'video':
                 const video = document.createElement('video');
                 video.className = "content-media"; video.muted = true; video.autoplay = true; video.loop = true;
                 container.appendChild(video);
-                if (data.url.includes('.m3u8') && Hls.isSupported()) {
+                if (data.url.includes('.m3u8')) {
                     hls = new Hls(); hls.loadSource(data.url); hls.attachMedia(video);
                 } else { video.src = data.url; }
                 break;
         }
     }
 
-    shareBtn.addEventListener('click', async () => {
+    // 画面キャプチャ開始（親に渡す）
+    async function startCapture() {
         try {
-            localStream = await navigator.mediaDevices.getDisplayMedia({ video: { width: 1920, height: 1080 }, audio: false });
-            const video = document.createElement('video');
-            video.className = "content-media"; video.autoplay = true; video.srcObject = localStream;
-            container.appendChild(video);
-            shareBtn.style.display = "none";
-
-            // WebRTC Offerの作成
-            setupWebRTC();
+            const stream = await navigator.mediaDevices.getDisplayMedia({ video: { width: 1920, height: 1080 } });
+            // 最上位の親（sub-switcher）の関数にストリームを預ける
+            if (window.top && window.top.saveGlobalStream) {
+                window.top.saveGlobalStream(stream);
+            }
         } catch (err) { console.error(err); }
+    }
+
+    // ショートカット: Shift + S
+    window.addEventListener('keydown', (e) => {
+        if (e.shiftKey && e.key.toUpperCase() === 'S') {
+            startCapture();
+        }
     });
 
-    async function setupWebRTC() {
-        peerConnection = new RTCPeerConnection(pcConfig);
-        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-                set(ref(db, `webrtc/candidates/sender/${Date.now()}`), event.candidate.toJSON());
+    // 親からの映像注入を受け取る
+    window.addEventListener('message', (e) => {
+        if (e.data.type === 'EQLIVE_PUSH_STREAM' && currentType === 'screenshare') {
+            const v = document.getElementById('shared-video');
+            if (v && window.top.globalStream) {
+                v.srcObject = window.top.globalStream;
             }
-        };
-
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        await set(ref(db, 'webrtc/offer'), { sdp: offer.sdp, type: offer.type });
-
-        // Answer待機
-        onValue(ref(db, 'webrtc/answer'), async (snapshot) => {
-            const answer = snapshot.val();
-            if (answer && peerConnection.signalingState !== "stable") {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-            }
-        });
-
-        // 受信側のCandidateを追加
-        onChildAdded(ref(db, 'webrtc/candidates/receiver'), (snapshot) => {
-            const candidate = snapshot.val();
-            if (candidate) peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        });
-    }
+        }
+    });
 
     window.onload = startSync;
 </script>
