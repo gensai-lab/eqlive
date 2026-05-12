@@ -90,8 +90,12 @@
                 v.className = "content-media";
                 v.autoplay = true; v.muted = true; v.playsInline = true;
                 container.appendChild(v);
-                // 最上位の親に映像があるか確認するリクエスト
-                window.top.postMessage({ type: 'EQLIVE_GET_STREAM' }, '*');
+                
+                // 最上位の親（window.top）に保存されているストリームがあれば即時反映
+                if (window.top && window.top._eqlive_shared_stream) {
+                    v.srcObject = window.top._eqlive_shared_stream;
+                    console.log("Stream restored from top window memory.");
+                }
                 break;
             case 'web':
                 container.innerHTML = `<iframe src="${data.url}" class="content-media" style="background:#fff"></iframe>`;
@@ -114,31 +118,29 @@
         }
     }
 
-    // 画面キャプチャ開始（親に渡す）
+    // 画面キャプチャ開始（最上位の親のメモリに直接保持する）
     async function startCapture() {
         try {
             const stream = await navigator.mediaDevices.getDisplayMedia({ video: { width: 1920, height: 1080 } });
-            // 最上位の親（sub-switcher）の関数にストリームを預ける
-            if (window.top && window.top.saveGlobalStream) {
-                window.top.saveGlobalStream(stream);
+            
+            // 最上位のwindowオブジェクトに直接変数を生やして保存
+            if (window.top) {
+                window.top._eqlive_shared_stream = stream;
+                console.log("Stream saved to top window memory.");
             }
-        } catch (err) { console.error(err); }
+
+            // 今開いているこの画面にも即時反映
+            const v = document.getElementById('shared-video');
+            if (v) {
+                v.srcObject = stream;
+            }
+        } catch (err) { console.error("Capture failed:", err); }
     }
 
     // ショートカット: Shift + S
     window.addEventListener('keydown', (e) => {
         if (e.shiftKey && e.key.toUpperCase() === 'S') {
             startCapture();
-        }
-    });
-
-    // 親からの映像注入を受け取る
-    window.addEventListener('message', (e) => {
-        if (e.data.type === 'EQLIVE_PUSH_STREAM' && currentType === 'screenshare') {
-            const v = document.getElementById('shared-video');
-            if (v && window.top.globalStream) {
-                v.srcObject = window.top.globalStream;
-            }
         }
     });
 
