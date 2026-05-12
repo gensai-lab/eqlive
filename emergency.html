@@ -4,96 +4,25 @@
     <meta charset="UTF-8">
     <title>EQLive Emergency - Main</title>
     <style>
-        body, html {
-            margin: 0; padding: 0;
-            width: 1920px; height: 1080px;
-            background-image: url('assets/cover/cover.jpg');
-            background-size: cover;
-            background-position: center;
-            overflow: hidden;
-            font-family: sans-serif;
-        }
-
-        .layout-root {
-            display: flex;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* メイン画面：1215x675, 指定マージン, 角丸8px */
-        .main-screen {
-            width: 1215px;
-            height: 675px;
-            margin-top: 155px;
-            margin-left: 40px;
-            background-color: #000;
-            border-radius: 8px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* 右側のパーツグループ */
-        .side-group {
-            width: 600px;
-            display: flex;
-            flex-direction: column;
-            margin-left: 25px; /* メイン画面との間隔 */
-            margin-top: 40px;   /* 上の余白 */
-            gap: 20px;         /* パーツ間の垂直方向のギャップ */
-        }
-
-        /* 透明な四角形 (1つめ) */
-        .spacer-top {
-            width: 600px;
-            height: 145px;
-            background: transparent;
-        }
-
-        /* 各パーツの共通設定 */
-        .parts-container {
-            width: 600px;
-            border-radius: 8px;
-            overflow: hidden;
-            background-color: rgba(255, 255, 255, 1.0);
-            border: none;
-        }
-
+        body, html { margin: 0; padding: 0; width: 1920px; height: 1080px; background-image: url('assets/cover/cover.jpg'); background-size: cover; overflow: hidden; }
+        .layout-root { display: flex; width: 100%; height: 100%; }
+        .main-screen { width: 1215px; height: 675px; margin-top: 155px; margin-left: 40px; background-color: #000; border-radius: 8px; overflow: hidden; position: relative; }
+        .side-group { width: 600px; display: flex; flex-direction: column; margin-left: 25px; margin-top: 40px; gap: 20px; }
+        .spacer-top { width: 600px; height: 145px; }
+        .parts-container { width: 600px; border-radius: 8px; overflow: hidden; background-color: #fff; }
         .ticker-box { height: 135px; }
         .tsunami-box { height: 310px; }
-
-        /* 透明な四角形 (4つめ) */
-        .spacer-bottom {
-            width: 600px;
-            height: 350px;
-            background: transparent;
-        }
-
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            display: block;
-        }
+        .spacer-bottom { width: 600px; height: 350px; }
+        iframe { width: 100%; height: 100%; border: none; display: block; }
     </style>
 </head>
 <body>
-
 <div class="layout-root">
-    <div class="main-screen" id="main-display">
-        <iframe id="main-iframe" src="screen-program.html"></iframe>
-    </div>
-
+    <div class="main-screen"><iframe id="main-iframe" src="screen-program.html"></iframe></div>
     <div class="side-group">
         <div class="spacer-top"></div>
-        
-        <div class="parts-container ticker-box">
-            <iframe src="parts/ticker.html"></iframe>
-        </div>
-
-        <div class="parts-container tsunami-box">
-            <iframe src="parts/tsunami-list.html"></iframe>
-        </div>
-
+        <div class="parts-container ticker-box"><iframe src="parts/ticker.html"></iframe></div>
+        <div class="parts-container tsunami-box"><iframe src="parts/tsunami-list.html"></iframe></div>
         <div class="spacer-bottom"></div>
     </div>
 </div>
@@ -113,27 +42,19 @@
     };
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-
     const mainIframe = document.getElementById('main-iframe');
     let currentSrc = "";
 
-    // Firebaseを監視してメインコンテンツを出し分け
     onValue(ref(db, 'broadcast/current'), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
-
-        // mainSourceの値に応じて読み込むHTMLを決定
         const source = data.mainSource || 'screen';
         let targetPage = (source === 'camera') ? 'live-only.html' : 'screen-program.html';
-
-        // ページが変更された時のみiframeをリロード
         if (currentSrc !== targetPage) {
             mainIframe.src = targetPage;
             currentSrc = targetPage;
-            console.log("Main screen updated to:", targetPage);
         }
     });
 </script>
-
 </body>
 </html>
