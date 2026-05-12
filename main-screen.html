@@ -2,25 +2,14 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EQLive - Main Switcher</title>
     <style>
-        body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%;
-            background-color: black; overflow: hidden;
-        }
-
-        #main-viewport {
-            width: 100vw; height: 100vh; border: none;
-            transition: opacity 0.5s ease-in-out;
-        }
-
-        /* 切り替え時に一瞬ふわっとさせる演出 */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: black; overflow: hidden; }
+        #main-viewport { width: 100vw; height: 100vh; border: none; transition: opacity 0.5s ease-in-out; }
         .switching { opacity: 0; }
     </style>
 </head>
 <body>
-
     <iframe id="main-viewport" src="about:blank" allow="autoplay; encrypted-media"></iframe>
 
 <script type="module">
@@ -34,42 +23,22 @@
         projectId: "mgl-eqlive",
         storageBucket: "mgl-eqlive.firebasestorage.app",
         messagingSenderId: "1060231327645",
-        appId: "1:1060231327645:web:642684f4640bbc21d5c974",
-        measurementId: "G-BK3MJJ0VR7"
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
     };
-
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-
     const viewport = document.getElementById('main-viewport');
     let currentSource = "";
 
-    // 監視対象: /broadcast/current/mainSource
-    const mainSourceRef = ref(db, 'broadcast/current/mainSource');
-
-    onValue(mainSourceRef, (snapshot) => {
+    onValue(ref(db, 'broadcast/current/mainSource'), (snapshot) => {
         const mode = snapshot.val();
         if (!mode || mode === currentSource) return;
-
-        console.log("Switching mode to:", mode);
-        
-        // 切り替えアニメーション
         viewport.classList.add('switching');
-
         setTimeout(() => {
-            if (mode === 'camera') {
-                viewport.src = "live-only.html";
-            } else if (mode === 'screen') {
-                viewport.src = "screen-program.html";
-            }
-            
-            // 読み込み完了を待ってから表示
-            viewport.onload = () => {
-                viewport.classList.remove('switching');
-            };
-            
+            viewport.src = (mode === 'camera') ? "live-only.html" : "screen-program.html";
+            viewport.onload = () => viewport.classList.remove('switching');
             currentSource = mode;
-        }, 500); // 0.5秒のフェードアウト後にURLを切り替え
+        }, 500);
     });
 </script>
 </body>
