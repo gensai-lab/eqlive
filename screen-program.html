@@ -68,6 +68,24 @@
     const overlay = document.getElementById('program-overlay');
     const titleElement = document.getElementById('target-title');
 
+    // 映像を適用する関数（再利用）
+    function applyStreamToVideo() {
+        const v = document.getElementById('shared-video');
+        if (!v) return;
+
+        try {
+            // 親のメモリを確認
+            if (window.top && window.top._eqlive_shared_stream) {
+                v.srcObject = window.top._eqlive_shared_stream;
+                console.log("Stream applied successfully.");
+            } else {
+                console.log("No stream found in top window memory yet.");
+            }
+        } catch (e) {
+            console.error("Access to top window denied. Check if all files are on the same domain/port.", e);
+        }
+    }
+
     function startSync() {
         onValue(ref(db, 'broadcast/screen_program'), (snapshot) => {
             const data = snapshot.val();
@@ -91,11 +109,8 @@
                 v.autoplay = true; v.muted = true; v.playsInline = true;
                 container.appendChild(v);
                 
-                // 最上位の親（window.top）に保存されているストリームがあれば即時反映
-                if (window.top && window.top._eqlive_shared_stream) {
-                    v.srcObject = window.top._eqlive_shared_stream;
-                    console.log("Stream restored from top window memory.");
-                }
+                // 読み込み完了後に適用
+                setTimeout(applyStreamToVideo, 100);
                 break;
             case 'web':
                 container.innerHTML = `<iframe src="${data.url}" class="content-media" style="background:#fff"></iframe>`;
@@ -118,26 +133,33 @@
         }
     }
 
-    // 画面キャプチャ開始（最上位の親のメモリに直接保持する）
     async function startCapture() {
         try {
-            const stream = await navigator.mediaDevices.getDisplayMedia({ video: { width: 1920, height: 1080 } });
+            const stream = await navigator.mediaDevices.getDisplayMedia({ 
+                video: { width: 1920, height: 1080 },
+                audio: false
+            });
             
-            // 最上位のwindowオブジェクトに直接変数を生やして保存
             if (window.top) {
                 window.top._eqlive_shared_stream = stream;
-                console.log("Stream saved to top window memory.");
+                // 他のiframeにも通知するためにカスタムイベントを飛ばす（同一ドメイン前提）
+                window.top.dispatchEvent(new CustomEvent('eqlive_stream_updated'));
             }
 
-            // 今開いているこの画面にも即時反映
-            const v = document.getElementById('shared-video');
-            if (v) {
-                v.srcObject = stream;
-            }
+            applyStreamToVideo();
         } catch (err) { console.error("Capture failed:", err); }
     }
 
-    // ショートカット: Shift + S
+    // 他の画面でキャプチャが開始されたことを検知する
+    if (window.top) {
+        window.top.addEventListener('eqlive_stream_updated', () => {
+            if (currentType === 'screenshare') {
+                console.log("Global stream update detected.");
+                applyStreamToVideo();
+            }
+        });
+    }
+
     window.addEventListener('keydown', (e) => {
         if (e.shiftKey && e.key.toUpperCase() === 'S') {
             startCapture();
