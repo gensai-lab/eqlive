@@ -3,83 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kactuif EQLive Admin Pro</title>
+    <title>Kactuif EQLive Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="apple-touch-icon" href="https://gensai-lab.github.io/eqlive/assets/logo/app-icon.png">
     <style>
         :root {
             --bg-color: #0a0a0a; --sidebar-bg: #151515; --card-bg: #1e1e1e;
-            --accent-blue: #0078d4; --accent-red: #d13438; --accent-green: #107c10;
+            --accent-blue: #005AFF; --accent-red: #d13438; --accent-green: #107c10;
             --text-main: #ffffff; --text-sub: #aaaaaa;
-            --header-height: 60px; --nav-width: 240px;
+            --header-height: 60px; --nav-width: 260px;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
-            margin: 0; font-family: 'A-OTF UD Shin Go NT', -apple-system, sans-serif;
+            margin: 0; font-family: 'BIZ UDPGothic', sans-serif;
             background: var(--bg-color); color: var(--text-main);
             display: flex; flex-direction: column; height: 100vh; overflow: hidden;
         }
 
-        /* --- Header & Navigation --- */
+        /* --- Header --- */
         header {
             height: var(--header-height); background: #000; border-bottom: 1px solid #333;
-            display: flex; align-items: center; justify-content: space-between; padding: 0 15px; z-index: 1100;
+            display: flex; align-items: center; justify-content: space-between; padding: 0 15px; 
+            z-index: 1200; /* ナビより上に設定 */
+            flex-shrink: 0;
         }
-        .menu-toggle { background: none; border: none; color: white; font-size: 24px; cursor: pointer; display: none; }
-        .header-logo img { height: 30px; }
+        .menu-toggle { background: none; border: none; color: white; cursor: pointer; display: none; padding: 8px; }
+        .header-logo img { height: 28px; }
 
-        main { display: flex; flex: 1; overflow: hidden; }
+        /* --- Layout --- */
+        main { display: flex; flex: 1; overflow: hidden; position: relative; }
+        
+        /* Sidebar Navigation */
         nav {
             width: var(--nav-width); background: var(--sidebar-bg); border-right: 1px solid #333;
             display: flex; flex-direction: column; overflow-y: auto; transition: transform 0.3s ease;
+            z-index: 1100;
         }
-        nav button {
-            background: none; border: none; color: var(--text-sub); padding: 16px 20px;
+        
+        .nav-item {
+            background: none; border: none; color: var(--text-sub); padding: 14px 20px;
             text-align: left; font-size: 14px; cursor: pointer; border-left: 4px solid transparent;
+            display: flex; align-items: center; gap: 12px; transition: 0.2s;
+            font-family: inherit;
         }
-        nav button.active { background: #252525; color: white; border-left-color: var(--accent-blue); }
+        .nav-item i { font-size: 20px; }
+        .nav-item.active { background: rgba(0, 90, 255, 0.1); color: white; border-left-color: var(--accent-blue); }
+        .nav-item:hover { background: #252525; }
 
         /* --- Content Area --- */
-        .content { flex: 1; padding: 20px; overflow-y: auto; }
+        .content { flex: 1; padding: 25px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .tab-content { display: none; max-width: 1000px; margin: 0 auto; }
         .tab-content.active { display: block; }
 
         .card { background: var(--card-bg); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; }
         
-        h2 { font-size: 18px; margin: 0 0 15px 0; display: flex; align-items: center; gap: 8px; }
-        h2::before { content: ''; width: 4px; height: 18px; background: var(--accent-blue); border-radius: 2px; }
-
+        h2 { font-size: 18px; margin: 0 0 18px 0; display: flex; align-items: center; gap: 10px; color: var(--accent-blue); }
         label { display: block; color: var(--text-sub); font-size: 12px; margin-bottom: 8px; font-weight: bold; }
+        
         input, select, textarea {
-            width: 100%; padding: 12px; background: #000; border: 1px solid #444; 
-            color: white; border-radius: 8px; font-size: 16px; margin-bottom: 15px;
+            width: 100%; padding: 14px; background: #000; border: 1px solid #444; 
+            color: white; border-radius: 8px; font-size: 16px; margin-bottom: 15px; font-family: inherit;
         }
 
-        .btn-group { display: flex; gap: 10px; }
-        button.primary { background: var(--accent-blue); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; flex: 1; font-weight: bold; }
-        button.secondary { background: #333; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; flex: 1; }
-        button.danger { background: var(--accent-red); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; flex: 1; }
-        button:disabled { opacity: 0.3; cursor: not-allowed; }
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        button.primary { background: var(--accent-blue); color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; flex: 1; font-weight: bold; font-family: inherit; }
+        button.secondary { background: #333; color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; flex: 1; font-family: inherit; }
+        button.danger { background: var(--accent-red); color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; flex: 1; font-family: inherit; }
 
-        /* --- Components --- */
-        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .badge-active { background: var(--accent-green); }
-        .badge-none { background: #444; }
-
-        .camera-list { height: 300px; overflow-y: auto; border: 1px solid #333; border-radius: 8px; }
-        .camera-item { padding: 12px; border-bottom: 1px solid #333; cursor: pointer; display: flex; justify-content: space-between; }
-        .camera-item:hover { background: #2a2a2a; }
-        .camera-item.selected { background: rgba(0, 120, 212, 0.2); color: var(--accent-blue); font-weight: bold; }
-
-        .l-card { background: #2a2a2a; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #444; }
-
-        /* --- Responsive --- */
+        /* --- Responsive & Fixes --- */
         @media (max-width: 900px) {
-            .menu-toggle { display: block; }
-            nav { position: absolute; left: 0; top: 0; height: 100%; transform: translateX(-100%); z-index: 1050; }
-            nav.open { transform: translateX(0); }
-            .nav-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1040; }
+            .menu-toggle { display: flex; }
+            nav { 
+                position: absolute; left: 0; 
+                top: 0; /* ヘッダーの下ではなく上から配置（z-indexで調整） */
+                padding-top: var(--header-height); /* メニュー項目がヘッダーと重ならないように */
+                height: 100%; transform: translateX(-100%); 
+            }
+            nav.open { transform: translateX(0); box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
+            .content { padding: 15px; }
+            .nav-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; }
             .nav-overlay.active { display: block; }
         }
     </style>
@@ -87,46 +91,36 @@
 <body>
 
 <header>
-    <button class="menu-toggle" onclick="toggleNav()">☰</button>
+    <button class="menu-toggle" onclick="toggleNav()"><i class="material-icons">menu</i></button>
     <div class="header-logo">
-        <img src="https://gensai-lab.github.io/eqlive/assets/logo/logo-ptn1_white.svg" alt="EQLive Logo">
+        <img src="https://gensai-lab.github.io/eqlive/assets/logo/logo-ptn1_white.svg" alt="EQLive">
     </div>
-    <div id="connection-status" class="status-badge badge-active">SYNC</div>
+    <div style="width:40px;"></div>
 </header>
 
 <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
 
 <main>
     <nav id="side-nav">
-        <button class="menu-item active" onclick="switchTab('main')">① メイン画面</button>
-        <button class="menu-item" onclick="switchTab('mode')">② 配信モード選択</button>
-        <button class="menu-item" onclick="switchTab('display')">③ 画面表示</button>
-        <button class="menu-item" onclick="switchTab('title')">④ タイトル</button>
-        <button class="menu-item" onclick="switchTab('ticker')">⑤ Ticker</button>
-        <button class="menu-item" onclick="switchTab('l-shape')">⑥ L字設定</button>
-        <button class="menu-item" onclick="switchTab('camera')">⑦ ライブカメラ</button>
-        <button class="menu-item" onclick="switchTab('tsunami')">⑧ 津波制御</button>
-        <button class="menu-item" onclick="window.open('https://gensai-lab.studio.site/', '_blank')">⑨ 原稿 ↗</button>
-        <div style="margin-top:auto; padding:15px; font-size:10px; color:#555; text-align:center;">Kactuif System v3.0</div>
+        <button class="nav-item active" onclick="switchTab('main')"><i class="material-icons">dashboard</i>メイン画面</button>
+        <button class="nav-item" onclick="switchTab('mode')"><i class="material-icons">person_search</i>配信モード選択</button>
+        <button class="nav-item" onclick="switchTab('display')"><i class="material-icons">screenshot_monitor</i>画面表示</button>
+        <button class="nav-item" onclick="switchTab('title')"><i class="material-icons">subtitles</i>タイトル</button>
+        <button class="nav-item" onclick="switchTab('ticker')"><i class="material-icons">view_carousel</i>Ticker</button>
+        <button class="nav-item" onclick="switchTab('l-shape')"><i class="material-icons">view_quilt</i>L字設定</button>
+        <button class="nav-item" onclick="switchTab('camera')"><i class="material-icons">videocam</i>ライブカメラ</button>
+        <button class="nav-item" onclick="switchTab('tsunami')"><i class="material-icons">tsunami</i>津波制御</button>
+        <button class="nav-item" onclick="window.open('https://gensai-lab.studio.site/', '_blank')"><i class="material-icons">description</i>原稿 ↗</button>
     </nav>
 
     <div class="content">
         <div id="tab-main" class="tab-content active">
             <h2>ダッシュボード</h2>
-            <div class="grid">
-                <div class="card">
-                    <label>現在のライブ映像</label>
-                    <div id="live-embed" style="aspect-ratio: 16/9; background:#000; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#555;">
-                        配信中の場合ここに埋め込み
-                    </div>
-                </div>
-                <div class="card">
-                    <label>システムステータス</label>
-                    <p id="stat-distributor">担当者: --</p>
-                    <p id="stat-layout">モード: --</p>
-                    <p id="stat-camera">カメラID: --</p>
-                    <p id="stat-emergency">警報状態: <span id="alert-badge" class="status-badge badge-none">正常時</span></p>
-                </div>
+            <div class="card">
+                <label>配信ステータス</label>
+                <p id="stat-dist">担当: --</p>
+                <p id="stat-mode">モード: --</p>
+                <p id="stat-cam">カメラ: --</p>
             </div>
         </div>
 
@@ -134,126 +128,95 @@
             <h2>配信担当選択</h2>
             <div class="card">
                 <label>配信主体 (distributor)</label>
-                <select id="input-distributor" onchange="toggleNingenSelect()">
+                <select id="input-distributor" onchange="toggleNingen()">
                     <option value="bot">🤖 自動 (Bot)</option>
                     <option value="ningen">👤 有人 (人間)</option>
                 </select>
-                
-                <div id="ningen-select-area" style="display:none;">
-                    <label>担当者名</label>
+                <div id="ningen-area" style="display:none;">
+                    <label>担当者</label>
                     <select id="input-operator">
-                        <option value="">-- 選択してください --</option>
-                        <option value="Kabeya">壁谷 來夢 (代表)</option>
-                        <option value="Tsuboguchi">坪口 冬真 (副代表)</option>
+                        <option value="Kabeya">壁谷 來夢</option>
+                        <option value="Tsuboguchi">坪口 冬真</option>
                     </select>
                 </div>
-                <button class="primary" onclick="saveDistributor()">設定を反映</button>
+                <button class="primary" onclick="saveDist()">設定を反映</button>
             </div>
         </div>
 
         <div id="tab-display" class="tab-content">
-            <h2>画面構成・ソース切替</h2>
+            <h2>画面ソース・レイアウト</h2>
             <div class="card">
-                <label>基本レイアウト (layoutMode)</label>
+                <label>基本モード</label>
                 <div class="btn-group">
-                    <button id="btn-layout-live" class="secondary" onclick="updateFB('current/layoutMode', 'live')">通常放送</button>
-                    <button id="btn-layout-emergency" class="secondary" onclick="updateFB('current/layoutMode', 'emergency')">有事放送</button>
+                    <button id="btn-lay-live" class="secondary" onclick="updateFB('current/layoutMode','live')">通常</button>
+                    <button id="btn-lay-emer" class="secondary" onclick="updateFB('current/layoutMode','emergency')">有事</button>
                 </div>
             </div>
             <div class="card">
-                <label>L字表示 (current_mode)</label>
-                <div class="btn-group" style="margin-bottom:10px;">
-                    <button id="btn-mode-sub" class="secondary" onclick="updateFB('current_mode', 'sub-switcher')">L字なし</button>
-                    <button id="btn-mode-l" class="secondary" onclick="updateFB('current_mode', 'l-screen')">L字あり</button>
+                <label>L字表示</label>
+                <div class="btn-group">
+                    <button id="btn-m-sub" class="secondary" onclick="updateFB('current_mode','sub-switcher')">OFF</button>
+                    <button id="btn-m-l" class="secondary" onclick="updateFB('current_mode','l-screen')">ON</button>
                 </div>
-                <a href="javascript:switchTab('l-shape')" id="link-to-l" style="font-size:12px; color:var(--accent-blue); display:none;">➔ L字の詳細設定へ</a>
             </div>
             <div class="card">
-                <label>メインソース (mainSource)</label>
+                <label>メインソース</label>
                 <select id="input-mainSource" onchange="updateFB('current/mainSource', this.value)">
                     <option value="camera">📹 ライブカメラ</option>
-                    <option value="screen">📺 画面共有・投影</option>
+                    <option value="screen">📺 画面投影</option>
                 </select>
-            </div>
-            <div id="screen-options" class="card" style="display:none;">
-                <label>投影タイプ</label>
-                <select id="input-screen-type">
-                    <option value="screenshare">PC画面共有</option>
-                    <option value="image">画像投影</option>
-                    <option value="video">映像投影</option>
-                    <option value="youtube">YouTube投影</option>
-                    <option value="web">Webサイト投影</option>
-                </select>
-                <label>ソースURL / オーバーレイ・タイトル</label>
-                <input type="text" id="input-screen-url" placeholder="https://...">
-                <input type="text" id="input-screen-title" placeholder="タイトル（今後の予想など）">
-                <button class="primary" onclick="saveScreenProgram()">投影実行</button>
             </div>
         </div>
 
         <div id="tab-title" class="tab-content">
-            <h2>テロップタイトル編集</h2>
+            <h2>タイトル編集</h2>
             <div class="card">
                 <label>メインタイトル</label>
                 <input type="text" id="input-mainTitle">
                 <label>サブタイトル</label>
                 <input type="text" id="input-subtitle">
                 <div class="btn-group">
-                    <button class="primary" onclick="saveTitles()">更新</button>
-                    <button class="danger" onclick="clearTitles()">一括削除</button>
+                    <button class="primary" onclick="saveTitle()">反映</button>
+                    <button class="danger" onclick="clearTitle()">クリア</button>
                 </div>
             </div>
         </div>
 
         <div id="tab-ticker" class="tab-content">
-            <h2>ニュースティッカー (有事用)</h2>
+            <h2>Ticker本文</h2>
             <div class="card">
-                <label>ジャンル</label>
-                <input type="text" id="input-ticker-genre" placeholder="地震速報、津波情報など">
-                <label>本文1行目</label>
-                <input type="text" id="input-ticker-l1">
-                <label>本文2行目</label>
-                <input type="text" id="input-ticker-l2">
+                <input type="text" id="input-tic-g" placeholder="ジャンル">
+                <input type="text" id="input-tic-1" placeholder="1行目">
+                <input type="text" id="input-tic-2" placeholder="2行目">
                 <button class="primary" onclick="saveTicker()">反映</button>
             </div>
         </div>
 
         <div id="tab-l-shape" class="tab-content">
-            <h2>L字放送 詳細設定</h2>
+            <h2>L字詳細設定</h2>
             <div class="card">
-                <label>左側縦書きテロップ</label>
-                <input type="text" id="input-l-leftText" placeholder="備えは、知ることから。">
+                <label>左側縦書きテキスト</label>
+                <input type="text" id="input-l-leftText">
             </div>
-            <div id="l-items-list">
-                </div>
-            <button class="secondary" style="width:100%; margin-bottom:15px;" onclick="addLItem()">＋ カードを追加</button>
-            <button class="primary" style="width:100%;" onclick="saveLShape()">Firebaseに保存</button>
+            <div id="l-items-container"></div>
+            <button class="secondary" style="width:100%; margin-bottom:10px;" onclick="addLItem()">＋ カード追加</button>
+            <button class="primary" style="width:100%;" onclick="saveLShape()">Firebaseへ保存</button>
         </div>
 
         <div id="tab-camera" class="tab-content">
-            <h2>ライブカメラ切替</h2>
+            <h2>カメラ切替</h2>
             <div class="card">
-                <label>現在選択中</label>
-                <input type="text" id="current-cam-display" readonly style="background:#111; color:var(--accent-blue);">
-                <div class="camera-list" id="camera-list-ui"></div>
+                <div id="cam-list" style="height:400px; overflow-y:auto; background:#000; border-radius:8px;"></div>
             </div>
         </div>
 
         <div id="tab-tsunami" class="tab-content">
-            <h2>津波リスト・ページ制御</h2>
+            <h2>津波制御</h2>
             <div class="card">
-                <label>ページ送りモード</label>
-                <div id="tsunami-auto-status" style="padding:15px; background:#111; border-radius:8px; margin-bottom:15px; text-align:center; font-weight:bold;">
-                    --
-                </div>
-                <div class="btn-group" style="margin-bottom:20px;">
-                    <button id="btn-tsu-auto" class="secondary" onclick="updateFB('tsunami_config/autoPage', true)">自動送り</button>
-                    <button id="btn-tsu-manual" class="secondary" onclick="updateFB('tsunami_config/autoPage', false)">手動送り</button>
-                </div>
-                <label>手動操作</label>
+                <div id="tsu-status" style="text-align:center; padding:15px; font-weight:bold; margin-bottom:10px;">--</div>
                 <div class="btn-group">
-                    <button id="btn-tsu-prev" class="primary" onclick="triggerTsunamiPage('prev')">前のページ</button>
-                    <button id="btn-tsu-next" class="primary" onclick="triggerTsunamiPage('next')">次のページ</button>
+                    <button class="primary" onclick="triggerTsu('prev')">前へ</button>
+                    <button class="primary" onclick="triggerTsu('next')">次へ</button>
                 </div>
             </div>
         </div>
@@ -285,180 +248,141 @@
 
     window.switchTab = (id) => {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.getElementById(`tab-${id}`).classList.add('active');
         event.currentTarget.classList.add('active');
         if(window.innerWidth <= 900) toggleNav();
     };
 
-    window.toggleNingenSelect = () => {
-        const val = document.getElementById('input-distributor').value;
-        document.getElementById('ningen-select-area').style.display = (val === 'ningen') ? 'block' : 'none';
+    window.toggleNingen = () => {
+        document.getElementById('ningen-area').style.display = 
+            (document.getElementById('input-distributor').value === 'ningen') ? 'block' : 'none';
     };
 
-    // --- Firebase Actions ---
-    window.updateFB = (path, value) => {
-        set(ref(db, `broadcast/${path}`), value);
+    // --- Firebase Write ---
+    window.updateFB = (path, val) => set(ref(db, `broadcast/${path}`), val);
+
+    window.saveDist = () => {
+        const d = document.getElementById('input-distributor').value;
+        const o = document.getElementById('input-operator').value;
+        update(ref(db, 'broadcast/current'), { distributor: d, operator: (d==='bot'?"System":o) });
     };
 
-    window.saveDistributor = () => {
-        const dist = document.getElementById('input-distributor').value;
-        const oper = document.getElementById('input-operator').value;
-        if(dist === 'ningen' && !oper) { alert("担当者を選択してください"); return; }
-        update(ref(db, 'broadcast/current'), {
-            distributor: dist,
-            operator: oper || "System-Bot"
-        });
-    };
-
-    window.saveTitles = () => {
+    window.saveTitle = () => {
         update(ref(db, 'broadcast/current'), {
             mainTitle: document.getElementById('input-mainTitle').value,
             subtitle: document.getElementById('input-subtitle').value
         });
     };
 
-    window.clearTitles = () => {
-        update(ref(db, 'broadcast/current'), { mainTitle: "", subtitle: "" });
-    };
+    window.clearTitle = () => update(ref(db, 'broadcast/current'), { mainTitle: "", subtitle: "" });
 
     window.saveTicker = () => {
         update(ref(db, 'broadcast/manual_news'), {
-            genre: document.getElementById('input-ticker-genre').value,
-            line1: document.getElementById('input-ticker-l1').value,
-            line2: document.getElementById('input-ticker-l2').value
+            genre: document.getElementById('input-tic-g').value,
+            line1: document.getElementById('input-tic-1').value,
+            line2: document.getElementById('input-tic-2').value
         });
     };
 
-    window.saveScreenProgram = () => {
-        update(ref(db, 'broadcast/screen_program'), {
-            type: document.getElementById('input-screen-type').value,
-            url: document.getElementById('input-screen-url').value,
-            title: document.getElementById('input-screen-title').value
-        });
-    };
-
-    window.triggerTsunamiPage = (dir) => {
-        update(ref(db, 'broadcast/tsunami_config/manualTrigger'), {
-            direction: dir,
-            timestamp: Date.now()
-        });
-    };
-
-    // --- L-Shape Cards Logic ---
-    let lItemsLocal = [];
-    window.addLItem = () => {
-        lItemsLocal.push({ genre: "", text: "" });
-        renderLItems();
-    };
-
-    window.removeLItem = (i) => {
-        lItemsLocal.splice(i, 1);
-        renderLItems();
-    };
+    // --- L-Shape Logic (修正済：階層構造で保存) ---
+    let localLItems = [];
+    window.addLItem = () => { localLItems.push({genre:"", text:""}); renderLItems(); };
+    window.removeLItem = (i) => { localLItems.splice(i,1); renderLItems(); };
 
     function renderLItems() {
-        const container = document.getElementById('l-items-list');
+        const container = document.getElementById('l-items-container');
         container.innerHTML = "";
-        lItemsLocal.forEach((item, i) => {
+        localLItems.forEach((item, i) => {
             const div = document.createElement('div');
-            div.className = "l-card";
+            div.style.cssText = "background:#2a2a2a; padding:15px; border-radius:8px; margin-bottom:10px; border:1px solid #444;";
             div.innerHTML = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                     <label>カード #${i}</label>
                     <button class="danger" style="padding:4px 8px; font-size:10px;" onclick="removeLItem(${i})">削除</button>
                 </div>
-                <input type="text" value="${item.genre}" placeholder="ジャンル" onchange="lItemsLocal[${i}].genre=this.value">
-                <input type="text" value="${item.text}" placeholder="内容" onchange="lItemsLocal[${i}].text=this.value">
+                <input type="text" value="${item.genre}" placeholder="ジャンル" onchange="localLItems[${i}].genre=this.value">
+                <input type="text" value="${item.text}" placeholder="内容" onchange="localLItems[${i}].text=this.value">
             `;
             container.appendChild(div);
         });
     }
 
     window.saveLShape = () => {
+        // topItemsを配列ではなく、指定の階層構造オブジェクトとして保存
+        const topItemsObj = {};
+        localLItems.forEach((item, index) => {
+            topItemsObj[index] = {
+                genre: item.genre,
+                text: item.text
+            };
+        });
+
+        // 既存のデータを上書きして構造を維持
         set(ref(db, 'broadcast/l_shape'), {
             leftText: document.getElementById('input-l-leftText').value,
-            topItems: lItemsLocal
-        }).then(() => alert("保存しました"));
+            topItems: topItemsObj
+        }).then(() => alert("L字設定を更新しました"));
     };
 
-    // --- Camera List ---
-    async function loadCameras() {
-        const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json");
-        const cameras = await res.json();
-        const container = document.getElementById('camera-list-ui');
-        container.innerHTML = "";
-        cameras.forEach(cam => {
-            const div = document.createElement('div');
-            div.className = "camera-item";
-            div.id = `cam-${cam.id}`;
-            div.innerHTML = `<span>${cam.name}</span><small style="color:#666">${cam.type}</small>`;
-            div.onclick = () => updateFB('current/cameraSource', cam.id);
-            container.appendChild(div);
-        });
-    }
+    window.triggerTsu = (dir) => {
+        update(ref(db, 'broadcast/tsunami_config/manualTrigger'), { direction: dir, timestamp: Date.now() });
+    };
 
     // --- Data Sync ---
     onValue(ref(db, 'broadcast'), (snapshot) => {
         const data = snapshot.val();
         if(!data) return;
 
-        // Dashboard stats
-        document.getElementById('stat-distributor').innerText = `担当者: ${data.current.distributor} (${data.current.operator || '--'})`;
-        document.getElementById('stat-layout').innerText = `モード: ${data.current.layoutMode}`;
-        document.getElementById('stat-camera').innerText = `カメラID: ${data.current.cameraSource}`;
-        
-        // Buttons highlight
-        const activeClass = (id, condition) => {
-            const el = document.getElementById(id);
-            if(el) el.className = condition ? "primary" : "secondary";
-        };
-        activeClass('btn-layout-live', data.current.layoutMode === 'live');
-        activeClass('btn-layout-emergency', data.current.layoutMode === 'emergency');
-        activeClass('btn-mode-sub', data.current_mode === 'sub-switcher');
-        activeClass('btn-mode-l', data.current_mode === 'l-screen');
-        document.getElementById('link-to-l').style.display = (data.current_mode === 'l-screen') ? 'block' : 'none';
+        const cur = data.current || {};
+        document.getElementById('stat-dist').innerText = `担当: ${cur.distributor} (${cur.operator})`;
+        document.getElementById('stat-mode').innerText = `モード: ${cur.layoutMode}`;
+        document.getElementById('stat-cam').innerText = `カメラ: ${cur.cameraSource}`;
 
-        // Inputs sync (only if not focused)
-        const sync = (id, val) => {
+        const setBtn = (id, cond) => {
+            const el = document.getElementById(id);
+            if(el) el.className = cond ? "primary" : "secondary";
+        };
+        setBtn('btn-lay-live', cur.layoutMode === 'live');
+        setBtn('btn-lay-emer', cur.layoutMode === 'emergency');
+        setBtn('btn-m-sub', data.current_mode === 'sub-switcher');
+        setBtn('btn-m-l', data.current_mode === 'l-screen');
+
+        const syncField = (id, val) => {
             const el = document.getElementById(id);
             if(el && document.activeElement !== el) el.value = val || "";
         };
-        sync('input-mainTitle', data.current.mainTitle);
-        sync('input-subtitle', data.current.subtitle);
-        sync('input-mainSource', data.current.mainSource);
-        document.getElementById('screen-options').style.display = (data.current.mainSource === 'screen') ? 'block' : 'none';
-        
-        sync('input-ticker-genre', data.manual_news.genre);
-        sync('input-ticker-l1', data.manual_news.line1);
-        sync('input-ticker-l2', data.manual_news.line2);
+        syncField('input-mainTitle', cur.mainTitle);
+        syncField('input-subtitle', cur.subtitle);
+        syncField('input-tic-g', data.manual_news.genre);
+        syncField('input-tic-1', data.manual_news.line1);
+        syncField('input-tic-2', data.manual_news.line2);
 
-        // Tsunami sync
-        const isAuto = data.tsunami_config.autoPage !== false;
-        const tsuText = document.getElementById('tsunami-auto-status');
-        tsuText.innerText = isAuto ? "自動送り：ON" : "自動送り：OFF";
-        tsuText.style.color = isAuto ? "var(--accent-green)" : "var(--accent-red)";
-        activeClass('btn-tsu-auto', isAuto);
-        activeClass('btn-tsu-manual', !isAuto);
-        document.getElementById('btn-tsu-prev').disabled = document.getElementById('btn-tsu-next').disabled = isAuto;
-
-        // Camera highlight
-        document.getElementById('current-cam-display').value = data.current.cameraSource;
-        document.querySelectorAll('.camera-item').forEach(el => el.classList.remove('selected'));
-        const activeCam = document.getElementById(`cam-${data.current.cameraSource}`);
-        if(activeCam) activeCam.classList.add('selected');
-
-        // L-Shape items sync
-        if(data.l_shape) {
-            sync('input-l-leftText', data.l_shape.leftText);
-            if(!document.activeElement.classList.contains('l-item-input')) {
-                lItemsLocal = data.l_shape.topItems || [];
+        // L-Shape Sync
+        if(data.l_shape && document.activeElement.tagName !== 'INPUT') {
+            syncField('input-l-leftText', data.l_shape.leftText);
+            const items = data.l_shape.topItems;
+            if(items) {
+                // オブジェクト形式(0:{...}, 1:{...})を配列に戻して管理
+                localLItems = Object.keys(items).map(key => items[key]);
                 renderLItems();
             }
         }
     });
 
-    window.onload = loadCameras;
+    async function init() {
+        const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json");
+        const cams = await res.json();
+        const list = document.getElementById('cam-list');
+        cams.forEach(c => {
+            const d = document.createElement('div');
+            d.style.cssText = "padding:15px; border-bottom:1px solid #222; cursor:pointer;";
+            d.innerHTML = `<div>${c.name}</div><small style="color:#666">${c.id} / ${c.type}</small>`;
+            d.onclick = () => updateFB('current/cameraSource', c.id);
+            list.appendChild(d);
+        });
+    }
+    init();
 </script>
 </body>
 </html>
