@@ -22,7 +22,6 @@
             display: flex; flex-direction: column; height: 100vh; overflow: hidden;
         }
 
-        /* --- Header (Always Top) --- */
         header {
             height: var(--header-height); background: #000; border-bottom: 1px solid #333;
             display: flex; align-items: center; justify-content: space-between; padding: 0 15px; 
@@ -31,7 +30,6 @@
         .menu-toggle { background: none; border: none; color: white; cursor: pointer; display: none; padding: 8px; }
         .header-logo img { height: 28px; }
 
-        /* --- Layout --- */
         main { display: flex; flex: 1; overflow: hidden; position: relative; }
         
         nav {
@@ -49,7 +47,6 @@
         .nav-item.active { background: rgba(0, 90, 255, 0.1); color: white; border-left-color: var(--accent-blue); }
         .nav-item:hover { background: #252525; }
 
-        /* --- Content --- */
         .content { flex: 1; padding: 25px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .tab-content { display: none; max-width: 1000px; margin: 0 auto; }
         .tab-content.active { display: block; }
@@ -58,7 +55,6 @@
         .card.alert { border-left: 5px solid var(--accent-red); }
         
         h2 { font-size: 18px; margin: 0 0 18px 0; display: flex; align-items: center; gap: 10px; color: var(--accent-blue); }
-        h3 { font-size: 14px; color: var(--text-sub); margin: 15px 0 10px 0; border-bottom: 1px solid #333; padding-bottom: 5px; }
         label { display: block; color: var(--text-sub); font-size: 12px; margin-bottom: 8px; font-weight: bold; }
         
         input, select, textarea {
@@ -73,10 +69,6 @@
         button.danger { background: var(--accent-red); color: white; flex: 1; }
         button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-left: 10px; vertical-align: middle; }
-        .bg-red { background: var(--accent-red); }
-
-        /* --- Responsive --- */
         @media (max-width: 900px) {
             .menu-toggle { display: flex; }
             nav { 
@@ -291,10 +283,9 @@
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.getElementById(`tab-${id}`).classList.add('active');
         
-        // ナビゲーションのactiveクラスを更新（リンクからの遷移に対応）
         const navItems = document.querySelectorAll('.nav-item');
         navItems.forEach(item => {
-            if(item.getAttribute('onclick').includes(`'${id}'`)) item.classList.add('active');
+            if(item.getAttribute('onclick')?.includes(`'${id}'`)) item.classList.add('active');
         });
 
         if(window.innerWidth <= 900) {
@@ -312,7 +303,7 @@
     };
     document.getElementById('input-operator').addEventListener('change', toggleNingen);
 
-    // --- Firebase Write Functions ---
+    // --- Firebase Write ---
     window.updateFB = (path, val) => set(ref(db, `broadcast/${path}`), val);
 
     window.saveDist = () => {
@@ -329,9 +320,7 @@
         });
     };
 
-    window.clearTitle = () => {
-        update(ref(db, 'broadcast/current'), { mainTitle: "", subtitle: "" });
-    };
+    window.clearTitle = () => update(ref(db, 'broadcast/current'), { mainTitle: "", subtitle: "" });
 
     window.saveTicker = () => {
         update(ref(db, 'broadcast/manual_news'), {
@@ -341,7 +330,7 @@
         });
     };
 
-    // --- L-Shape Item Logic ---
+    // --- L-Shape Logic ---
     let localLItems = [];
     window.addLItem = () => { 
         localLItems.push({genre:"", text:""}); 
@@ -373,8 +362,10 @@
                         <button class="danger" style="padding:5px 10px;" onclick="removeLItem(${i})"><i class="material-icons" style="font-size:14px;">delete</i></button>
                     </div>
                 </div>
-                <input type="text" value="${item.genre}" placeholder="ジャンル" onchange="localLItems[${i}].genre=this.value">
-                <input type="text" value="${item.text}" placeholder="内容" onchange="localLItems[${i}].text=this.value">
+                <label>ジャンル</label>
+                <input type="text" value="${item.genre || ''}" onchange="localLItems[${i}].genre=this.value">
+                <label>内容</label>
+                <input type="text" value="${item.text || ''}" onchange="localLItems[${i}].text=this.value">
             `;
             container.appendChild(div);
         });
@@ -383,7 +374,11 @@
     window.saveLShape = () => {
         const topItemsObj = {};
         localLItems.forEach((item, index) => {
-            topItemsObj[index] = { genre: item.genre, text: item.text };
+            // ここを修正：明示的にプロパティを割り当てる
+            topItemsObj[index] = { 
+                genre: item.genre || "", 
+                text: item.text || "" 
+            };
         });
         set(ref(db, 'broadcast/l_shape'), {
             leftText: document.getElementById('input-l-leftText').value,
@@ -392,10 +387,7 @@
     };
 
     window.triggerTsu = (dir) => {
-        update(ref(db, 'broadcast/tsunami_config/manualTrigger'), { 
-            direction: dir, 
-            timestamp: Date.now() 
-        });
+        update(ref(db, 'broadcast/tsunami_config/manualTrigger'), { direction: dir, timestamp: Date.now() });
     };
 
     // --- Data Sync ---
@@ -406,22 +398,18 @@
         const cur = data.current || {};
         const tsu = data.tsunami_config || {};
 
-        // ① Dashboard Stats
-        document.getElementById('stat-dist').innerText = `${cur.distributor === 'bot' ? '🤖 自動 (Bot)' : '👤 有人'} (${cur.operator})`;
+        document.getElementById('stat-dist').innerText = `${cur.distributor === 'bot' ? '🤖 自動 (Bot)' : '👤 有人'} (${cur.operator || '--'})`;
         document.getElementById('stat-mode').innerText = cur.layoutMode === 'emergency' ? '🚨 有事放送' : '🏠 通常放送';
         document.getElementById('stat-cam').innerText = cur.cameraSource || '--';
 
-        // 緊急情報の簡易表示（サンプルロジック）
         const alertArea = document.getElementById('status-alert-area');
         alertArea.innerHTML = data.current_mode === 'l-screen' ? '<div class="card alert"><i class="material-icons" style="vertical-align:bottom; color:var(--accent-red)">warning</i> L字放送が実行中です</div>' : '';
 
-        // ② Mode
         const syncSelect = (id, val) => { if(document.activeElement.id !== id) document.getElementById(id).value = val || ""; };
         syncSelect('input-distributor', cur.distributor);
         syncSelect('input-operator', cur.operator === "System" ? "" : cur.operator);
         toggleNingen();
 
-        // ③ Display
         const setBtn = (id, cond) => { document.getElementById(id).className = cond ? "primary" : "secondary"; };
         setBtn('btn-lay-live', cur.layoutMode === 'live');
         setBtn('btn-lay-emer', cur.layoutMode === 'emergency');
@@ -437,7 +425,6 @@
             syncSelect('input-screen-url', data.screen_program.url);
         }
 
-        // ④ Title & ⑤ Ticker
         const syncInput = (id, val) => { if(document.activeElement.id !== id) document.getElementById(id).value = val || ""; };
         syncInput('input-mainTitle', cur.mainTitle);
         syncInput('input-subtitle', cur.subtitle);
@@ -447,23 +434,26 @@
             syncInput('input-tic-2', data.manual_news.line2);
         }
 
-        // ⑥ L-Shape
+        // L-Shape Sync - 入力中以外の時に同期
         if(data.l_shape && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
             syncInput('input-l-leftText', data.l_shape.leftText);
             const items = data.l_shape.topItems;
             if(items) {
-                localLItems = Object.keys(items).map(key => items[key]);
+                // オブジェクトのキー順に配列化してローカルに保持
+                const keys = Object.keys(items).sort((a,b) => parseInt(a) - parseInt(b));
+                localLItems = keys.map(key => ({
+                    genre: items[key].genre || "",
+                    text: items[key].text || ""
+                }));
                 renderLItems();
             }
         }
 
-        // ⑧ Tsunami
         setBtn('btn-tsu-auto', tsu.autoPage === true);
         setBtn('btn-tsu-manual', tsu.autoPage === false);
         document.getElementById('tsu-manual-ctrl').style.display = tsu.autoPage === false ? 'block' : 'none';
     });
 
-    // ⑦ Camera Initializer
     async function initCameras() {
         try {
             const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json");
@@ -472,24 +462,12 @@
             list.innerHTML = "";
             cams.forEach(c => {
                 const d = document.createElement('div');
-                d.style.cssText = "padding:18px; border-bottom:1px solid #222; cursor:pointer; transition:0.2s;";
-                d.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <div style="font-weight:bold; font-size:16px;">${c.name}</div>
-                            <small style="color:#777;">ID: ${c.id} / TYPE: ${c.type}</small>
-                        </div>
-                        <i class="material-icons" style="color:#444;">videocam</i>
-                    </div>
-                `;
-                d.onclick = () => {
-                    updateFB('current/cameraSource', c.id);
-                    d.style.background = "rgba(0, 90, 255, 0.2)";
-                    setTimeout(() => d.style.background = "transparent", 300);
-                };
+                d.style.cssText = "padding:18px; border-bottom:1px solid #222; cursor:pointer;";
+                d.innerHTML = `<div style="font-weight:bold;">${c.name}</div><small style="color:#777;">ID: ${c.id}</small>`;
+                d.onclick = () => updateFB('current/cameraSource', c.id);
                 list.appendChild(d);
             });
-        } catch(e) { console.error("Camera list load failed."); }
+        } catch(e) {}
     }
     initCameras();
 </script>
