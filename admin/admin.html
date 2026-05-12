@@ -298,10 +298,10 @@
         const val = document.getElementById('input-distributor').value;
         const nArea = document.getElementById('ningen-area');
         const btn = document.getElementById('btn-save-dist');
+        if(!nArea || !btn) return;
         nArea.style.display = (val === 'ningen') ? 'block' : 'none';
         btn.disabled = (val === 'ningen' && !document.getElementById('input-operator').value);
     };
-    document.getElementById('input-operator').addEventListener('change', toggleNingen);
 
     // --- Firebase Write ---
     window.updateFB = (path, val) => set(ref(db, `broadcast/${path}`), val);
@@ -332,14 +332,21 @@
 
     // --- L-Shape Logic ---
     let localLItems = [];
+    
     window.addLItem = () => { 
         localLItems.push({genre:"", text:""}); 
         renderLItems(); 
     };
+    
     window.removeLItem = (i) => { 
         localLItems.splice(i,1); 
         renderLItems(); 
     };
+
+    window.updateLItem = (i, field, val) => {
+        localLItems[i][field] = val;
+    };
+    
     window.moveItem = (i, dir) => {
         if(dir === 'up' && i > 0) [localLItems[i], localLItems[i-1]] = [localLItems[i-1], localLItems[i]];
         if(dir === 'down' && i < localLItems.length-1) [localLItems[i], localLItems[i+1]] = [localLItems[i+1], localLItems[i]];
@@ -348,6 +355,7 @@
 
     function renderLItems() {
         const container = document.getElementById('l-items-container');
+        if(!container) return;
         container.innerHTML = "";
         localLItems.forEach((item, i) => {
             const div = document.createElement('div');
@@ -363,9 +371,9 @@
                     </div>
                 </div>
                 <label>ジャンル</label>
-                <input type="text" value="${item.genre || ''}" onchange="localLItems[${i}].genre=this.value">
+                <input type="text" value="${item.genre || ''}" oninput="updateLItem(${i}, 'genre', this.value)">
                 <label>内容</label>
-                <input type="text" value="${item.text || ''}" onchange="localLItems[${i}].text=this.value">
+                <input type="text" value="${item.text || ''}" oninput="updateLItem(${i}, 'text', this.value)">
             `;
             container.appendChild(div);
         });
@@ -374,16 +382,25 @@
     window.saveLShape = () => {
         const topItemsObj = {};
         localLItems.forEach((item, index) => {
-            // ここを修正：明示的にプロパティを割り当てる
+            // 空のアイテムも構造を維持して保存
             topItemsObj[index] = { 
                 genre: item.genre || "", 
                 text: item.text || "" 
             };
         });
+
+        // 念のためオブジェクトの中身を確認
+        console.log("Saving topItems:", topItemsObj);
+
         set(ref(db, 'broadcast/l_shape'), {
-            leftText: document.getElementById('input-l-leftText').value,
+            leftText: document.getElementById('input-l-leftText').value || "",
             topItems: topItemsObj
-        }).then(() => alert("L字放送設定をFirebaseに保存しました"));
+        }).then(() => {
+            alert("L字放送設定をFirebaseに保存しました");
+        }).catch((error) => {
+            console.error("Firebase Save Error:", error);
+            alert("保存に失敗しました: " + error.message);
+        });
     };
 
     window.triggerTsu = (dir) => {
@@ -391,6 +408,8 @@
     };
 
     // --- Data Sync ---
+    let isInitialLoad = true;
+
     onValue(ref(db, 'broadcast'), (snapshot) => {
         const data = snapshot.val();
         if(!data) return;
@@ -398,34 +417,50 @@
         const cur = data.current || {};
         const tsu = data.tsunami_config || {};
 
-        document.getElementById('stat-dist').innerText = `${cur.distributor === 'bot' ? '🤖 自動 (Bot)' : '👤 有人'} (${cur.operator || '--'})`;
-        document.getElementById('stat-mode').innerText = cur.layoutMode === 'emergency' ? '🚨 有事放送' : '🏠 通常放送';
-        document.getElementById('stat-cam').innerText = cur.cameraSource || '--';
+        const statDist = document.getElementById('stat-dist');
+        const statMode = document.getElementById('stat-mode');
+        const statCam = document.getElementById('stat-cam');
+        if(statDist) statDist.innerText = `${cur.distributor === 'bot' ? '🤖 自動 (Bot)' : '👤 有人'} (${cur.operator || '--'})`;
+        if(statMode) statMode.innerText = cur.layoutMode === 'emergency' ? '🚨 有事放送' : '🏠 通常放送';
+        if(statCam) statCam.innerText = cur.cameraSource || '--';
 
         const alertArea = document.getElementById('status-alert-area');
-        alertArea.innerHTML = data.current_mode === 'l-screen' ? '<div class="card alert"><i class="material-icons" style="vertical-align:bottom; color:var(--accent-red)">warning</i> L字放送が実行中です</div>' : '';
+        if(alertArea) alertArea.innerHTML = data.current_mode === 'l-screen' ? '<div class="card alert"><i class="material-icons" style="vertical-align:bottom; color:var(--accent-red)">warning</i> L字放送が実行中です</div>' : '';
 
-        const syncSelect = (id, val) => { if(document.activeElement.id !== id) document.getElementById(id).value = val || ""; };
+        const syncSelect = (id, val) => { 
+            const el = document.getElementById(id);
+            if(el && document.activeElement.id !== id) el.value = val || ""; 
+        };
         syncSelect('input-distributor', cur.distributor);
         syncSelect('input-operator', cur.operator === "System" ? "" : cur.operator);
         toggleNingen();
 
-        const setBtn = (id, cond) => { document.getElementById(id).className = cond ? "primary" : "secondary"; };
+        const setBtn = (id, cond) => { 
+            const el = document.getElementById(id);
+            if(el) el.className = cond ? "primary" : "secondary"; 
+        };
         setBtn('btn-lay-live', cur.layoutMode === 'live');
         setBtn('btn-lay-emer', cur.layoutMode === 'emergency');
         setBtn('btn-m-sub', data.current_mode === 'sub-switcher');
         setBtn('btn-m-l', data.current_mode === 'l-screen');
-        document.getElementById('link-to-l').style.display = data.current_mode === 'l-screen' ? 'block' : 'none';
+        
+        const linkToL = document.getElementById('link-to-l');
+        if(linkToL) linkToL.style.display = data.current_mode === 'l-screen' ? 'block' : 'none';
 
         syncSelect('input-mainSource', cur.mainSource);
-        document.getElementById('screen-options').style.display = cur.mainSource === 'screen' ? 'block' : 'none';
+        const screenOpts = document.getElementById('screen-options');
+        if(screenOpts) screenOpts.style.display = cur.mainSource === 'screen' ? 'block' : 'none';
+        
         if(data.screen_program) {
             syncSelect('input-screen-type', data.screen_program.type);
             syncSelect('input-screen-title', data.screen_program.title);
             syncSelect('input-screen-url', data.screen_program.url);
         }
 
-        const syncInput = (id, val) => { if(document.activeElement.id !== id) document.getElementById(id).value = val || ""; };
+        const syncInput = (id, val) => { 
+            const el = document.getElementById(id);
+            if(el && document.activeElement.id !== id) el.value = val || ""; 
+        };
         syncInput('input-mainTitle', cur.mainTitle);
         syncInput('input-subtitle', cur.subtitle);
         if(data.manual_news) {
@@ -434,24 +469,36 @@
             syncInput('input-tic-2', data.manual_news.line2);
         }
 
-        // L-Shape Sync - 入力中以外の時に同期
-        if(data.l_shape && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        // L-Shape Sync - 編集中の上書きを防止
+        const activeEl = document.activeElement;
+        const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container'));
+        
+        if(data.l_shape && !isEditingL) {
             syncInput('input-l-leftText', data.l_shape.leftText);
             const items = data.l_shape.topItems;
+            
+            // 初回読み込み時、またはアイテム数が異なる場合にのみリストを再描画
             if(items) {
-                // オブジェクトのキー順に配列化してローカルに保持
                 const keys = Object.keys(items).sort((a,b) => parseInt(a) - parseInt(b));
-                localLItems = keys.map(key => ({
+                const newItems = keys.map(key => ({
                     genre: items[key].genre || "",
                     text: items[key].text || ""
                 }));
-                renderLItems();
+                
+                // 初回読み込みか、個数が変わった時だけ同期（入力途中の文字消え防止）
+                if(isInitialLoad || localLItems.length !== newItems.length) {
+                    localLItems = newItems;
+                    renderLItems();
+                }
             }
         }
-
+        
         setBtn('btn-tsu-auto', tsu.autoPage === true);
         setBtn('btn-tsu-manual', tsu.autoPage === false);
-        document.getElementById('tsu-manual-ctrl').style.display = tsu.autoPage === false ? 'block' : 'none';
+        const tsuCtrl = document.getElementById('tsu-manual-ctrl');
+        if(tsuCtrl) tsuCtrl.style.display = tsu.autoPage === false ? 'block' : 'none';
+
+        isInitialLoad = false;
     });
 
     async function initCameras() {
@@ -459,6 +506,7 @@
             const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json");
             const cams = await res.json();
             const list = document.getElementById('cam-list');
+            if(!list) return;
             list.innerHTML = "";
             cams.forEach(c => {
                 const d = document.createElement('div');
@@ -467,7 +515,9 @@
                 d.onclick = () => updateFB('current/cameraSource', c.id);
                 list.appendChild(d);
             });
-        } catch(e) {}
+        } catch(e) {
+            console.error("Camera Init Error:", e);
+        }
     }
     initCameras();
 </script>
