@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-title" content="EQLive Admin">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
     <title>Kactuif EQLive Admin</title>
     <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
@@ -68,6 +71,18 @@
         button.secondary { background: #333; color: white; flex: 1; }
         button.danger { background: var(--accent-red); color: white; flex: 1; }
         button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* 地方別フィルタ用スタイル */
+        .filter-container {
+            padding: 10px; background: #151515; border-bottom: 1px solid #333;
+            display: flex; gap: 8px; overflow-x: auto; white-space: nowrap;
+        }
+        .filter-btn {
+            background: #333; color: #fff; padding: 6px 15px; border-radius: 20px; font-size: 12px; border: 1px solid #444;
+        }
+        .filter-btn.active {
+            background: var(--accent-blue); border-color: var(--accent-blue);
+        }
 
         @media (max-width: 900px) {
             .menu-toggle { display: flex; }
@@ -229,6 +244,18 @@
 
         <div id="tab-camera" class="tab-content">
             <h2>ライブカメラ切替</h2>
+            <div class="filter-container">
+                <button class="filter-btn active" onclick="filterCameras('すべて', this)">すべて</button>
+                <button class="filter-btn" onclick="filterCameras('北海道', this)">北海道</button>
+                <button class="filter-btn" onclick="filterCameras('東北', this)">東北</button>
+                <button class="filter-btn" onclick="filterCameras('関東', this)">関東</button>
+                <button class="filter-btn" onclick="filterCameras('中部', this)">中部</button>
+                <button class="filter-btn" onclick="filterCameras('近畿', this)">近畿</button>
+                <button class="filter-btn" onclick="filterCameras('中国', this)">中国</button>
+                <button class="filter-btn" onclick="filterCameras('四国', this)">四国</button>
+                <button class="filter-btn" onclick="filterCameras('九州', this)">九州</button>
+                <button class="filter-btn" onclick="filterCameras('沖縄', this)">沖縄</button>
+            </div>
             <div class="card" style="padding:0; overflow:hidden;">
                 <div id="cam-list" style="height:500px; overflow-y:auto; background:#000;"></div>
             </div>
@@ -271,6 +298,8 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+
+    let allCameras = []; // 全カメラデータを保持
 
     // --- UI Logic ---
     window.toggleNav = () => {
@@ -382,15 +411,11 @@
     window.saveLShape = () => {
         const topItemsObj = {};
         localLItems.forEach((item, index) => {
-            // 空のアイテムも構造を維持して保存
             topItemsObj[index] = { 
                 genre: item.genre || "", 
                 text: item.text || "" 
             };
         });
-
-        // 念のためオブジェクトの中身を確認
-        console.log("Saving topItems:", topItemsObj);
 
         set(ref(db, 'broadcast/l_shape'), {
             leftText: document.getElementById('input-l-leftText').value || "",
@@ -398,7 +423,6 @@
         }).then(() => {
             alert("L字放送設定をFirebaseに保存しました");
         }).catch((error) => {
-            console.error("Firebase Save Error:", error);
             alert("保存に失敗しました: " + error.message);
         });
     };
@@ -406,6 +430,51 @@
     window.triggerTsu = (dir) => {
         update(ref(db, 'broadcast/tsunami_config/manualTrigger'), { direction: dir, timestamp: Date.now() });
     };
+
+    // --- Camera Logic ---
+    window.filterCameras = (area, btn) => {
+        // ボタンのスタイル切り替え
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // フィルタリング実行
+        const filtered = (area === 'すべて') 
+            ? allCameras 
+            : allCameras.filter(c => c.area === area);
+        
+        renderCameraList(filtered);
+    };
+
+    function renderCameraList(cams) {
+        const list = document.getElementById('cam-list');
+        if(!list) return;
+        list.innerHTML = "";
+        cams.forEach(c => {
+            const d = document.createElement('div');
+            d.style.cssText = "padding:18px; border-bottom:1px solid #222; cursor:pointer;";
+            d.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <div style="font-weight:bold;">${c.name}</div>
+                        <small style="color:#777;">ID: ${c.id}</small>
+                    </div>
+                    <div style="font-size:10px; background:#333; padding:2px 8px; border-radius:4px;">${c.area || '未設定'}</div>
+                </div>
+            `;
+            d.onclick = () => updateFB('current/cameraSource', c.id);
+            list.appendChild(d);
+        });
+    }
+
+    async function initCameras() {
+        try {
+            const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json");
+            allCameras = await res.json();
+            renderCameraList(allCameras);
+        } catch(e) {
+            console.error("Camera Init Error:", e);
+        }
+    }
 
     // --- Data Sync ---
     let isInitialLoad = true;
@@ -469,23 +538,18 @@
             syncInput('input-tic-2', data.manual_news.line2);
         }
 
-        // L-Shape Sync - 編集中の上書きを防止
         const activeEl = document.activeElement;
         const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container'));
         
         if(data.l_shape && !isEditingL) {
             syncInput('input-l-leftText', data.l_shape.leftText);
             const items = data.l_shape.topItems;
-            
-            // 初回読み込み時、またはアイテム数が異なる場合にのみリストを再描画
             if(items) {
                 const keys = Object.keys(items).sort((a,b) => parseInt(a) - parseInt(b));
                 const newItems = keys.map(key => ({
                     genre: items[key].genre || "",
                     text: items[key].text || ""
                 }));
-                
-                // 初回読み込みか、個数が変わった時だけ同期（入力途中の文字消え防止）
                 if(isInitialLoad || localLItems.length !== newItems.length) {
                     localLItems = newItems;
                     renderLItems();
@@ -501,24 +565,6 @@
         isInitialLoad = false;
     });
 
-    async function initCameras() {
-        try {
-            const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json");
-            const cams = await res.json();
-            const list = document.getElementById('cam-list');
-            if(!list) return;
-            list.innerHTML = "";
-            cams.forEach(c => {
-                const d = document.createElement('div');
-                d.style.cssText = "padding:18px; border-bottom:1px solid #222; cursor:pointer;";
-                d.innerHTML = `<div style="font-weight:bold;">${c.name}</div><small style="color:#777;">ID: ${c.id}</small>`;
-                d.onclick = () => updateFB('current/cameraSource', c.id);
-                list.appendChild(d);
-            });
-        } catch(e) {
-            console.error("Camera Init Error:", e);
-        }
-    }
     initCameras();
 </script>
 </body>
