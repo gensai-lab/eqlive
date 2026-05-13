@@ -170,6 +170,7 @@
     {
         "id":  "kannonsaki_radar",
         "name":  "神奈川 横須賀市",
+        "area":  "関東",
         "type":  "hls",
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/kannonsaki_radar-live.m3u8"
     },
