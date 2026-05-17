@@ -6,269 +6,217 @@
     <meta name="apple-mobile-web-app-title" content="EQLive 原稿">
     <meta name="apple-mobile-web-app-capable" content="yes">
     
-    <title>Kactuif EQLive 原稿システム</title>
+    <title>EQLive 原稿ツール</title>
     <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0a0a0a; --sidebar-bg: #151515; --card-bg: #1e1e1e;
-            --accent-blue: #005AFF; --accent-red: #d13438; --accent-orange: #f7630c;
-            --text-main: #ffffff; --text-sub: #aaaaaa;
-            --header-height: 60px;
+            --bg-color: #0d0d0d;
+            --header-bg: #000000;
+            --footer-bg: #141414;
+            --text-main: #ffffff;
+            --text-sub: #aaaaaa;
+            --accent-purple: #ff00ff; /* 大津波警報 */
+            --accent-red: #ff0000;    /* 津波警報・ニュース赤 */
+            --accent-yellow: #fff200; /* 選択中黄色 */
+            --border-color: #222222;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
         body {
-            margin: 0; font-family: 'BIZ UDPGothic', sans-serif;
-            background: var(--bg-color); color: var(--text-main);
-            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+            margin: 0; padding: 0;
+            font-family: 'BIZ UDPGothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
         }
 
+        /* ヘッダー */
         header {
-            height: var(--header-height); background: #000; border-bottom: 1px solid #333;
-            display: flex; align-items: center; justify-content: space-between; padding: 0 15px; 
-            z-index: 2000; flex-shrink: 0;
-        }
-        .header-logo img { height: 28px; }
-        .header-status { font-size: 13px; color: var(--text-sub); display: flex; align-items: center; gap: 10px; }
-        .status-dot { width: 8px; height: 8px; background: #107c10; border-radius: 50%; }
-
-        /* 2カラムレイアウト */
-        .wrapper { display: flex; flex: 1; overflow: hidden; }
-        main { flex: 7; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid #333; }
-        aside { flex: 3; background: #111; padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
-
-        /* カテゴリタブ */
-        .category-nav {
-            background: var(--sidebar-bg); border-bottom: 1px solid #333;
-            display: flex; overflow-x: auto; white-space: nowrap; flex-shrink: 0;
-        }
-        .cat-btn {
-            background: none; border: none; color: var(--text-sub); padding: 15px 25px;
-            font-size: 14px; font-weight: bold; cursor: pointer; border-bottom: 3px solid transparent;
-            font-family: inherit; transition: 0.2s;
-        }
-        .cat-btn.active { color: white; border-bottom-color: var(--accent-blue); background: rgba(0, 90, 255, 0.05); }
-        .cat-btn:hover { background: #222; }
-
-        /* コンテンツエリア */
-        .content { flex: 1; padding: 25px; overflow-y: auto; }
-        .pane { display: none; max-width: 900px; margin: 0 auto; }
-        .pane.active { display: block; }
-
-        .card { background: var(--card-bg); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; }
-        .grid-2 { display: grid; grid-template-columns: 1 flex; gap: 15px; }
-        @media (min-width: 600px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
-
-        label { display: block; color: var(--text-sub); font-size: 12px; margin-bottom: 8px; font-weight: bold; }
-        input, select, textarea {
-            width: 100%; padding: 12px; background: #000; border: 1px solid #444; 
-            color: white; border-radius: 8px; font-size: 15px; margin-bottom: 15px; font-family: inherit;
+            background-color: var(--header-bg);
+            height: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
         }
 
-        /* 原稿表示ディスプレイ */
-        .manuscript-box {
-            background: #000; border: 2px solid #333; border-radius: 12px; padding: 25px;
-            margin-top: 15px; position: relative;
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
-        .manuscript-box.alert-border { border-color: var(--accent-red); }
+
+        .brand-logo {
+            font-size: 22px;
+            font-weight: bold;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-badge {
+            background-color: #262626;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 3px 10px;
+            border-radius: 20px;
+            border: 1px solid #3c3c3c;
+        }
+
+        .admin-btn {
+            background: none;
+            border: 1px solid #555555;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 5px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .admin-btn:hover {
+            background-color: #222222;
+        }
+
+        /* メイン原稿表示エリア */
+        main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .manuscript-container {
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        /* スクリーンショットのテキストスタイルを徹底再現 */
         .manuscript-text {
-            font-size: 20px; line-height: 2.2; letter-spacing: 0.05em; white-space: pre-wrap;
-            color: #fff; transition: font-size 0.2s;
-        }
-        /* ルビ・サイズ切替用クラス */
-        .manuscript-text.large-text { font-size: 28px; line-height: 2.4; }
-        .manuscript-text ruby { padding: 0 2px; }
-        .manuscript-text rt { font-size: 0.45em; color: #00ffcc; letter-spacing: 0; line-height: 1; margin-bottom: 2px; }
-
-        .box-controls {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-top: 15px; padding-top: 15px; border-top: 1px solid #222;
+            font-size: 34px;
+            line-height: 1.8;
+            font-weight: bold;
+            letter-spacing: 0.06em;
+            white-space: pre-wrap;
+            color: var(--text-main);
         }
 
-        /* ボタン */
-        .btn-group { display: flex; gap: 10px; }
-        button { font-family: inherit; cursor: pointer; border: none; border-radius: 8px; padding: 12px 20px; font-weight: bold; transition: 0.2s; }
-        button.primary { background: var(--accent-blue); color: white; }
-        button.danger { background: var(--accent-red); color: white; }
-        button.secondary { background: #333; color: white; }
-        button.active-toggle { background: var(--accent-blue); color: white; }
+        /* 原稿内の特殊色強調クラス */
+        .pts-otsunami { color: var(--accent-purple); }
+        .pts-tsunami { color: var(--accent-red); }
+        .pts-shindo { color: var(--text-main); }
 
-        .copy-toast {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background: var(--accent-blue); color: white; padding: 10px 20px; border-radius: 20px;
-            font-size: 13px; font-weight: bold; display: none; z-index: 3000;
+        /* フッター（ボトムナビゲーション） */
+        footer {
+            background-color: var(--footer-bg);
+            height: 64px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .nav-container {
+            display: flex;
+            align-items: center;
+            height: 100%;
+            width: 100%;
+            max-width: 1000px;
+            padding: 0 10px;
+        }
+
+        .nav-btn {
+            flex: 1;
+            height: 100%;
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: inherit;
+            transition: background 0.2s;
+        }
+
+        .nav-btn:hover {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .nav-btn.active {
+            color: var(--accent-yellow);
+        }
+
+        .nav-divider {
+            color: #333333;
+            font-size: 14px;
+            user-select: none;
+            padding: 0 5px;
+        }
+
+        /* クイックツールチップ（機能用ホバー） */
+        .action-hint {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 11px;
+            color: #444444;
+            user-select: none;
         }
     </style>
 </head>
 <body>
 
 <header>
-    <div class="header-logo">
-        <img src="https://gensai-lab.github.io/eqlive/assets/logo/logo-ptn1_white.svg" alt="EQLive Logo">
+    <div class="header-left">
+        <span class="brand-logo">EQLive</span>
+        <span class="brand-badge">原稿ツール</span>
     </div>
-    <div class="header-status">
-        <div class="status-dot"></div>
-        <span>EQLive 放送原稿システム配信ハブ</span>
-    </div>
+    <button class="admin-btn" onclick="location.href='index.html'">Adminページ</button>
 </header>
 
-<div class="wrapper">
-    <main>
-        <div class="category-nav">
-            <button class="cat-btn active" onclick="switchPane('eq-prompt')">🚨 地震速報（初動・動的）</button>
-            <button class="cat-btn" onclick="switchPane('tsunami-prompt')">🌊 津波警報・注意報</button>
-            <button class="cat-btn" onclick="switchPane('weather-prompt')">⚠️ 大雨・特別警報</button>
-            <button class="cat-btn" onclick="switchPane('fixed-prompt')">📄 汎用・定型アナウンス</button>
-        </div>
+<main>
+    <div class="action-hint">※画面クリックでプレーンテキストをコピー / Ticker自動連携</div>
+    <div class="manuscript-container">
+        <div id="display-text" class="manuscript-text" onclick="copyCurrentText()"></div>
+    </div>
+</main>
 
-        <div class="content">
-            <div id="pane-eq-prompt" class="pane active">
-                <div class="card">
-                    <label>状況・パラメータ入力（リアルタイムに下の原稿に反映されます）</label>
-                    <div class="grid-2">
-                        <div>
-                            <label>震度クラス</label>
-                            <select id="eq-shindo" onchange="generateEqText()">
-                                <option value="5弱">震度 5弱</option>
-                                <option value="5強">震度 5強</option>
-                                <option value="6弱">震度 6弱</option>
-                                <option value="6強">震度 6強</option>
-                                <option value="7">震度 7</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label>主な強い揺れの地域</label>
-                            <input type="text" id="eq-region" value="〇〇地方" placeholder="例: 石川県能登地方" oninput="generateEqText()">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="manuscript-box alert-border">
-                    <div id="text-eq" class="manuscript-text"></div>
-                    <div class="box-controls">
-                        <div class="btn-group">
-                            <button class="secondary" onclick="toggleTextSize('text-eq')"><i class="material-icons" style="vertical-align:middle; font-size:18px;">format_size</i> 文字拡大</button>
-                        </div>
-                        <div class="btn-group">
-                            <button class="primary" onclick="pushToTicker('地震速報', 'text-eq')">この内容をTickerへ転送</button>
-                            <button class="secondary" onclick="copyText('text-eq')">原稿をコピー</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="pane-tsunami-prompt" class="pane">
-                <div class="card">
-                    <label>津波情報パラメータ</label>
-                    <div class="grid-2">
-                        <div>
-                            <label>警報種別</label>
-                            <select id="tsu-type" onchange="generateTsuText()">
-                                <option value="警報">🌊 大津波警報・津波警報</option>
-                                <option value="注意報">⚠️ 津波注意報</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label>対象沿岸</label>
-                            <input type="text" id="tsu-coast" value="〇〇沿岸" placeholder="例: 岩手県、宮城県" oninput="generateTsuText()">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="manuscript-box alert-border">
-                    <div id="text-tsunami" class="manuscript-text"></div>
-                    <div class="box-controls">
-                        <div class="btn-group">
-                            <button class="secondary" onclick="toggleTextSize('text-tsunami')"><i class="material-icons" style="vertical-align:middle; font-size:18px;">format_size</i> 文字拡大</button>
-                        </div>
-                        <div class="btn-group">
-                            <button class="primary" onclick="pushToTicker('津波情報', 'text-tsunami')">Tickerへ転送</button>
-                            <button class="secondary" onclick="copyText('text-tsunami')">原稿をコピー</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="pane-weather-prompt" class="pane">
-                <div class="card">
-                    <label>気象情報パラメータ</label>
-                    <div class="grid-2">
-                        <div>
-                            <label>発表中の情報</label>
-                            <select id="wea-type" onchange="generateWeaText()">
-                                <option value="特別警報">🔴 大雨特別警報（レベル5相当）</option>
-                                <option value="土砂災害">🟠 土砂災害警戒情報（レベル4相当）</option>
-                                <option value="顕著な大雨">🌧️ 顕著な大雨に関する情報</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label>対象地域</label>
-                            <input type="text" id="wea-area" value="〇〇県" placeholder="例: 福岡県筑後地方" oninput="generateWeaText()">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="manuscript-box">
-                    <div id="text-weather" class="manuscript-text"></div>
-                    <div class="box-controls">
-                        <div class="btn-group">
-                            <button class="secondary" onclick="toggleTextSize('text-weather')"><i class="material-icons" style="vertical-align:middle; font-size:18px;">format_size</i> 文字拡大</button>
-                        </div>
-                        <div class="btn-group">
-                            <button class="primary" onclick="pushToTicker('防災気象情報', 'text-weather')">Tickerへ転送</button>
-                            <button class="secondary" onclick="copyText('text-weather')">原稿をコピー</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="pane-fixed-prompt" class="pane">
-                <div class="card">
-                    <label>【定型】YouTubeライブ 配信開始アナウンス</label>
-                    <div class="manuscript-box">
-                        <div id="text-f1" class="manuscript-text">ご覧のYouTubeチャンネル「みんなの減災ラボ」から、緊急災害情報配信プロジェクト「<ruby>EQLive<rt>イーキューライブ</rt></ruby>」をお伝えしています。
-
-現在、大規模な災害、または重大な防災気象情報が発表されたため、臨時の緊急生放送を編成して情報をお届けしています。メディアが手元にない方や避難所に避難されている方は、このまま情報をお役立てください。</div>
-                        <div class="box-controls">
-                            <button class="secondary" onclick="toggleTextSize('text-f1')">文字拡大</button>
-                            <button class="secondary" onclick="copyText('text-f1')">コピー</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <label>【定型】ライブカメラ等 映像繋ぎ時のアナウンス</label>
-                    <div class="manuscript-box">
-                        <div id="text-f2" class="manuscript-text">現在、画面には現地の状況を確認するため、ライブカメラ、または事前にお借りしている固定カメラ映像を投影しています。
-
-情報のアップデートが入り次第、画面上のテロップ、ならびに音声にて随時最新情報に切り替えてお伝えいたします。不必要な外出は避け、安全な建物の中で情報に警戒してください。</div>
-                        <div class="box-controls">
-                            <button class="secondary" onclick="toggleTextSize('text-f2')">文字拡大</button>
-                            <button class="secondary" onclick="copyText('text-f2')">コピー</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <aside>
-        <h3 style="margin:0 0 10px 0; font-size:15px; color:var(--accent-blue); display:flex; align-items:center; gap:8px;">
-            <i class="material-icons" style="font-size:18px;">edit_note</i> 放送速報メモ・受信記録
-        </h3>
-        <p style="font-size:11px; color:var(--text-sub); margin:0;">気象庁会見やSNSの現地情報、被害速報の一次記録に自由にお使いください（ブラウザを閉じると消去されます）。</p>
-        <textarea id="live-memo" style="flex:1; margin:0; background:#000; color:#fff; border:1px solid #333; border-radius:8px; resize:none; padding:15px; font-size:14px; line-height:1.6;" placeholder="・12:35 ○○川で氾濫発生情報&#13;・○○市で3000世帯停電発生..."></textarea>
-    </aside>
-</div>
-
-<div class="copy-toast" id="toast">コピーしました</div>
+<footer>
+    <div class="nav-container">
+        <button id="btn-eq" class="nav-btn active" onclick="switchTab('eq')">地震</button>
+        <div class="nav-divider">|</div>
+        <button id="btn-shindo" class="nav-btn" onclick="switchTab('shindo')">震度</button>
+        <div class="nav-divider">|</div>
+        <button id="btn-tsu" class="nav-btn" onclick="switchTab('tsu')">津波</button>
+        <div class="nav-divider">|</div>
+        <button id="btn-yosou" class="nav-btn" onclick="switchTab('yosou')">到達予想</button>
+        <div class="nav-divider">|</div>
+        <button id="btn-weather" class="nav-btn" onclick="switchTab('weather')">気象情報</button>
+        <div class="nav-divider">|</div>
+        <button id="btn-eew" class="nav-btn" onclick="switchTab('eew')">EEW</button>
+        <div class="nav-divider">|</div>
+        <button id="btn-switch" class="nav-btn" onclick="switchTab('switch')">地震切替</button>
+    </div>
+</footer>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // 同一プロジェクトのFirebase設定
     const firebaseConfig = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
         authDomain: "mgl-eqlive.firebaseapp.com",
@@ -282,107 +230,111 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // --- タブ切り替えロジック ---
-    window.switchPane = (id) => {
-        document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-        
-        document.getElementById(`pane-${id}`).classList.add('active');
-        event.target.classList.add('active');
+    // --- 各メニューに対応する本格的な放送原稿データベース ---
+    const manuscripts = {
+        eq: `午前１０時３７分ごろ、沖縄本島近海で
+最大震度６強を観測する強い地震がありました。
+
+震源：沖縄本島近海　　深さ：約２０キロ
+規模：マグニチュード９．０
+
+この地震で<span class="pts-otsunami">大津波警報</span>・<span class="pts-tsunami">津波警報</span>が出ています。`,
+
+        shindo: `各地の震度情報です。
+<span class="pts-shindo">震度６強</span>を、沖縄本島地方で観測しました。
+
+また、<span class="pts-shindo">震度６弱</span>を宮古島地方、
+<span class="pts-shindo">震度５強</span>を八重山地方で観測しています。
+揺れの強かった地域の方は、倒壊の危険がある建物から直ちに離れてください。`,
+
+        tsu: `<span class="pts-otsunami">大津波警報</span>が発表されている沿岸をお伝えします。
+沖縄本島地方。予想される津波の高さは巨大、１０メートル以上です！
+
+ただちに避難してください！急いで高台や避難ビルの最上階など、より高い安全な場所へ逃げてください！決して様子を見に海岸や川に近づかないでください！`,
+
+        yosou: `津波の到達予想時刻と予想される高さです。
+沖縄本島地方那覇港、すでに到達しているとみられます。
+宮古島地方、午前１０時５０分。
+
+津波は第１波よりも、第２波、第３波が高くなることがあります。
+一度津波が引いても、警報が解除されるまで絶対に避難をやめないでください。`,
+
+        weather: `気象庁から、防災気象情報をお伝えします。
+現在、大雨による災害の危険度が急激に高まっています。
+
+土砂災害警戒情報が発表されている自治体では、崖の近くや沢沿いなど危険な場所にいる方は、周囲の状況を確認し、手遅れになる前に頑丈な建物の２階以上などへ退避してください。`,
+
+        eew: `【緊急地震速報】
+先ほど、強い揺れが予想される緊急地震速報が発表されました。
+
+強い揺れに警戒してください。
+倒れやすい家具から離れ、机の下に隠れるなど、まずは身の安全を確保してください。自動車を運転中の方は、ハザードランプを点灯し緩やかに減速してください。`,
+
+        switch: `【複数の地震発生に関する情報】
+現在、連続して強い地震が発生している可能性があります。
+
+先ほどの地震の揺れに加え、余震によるさらなる建物の倒壊や土砂崩れに厳重な警戒が必要です。避難所へ移動される際は、周囲の足元や斜面の状況に十分注意して行動してください。`
     };
 
-    // --- 文字サイズ変更機能 ---
-    window.toggleTextSize = (targetId) => {
-        const el = document.getElementById(targetId);
-        if(el) el.classList.toggle('large-text');
+    let currentTab = 'eq';
+
+    // --- タブ切り替え制御 ---
+    window.switchTab = (tabId) => {
+        currentTab = tabId;
+        
+        // 全ボタンの選択状態を解除
+        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+        // 選択されたボタンをハイライト
+        document.getElementById(`btn-${tabId}`).classList.add('active');
+        
+        // 原稿テキストを書き換え
+        const displayEl = document.getElementById('display-text');
+        displayEl.innerHTML = manuscripts[tabId];
+
+        // 【実戦機能】タブを切り替えた瞬間、自動でFirebaseのTicker用データにも下書きを転送
+        autoSyncToTicker(tabId);
     };
 
     // --- クリップボードコピー ---
-    window.copyText = (targetId) => {
-        const el = document.getElementById(targetId);
-        if(!el) return;
-        // rubyタグのrt（ルビ）を除外してプレーンテキストを取得
-        let cleanText = el.innerText;
+    window.copyCurrentText = () => {
+        const el = document.getElementById('display-text');
+        if (!el) return;
         
-        navigator.clipboard.writeText(cleanText).then(() => {
-            const toast = document.getElementById('toast');
-            toast.style.display = 'block';
-            setTimeout(() => { toast.style.display = 'none'; }, 2000);
+        // HTMLタグ（spanなど）を排除して純粋な文字だけを抽出
+        const plainText = el.innerText;
+        
+        navigator.clipboard.writeText(plainText).then(() => {
+            // 視覚的にコピー成功を知らせるために一瞬背景を少し明るくする演出
+            const mainEl = document.querySelector('main');
+            mainEl.style.backgroundColor = '#1a1a1a';
+            setTimeout(() => { mainEl.style.backgroundColor = '#0d0d0d'; }, 150);
         });
     };
 
-    // --- Ticker自動転送機能 ---
-    window.pushToTicker = (genre, textId) => {
-        const rawText = document.getElementById(textId).innerText;
-        // 転送用に1行目と2行目を簡易的に切り出し
+    // --- 選択した原稿をFirebaseへ簡易連携するシステム ---
+    function autoSyncToTicker(tabId) {
+        const el = document.getElementById('display-text');
+        const rawText = el.innerText;
         const lines = rawText.split('\n').filter(l => l.trim() !== "");
-        const line1 = lines[0] ? lines[0].substring(0, 40) : "";
-        const line2 = lines[1] ? lines[1].substring(0, 40) : "落ち着いて身の安全を確保してください。";
+        
+        let genre = "地震情報";
+        if (tabId === 'tsu' || tabId === 'yosou') genre = "津波情報";
+        if (tabId === 'weather') genre = "気象情報";
+        if (tabId === 'eew') genre = "緊急地震速報";
 
+        const line1 = lines[0] ? lines[0].substring(0, 40) : "";
+        const line2 = lines[1] ? lines[1].substring(0, 40) : "落ち着いて行動してください。";
+
+        // FirebaseのTickerノードをバックグラウンドで同時更新
         update(ref(db, 'broadcast/manual_news'), {
             genre: genre,
             line1: line1,
             line2: line2
-        }).then(() => {
-            alert(`Tickerに転送しました。 \nジャンル: ${genre}\n1行目: ${line1}`);
-        }).catch((e) => alert("転送失敗: " + e.message));
-    };
+        }).catch(e => console.log("Firebase自動同期休止中:", e.message));
+    }
 
-    // --- 原稿テキスト自動生成生成器 ---
-    window.generateEqText = () => {
-        const shindo = document.getElementById('eq-shindo').value;
-        const region = document.getElementById('eq-region').value || "〇〇地方";
-        
-        const html = `地震速報をお伝えします。
-先ほど、<ruby>${region}<rt></rt></ruby>で、最大<ruby>震度 ${shindo}<rt>しんど ${shindo}</rt></ruby>を観測する非常に強い地震がありました。
-
-倒れやすい家具や棚から離れてください。現在、身の安全を確保している方は、そのまま次の情報をお待ちください。揺れが強かった地域の方は、倒壊の危険がある建物や斜面には絶対に近づかないでください。`;
-        
-        document.getElementById('text-eq').innerHTML = html;
-    };
-
-    window.generateTsuText = () => {
-        const type = document.getElementById('tsu-type').value;
-        const coast = document.getElementById('tsu-coast').value || "〇〇沿岸";
-        
-        let html = "";
-        if(type === '警報') {
-            html = `津波情報です。現在、<ruby>${coast}<rt></rt></ruby>に<ruby>津波警報<rt>つなみけいほう</rt></ruby>が発表されています。
-
-沿岸部や川の近くにいる方は、ただちに高台や避難ビルの上層階など、安全な場所へ避難してください！津波は何度も押し寄せ、第2波、第3波の方が高くなることがあります。警報が解除されるまで絶対に戻らないでください。`;
-        } else {
-            html = `沿岸部に近づいている方は注意してください。<ruby>${coast}<rt></rt></ruby>に<ruby>津波注意報<rt>つなみちゅういほう</rt></ruby>が発表されています。
-
-海の中や沿岸部にいる方は、ただちに海から上がり、海岸から離れてください。潮の流れが速い状態が続きます。作業や様子見のための沿岸部への接近は大変危険です。`;
-        }
-        document.getElementById('text-tsunami').innerHTML = html;
-    };
-
-    window.generateWeaText = () => {
-        const type = document.getElementById('wea-type').value;
-        const area = document.getElementById('wea-area').value || "〇〇地方";
-        
-        let html = "";
-        if(type === '特別警報') {
-            html = `重大な気象情報です。<ruby>${area}<rt></rt></ruby>に<ruby>大雨特別警報<rt>おおあめとくべつけいほう</rt></ruby>が発表されました。警戒レベル５相当の情報です。
-
-すでに周囲の状況が悪化し、避難所への移動が困難な場合は、近くの頑丈な建物の２階以上、あるいは崖から離れた斜面と反対側の部屋へ退避するなど、命を守る最善の行動をとってください。`;
-        } else if(type === '土砂災害') {
-            html = `<ruby>${area}<rt></rt></ruby>に<ruby>土砂災害警戒情報<rt>どしゃさいがいけいかいじょうほう</rt></ruby>が発表されています。警戒レベル４相当の情報です。
-
-がけ崩れや土石流が発生しやすい極めて危険な状態になっています。周囲の斜面や崖の状況に注意し、いつでも避難できるよう準備を進めるか、市町村からの避難情報に従って速やかに安全な場所へ移動してください。`;
-        } else {
-            html = `<ruby>${area}<rt></rt></ruby>で、非常に激しい雨が降り続いています。さきほど、<ruby>顕著な大雨に関する情報<rt>けんちょなおおあめにかんするじょうほう</rt></ruby>が発表されました。
-
-線状降水帯により、災害のリスクが急速に高まっています。夜間や豪雨の中での移動が危険な場合は、建物内での垂直避難を直ちに行ってください。`;
-        }
-        document.getElementById('text-weather').innerHTML = html;
-    };
-
-    // 初期起動時にテキストを一度生成
-    generateEqText();
-    generateTsuText();
-    generateWeaText();
+    // 初期起動時に最初のタブ「地震」をロード
+    switchTab('eq');
 </script>
 </body>
 </html>
