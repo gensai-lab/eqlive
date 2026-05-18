@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     
     <title>EQLive 原稿ツール</title>
-    <link href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic:wght@400;700&family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
         :root {
@@ -41,7 +41,7 @@
         /* ヘッダー */
         header {
             background-color: var(--header-bg);
-            height: 54px;
+            height: 58px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -49,16 +49,17 @@
             border-bottom: 1px solid var(--border-color);
             flex-shrink: 0;
             user-select: none;
+            position: relative;
         }
 
         .header-left {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
 
         .brand-logo {
-            font-size: 24px;
+            font-size: 26px;
             font-weight: 700;
             color: #ffffff;
         }
@@ -66,35 +67,45 @@
         .brand-badge {
             background-color: #262626;
             color: #cccccc;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 700;
             padding: 3px 10px;
             border-radius: 20px;
             border: 1px solid #3c3c3c;
         }
 
-        .api-status {
-            font-size: 11px;
-            color: var(--status-green);
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            background-color: rgba(0, 255, 102, 0.05);
-            padding: 4px 10px;
+        /* 新規入電アラート表示 */
+        .incoming-alert {
+            display: none;
+            background-color: var(--accent-red);
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 700;
+            padding: 4px 12px;
             border-radius: 4px;
-            border: 1px solid rgba(0, 255, 102, 0.2);
-        }
-        .api-status.disconnected {
-            color: var(--status-red);
-            background-color: rgba(255, 51, 51, 0.05);
-            border: 1px solid rgba(255, 51, 51, 0.2);
+            animation: flash 1s infinite alternate;
         }
 
-        .api-pulse {
-            width: 6px;
-            height: 6px;
-            background-color: var(--status-green);
-            border-radius: 50%;
+        @keyframes flash {
+            from { opacity: 0.3; } to { opacity: 1; }
+        }
+
+        /* 過去データ表示中の警告帯 */
+        .history-warning-banner {
+            display: none;
+            position: absolute;
+            bottom: -36px;
+            left: 0;
+            width: 100%;
+            height: 36px;
+            background-color: #e67e22;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 700;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
 
         /* 戻る・進むボタン */
@@ -110,8 +121,8 @@
             background-color: #262626;
             border: 1px solid #444444;
             color: #ffffff;
-            padding: 2px 12px;
-            font-size: 12px;
+            padding: 4px 16px;
+            font-size: 13px;
             font-weight: 700;
             border-radius: 20px;
             cursor: pointer;
@@ -123,9 +134,9 @@
             background: none;
             border: 1px solid #555555;
             color: #ffffff;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 700;
-            padding: 5px 14px;
+            padding: 6px 16px;
             border-radius: 20px;
             cursor: pointer;
             text-decoration: none;
@@ -134,7 +145,7 @@
         /* メイン原稿表示域 */
         main {
             flex: 1;
-            padding: 40px 50px;
+            padding: 55px 60px 40px 60px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
@@ -142,9 +153,9 @@
 
         .manuscript-content {
             width: 100%;
-            font-family: 'BIZ UDGothic', monospace;
-            font-size: 32px;
-            line-height: 1.6;
+            font-family: 'BIZ UDPGothic', sans-serif;
+            font-size: 36px;
+            line-height: 1.65;
             font-weight: 700;
             white-space: pre-wrap;
             word-break: break-all;
@@ -155,22 +166,27 @@
         .c-red { color: var(--accent-red); }
         
         ruby { padding: 0 1px; }
-        rt { font-size: 0.4em; color: #ffffff; font-family: 'BIZ UDPGothic', sans-serif; font-weight: 700; }
+        rt { font-size: 0.45em; color: #00ffcc; font-family: 'BIZ UDPGothic', sans-serif; font-weight: 700; }
 
-        /* テーブル構造 */
+        /* リスト・テーブル構造 */
         .m-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 28px;
+            font-size: 30px;
+            font-family: 'BIZ UDPGothic', sans-serif;
         }
         .m-table tr {
             border-bottom: 2px solid #ffffff;
+            cursor: pointer;
+        }
+        .m-table tr:hover {
+            background-color: rgba(255, 255, 255, 0.02);
         }
         .m-table tr.selected {
             color: var(--accent-yellow);
         }
         .m-table td {
-            padding: 10px 10px;
+            padding: 12px 10px;
             vertical-align: middle;
         }
         .m-table td:first-child { padding-left: 0; }
@@ -179,7 +195,7 @@
         /* フッタータブ */
         footer {
             background-color: var(--footer-bg);
-            height: 64px;
+            height: 68px;
             border-top: 1px solid var(--border-color);
             display: flex;
             justify-content: center;
@@ -201,7 +217,7 @@
             background: none;
             border: none;
             color: #ffffff;
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 700;
             cursor: pointer;
             display: flex;
@@ -209,15 +225,28 @@
             justify-content: center;
             font-family: 'BIZ UDPGothic', sans-serif;
             border-right: 1px solid #222222;
+            position: relative;
         }
         .nav-btn:last-child { border-right: none; }
         .nav-btn.active { color: var(--accent-yellow); }
 
+        /* タブの新規入電バッジ（赤丸） */
+        .nav-badge {
+            display: none;
+            position: absolute;
+            top: 10px;
+            right: 14px;
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-red);
+            border-radius: 50%;
+        }
+
         @media (max-width: 800px) {
-            .manuscript-content { font-size: 22px; }
-            .m-table { font-size: 18px; }
+            .manuscript-content { font-size: 24px; }
+            .m-table { font-size: 20px; }
             .page-control { position: static; transform: none; }
-            .api-status { display: none; }
+            .history-warning-banner { font-size: 12px; }
         }
     </style>
 </head>
@@ -227,7 +256,7 @@
     <div class="header-left">
         <span class="brand-logo">EQLive</span>
         <span class="brand-badge">原稿ツール</span>
-        <div id="connection-status" class="api-status"><div class="api-pulse"></div>EQLive リアルタイム同期中</div>
+        <div id="incoming-tag" class="incoming-alert">【新規入電】</div>
     </div>
     
     <div class="page-control">
@@ -236,6 +265,8 @@
     </div>
 
     <button class="admin-btn" onclick="location.href='admin.html'">Adminページ</button>
+
+    <div id="history-warning" class="history-warning-banner">⚠️ 表示中の情報は最新ではありません（過去の履歴を表示中）</div>
 </header>
 
 <main>
@@ -244,37 +275,64 @@
 
 <footer>
     <div class="nav-container">
-        <button id="tab-eq" class="nav-btn" onclick="switchTab('eq')">地震</button>
-        <button id="tab-shindo" class="nav-btn" onclick="switchTab('shindo')">震度</button>
-        <button id="tab-tsu" class="nav-btn" onclick="switchTab('tsu')">津波</button>
-        <button id="tab-yosou" class="nav-btn" onclick="switchTab('yosou')">到達予想</button>
+        <button id="tab-eq" class="nav-btn" onclick="switchTab('eq')">地震<div class="nav-badge" id="badge-eq"></div></button>
+        <button id="tab-shindo" class="nav-btn" onclick="switchTab('shindo')">震度<div class="nav-badge" id="badge-shindo"></div></button>
+        <button id="tab-tsu" class="nav-btn" onclick="switchTab('tsu')">津波<div class="nav-badge" id="badge-tsu"></div></button>
+        <button id="tab-yosou" class="nav-btn" onclick="switchTab('yosou')">到達予想<div class="nav-badge" id="badge-yosou"></div></button>
         <button id="tab-yobikake" class="nav-btn" onclick="switchTab('yobikake')">呼びかけ</button>
-        <button id="tab-eew" class="nav-btn" onclick="switchTab('eew')">EEW</button>
+        <button id="tab-eew" class="nav-btn" onclick="switchTab('eew')">EEW<div class="nav-badge" id="badge-eew"></div></button>
         <button id="tab-switch" class="nav-btn" onclick="switchTab('switch')">地震切替</button>
     </div>
 </footer>
 
 <script>
-    // ルビ自動設定用辞書
+    // --- 超巨大ルビ自動マッピング辞書 ---
     const rubyDict = {
-        "沖縄市": "おきなわし", "糸満市": "いとまんし", "豊見城市": "とみぐすくし", "南城市": "なんじょうし",
-        "那覇市": "なはし", "宜野湾市": "ぎのわんし", "浦添市": "うらそえし", "名護市": "なごし", 
-        "うるま市": "うるまし", "宮古島市": "みやこじまし", "国頭村": "くにがみそん", "大宜味村": "おおぎみそん", 
-        "東村": "ひがしそん", "今帰仁村": "なきじんそん", "座間味村": "ざまみそん", "多良間村": "たらまそん", 
-        "久米島町": "くめじまちょう", "粟国村": "あぐにそん", "伊平屋村": "いへやそん", "伊江村": "いえそん",
-        "石垣市": "いしがきし", "竹富町": "たけとみちょう", "与那国町": "よなぐにちょう"
+        // 地震津波共通用語
+        "地震": "じしん", "津波": "つなみ", "震度": "しんど", "震源": "しんげん", "深さ": "ふかさ", "規模": "きぼ",
+        "大津波警報": "おおつなみけいほう", "津波警報": "つなみけいほう", "津波注意報": "つなみちゅういほう", "緊急地震速報": "きんきゅうじしんそくほう",
+        // 北海道
+        "石狩地方": "いしかりちほう", "渡島地方": "おしまちほう", "檜山地方": "ひやまちほう", "後志地方": "しりべしちほう", "空知地方": "そらちちほう",
+        "上川地方": "かみかわちほう", "留萌地方": "るもちほう", "宗谷地方": "そうやちほう", "網走地方": "あばしりちほう", "北見地方": "きたみちほう",
+        "紋別地方": "もんべつちほう", "胆振地方": "いぶりちほう", "日高地方": "ひだかちほう", "十勝地方": "とかちちほう", "釧路地方": "くしろちほう",
+        "根室地方": "ねむろちほう", "奥尻島": "おくしりとう", "利尻礼文": "りしりれぶん",
+        // 東北・関東
+        "青森県": "あおもりけん", "岩手県": "いわてけん", "宮城県": "みやぎけん", "秋田県": "あきたけん", "山形県": "やまがたけん",
+        "福島県": "ふくしまけん", "茨城県": "いばらきけん", "栃木県": "とちぎけん", "群馬県": "ぐんまけん", "埼玉県": "さいたまけん",
+        "千葉県": "ちばけん", "東京都": "とうきょうと", "神奈川県": "かながわけん", "伊豆諸島": "いずしょとう", "小笠原諸島": "おがさわらしょとう",
+        // 中部・近畿・北陸
+        "新潟県": "にいがたけん", "富山県": "とやまけん", "石川県": "いしかわけん", "福井県": "ふくいけん", "山梨県": "やまなしけん",
+        "長野県": "ながのけん", "岐阜県": "ぎふけん", "静岡県": "しずおかけん", "愛知県": "あいちけん", "三重県": "みえけん",
+        "滋賀県": "しがく", "京都府": "きょうとふ", "大阪府": "おおさかふ", "兵庫県": "ひょうごけん", "奈良県": "ならけん", "和歌山県": "わかやまけん",
+        // 中国・四国・九州
+        "鳥取県": "とっとりけん", "島根県": "しまねけん", "岡山県": "おかやまけん", "広島県": "ひろしまけん", "山口県": "やまぐちけん",
+        "徳島県": "とくしまけん", "香川県": "かがわけん", "愛媛県": "えひめけん", "高知県": "こうちけん", "福岡県": "ふくおかけん",
+        "佐賀県": "さがけん", "長崎県": "ながさきけん", "熊本県": "くまもとけん", "大分県": "おおいたけん", "宮崎県": "みやざきけん",
+        "鹿児島県": "かごしまけん", "種子島": "たねがしま", "屋久島": "やくしま", "奄美群島": "あまみぐんとう", "トカラ列島": "とかられっとう",
+        // 沖縄
+        "沖縄本島地方": "おきなわほんとうちほう", "大東島地方": "だいとうじまちほう", "宮古島・八重山地方": "みやこじま・やえやまちほう",
+        "沖縄市": "おきなわし", "糸満市": "いとまんし", "豊見城市": "とみぐすくし", "南城市": "なんじょうし", "那覇市": "なはし",
+        "宜野湾市": "ぎのわんし", "浦添市": "うらそえし", "名護市": "なごし", "うるま市": "うるまし", "宮古島市": "みやこじまし",
+        "国頭村": "くにがみそん", "大宜味村": "おおぎみそん", "東村": "ひがしそん", "今帰仁村": "なきじんそん", "座間味村": "ざまみそん",
+        "多良間村": "たらまそん", "久米島町": "くめじまちょう", "粟国村": "あぐにそん", "伊平屋村": "いへやそん", "伊江村": "いえそん",
+        "石垣市": "いしがきし", "竹富町": "たけとみちょう", "与那国町": "よなぐにちょう",
+        // 海域・区域呼称系
+        "近海": "きんかい", "北西部": "ほくせいぶ", "南部": "なんぶ", "北部": "ほくぶ", "東部": "とうぶ", "西部": "せいぶ",
+        "太平洋沿岸": "たいへいようえんがん", "日本海沿岸": "にほんかいえんがん", "オホーツク海沿岸": "おほーつくかいえんがん",
+        "宇和海沿岸": "うわかいえんがん", "瀬戸内海沿岸": "せとないかいえんがん", "豊後水道沿岸": "ぶんごすいどうえんがん"
     };
 
     function applyRuby(text) {
         let parsed = text;
-        Object.keys(rubyDict).forEach(key => {
+        const sortedKeys = Object.keys(rubyDict).sort((a, b) => b.length - a.length);
+        sortedKeys.forEach(key => {
             const regex = new RegExp(key, 'g');
             parsed = parsed.replace(regex, `<ruby>${key}<rt>${rubyDict[key]}</rt></ruby>`);
         });
         return parsed;
     }
 
-    // 各データストック（初期状態）
+    // 各データベース
     let database = {
         eq: [{ content: "地震情報を読み込み中..." }],
         shindo: [{ content: "震度情報を読み込み中..." }],
@@ -292,7 +350,11 @@
 
     let currentTab = 'eq';
     let currentPageIndex = 0;
-    let eqHistoryList = []; // 切替画面用の直近データストック
+    
+    // システム内部状態管理
+    let eqHistoryList = [];   // P2Pから受信したパケットの生配列（最大8件）
+    let currentSelectedPacketId = null; // 現在ユーザーが選択して表示しているパケットのID
+    let alertTimer = null;
 
     window.switchTab = (tabId) => {
         currentTab = tabId;
@@ -300,6 +362,11 @@
         document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
         const targetTab = document.getElementById(`tab-${tabId}`);
         if (targetTab) targetTab.classList.add('active');
+        
+        // タブが開かれたらそのバッジ（赤丸）を消去
+        const badge = document.getElementById(`badge-${tabId}`);
+        if (badge) badge.style.display = 'none';
+
         renderPage();
     };
 
@@ -326,132 +393,202 @@
         }
     }
 
-    // --- 同期処理：最適化された指定URL ＋ WebSocketのハイブリッド ---
+    // --- 「新規入電」アクティベーター（1分間点滅＆バッジ点灯） ---
+    function triggerIncomingAlert(targetTabs = []) {
+        // ヘッダーの新規入電タグを表示
+        const tag = document.getElementById('incoming-tag');
+        if (tag) tag.style.display = 'block';
+
+        // 該当タブにバッジを表示
+        targetTabs.forEach(tabId => {
+            const badge = document.getElementById(`badge-${tabId}`);
+            if (badge && currentTab !== tabId) { // 現在開いているタブ以外にバッジを出す
+                badge.style.display = 'block';
+            }
+        });
+
+        // 1分（60000ms）タイマーのリセットと開始
+        if (alertTimer) clearTimeout(alertTimer);
+        alertTimer = setTimeout(() => {
+            if (tag) tag.style.display = 'none';
+        }, 60000);
+    }
+
+    // --- 地震情報切り替えコアロジック ---
+    window.selectHistoryIndex = (packetId) => {
+        currentSelectedPacketId = packetId;
+        
+        // 1. 最新パケットのIDを取得
+        const latestId = eqHistoryList[0]?.id;
+        const banner = document.getElementById('history-warning');
+
+        // 2. 最新ではないデータの場合、警告帯を出す
+        if (currentSelectedPacketId !== latestId) {
+            if (banner) banner.style.display = 'flex';
+        } else {
+            if (banner) banner.style.display = 'none';
+        }
+
+        // 3. 対象パケットを検索して原稿を再マッピング
+        const targetPacket = eqHistoryList.find(p => p.id === packetId);
+        if (targetPacket) {
+            applyPacketToManuscript(targetPacket.rawPacket, true);
+        }
+
+        // 4. 地震切替テーブルのHTML再レンダリング（選択行のハイライト変化を反映）
+        renderSwitchTable();
+    };
+
+    // リスト構造の表示更新
+    function renderSwitchTable() {
+        let tableHtml = `<table class="m-table">`;
+        eqHistoryList.forEach((item) => {
+            const isSelected = item.id === currentSelectedPacketId ? 'class="selected" style="border-bottom: 2px solid var(--accent-yellow);"' : '';
+            tableHtml += `<tr ${isSelected} onclick="selectHistoryIndex('${item.id}')">
+                <td>${item.time}</td>
+                <td>${item.name}</td>
+                <td>${item.mag}</td>
+                <td>${item.tsunami}</td>
+            </tr>`;
+        });
+        tableHtml += `</table>`;
+        database.switch = [{ content: tableHtml }];
+        
+        if (currentTab === 'switch') renderPage();
+    }
+
+
+    // --- 同期ネットワークモジュール ---
     const P2P_WS_URL = "wss://api.p2pquake.net/v2/ws";
     const P2P_HTTP_URL = "https://api.p2pquake.net/v2/history?codes=551&codes=552&codes=556&limit=8";
     let ws = null;
     let processedIds = new Set();
 
-    // 1. WebSocket同期の開始
     function connectWebSocket() {
         ws = new WebSocket(P2P_WS_URL);
-        const statusEl = document.getElementById('connection-status');
-
-        ws.onopen = () => {
-            if (statusEl) {
-                statusEl.className = "api-status";
-                statusEl.innerHTML = `<div class="api-pulse" style="background-color:var(--status-green);"></div>EQLive リアルタイム同期中`;
-            }
-        };
-
         ws.onmessage = (event) => {
             try {
                 const packet = JSON.parse(event.data);
                 processIncomingData(packet, false);
             } catch(e) { console.error(e); }
         };
-
-        ws.onclose = () => {
-            if (statusEl) {
-                statusEl.className = "api-status disconnected";
-                statusEl.innerHTML = `<div class="api-pulse" style="background-color:var(--status-red);"></div>同期切断（再接続中）`;
-            }
-            setTimeout(connectWebSocket, 5000);
-        };
+        ws.onclose = () => { setTimeout(connectWebSocket, 5000); };
     }
 
-    // 2. HTTP指定URLポーリング（バックアップ・初期ロード兼用）
     async function fetchDataFromTargetURL() {
         try {
             const res = await fetch(P2P_HTTP_URL);
             if (!res.ok) return;
             const data = await res.json();
             if (Array.isArray(data)) {
-                // 配列の古いデータから順に解析エンジンへ流し込む
                 const sortedData = [...data].reverse();
                 sortedData.forEach(packet => processIncomingData(packet, true));
             }
-        } catch (e) {
-            console.error("データの取得に失敗しました", e);
-        }
+        } catch (e) { console.error(e); }
     }
 
-    // 共通パケット処理
     function processIncomingData(packet, isHistoryLoad = false) {
         if (!packet || !packet.id || !packet.code) return;
         if (processedIds.has(packet.id)) return;
         processedIds.add(packet.id);
 
         if (packet.code === 551) {
-            parse551(packet, isHistoryLoad);
+            // 地震履歴配列の再構築
+            const eq = packet.earthquake;
+            if (eq) {
+                let displayTime = eq.time || "";
+                if (displayTime.length >= 16) {
+                    const day = displayTime.substring(8, 10);
+                    const hour = parseInt(displayTime.substring(11, 13));
+                    const min = displayTime.substring(14, 16);
+                    const ampm = hour >= 12 ? "午後" : "午前";
+                    const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+                    displayTime = `${day}日${ampm}${displayHour}時${min}分`;
+                }
+                const name = eq.hypocenter.name || "調査中";
+                const mShort = eq.hypocenter.magnitude >= 0 ? `Ｍ${eq.hypocenter.magnitude.toFixed(1)}` : "Ｍ不明";
+                let tShort = "津波なし";
+                if (eq.domesticTsunami === "Warning" || eq.domesticTsunami === "Watch") tShort = "津波情報";
+                if (eq.domesticTsunami === "NonEffective") tShort = "海面変動";
+
+                const historyItem = { id: packet.id, time: displayTime, name: name, mag: mShort, tsunami: tShort, rawPacket: packet };
+                
+                if (!isHistoryLoad) {
+                    eqHistoryList.unshift(historyItem);
+                    // リアルタイム新規入電時は自動的に最新を選択状態にする
+                    currentSelectedPacketId = packet.id;
+                    const banner = document.getElementById('history-warning');
+                    if (banner) banner.style.display = 'none';
+                    
+                    // 新規入電アラート＆バッジ点灯
+                    triggerIncomingAlert(['eq', 'shindo']);
+                } else {
+                    eqHistoryList.push(historyItem);
+                }
+
+                if (eqHistoryList.length > 8) {
+                    if (!isHistoryLoad) eqHistoryList.pop();
+                    else eqHistoryList.shift();
+                }
+
+                // 初期起動ロードの最終着地の場合も、最新のパケットIDを選択状態に固定
+                if (isHistoryLoad && eqHistoryList.length > 0) {
+                    currentSelectedPacketId = eqHistoryList[0].id;
+                }
+            }
+
+            // 原稿側への適用（ユーザーが過去データを閲覧中ではない、または新着リアルタイムデータの場合は即時適用）
+            if (!isHistoryLoad || currentSelectedPacketId === packet.id) {
+                applyPacketToManuscript(packet, isHistoryLoad);
+            }
+            renderSwitchTable();
+
         } else if (packet.code === 552) {
             parse552(packet);
+            if (!isHistoryLoad) triggerIncomingAlert(['tsu', 'yosou']);
         } else if (packet.code === 556) {
             parse556(packet);
+            if (!isHistoryLoad) triggerIncomingAlert(['eew']);
         }
     }
 
-    // 551 地震情報解析
-    function parse551(packet, isHistoryLoad) {
-        const eq = packet.earthquake;
-        if (!eq) return;
+    // パケットデータを原稿用データベースへマッピングする関数
+    function applyPacketToManuscript(packet, isHistoryLoad = false) {
+        if (packet.code === 551) {
+            const eq = packet.earthquake;
+            let displayTime = eq.time || "";
+            if (displayTime.length >= 16) {
+                const day = displayTime.substring(8, 10);
+                const hour = parseInt(displayTime.substring(11, 13));
+                const min = displayTime.substring(14, 16);
+                const ampm = hour >= 12 ? "午後" : "午前";
+                const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+                displayTime = `${day}日${ampm}${displayHour}時${min}分`;
+            }
+            const name = eq.hypocenter.name || "調査中";
+            const depth = eq.hypocenter.depth >= 0 ? `約${eq.hypocenter.depth}キロ` : "調査中";
+            const mag = eq.hypocenter.magnitude >= 0 ? `マグニチュード${eq.hypocenter.magnitude.toFixed(1)}` : "不明";
+            const maxScale = formatScale(eq.maxScale);
 
-        const rawTime = eq.time || "";
-        // 表示用に「02日午前10時37分」の形式にコンバート（簡易トリミング変換）
-        let displayTime = rawTime;
-        if (rawTime.length >= 16) {
-            const day = rawTime.substring(8, 10);
-            const hour = parseInt(rawTime.substring(11, 13));
-            const min = rawTime.substring(14, 16);
-            const ampm = hour >= 12 ? "午後" : "午前";
-            const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
-            displayTime = `${day}日${ampm}${displayHour}時${min}分`;
-        }
+            let tsunamiScript = "この地震による津波の心配はありません。";
+            if (eq.domesticTsunami === "Warning" || eq.domesticTsunami === "Watch") {
+                tsunamiScript = `この地震で<span class="c-magenta">大津波警報</span>・<span class="c-red">津波警報</span>が出ています。`;
+            } else if (eq.domesticTsunami === "NonEffective") {
+                tsunamiScript = `この地震により、多少の海面変動があるかもしれませんが、津波の心配はありません。`;
+            }
 
-        const name = eq.hypocenter.name || "調査中";
-        const depth = eq.hypocenter.depth >= 0 ? `約${eq.hypocenter.depth}キロ` : "調査中";
-        const mag = eq.hypocenter.magnitude >= 0 ? `マグニチュード${eq.hypocenter.magnitude.toFixed(1)}` : "不明";
-        const mShort = eq.hypocenter.magnitude >= 0 ? `Ｍ${eq.hypocenter.magnitude.toFixed(1)}` : "Ｍ不明";
-        const maxScale = formatScale(eq.maxScale);
-        
-        let tsunamiScript = "この地震による津波の心配はありません。";
-        let tShort = "津波なし";
-        if (eq.domesticTsunami === "Warning" || eq.domesticTsunami === "Watch") {
-            tsunamiScript = `この地震で<span class="c-magenta">大津波警報</span>・<span class="c-red">津波警報</span>が出ています。`;
-            tShort = "津波情報";
-        } else if (eq.domesticTsunami === "NonEffective") {
-            tsunamiScript = `この地震により、多少の海面変動があるかもしれませんが、津波の心配はありません。`;
-            tShort = "海面変動";
-        }
-
-        // リスト用データに追加（WebSocketからのリアルタイム突発時は先頭に、初期ロード時は時系列順にセット）
-        const historyItem = { id: packet.id, time: displayTime, name: name, mag: mShort, tsunami: tShort };
-        if (!isHistoryLoad) {
-            eqHistoryList.unshift(historyItem);
-        } else {
-            eqHistoryList.push(historyItem); // 古いものから追加されているのでpushで正解
-        }
-        
-        // リストは最大8件にクリップ
-        if (eqHistoryList.length > 8) {
-            if (!isHistoryLoad) eqHistoryList.pop();
-            else eqHistoryList.shift();
-        }
-
-        // 最新パケットの場合、各メインタブ画面を上書き更新
-        if (!isHistoryLoad || eqHistoryList[0]?.id === packet.id) {
-            // 地震タブ
+            // 地震タブ原稿を生成（ふりがな対応）
             database.eq = [{
-                content: `${displayTime}ごろ、${name}で
+                content: applyRuby(`${displayTime}ごろ、${name}で
 最大震度${maxScale}を観測する強い地震がありました。
 
 震源：${name}　　深さ：${depth}
 規模：${mag}
 
-${tsunamiScript}`
+${tsunamiScript}`)
             }];
 
-            // 震度詳細タブ
+            // 震度タブ原稿を生成（ふりがな対応）
             if (packet.points && packet.points.length > 0) {
                 let shindoMap = {};
                 packet.points.forEach(p => {
@@ -468,24 +605,9 @@ ${tsunamiScript}`
             } else {
                 database.shindo = [{ content: "震度詳細は発表されていません。" }];
             }
+            
+            renderPage();
         }
-
-        // 地震切替テーブルのHTML再生成
-        // 最もインデックスが新しい（配列の[0]番目、またはリアルタイムで新着したもの）をselectedにする
-        let tableHtml = `<table class="m-table">`;
-        eqHistoryList.forEach((item, idx) => {
-            const isSelected = idx === 0 ? 'class="selected" style="border-bottom: 2px solid var(--accent-yellow);"' : '';
-            tableHtml += `<tr ${isSelected}>
-                <td>${item.time}</td>
-                <td>${item.name}</td>
-                <td>${item.mag}</td>
-                <td>${item.tsunami}</td>
-            </tr>`;
-        });
-        tableHtml += `</table>`;
-        database.switch = [{ content: tableHtml }];
-
-        renderPage();
     }
 
     // 552 津波予報解析
@@ -506,9 +628,9 @@ ${tsunamiScript}`
         });
         yosouHtml += `</table>`;
 
-        database.tsu = [{ content: tsuContent }];
-        database.yosou = [{ content: yosouHtml }];
-        renderPage();
+        database.tsu = [{ content: applyRuby(tsuContent) }];
+        database.yosou = [{ content: applyRuby(yosouHtml) }];
+        if (currentTab === 'tsu' || currentTab === 'yosou') renderPage();
     }
 
     // 556 EEW解析
@@ -519,14 +641,14 @@ ${tsunamiScript}`
         const areas = packet.areas ? packet.areas.map(a => a.name).join("　") : "";
 
         database.eew = [{
-            content: `<span class="c-yellow">緊急地震速報（警報）</span>
+            content: applyRuby(`<span class="c-yellow">緊急地震速報（警報）</span>
 ${name}で地震発生　強い揺れに警戒してください。
 推定規模：${mag}
 
 警戒地域：
-${areas}`
+${areas}`)
         }];
-        renderPage();
+        if (currentTab === 'eew') renderPage();
     }
 
     function formatScale(scale) {
@@ -534,11 +656,9 @@ ${areas}`
         return dict[scale] || "不明";
     }
 
-    // メインエントリー起動
+    // エントリー初期起動
     switchTab('eq');
     connectWebSocket();
-    
-    // ご提示の指定エンドポイントから初期取得＆12秒に1回バックアップ同期
     fetchDataFromTargetURL();
     setInterval(fetchDataFromTargetURL, 12000);
 </script>
