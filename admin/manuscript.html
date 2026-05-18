@@ -157,7 +157,7 @@
         ruby { padding: 0 1px; }
         rt { font-size: 0.4em; color: #ffffff; font-family: 'BIZ UDPGothic', sans-serif; font-weight: 700; }
 
-        /* リスト・テーブル構造調整（スクショ再現） */
+        /* テーブル構造 */
         .m-table {
             width: 100%;
             border-collapse: collapse;
@@ -255,7 +255,7 @@
 </footer>
 
 <script>
-    // ルビ辞書
+    // ルビ自動設定用辞書
     const rubyDict = {
         "沖縄市": "おきなわし", "糸満市": "いとまんし", "豊見城市": "とみぐすくし", "南城市": "なんじょうし",
         "那覇市": "なはし", "宜野湾市": "ぎのわんし", "浦添市": "うらそえし", "名護市": "なごし", 
@@ -274,86 +274,25 @@
         return parsed;
     }
 
-    // 各タブごとのデータ（初期モックはスクショの文字列を完全追従）
+    // 各データストック（初期状態）
     let database = {
-        eq: [{
-            content: `午前１０時３７分ごろ、沖縄本島近海で
-最大震度６強を観測する強い地震がありました。
-
-震源：沖縄本島近海　　深さ：約２０キロ
-規模：マグニチュード９．０
-
-この地震で<span class="c-magenta">大津波警報</span>・<span class="c-red">津波警報</span>が出ています。`
-        }],
-        shindo: [{
-            content: `<span class="c-yellow">震度６強</span>
-<ruby>沖縄市<rt>おきなわし</rt></ruby>　糸満市　豊見城市　南城市
-
-<span class="c-yellow">震度６弱</span>
-那覇市　宜野湾市　浦添市　名護市　うるま市　宮古島市　国頭村
-大宜味村　東村　今帰仁村
-
-<span class="c-yellow">震度５強</span>
-座間味村　多良間村　久米島町　粟国村　伊平屋村　伊島名村　（続く）`
-        }],
-        tsu: [{
-            content: `<span class="c-yellow">今すぐ避難！今すぐ避難！</span>
-<span class="c-magenta">大津波警報</span>・<span class="c-red">津波警報</span>が出ました。
-東日本大震災クラスの巨大な地震が来ます。
-今すぐ、可能な限り高いところへ逃げること！
-<span class="c-magenta">大津波警報</span>が発表されたのは、次の沿岸です。
-
-<span class="c-magenta">大津波警報</span>
-▼沖縄本島近海
-▼大東島地方
-▼奄美群島・トカラ列島
-▼宮古島・八重山地方　（続く）`
-        }],
-        yosou: [{
-            content: `<span class="c-magenta">大津波警報</span>
-<table class="m-table">
-<tr class="selected"><td>沖縄本島地方</td><td>第１波の到達を確認</td><td>１０ｍ超</td></tr>
-<tr class="selected"><td>大東島地方</td><td>第１波の到達を確認</td><td>１０ｍ超</td></tr>
-<tr class="selected"><td>奄美群島・トカラ列島</td><td>第１波の到達を確認</td><td>１０ｍ</td></tr>
-<tr class="selected"><td>宮古島・八重山地方</td><td>第１波の到達を確認</td><td>５ｍ</td></tr>
-<tr><td>種子島・屋久島地方</td><td>第１波の到達を確認</td><td>５ｍ</td></tr>
-<tr><td>鹿児島県西部</td><td>第１波の到達を確認</td><td>５ｍ</td></tr>
-<tr><td>宮崎県</td><td>午前１０時５０分</td><td>５ｍ</td></tr>
-<tr><td>鹿児島県東部</td><td>午前１１時００分</td><td>５ｍ</td></tr>
-<tr><td>大分県豊後水道沿岸</td><td>午前１１時１０分</td><td>５ｍ</td></tr>
-<tr><td>高知県</td><td>午前１１時１０分</td><td>５ｍ</td><td>（続く）</td></tr>
-</table>`
-        }],
+        eq: [{ content: "地震情報を読み込み中..." }],
+        shindo: [{ content: "震度情報を読み込み中..." }],
+        tsu: [{ content: "現在、津波予報は発表されていません。" }],
+        yosou: [{ content: "<table class='m-table'><tr><td>津波到達予想データはありません</td></tr></table>" }],
         yobikake: [{
             content: `<span class="c-yellow">緊急地震速報が発表された時</span>
 ▼緊急地震速報です。（地域名）では、強い揺れに警戒してください。
 ▼倒れやすい家具などからは、離れてください。
 ▼テーブルや机の下に隠れてください。`
         }],
-        eew: [{
-            content: `<span class="c-yellow">緊急地震速報（警報）</span>
-沖縄本島近海で地震　　推定規模：マグニチュード８．６
-沖縄　鹿児島　宮崎　熊本`
-        }],
-        switch: [{
-            content: `<table class="m-table">
-<tr class="selected" style="border-bottom: 2px solid var(--accent-yellow);"><td>０２日午前１０時３７分</td><td>沖縄本島近海</td><td>Ｍ９．０</td><td>津波情報</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>千葉県北西部</td><td>Ｍ２．２</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>長野県北部</td><td>Ｍ２．５</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５2分</td><td>北海道石狩地方南部</td><td>Ｍ３．８</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>愛知県西部</td><td>Ｍ３．１</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>愛知県西部</td><td>Ｍ１．２</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>沖縄本島近海</td><td>Ｍ４．０</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>神奈川県東部</td><td>Ｍ１．６</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>西表島近海</td><td>Ｍ２．５</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>山口県西部</td><td>Ｍ２．８</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>三陸沖</td><td>Ｍ６．１</td><td>海面変動</td></tr>
-</table>`
-        }]
+        eew: [{ content: "現在、緊急地震速報（警報）は発表されていません。" }],
+        switch: [{ content: "<table class='m-table'><tr><td>地震履歴リストを同期中...</td></tr></table>" }]
     };
 
     let currentTab = 'eq';
     let currentPageIndex = 0;
+    let eqHistoryList = []; // 切替画面用の直近データストック
 
     window.switchTab = (tabId) => {
         currentTab = tabId;
@@ -387,12 +326,13 @@
         }
     }
 
-    // --- 同期処理：WebSocket ＋ HTTPポーリングの2重系に変更 ---
+    // --- 同期処理：最適化された指定URL ＋ WebSocketのハイブリッド ---
     const P2P_WS_URL = "wss://api.p2pquake.net/v2/ws";
-    const P2P_HTTP_URL = "https://api.p2pquake.net/v2/history?limit=10"; // format=jsonを除去した正しいエンドポイント
+    const P2P_HTTP_URL = "https://api.p2pquake.net/v2/history?codes=551&codes=552&codes=556&limit=8";
     let ws = null;
+    let processedIds = new Set();
 
-    // 1. WebSocket接続の開始
+    // 1. WebSocket同期の開始
     function connectWebSocket() {
         ws = new WebSocket(P2P_WS_URL);
         const statusEl = document.getElementById('connection-status');
@@ -405,8 +345,10 @@
         };
 
         ws.onmessage = (event) => {
-            const packet = JSON.parse(event.data);
-            processIncomingData(packet, false);
+            try {
+                const packet = JSON.parse(event.data);
+                processIncomingData(packet, false);
+            } catch(e) { console.error(e); }
         };
 
         ws.onclose = () => {
@@ -414,36 +356,34 @@
                 statusEl.className = "api-status disconnected";
                 statusEl.innerHTML = `<div class="api-pulse" style="background-color:var(--status-red);"></div>同期切断（再接続中）`;
             }
-            setTimeout(connectWebSocket, 5000); // 5秒後に再接続トライ
+            setTimeout(connectWebSocket, 5000);
         };
     }
 
-    // 2. HTTPポーリング（バックアップライン：10秒周期）
-    async function fetchBackupData() {
+    // 2. HTTP指定URLポーリング（バックアップ・初期ロード兼用）
+    async function fetchDataFromTargetURL() {
         try {
             const res = await fetch(P2P_HTTP_URL);
             if (!res.ok) return;
             const data = await res.json();
             if (Array.isArray(data)) {
-                // 配列の最新データを逆順で処理して反映
-                data.reverse().forEach(packet => processIncomingData(packet, true));
+                // 配列の古いデータから順に解析エンジンへ流し込む
+                const sortedData = [...data].reverse();
+                sortedData.forEach(packet => processIncomingData(packet, true));
             }
         } catch (e) {
-            console.error("バックアップデータの取得に失敗しました", e);
+            console.error("データの取得に失敗しました", e);
         }
     }
 
-    // 内部データストック用のID記憶
-    let processedIds = new Set();
-
-    // 共通データ処理エンジン
-    function processIncomingData(packet, isBackup = false) {
-        if (!packet || !packet.id) return;
-        if (processedIds.has(packet.id)) return; // 処理済みデータはスキップ
+    // 共通パケット処理
+    function processIncomingData(packet, isHistoryLoad = false) {
+        if (!packet || !packet.id || !packet.code) return;
+        if (processedIds.has(packet.id)) return;
         processedIds.add(packet.id);
 
         if (packet.code === 551) {
-            parse551(packet);
+            parse551(packet, isHistoryLoad);
         } else if (packet.code === 552) {
             parse552(packet);
         } else if (packet.code === 556) {
@@ -451,57 +391,104 @@
         }
     }
 
-    // --- 551: 地震情報解析 ---
-    function parse551(packet) {
+    // 551 地震情報解析
+    function parse551(packet, isHistoryLoad) {
         const eq = packet.earthquake;
         if (!eq) return;
 
-        const time = eq.time || "不明";
+        const rawTime = eq.time || "";
+        // 表示用に「02日午前10時37分」の形式にコンバート（簡易トリミング変換）
+        let displayTime = rawTime;
+        if (rawTime.length >= 16) {
+            const day = rawTime.substring(8, 10);
+            const hour = parseInt(rawTime.substring(11, 13));
+            const min = rawTime.substring(14, 16);
+            const ampm = hour >= 12 ? "午後" : "午前";
+            const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+            displayTime = `${day}日${ampm}${displayHour}時${min}分`;
+        }
+
         const name = eq.hypocenter.name || "調査中";
         const depth = eq.hypocenter.depth >= 0 ? `約${eq.hypocenter.depth}キロ` : "調査中";
         const mag = eq.hypocenter.magnitude >= 0 ? `マグニチュード${eq.hypocenter.magnitude.toFixed(1)}` : "不明";
+        const mShort = eq.hypocenter.magnitude >= 0 ? `Ｍ${eq.hypocenter.magnitude.toFixed(1)}` : "Ｍ不明";
         const maxScale = formatScale(eq.maxScale);
         
         let tsunamiScript = "この地震による津波の心配はありません。";
+        let tShort = "津波なし";
         if (eq.domesticTsunami === "Warning" || eq.domesticTsunami === "Watch") {
             tsunamiScript = `この地震で<span class="c-magenta">大津波警報</span>・<span class="c-red">津波警報</span>が出ています。`;
+            tShort = "津波情報";
         } else if (eq.domesticTsunami === "NonEffective") {
             tsunamiScript = `この地震により、多少の海面変動があるかもしれませんが、津波の心配はありません。`;
+            tShort = "海面変動";
         }
 
-        // 地震タブ更新
-        database.eq = [{
-            content: `${time}ごろ、${name}で
+        // リスト用データに追加（WebSocketからのリアルタイム突発時は先頭に、初期ロード時は時系列順にセット）
+        const historyItem = { id: packet.id, time: displayTime, name: name, mag: mShort, tsunami: tShort };
+        if (!isHistoryLoad) {
+            eqHistoryList.unshift(historyItem);
+        } else {
+            eqHistoryList.push(historyItem); // 古いものから追加されているのでpushで正解
+        }
+        
+        // リストは最大8件にクリップ
+        if (eqHistoryList.length > 8) {
+            if (!isHistoryLoad) eqHistoryList.pop();
+            else eqHistoryList.shift();
+        }
+
+        // 最新パケットの場合、各メインタブ画面を上書き更新
+        if (!isHistoryLoad || eqHistoryList[0]?.id === packet.id) {
+            // 地震タブ
+            database.eq = [{
+                content: `${displayTime}ごろ、${name}で
 最大震度${maxScale}を観測する強い地震がありました。
 
 震源：${name}　　深さ：${depth}
 規模：${mag}
 
 ${tsunamiScript}`
-        }];
+            }];
 
-        // 震度タブ更新
-        if (packet.points && packet.points.length > 0) {
-            let shindoMap = {};
-            packet.points.forEach(p => {
-                const sStr = formatScale(p.scale);
-                if (!shindoMap[sStr]) shindoMap[sStr] = [];
-                shindoMap[sStr].push(p.addr);
-            });
+            // 震度詳細タブ
+            if (packet.points && packet.points.length > 0) {
+                let shindoMap = {};
+                packet.points.forEach(p => {
+                    const sStr = formatScale(p.scale);
+                    if (!shindoMap[sStr]) shindoMap[sStr] = [];
+                    shindoMap[sStr].push(p.addr);
+                });
 
-            let shindoManuscript = "";
-            Object.keys(shindoMap).sort((a,b)=>b.localeCompare(a, undefined, {numeric:true})).forEach(scale => {
-                shindoManuscript += `<span class="c-yellow">震度${scale}</span>\n${shindoMap[scale].join("　")}\n\n`;
-            });
-            database.shindo = [{ content: applyRuby(shindoManuscript) }];
+                let shindoManuscript = "";
+                Object.keys(shindoMap).sort((a,b)=>b.localeCompare(a, undefined, {numeric:true})).forEach(scale => {
+                    shindoManuscript += `<span class="c-yellow">震度${scale}</span>\n${shindoMap[scale].join("　")}\n\n`;
+                });
+                database.shindo = [{ content: applyRuby(shindoManuscript) }];
+            } else {
+                database.shindo = [{ content: "震度詳細は発表されていません。" }];
+            }
         }
 
-        // リスト（地震切替）の一番上に追加するロジック
-        updateSwitchTable(time, name, eq.hypocenter.magnitude, eq.domesticTsunami);
+        // 地震切替テーブルのHTML再生成
+        // 最もインデックスが新しい（配列の[0]番目、またはリアルタイムで新着したもの）をselectedにする
+        let tableHtml = `<table class="m-table">`;
+        eqHistoryList.forEach((item, idx) => {
+            const isSelected = idx === 0 ? 'class="selected" style="border-bottom: 2px solid var(--accent-yellow);"' : '';
+            tableHtml += `<tr ${isSelected}>
+                <td>${item.time}</td>
+                <td>${item.name}</td>
+                <td>${item.mag}</td>
+                <td>${item.tsunami}</td>
+            </tr>`;
+        });
+        tableHtml += `</table>`;
+        database.switch = [{ content: tableHtml }];
+
         renderPage();
     }
 
-    // --- 552: 津波予報解析 ---
+    // 552 津波予報解析
     function parse552(packet) {
         if (!packet.areas || packet.areas.length === 0) return;
 
@@ -524,7 +511,7 @@ ${tsunamiScript}`
         renderPage();
     }
 
-    // --- 556: EEW解析 ---
+    // 556 EEW解析
     function parse556(packet) {
         if (!packet.earthquake) return;
         const name = packet.earthquake.hypocenter.name || "震源特定中";
@@ -533,7 +520,10 @@ ${tsunamiScript}`
 
         database.eew = [{
             content: `<span class="c-yellow">緊急地震速報（警報）</span>
-${name}で地震　　推定規模：${mag}
+${name}で地震発生　強い揺れに警戒してください。
+推定規模：${mag}
+
+警戒地域：
 ${areas}`
         }];
         renderPage();
@@ -544,30 +534,13 @@ ${areas}`
         return dict[scale] || "不明";
     }
 
-    function updateSwitchTable(time, name, mag, tsunamiCode) {
-        const mStr = mag >= 0 ? `Ｍ${mag.toFixed(1)}` : "Ｍ不明";
-        let tStr = "津波なし";
-        if (tsunamiCode === "Warning" || tsunamiCode === "Watch") tStr = "津波情報";
-        if (tsunamiCode === "NonEffective") tStr = "海面変動";
-
-        // スクリントップのリスト構造を動的に上書き
-        let currentHtml = database.switch[0].content;
-        let newRow = `<tr class="selected" style="border-bottom: 2px solid var(--accent-yellow);"><td>${time}</td><td>${name}</td><td>${mStr}</td><td>${tStr}</td></tr>`;
-        
-        // 過去の古い行のselectedクラスを除去して結合
-        currentHtml = currentHtml.replace('class="selected" style="border-bottom: 2px solid var(--accent-yellow);"', '');
-        let tableRows = currentHtml.replace('<table class="m-table">', '').replace('</table>', '');
-        
-        database.switch = [{ content: `<table class="m-table">${newRow}${tableRows}</table>` }];
-    }
-
-    // メイン初期化
+    // メインエントリー起動
     switchTab('eq');
     connectWebSocket();
     
-    // バックアップ用HTTP自動ポーリングを10秒に1回まわす
-    setInterval(fetchBackupData, 10000);
-    fetchBackupData(); // 初回起動時にも実行
+    // ご提示の指定エンドポイントから初期取得＆12秒に1回バックアップ同期
+    fetchDataFromTargetURL();
+    setInterval(fetchDataFromTargetURL, 12000);
 </script>
 
 </body>
