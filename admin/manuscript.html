@@ -11,13 +11,14 @@
     
     <style>
         :root {
-            --bg-color: #0c0c0c;
+            --bg-color: #0d0d0d;
             --header-bg: #141414;
             --footer-bg: #141414;
             --text-main: #ffffff;
-            --accent-yellow: #fff200; /* 選択中・警戒黄色 */
-            --accent-magenta: #ff00ff; /* 大津波警報マゼンタ */
-            --accent-red: #ff0000;    /* 津波警報・ニュース赤 */
+            --text-sub: #aaaaaa;
+            --accent-yellow: #fff200;
+            --accent-magenta: #ff00ff;
+            --accent-red: #ff0000;
             --border-color: #262626;
         }
 
@@ -31,147 +32,149 @@
             flex-direction: column;
             height: 100vh;
             overflow: hidden;
-            /* 基本はUI用：BIZ UDPゴシック */
+            /* 本文以外のデフォルトフォント（プロポーショナル） */
             font-family: 'BIZ UDPGothic', sans-serif;
+            letter-spacing: 0.02em;
         }
 
-        /* ヘッダー構造（本文以外：BIZ UDPGothic） */
+        /* ヘッダー構造 */
         header {
             background-color: var(--header-bg);
-            height: 50px;
+            height: 54px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 0 16px;
             border-bottom: 1px solid var(--border-color);
             flex-shrink: 0;
-            font-family: 'BIZ UDPGothic', sans-serif;
+            user-select: none;
         }
 
         .header-left {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
 
         .brand-logo {
             font-size: 24px;
             font-weight: 700;
-            letter-spacing: -0.03em;
+            color: #ffffff;
         }
 
         .brand-badge {
-            background-color: #2a2a2a;
-            color: #dddddd;
+            background-color: #262626;
+            color: #cccccc;
             font-size: 11px;
-            font-weight: bold;
-            padding: 2px 8px;
-            border-radius: 12px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            border: 1px solid #3c3c3c;
         }
 
-        /* 戻る・進むナビゲーション */
-        .history-nav {
+        /* 戻る・進むページネーション */
+        .page-control {
             display: flex;
-            gap: 6px;
+            gap: 8px;
         }
 
-        .history-btn {
-            background: none;
-            border: 1px solid #666666;
+        .page-btn {
+            background-color: #262626;
+            border: 1px solid #444444;
             color: #ffffff;
-            font-size: 12px;
-            font-family: 'BIZ UDPGothic', sans-serif;
-            padding: 3px 12px;
-            border-radius: 15px;
+            padding: 4px 14px;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 20px;
             cursor: pointer;
+            font-family: 'BIZ UDPGothic', sans-serif;
+            transition: background 0.15s, opacity 0.15s;
         }
-
-        .history-btn:hover {
-            background-color: #333333;
-        }
+        .page-btn:hover { background-color: #333333; }
+        .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
         .admin-btn {
             background: none;
-            border: 1px solid #666666;
+            border: 1px solid #555555;
             color: #ffffff;
             font-size: 13px;
-            font-family: 'BIZ UDPGothic', sans-serif;
-            padding: 4px 14px;
-            border-radius: 15px;
+            font-weight: 700;
+            padding: 5px 14px;
+            border-radius: 20px;
             cursor: pointer;
             text-decoration: none;
+            transition: background 0.15s;
         }
-        .admin-btn:hover {
-            background-color: #333333;
-        }
+        .admin-btn:hover { background-color: #222222; }
 
-        /* メイン表示領域 */
+        /* メインディスプレイ（左上寄せレイアウト） */
         main {
             flex: 1;
-            padding: 30px 50px;
+            padding: 30px 40px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
+            align-items: flex-start; /* 左寄せ */
+            justify-content: flex-start; /* 上寄せ */
         }
 
-        /* 【重要】本文エリア：BIZ UDゴシック（等幅）を強制 */
-        .manuscript-body {
-            font-family: 'BIZ UDGothic', monospace;
-            font-size: 32px;
+        /* 本文表示エリア（等幅フォント設定） */
+        .manuscript-content {
+            width: 100%;
+            font-family: 'BIZ UDGothic', monospace; /* 本文は等幅 */
+            font-size: calc(20px + 1vw); /* 画面幅に応じて適切にレスポンシブ縮尺 */
             line-height: 1.7;
             font-weight: 700;
-            letter-spacing: 0.02em;
             white-space: pre-wrap;
-            width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
+            word-break: break-all;
         }
 
-        /* 本文内のテキスト装飾用スタイル */
-        .txt-yellow { color: var(--accent-yellow); }
-        .txt-magenta { color: var(--accent-magenta); }
-        .txt-red { color: var(--accent-red); }
-        .txt-small-sub { font-size: 24px; color: #ffffff; font-weight: normal; }
+        /* テキストカラー・ルビ設定 */
+        .c-yellow { color: var(--accent-yellow); }
+        .c-magenta { color: var(--accent-magenta); }
+        .c-red { color: var(--accent-red); }
         
-        /* ルビの微調整 */
-        .manuscript-body ruby { padding: 0 1px; }
-        .manuscript-body rt { font-size: 0.35em; color: #ffffff; font-family: 'BIZ UDGothic', monospace; transform: translateY(2px); }
+        ruby { padding: 0 1px; }
+        rt { font-size: 0.4em; color: #ffffff; font-family: 'BIZ UDPGothic', sans-serif; }
 
-        /* リスト・テーブルスタイル（地震切替・到達予想用） */
-        .report-table {
+        /* リストテーブル形式（到達予想・地震切替用） */
+        .m-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-top: 5px;
         }
-
-        .report-table tr {
+        .m-table tr {
             border-bottom: 2px solid #ffffff;
         }
-
-        .report-table td {
-            padding: 12px 0;
-            vertical-align: middle;
+        .m-table tr.selected {
+            color: var(--accent-yellow);
+            border-bottom: 2px solid var(--accent-yellow);
         }
+        .m-table td {
+            padding: 12px 0 6px 0;
+            vertical-align: bottom;
+        }
+        .m-table td:nth-child(2) { padding-left: 20px; }
+        .m-table td:last-child { text-align: right; }
 
-        /* フッター（本文以外：BIZ UDPGothic） */
+        /* フッター（ボトムタブ一覧） */
         footer {
             background-color: var(--footer-bg);
-            height: 60px;
+            height: 64px;
             border-top: 1px solid var(--border-color);
             display: flex;
             justify-content: center;
             align-items: center;
             flex-shrink: 0;
-            font-family: 'BIZ UDPGothic', sans-serif;
+            user-select: none;
         }
 
         .nav-container {
             display: flex;
             align-items: center;
-            width: 100%;
-            max-width: 1100px;
             height: 100%;
+            width: 100%;
+            padding: 0;
         }
 
         .nav-btn {
@@ -180,23 +183,29 @@
             background: none;
             border: none;
             color: #ffffff;
-            font-size: 19px;
+            font-size: calc(13px + 0.4vw); /* レスポンシブ文字サイズ */
             font-weight: 700;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             font-family: 'BIZ UDPGothic', sans-serif;
+            transition: background 0.15s, color 0.15s;
+            border-right: 1px solid #222222;
         }
+        .nav-btn:last-child { border-right: none; }
+        .nav-btn:hover { background-color: rgba(255, 255, 255, 0.03); }
+        .nav-btn.active { color: var(--accent-yellow); }
 
-        .nav-btn.active {
-            color: var(--accent-yellow);
-        }
+        /* タブ間区切り線（画面幅が狭い時は非表示にできるデザイン構造） */
+        .nav-pipe { color: #333333; font-size: 14px; pointer-events: none; }
 
-        .nav-divider {
-            color: #444444;
-            font-size: 16px;
-            user-select: none;
+        /* レスポンシブ微調整 */
+        @media (max-width: 600px) {
+            main { padding: 20px 20px; }
+            header { padding: 0 10px; }
+            .brand-badge { display: none; }
+            .m-table td { padding: 8px 0 4px 0; }
         }
     </style>
 </head>
@@ -208,164 +217,179 @@
         <span class="brand-badge">原稿ツール</span>
     </div>
     
-    <div class="history-nav">
-        <button class="history-btn" onclick="history.back()">戻る</button>
-        <button class="history-btn" onclick="history.forward()">進む</button>
+    <div class="page-control">
+        <button id="prev-btn" class="page-btn" onclick="movePage(-1)">戻る</button>
+        <button id="next-btn" class="page-btn" onclick="movePage(1)">進む</button>
     </div>
 
-    <button class="admin-btn" onclick="location.href='index.html'">Adminページ</button>
+    <button class="admin-btn" onclick="location.href='admin.html'">Adminページ</button>
 </header>
 
 <main>
-    <div id="manuscript-target" class="manuscript-body"></div>
+    <div id="manuscript-display" class="manuscript-content"></div>
 </main>
 
 <footer>
     <div class="nav-container">
-        <button id="tab-eq" class="nav-btn active" onclick="switchTab('eq')">地震</button>
-        <div class="nav-divider">|</div>
+        <button id="tab-eq" class="nav-btn" onclick="switchTab('eq')">地震</button>
         <button id="tab-shindo" class="nav-btn" onclick="switchTab('shindo')">震度</button>
-        <div class="nav-divider">|</div>
         <button id="tab-tsu" class="nav-btn" onclick="switchTab('tsu')">津波</button>
-        <div class="nav-divider">|</div>
         <button id="tab-yosou" class="nav-btn" onclick="switchTab('yosou')">到達予想</button>
-        <div class="nav-divider">|</div>
         <button id="tab-yobikake" class="nav-btn" onclick="switchTab('yobikake')">呼びかけ</button>
-        <div class="nav-divider">|</div>
         <button id="tab-eew" class="nav-btn" onclick="switchTab('eew')">EEW</button>
-        <div class="nav-divider">|</div>
         <button id="tab-switch" class="nav-btn" onclick="switchTab('switch')">地震切替</button>
     </div>
 </footer>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-    const firebaseConfig = {
-        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
-        authDomain: "mgl-eqlive.firebaseapp.com",
-        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
-        projectId: "mgl-eqlive",
-        storageBucket: "mgl-eqlive.firebasestorage.app",
-        messagingSenderId: "1060231327645",
-        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    // --- 各タブの表示HTML生成ロジック ---
-    const tabRenderers = {
-        // 1. 地震タブ
-        eq: () => `午前１０時３７分ごろ、沖縄本島近海で
+<script>
+    // --- 複数ページ対応のマルチレイヤ原稿データベース ---
+    const database = {
+        eq: [
+            {
+                content: `午前１０時３７分ごろ、沖縄本島近海で
 最大震度６強を観測する強い地震がありました。
 
 震源：沖縄本島近海　　深さ：約２０キロ
 規模：マグニチュード９．０
 
-この地震で<span class="txt-magenta">大津波警報</span>・<span class="txt-red">津波警報</span>が出現しています。`,
-
-        // 2. 震度タブ（ルビ対応）
-        shindo: () => `<span class="txt-yellow">震度６強</span>
+この地震で<span class="c-magenta">大津波警報</span>・<span class="c-red">津波警報</span>が出ています。`
+            }
+        ],
+        shindo: [
+            {
+                content: `<span class="c-yellow">震度６強</span>
 <ruby>沖縄市<rt>おきなわし</rt></ruby>　糸満市　豊見城市　南城市
 
-<span class="txt-yellow">震度６弱</span>
+
+<span class="c-yellow">震度６弱</span>
 那覇市　宜野湾市　浦添市　名護市　うるま市　宮古島市　国頭村
 大宜味村　東村　今帰仁村
 
-<span class="txt-yellow">震度５強</span>
-座間味村　多良間村　久米島町　粟国村　伊平屋村　伊ise名村　（続く）`,
 
-        // 3. 津波タブ
-        tsu: () => `<span class="txt-yellow">今すぐ避難！今すぐ避難！</span>
-<span class="txt-magenta">大津波警報</span>・<span class="txt-red">津波警報</span>が出ました。
+<span class="c-yellow">震度５強</span>
+座間味村　多良間村　久米島町　粟国村　伊平屋村　伊勝名村　（続く）`
+            },
+            {
+                content: `<span class="c-yellow">震度５弱</span>
+石垣市　竹富町　与那国町
+
+北部や周辺離島でも強い揺れが観測されています。
+現在倒壊しかかっている建物や、ひび割れが入った斜面、崖などには絶対に近づかないでください。揺れが収まっても当分の間警戒が必要です。`
+            }
+        ],
+        tsu: [
+            {
+                content: `<span class="c-yellow">今すぐ避難！今すぐ避難！</span>
+<span class="c-magenta">大津波警報</span>・<span class="c-red">津波警報</span>が出ました。
 東日本大震災クラスの巨大な地震が来ます。
 今すぐ、可能な限り高いところへ逃げること！
-<span class="txt-magenta">大津波警報</span>が発表されたのは、次の沿岸です。
+<span class="c-magenta">大津波警報</span>が発表されたのは、次の沿岸です。
 
-<span class="txt-magenta">大津波警報</span>
-▼沖縄本島近海
+
+<span class="c-magenta">大津波警報</span>
+▼沖縄本島地方
 ▼大東島地方
 ▼奄美群島・トカラ列島
-▼宮古島・八重山地方　（続く）`,
-
-        // 4. 到達予想タブ（等幅で綺麗に並ぶテーブル構造）
-        yosou: () => `<span class="txt-magenta">大津波警報</span>
-<table class="report-table">
-    <tr><td style="width:45%;">沖縄本島地方</td><td style="width:35%;">第１波の到達を確認</td><td style="width:20%; text-align:right;">１０ｍ超</td></tr>
-    <tr><td>大東島地方</td><td>第１波の到達を確認</td><td style="text-align:right;">１０ｍ超</td></tr>
-    <tr><td>奄美群島・トカラ列島</td><td>第１波の到達を確認</td><td style="text-align:right;">１０ｍ</td></tr>
-    <tr><td>宮古島・八重山地方</td><td>第１波の到達を確認</td><td style="text-align:right;">５ｍ</td></tr>
-    <tr><td>種子島・屋久島地方</td><td>第１波の到達を確認</td><td style="text-align:right;">５ｍ</td></tr>
-    <tr><td>鹿児島県西部</td><td>第１波の到達を確認</td><td style="text-align:right;">５ｍ</td></tr>
-    <tr><td>宮崎県</td><td>午前１０時５０分</td><td style="text-align:right;">５ｍ</td></tr>
-    <tr><td>鹿児島県東部</td><td>午前１１時００分</td><td style="text-align:right;">５ｍ</td></tr>
-    <tr><td>大分県豊後水道沿岸</td><td>午前１１時１０分</td><td style="text-align:right;">５ｍ</td></tr>
-    <tr><td>高知県</td><td>午前１１時１０分</td><td style="text-align:right;">５ｍ</td><td class="txt-small-sub" style="width:auto; padding-left:15px; border:none;">（続く）</td></tr>
-</table>`,
-
-        // 5. 呼びかけタブ
-        yobikake: () => `<span class="txt-yellow">緊急地震速報が発表された時</span>
+▼宮古島・八重山地方　（続く）`
+            }
+        ],
+        yosou: [
+            {
+                content: `<table class="m-table">
+<tr class="selected"><td colspan="2"><span class="c-magenta">大津波警報</span></td><td></td></tr>
+<tr class="selected"><td>沖縄本島地方</td><td>第１波の到達を確認</td><td>１０ｍ超</td></tr>
+<tr class="selected"><td>大東島地方</td><td>第１波の到達を確認</td><td>１０ｍ超</td></tr>
+<tr class="selected"><td>奄美群島・トカラ列島</td><td>第１波の到達を確認</td><td>１０ｍ</td></tr>
+<tr class="selected"><td>宮古島・八重山地方</td><td>第１波の到達を確認</td><td>５ｍ</td></tr>
+<tr><td>種子島・屋久島地方</td><td>第１波の到達を確認</td><td>５ｍ</td></tr>
+<tr><td>鹿児島県西部</td><td>第１波の到達を確認</td><td>５ｍ</td></tr>
+<tr><td>宮崎県</td><td>午前１０時５０分</td><td>５ｍ</td></tr>
+<tr><td>鹿児島県東部</td><td>午前１１時００分</td><td>５ｍ</td></tr>
+<tr><td>大分県豊後水道沿岸</td><td>午前１１時１０分</td><td>５ｍ</td></tr>
+<tr><td>高知県</td><td>午前１１時１０分</td><td>５ｍ</td><td>（続く）</td></tr>
+</table>`
+            }
+        ],
+        yobikake: [
+            {
+                content: `<span class="c-yellow">緊急地震速報が発表された時</span>
 ▼緊急地震速報です。（地域名）では、強い揺れに警戒してください。
 ▼倒れやすい家具などからは、離れてください。
-▼テーブルや机の下に隠れてください。`,
-
-        // 6. EEWタブ
-        eew: () => `<span class="txt-yellow">緊急地震速報（警報）</span>
+▼テーブルや机の下に隠れてください。`
+            }
+        ],
+        eew: [
+            {
+                content: `<span class="c-yellow">緊急地震速報（警報）</span>
 沖縄本島近海で地震　　推定規模：マグニチュード８．６
-沖縄　鹿児島　宮崎　熊本`,
-
-        // 7. 地震切替タブ（横線つきの表レイアウト）
-        switch: () => `<table class="report-table" style="font-size: 30px;">
-    <tr class="txt-yellow"><td>０２日午前１０時３７分</td><td>沖縄本島近海</td><td>Ｍ９．０</td><td>津波情報</td></tr>
-    <tr><td>０２日午前０９時５２分</td><td>千葉県北西部</td><td>Ｍ２．２</td><td>津波なし</td></tr>
-    <tr><td>０２日午前０９時５２分</td><td>長野県北部</td><td>Ｍ２．５</td><td>津波なし</td></tr>
-    <tr><td>０２日午前０９時５２分</td><td>北海道石狩地方南部</td><td>Ｍ３．８</td><td>津波なし</td></tr>
-    <tr><td>０２日午前０９時５２分</td><td>愛知県西部</td><td>Ｍ３．１</td><td>津波なし</td></tr>
-    <tr><td>０２日午前０９時５２分</td><td>愛知県西部</td><td>Ｍ１．２</td><td>津波なし</td></tr>
-    <tr><td>０２日午前０９時５２分</td><td>沖縄本島近海</td><td>Ｍ４．０</td><td>津波なし</td></tr>
-    <tr><td>０２日午前０９時５２分</td><td>神奈川県東部</td><td>Ｍ１．６</td><td>津波なし</td></tr>
-    <tr><td>０２日午前０９時５２分</td><td>西表島近海</td><td>Ｍ２．５</td><td>津波なし</td></tr>
-    <tr><td>０２日午前０９時５２分</td><td>山口県西部</td><td>Ｍ２．８</td><td>津波なし</td></tr>
-    <tr><td>０２日午前０９時５２分</td><td>三陸沖</td><td>Ｍ６．１</td><td>海面変動</td></tr>
+沖縄　鹿児島　宮崎　熊本`
+            }
+        ],
+        switch: [
+            {
+                content: `<table class="m-table">
+<tr class="selected"><td>０２日午前１０時３７分</td><td>沖縄本島近海</td><td>Ｍ９．０</td><td>津波情報</td></tr>
+<tr><td>０２日午前０９時５２分</td><td>千葉県北西部</td><td>Ｍ２．２</td><td>津波なし</td></tr>
+<tr><td>０２日午前０９時５２分</td><td>長野県北部</td><td>Ｍ２．５</td><td>津波なし</td></tr>
+<tr><td>０２日午前０９時５２分</td><td>北海道石狩地方南部</td><td>Ｍ３．８</td><td>津波なし</td></tr>
+<tr><td>０２日午前０９時５２分</td><td>愛知県西部</td><td>Ｍ３．１</td><td>津波なし</td></tr>
+<tr><td>０２日午前０９時５２分</td><td>愛知県西部</td><td>Ｍ１．２</td><td>津波なし</td></tr>
+<tr><td>０２日午前０９時５２分</td><td>沖縄本島近海</td><td>Ｍ４．０</td><td>津波なし</td></tr>
+<tr><td>０２日午前０９時５２分</td><td>神奈川県東部</td><td>Ｍ１．６</td><td>津波なし</td></tr>
+<tr><td>０２日午前０９時５２分</td><td>西表島近海</td><td>Ｍ２．５</td><td>津波なし</td></tr>
+<tr><td>０２日午前０９時５２分</td><td>山口県西部</td><td>Ｍ２．８</td><td>津波なし</td></tr>
+<tr><td>０２日午前０９時５２分</td><td>三陸沖</td><td>Ｍ６．１</td><td>海面変動</td></tr>
 </table>`
+            }
+        ]
     };
 
-    // --- タブ切り替えロジック ---
+    let currentTab = 'eq';
+    let currentPageIndex = 0;
+
+    // --- タブ切り替え関数 ---
     window.switchTab = (tabId) => {
-        // 全ボタンからactiveを外す
-        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-        // 対象のボタンを光らせる
-        document.getElementById(`tab-${tabId}`).classList.add('active');
-        
-        // 本文コンテナに等幅フォント用のHTMLを流し込む
-        const container = document.getElementById('manuscript-target');
-        container.innerHTML = tabRenderers[tabId]();
+        currentTab = tabId;
+        currentPageIndex = 0; // タブ移動時は必ず1ページ目から
 
-        // バックグラウンドでFirebaseのテロップ連携を叩く
-        syncWithFirebase(tabId);
+        // ナビゲーションのアクティブクラス更新
+        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`tab-${tabId}`).classList.add('active');
+
+        renderPage();
     };
 
-    // --- Firebase同期処理（Ticker送信用の簡易実装） ---
-    function syncWithFirebase(tabId) {
-        const textContent = document.getElementById('manuscript-target').innerText;
-        const firstLine = textContent.split('\n')[0] || "";
-        
-        let genreText = "地震情報";
-        if(['tsu', 'yosou'].includes(tabId)) genreText = "津波情報";
-        if(tabId === 'yobikake') genreText = "避難呼びかけ";
-        if(tabId === 'eew') genreText = "緊急地震速報";
+    // --- 戻る・進む移動処理 ---
+    window.movePage = (direction) => {
+        const pages = database[currentTab];
+        const newIndex = currentPageIndex + direction;
 
-        update(ref(db, 'broadcast/manual_news'), {
-            genre: genreText,
-            line1: firstLine.substring(0, 40),
-            timestamp: Date.now()
-        }).catch(err => console.log("Firebase自動連携中..."));
+        if (newIndex >= 0 && newIndex < pages.length) {
+            currentPageIndex = newIndex;
+            renderPage();
+        }
+    };
+
+    // --- 画面レンダリング ---
+    function renderPage() {
+        const pages = database[currentTab];
+        const pageData = pages[currentPageIndex];
+        
+        // メイン画面の書き換え
+        const displayEl = document.getElementById('manuscript-display');
+        displayEl.innerHTML = pageData.content;
+
+        // ボタンの無効化（Disabled）制御
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+
+        prevBtn.disabled = (currentPageIndex === 0);
+        nextBtn.disabled = (currentPageIndex === pages.length - 1);
     }
 
-    // 最初は地震タブを自動選択
+    // 初回読み込み
     switchTab('eq');
 </script>
+
 </body>
 </html>
