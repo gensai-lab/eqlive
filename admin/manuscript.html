@@ -135,7 +135,7 @@
         .c-red { color: var(--accent-red); }
         
         ruby { padding: 0 1px; }
-        rt { font-size: 0.4em; color: #ffffff; font-family: 'BIZ UDPGothic', sans-serif; }
+        rt { font-size: 0.45em; color: #00ffcc; font-family: 'BIZ UDPGothic', sans-serif; font-weight: 700; }
 
         /* リストテーブル形式（到達予想・地震切替用） */
         .m-table {
@@ -197,9 +197,6 @@
         .nav-btn:hover { background-color: rgba(255, 255, 255, 0.03); }
         .nav-btn.active { color: var(--accent-yellow); }
 
-        /* タブ間区切り線（画面幅が狭い時は非表示にできるデザイン構造） */
-        .nav-pipe { color: #333333; font-size: 14px; pointer-events: none; }
-
         /* レスポンシブ微調整 */
         @media (max-width: 600px) {
             main { padding: 20px 20px; }
@@ -257,24 +254,24 @@
         ],
         shindo: [
             {
-                content: `<span class="c-yellow">震度６強</span>
-<ruby>沖縄市<rt>おきなわし</rt></ruby>　糸満市　豊見城市　南城市
+                content: `<span class="c-yellow"><ruby>震度<rt>しんど</rt></ruby>６<ruby>強<rt>きょう</rt></ruby></span>
+<ruby>沖縄市<rt>おきなわし</rt></ruby>　<ruby>糸満市<rt>いとまんし</rt></ruby>　<ruby>豊見城市<rt>とみぐすくし</rt></ruby>　<ruby>南城市<rt>なんじょうし</rt></ruby>
 
 
-<span class="c-yellow">震度６弱</span>
-那覇市　宜野湾市　浦添市　名護市　うるま市　宮古島市　国頭村
-大宜味村　東村　今帰仁村
+<span class="c-yellow"><ruby>震度<rt>しんど</rt></ruby>６<ruby>弱<rt>じゃく</rt></ruby></span>
+<ruby>那覇市<rt>なはし</rt></ruby>　<ruby>宜野湾市<rt>ぎのわんし</rt></ruby>　<ruby>浦添市<rt>うらそえし</rt></ruby>　<ruby>名護市<rt>なごし</rt></ruby>　<ruby>うるま市<rt>うるまし</rt></ruby>　<ruby>宮古島市<rt>みやこじまし</rt></ruby>　<ruby>国頭村<rt>くにがみそん</rt></ruby>
+<ruby>大宜味村<rt>おおぎみそん</rt></ruby>　<ruby>東村<rt>ひがしそん</rt></ruby>　<ruby>今帰仁村<rt>なきじんそん</rt></ruby>
 
 
-<span class="c-yellow">震度５強</span>
-座間味村　多良間村　久米島町　粟国村　伊平屋村　伊勝名村　（続く）`
+<span class="c-yellow"><ruby>震度<rt>しんど</rt></ruby>５<ruby>強<rt>きょう</rt></ruby></span>
+<ruby>座間味村<rt>ざまみそん</rt></ruby>　<ruby>多良間村<rt>たらまそん</rt></ruby>　<ruby>久米島町<rt>くめじまちょう</rt></ruby>　<ruby>粟国村<rt>あぐにそん</rt></ruby>　<ruby>伊平屋村<rt>いへやそん</rt></ruby>　<ruby>伊江村<rt>いえそん</rt></ruby>　（続く）`
             },
             {
-                content: `<span class="c-yellow">震度５弱</span>
-石垣市　竹富町　与那国町
+                content: `<span class="c-yellow"><ruby>震度<rt>しんど</rt></ruby>５<ruby>弱<rt>じゃく</rt></ruby></span>
+<ruby>石垣市<rt>いしがきし</rt></ruby>　<ruby>竹富町<rt>たけとみちょう</rt></ruby>　<ruby>与那国町<rt>よなぐにちょう</rt></ruby>
 
-北部や周辺離島でも強い揺れが観測されています。
-現在倒壊しかかっている建物や、ひび割れが入った斜面、崖などには絶対に近づかないでください。揺れが収まっても当分の間警戒が必要です。`
+<ruby>北部<rt>ほくぶ</rt></ruby>や<ruby>周辺離島<rt>しゅうへんりとう</rt></ruby>でも<ruby>強い<rt>つよい</rt></ruby><ruby>揺れ<rt>ゆれ</rt></ruby>が<ruby>観測<rt>かんそく</rt></ruby>されています。
+<ruby>現在<rt>げんざい</rt></ruby><ruby>倒壊<rt>とうかい</rt></ruby>しかかっている<ruby>建物<rt>たてもの</rt></ruby>や、ひび<ruby>割れ<rt>われ</rt></ruby>が<ruby>入った<rt>はいった</rt></ruby><ruby>斜面<rt>しゃめん</rt></ruby>、<ruby>崖<rt>がけ</rt></ruby>などには<ruby>絶対<rt>ぜったい</rt></ruby>に<ruby>近づかないで<rt>ちかづかないで</rt></ruby>ください。<ruby>揺れ<rt>ゆれ</rt></ruby>が<ruby>収まっても<rt>おさまっても</rt></ruby><ruby>当分<rt>とうぶん</rt></ruby>の<ruby>間<rt>あいだ</rt></ruby><ruby>警戒<rt>けいかい</rt></ruby>が<ruby>必要<rt>ひつよう</rt></ruby>です。`
             }
         ],
         tsu: [
@@ -330,15 +327,12 @@
                 content: `<table class="m-table">
 <tr class="selected"><td>０２日午前１０時３７分</td><td>沖縄本島近海</td><td>Ｍ９．０</td><td>津波情報</td></tr>
 <tr><td>０２日午前０９時５２分</td><td>千葉県北西部</td><td>Ｍ２．２</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>長野県北部</td><td>Ｍ２．５</td><td>津波なし</td></tr>
+<tr><td>０２日午前０９時５２分</td><td>長野県北部</td><td>Ｍ２．5</td><td>津波なし</td></tr>
 <tr><td>０２日午前０９時５２分</td><td>北海道石狩地方南部</td><td>Ｍ３．８</td><td>津波なし</td></tr>
 <tr><td>０２日午前０９時５２分</td><td>愛知県西部</td><td>Ｍ３．１</td><td>津波なし</td></tr>
 <tr><td>０２日午前０９時５２分</td><td>愛知県西部</td><td>Ｍ１．２</td><td>津波なし</td></tr>
 <tr><td>０２日午前０９時５２分</td><td>沖縄本島近海</td><td>Ｍ４．０</td><td>津波なし</td></tr>
 <tr><td>０２日午前０９時５２分</td><td>神奈川県東部</td><td>Ｍ１．６</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>西表島近海</td><td>Ｍ２．５</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>山口県西部</td><td>Ｍ２．８</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>三陸沖</td><td>Ｍ６．１</td><td>海面変動</td></tr>
 </table>`
             }
         ]
