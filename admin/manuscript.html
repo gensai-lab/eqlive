@@ -20,6 +20,7 @@
             --accent-magenta: #ff00ff;
             --accent-red: #ff0000;
             --border-color: #262626;
+            --status-green: #00ff66;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -72,6 +73,30 @@
             border: 1px solid #3c3c3c;
         }
 
+        .api-status {
+            font-size: 11px;
+            color: var(--status-green);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background-color: rgba(0, 255, 102, 0.05);
+            padding: 4px 10px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 255, 102, 0.2);
+        }
+
+        .api-pulse {
+            width: 6px;
+            height: 6px;
+            background-color: var(--status-green);
+            border-radius: 50%;
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { opacity: 0.4; } to { opacity: 1; }
+        }
+
         /* 戻る・進むページネーション */
         .page-control {
             display: flex;
@@ -122,7 +147,7 @@
         .manuscript-content {
             width: 100%;
             font-family: 'BIZ UDGothic', monospace; /* 本文は等幅 */
-            font-size: calc(20px + 1vw); /* 画面幅に応じて適切にレスポンシブ縮尺 */
+            font-size: calc(18px + 1vw); /* 画面幅に応じて適切にレスポンシブ縮尺 */
             line-height: 1.7;
             font-weight: 700;
             white-space: pre-wrap;
@@ -203,6 +228,7 @@
             header { padding: 0 10px; }
             .brand-badge { display: none; }
             .m-table td { padding: 8px 0 4px 0; }
+            .api-status { display: none; }
         }
     </style>
 </head>
@@ -212,6 +238,7 @@
     <div class="header-left">
         <span class="brand-logo">EQLive</span>
         <span class="brand-badge">原稿ツール</span>
+        <div class="api-status"><div class="api-pulse"></div>P2P連携中 (1s)</div>
     </div>
     
     <div class="page-control">
@@ -239,103 +266,63 @@
 </footer>
 
 <script>
-    // --- 複数ページ対応のマルチレイヤ原稿データベース ---
-    const database = {
-        eq: [
-            {
-                content: `午前１０時３７分ごろ、沖縄本島近海で
-最大震度６強を観測する強い地震がありました。
+    // --- 漢字自動ふりがな（ルビ）辞書マッピング構造 ---
+    const rubyDict = {
+        "震度": "しんど", "強": "きょう", "弱": "じゃく", "地震": "じしん", "津波": "つなみ",
+        "大津波警報": "おおつなみけいほう", "津波警報": "つなみけいほう", "津波注意報": "つなみちゅういほう",
+        "沖縄": "おきなわ", "那覇": "なは", "宜野湾": "ぎのわん", "浦添": "うらそえ", "名護": "なご",
+        "糸満": "いとまん", "沖縄市": "おきなわし", "豊見城": "とみぐすく", "うるま": "うるま",
+        "宮古島": "みやこじま", "南城": "なんじょう", "国頭": "くにがみ", "大宜味": "おおぎみ",
+        "東村": "ひがしそん", "今帰仁": "なきじん", "本部": "もとぶ", "恩納": "おんな", "宜野座": "ぎのざ",
+        "金武": "きん", "伊江": "いえ", "読谷": "よみたん", "嘉手納": "かでな", "北谷": "ちゃたん",
+        "北中城": "きたなかぐすく", "中城": "なかぐすく", "西原": "にしはら", "与那原": "よなばる",
+        "南風原": "はえばる", "渡嘉敷": "とかしき", "座間味": "ざまみ", "粟国": "あぐに", "渡名喜": "となき",
+        "南大東": "みなみだいとう", "北大東": "きただいとう", "伊平屋": "いへや", "伊平屋村": "いへやそん",
+        "伊勝名": "いぜな", "伊江村": "いえそん", "久米島": "くめじま", "八重瀬": "やえせ", "多良間": "たらま",
+        "石垣": "いしがき", "竹富": "たけとみ", "与那国": "よなぐに", "東京": "とうきょう", "千葉": "ちば",
+        "神奈川": "かながわ", "埼玉": "さいたま", "茨城": "いばらき", "栃木": "とちぎ", "群馬": "ぐんま",
+        "岩手": "いわて", "宮城": "みやぎ", "福島": "ふくしま", "青森": "あおもり", "秋田": "あきた",
+        "山形": "やまがた", "北海道": "ほっかいどう", "新潟": "にいがた", "長野": "ながの", "山梨": "やまなし",
+        "静岡": "しずおか", "愛知": "あいち", "岐阜": "ぎふ", "三重": "みえ", "富山": "とやま",
+        "石川": "いしかわ", "福井": "ふくい", "滋賀": "しが", "京都": "きょうと", "大阪": "おおさか",
+        "兵庫": "ひょうご", "奈良": "なら", "和歌山": "わかやま", "鳥取": "とっとり", "島根": "しまね",
+        "岡山": "おかやま", "広島": "ひろしま", "山口": "やまぐち", "徳島": "とくしま", "香川": "かがわ",
+        "愛媛": "えひめ", "高知": "こうち", "福岡": "ふくおか", "佐賀": "さが", "長崎": "ながさき",
+        "熊本": "くまもと", "大分": "おおいた", "宮崎": "みやぎ", "鹿児島": "かごしま", "奄美": "あまみ",
+        "トカラ": "とから", "大東島": "だいとうじま", "八重山": "やえやま", "沿岸": "えんがん",
+        "到達": "とうたつ", "予想": "よそう", "時刻": "じこく", "高さ": "たかさ", "確認": "かくにん",
+        "現在": "げんざい", "倒壊": "とうかい", "建物": "たてもの", "割れ": "われ", "入った": "はいった",
+        "斜面": "しゃめん", "崖": "がけ", "絶対": "ぜったい", "近づかないで": "ちかづかないで",
+        "揺れ": "ゆれ", "収まっても": "おさまっても", "当分": "とうぶん", "間": "あいだ", "警戒": "けいかい",
+        "必要": "ひつよう", "北部": "ほくぶ", "周辺離島": "しゅうへんりとう", "強い": "つよい", "観測": "かんそく"
+    };
 
-震源：沖縄本島近海　　深さ：約２０キロ
-規模：マグニチュード９．０
+    // テキスト内の指定文字に一括でルビを適用するパーサー関数
+    function applyRuby(text) {
+        let parsed = text;
+        // 辞書のキーの長い順にソートして置換の衝突を防止
+        const sortedKeys = Object.keys(rubyDict).sort((a, b) => b.length - a.length);
+        sortedKeys.forEach(key => {
+            const regex = new RegExp(key, 'g');
+            parsed = parsed.replace(regex, `<ruby>${key}<rt>${rubyDict[key]}</rt></ruby>`);
+        });
+        return parsed;
+    }
 
-この地震で<span class="c-magenta">大津波警報</span>・<span class="c-red">津波警報</span>が出ています。`
-            }
-        ],
-        shindo: [
-            {
-                content: `<span class="c-yellow"><ruby>震度<rt>しんど</rt></ruby>６<ruby>強<rt>きょう</rt></ruby></span>
-<ruby>沖縄市<rt>おきなわし</rt></ruby>　<ruby>糸満市<rt>いとまんし</rt></ruby>　<ruby>豊見城市<rt>とみぐすくし</rt></ruby>　<ruby>南城市<rt>なんじょうし</rt></ruby>
-
-
-<span class="c-yellow"><ruby>震度<rt>しんど</rt></ruby>６<ruby>弱<rt>じゃく</rt></ruby></span>
-<ruby>那覇市<rt>なはし</rt></ruby>　<ruby>宜野湾市<rt>ぎのわんし</rt></ruby>　<ruby>浦添市<rt>うらそえし</rt></ruby>　<ruby>名護市<rt>なごし</rt></ruby>　<ruby>うるま市<rt>うるまし</rt></ruby>　<ruby>宮古島市<rt>みやこじまし</rt></ruby>　<ruby>国頭村<rt>くにがみそん</rt></ruby>
-<ruby>大宜味村<rt>おおぎみそん</rt></ruby>　<ruby>東村<rt>ひがしそん</rt></ruby>　<ruby>今帰仁村<rt>なきじんそん</rt></ruby>
-
-
-<span class="c-yellow"><ruby>震度<rt>しんど</rt></ruby>５<ruby>強<rt>きょう</rt></ruby></span>
-<ruby>座間味村<rt>ざまみそん</rt></ruby>　<ruby>多良間村<rt>たらまそん</rt></ruby>　<ruby>久米島町<rt>くめじまちょう</rt></ruby>　<ruby>粟国村<rt>あぐにそん</rt></ruby>　<ruby>伊平屋村<rt>いへやそん</rt></ruby>　<ruby>伊江村<rt>いえそん</rt></ruby>　（続く）`
-            },
-            {
-                content: `<span class="c-yellow"><ruby>震度<rt>しんど</rt></ruby>５<ruby>弱<rt>じゃく</rt></ruby></span>
-<ruby>石垣市<rt>いしがきし</rt></ruby>　<ruby>竹富町<rt>たけとみちょう</rt></ruby>　<ruby>与那国町<rt>よなぐにちょう</rt></ruby>
-
-<ruby>北部<rt>ほくぶ</rt></ruby>や<ruby>周辺離島<rt>しゅうへんりとう</rt></ruby>でも<ruby>強い<rt>つよい</rt></ruby><ruby>揺れ<rt>ゆれ</rt></ruby>が<ruby>観測<rt>かんそく</rt></ruby>されています。
-<ruby>現在<rt>げんざい</rt></ruby><ruby>倒壊<rt>とうかい</rt></ruby>しかかっている<ruby>建物<rt>たてもの</rt></ruby>や、ひび<ruby>割れ<rt>われ</rt></ruby>が<ruby>入った<rt>はいった</rt></ruby><ruby>斜面<rt>しゃめん</rt></ruby>、<ruby>崖<rt>がけ</rt></ruby>などには<ruby>絶対<rt>ぜったい</rt></ruby>に<ruby>近づかないで<rt>ちかづかないで</rt></ruby>ください。<ruby>揺れ<rt>ゆれ</rt></ruby>が<ruby>収まっても<rt>おさまっても</rt></ruby><ruby>当分<rt>とうぶん</rt></ruby>の<ruby>間<rt>あいだ</rt></ruby><ruby>警戒<rt>けいかい</rt></ruby>が<ruby>必要<rt>ひつよう</rt></ruby>です。`
-            }
-        ],
-        tsu: [
-            {
-                content: `<span class="c-yellow">今すぐ避難！今すぐ避難！</span>
-<span class="c-magenta">大津波警報</span>・<span class="c-red">津波警報</span>が出ました。
-東日本大震災クラスの巨大な地震が来ます。
-今すぐ、可能な限り高いところへ逃げること！
-<span class="c-magenta">大津波警報</span>が発表されたのは、次の沿岸です。
-
-
-<span class="c-magenta">大津波警報</span>
-▼沖縄本島地方
-▼大東島地方
-▼奄美群島・トカラ列島
-▼宮古島・八重山地方　（続く）`
-            }
-        ],
-        yosou: [
-            {
-                content: `<table class="m-table">
-<tr class="selected"><td colspan="2"><span class="c-magenta">大津波警報</span></td><td></td></tr>
-<tr class="selected"><td>沖縄本島地方</td><td>第１波の到達を確認</td><td>１０ｍ超</td></tr>
-<tr class="selected"><td>大東島地方</td><td>第１波の到達を確認</td><td>１０ｍ超</td></tr>
-<tr class="selected"><td>奄美群島・トカラ列島</td><td>第１波の到達を確認</td><td>１０ｍ</td></tr>
-<tr class="selected"><td>宮古島・八重山地方</td><td>第１波の到達を確認</td><td>５ｍ</td></tr>
-<tr><td>種子島・屋久島地方</td><td>第１波の到達を確認</td><td>５ｍ</td></tr>
-<tr><td>鹿児島県西部</td><td>第１波の到達を確認</td><td>５ｍ</td></tr>
-<tr><td>宮崎県</td><td>午前１０時５０分</td><td>５ｍ</td></tr>
-<tr><td>鹿児島県東部</td><td>午前１１時００分</td><td>５ｍ</td></tr>
-<tr><td>大分県豊後水道沿岸</td><td>午前１１時１０分</td><td>５ｍ</td></tr>
-<tr><td>高知県</td><td>午前１１時１０分</td><td>５ｍ</td><td>（続く）</td></tr>
-</table>`
-            }
-        ],
-        yobikake: [
-            {
-                content: `<span class="c-yellow">緊急地震速報が発表された時</span>
-▼緊急地震速報です。（地域名）では、強い揺れに警戒してください。
+    // --- 内部表示制御用の初期固定モックデータベース ---
+    let database = {
+        eq: [{ content: "地震情報を読み込み中..." }],
+        shindo: [{ content: "震度情報を読み込み中..." }],
+        tsu: [{ content: "津波予報は発表されていません。" }],
+        yosou: [{ content: "津波到達予想データはありません。" }],
+        yobikake: [{
+            content: `<span class="c-yellow">緊急地震速報が発表された時</span>
+▼緊急地震速報です。強い揺れに警戒してください。
 ▼倒れやすい家具などからは、離れてください。
 ▼テーブルや机の下に隠れてください。`
-            }
-        ],
-        eew: [
-            {
-                content: `<span class="c-yellow">緊急地震速報（警報）</span>
-沖縄本島近海で地震　　推定規模：マグニチュード８．６
-沖縄　鹿児島　宮崎　熊本`
-            }
-        ],
-        switch: [
-            {
-                content: `<table class="m-table">
-<tr class="selected"><td>０２日午前１０時３７分</td><td>沖縄本島近海</td><td>Ｍ９．０</td><td>津波情報</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>千葉県北西部</td><td>Ｍ２．２</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>長野県北部</td><td>Ｍ２．5</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>北海道石狩地方南部</td><td>Ｍ３．８</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>愛知県西部</td><td>Ｍ３．１</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>愛知県西部</td><td>Ｍ１．２</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>沖縄本島近海</td><td>Ｍ４．０</td><td>津波なし</td></tr>
-<tr><td>０２日午前０９時５２分</td><td>神奈川県東部</td><td>Ｍ１．６</td><td>津波なし</td></tr>
-</table>`
-            }
-        ]
+        }],
+        eew: [{ content: "現在、緊急地震速報（警報）は発表されていません。" }],
+        switch: [{ content: "<table class='m-table'><tr><td>履歴がありません</td></tr></table>" }]
     };
 
     let currentTab = 'eq';
@@ -344,45 +331,193 @@
     // --- タブ切り替え関数 ---
     window.switchTab = (tabId) => {
         currentTab = tabId;
-        currentPageIndex = 0; // タブ移動時は必ず1ページ目から
-
-        // ナビゲーションのアクティブクラス更新
+        currentPageIndex = 0;
         document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
         document.getElementById(`tab-${tabId}`).classList.add('active');
-
         renderPage();
     };
 
-    // --- 戻る・進む移動処理 ---
+    // --- ページ移動処理 ---
     window.movePage = (direction) => {
         const pages = database[currentTab];
         const newIndex = currentPageIndex + direction;
-
         if (newIndex >= 0 && newIndex < pages.length) {
             currentPageIndex = newIndex;
             renderPage();
         }
     };
 
-    // --- 画面レンダリング ---
+    // --- 画面描画システム ---
     function renderPage() {
-        const pages = database[currentTab];
-        const pageData = pages[currentPageIndex];
+        const pages = database[currentTab] || [{ content: "" }];
+        const pageData = pages[currentPageIndex] || { content: "" };
         
-        // メイン画面の書き換え
         const displayEl = document.getElementById('manuscript-display');
         displayEl.innerHTML = pageData.content;
 
-        // ボタンの無効化（Disabled）制御
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
-
         prevBtn.disabled = (currentPageIndex === 0);
         nextBtn.disabled = (currentPageIndex === pages.length - 1);
     }
 
-    // 初回読み込み
+    // --- P2P地震情報 APIリアルタイム連携部 ---
+    const P2P_API_URL = "https://api.p2pquake.net/v2/history?format=json&limit=15";
+    let lastInfoId = null;
+
+    async function fetchP2PData() {
+        try {
+            const response = await fetch(P2P_API_URL);
+            if (!response.ok) return;
+            const data = await response.json();
+            if (!data || data.length === 0) return;
+
+            // 最新データのIDチェック（更新がない場合はパス）
+            if (data[0].id === lastInfoId) return;
+            lastInfoId = data[0].id;
+
+            // ターゲットコードのみ抽出加工
+            processEarthquakeAndTsunami(data);
+            processEEW(data);
+            
+            // 現在のタブ情報を再描画
+            renderPage();
+        } catch (error) {
+            console.error("P2P API データの取得に失敗しました:", error);
+        }
+    }
+
+    // 551(地震情報)・552(津波予報) 解析
+    function processEarthquakeAndTsunami(data) {
+        // 1. 地震切替用（最大8件）の構築
+        const eqList = data.filter(item => item.code === 551).slice(0, 8);
+        if (eqList.length > 0) {
+            let tableHtml = `<table class="m-table">`;
+            eqList.forEach((eq, index) => {
+                const time = eq.earthquake.time;
+                const name = eq.earthquake.hypocenter.name || "調査中";
+                const maxScale = formatScale(eq.earthquake.maxScale);
+                const magnitude = eq.earthquake.hypocenter.magnitude >= 0 ? `Ｍ${eq.earthquake.hypocenter.magnitude.toFixed(1)}` : "不明";
+                const domesticTsunami = formatTsunamiText(eq.earthquake.domesticTsunami);
+                
+                const isSelected = index === 0 ? 'class="selected"' : '';
+                tableHtml += `<tr ${isSelected}><td>${time}</td><td>${name}</td><td>${magnitude}</td><td>震度${maxScale}</td><td>${domesticTsunami}</td></tr>`;
+            });
+            tableHtml += `</table>`;
+            database.switch = [{ content: tableHtml }];
+
+            // 最新の1件を各タブへ割り当て
+            const latestEq = eqList[0];
+            const eqTime = latestEq.earthquake.time;
+            const eqName = latestEq.earthquake.hypocenter.name || "調査中";
+            const eqDepth = latestEq.earthquake.hypocenter.depth >= 0 ? `約${latestEq.earthquake.hypocenter.depth}キロ` : "調査中";
+            const eqMag = latestEq.earthquake.hypocenter.magnitude >= 0 ? `マグニチュード${latestEq.earthquake.hypocenter.magnitude.toFixed(1)}` : "不明";
+            const eqScale = formatScale(latestEq.earthquake.maxScale);
+            const tsunamiStatus = formatTsunamiManuscript(latestEq.earthquake.domesticTsunami);
+
+            // 地震タブ原稿
+            database.eq = [{
+                content: `${eqTime}ごろ、${eqName}で
+最大震度${eqScale}を観測する強い地震がありました。
+
+震源：${eqName}　　深さ：${eqDepth}
+規模：${eqMag}
+
+${tsunamiStatus}`
+            }];
+
+            // 震度タブ原稿（ルビ自動パース）
+            let shindoContent = "";
+            const pointsByScale = {};
+            latestEq.points.forEach(p => {
+                const scaleStr = formatScale(p.scale);
+                if (!pointsByScale[scaleStr]) pointsByScale[scaleStr] = [];
+                pointsByScale[scaleStr].push(p.addr);
+            });
+
+            const sortedScales = Object.keys(pointsByScale).sort((a, b) => b - a);
+            if (sortedScales.length > 0) {
+                sortedScales.forEach(scale => {
+                    const placeList = pointsByScale[scale].slice(0, 15).join("　");
+                    shindoContent += `<span class="c-yellow">震度${scale}</span>\n${placeList}\n\n\n`;
+                });
+                shindoContent += `今後も揺れの強かった地域では、当分の間警戒が必要です。`;
+            } else {
+                shindoContent = `震度細分詳細情報は発表されていません。`;
+            }
+            // 震度全文字に自動ルビ処理
+            database.shindo = [{ content: applyRuby(shindoContent) }];
+        }
+
+        // 2. 津波予報(552)の抽出パース
+        const tsunamiData = data.find(item => item.code === 552);
+        if (tsunamiData && tsunamiData.areas) {
+            let tsuMain = `<span class="c-yellow">今すぐ避難！今すぐ避難！</span>\n津波予報が発表されています。\n\n`;
+            let yosouHtml = `<table class="m-table">`;
+
+            tsunamiData.areas.forEach(area => {
+                const name = area.name;
+                const grade = area.grade; // majorWarning, warning, advisory
+                let colorClass = "";
+                let gradeText = "";
+                
+                if (grade === "majorWarning") { colorClass = "c-magenta"; gradeText = "大津波警報"; }
+                else if (grade === "warning") { colorClass = "c-red"; gradeText = "津波警報"; }
+                else { colorClass = "c-yellow"; gradeText = "津波注意報"; }
+
+                tsuMain += `<span class="${colorClass}">▼${name}（${gradeText}）</span>\n`;
+                yosouHtml += `<tr class="${grade === 'majorWarning' || grade === 'warning' ? 'selected' : ''}">
+                    <td><span class="${colorClass}">${gradeText}</span></td><td>${name}</td><td>第１波到達：確認中</td>
+                </tr>`;
+            });
+            yosouHtml += `</table>`;
+
+            database.tsu = [{ content: tsuMain + `\nただちに海岸から離れ、高い場所へ避難してください。` }];
+            database.yosou = [{ content: yosouHtml }];
+        }
+    }
+
+    // 556(緊急地震速報 警報) 解析
+    function processEEW(data) {
+        const eewData = data.find(item => item.code === 556);
+        if (eewData && eewData.earthquake) {
+            const title = eewData.test ? "【緊急地震速報（テスト配信）】" : "<span class='c-yellow'>緊急地震速報（警報）</span>";
+            const epic = eewData.earthquake.hypocenter.name || "震源地特定中";
+            const areas = eewData.areas ? eewData.areas.map(a => a.name).join("　") : "強い揺れに警戒";
+            
+            database.eew = [{
+                content: `${title}\n${epic}で地震発生　強い揺れが予想されます。\n\n警戒地域：\n${areas}\n\n倒れやすい家具から離れ、机の下に身を隠してください。`
+            }];
+        }
+    }
+
+    // P2P地震情報の震度値を放送表記にコンバート
+    function formatScale(scale) {
+        const dict = { 10: "1", 20: "2", 30: "3", 40: "4", 45: "5弱", 50: "5強", 55: "6弱", 60: "6強", 70: "7" };
+        return dict[scale] || "不明";
+    }
+
+    function formatTsunamiText(code) {
+        const dict = { "None": "津波なし", "Unknown": "不明", "Checking": "調査中", "NonEffective": "海面変動", "Watch": "津波注意報", "Warning": "津波警報" };
+        return dict[code] || "情報なし";
+    }
+
+    function formatTsunamiManuscript(code) {
+        if (code === "Warning" || code === "Watch") {
+            return `この地震で<span class="c-magenta">大津波警報</span>または<span class="c-red">津波警報・注意報</span>が出ています。`;
+        } else if (code === "NonEffective") {
+            return `この地震により、多少の海面変動があるかもしれませんが、津波の心配はありません。`;
+        } else {
+            return `この地震による津波の心配はありません。`;
+        }
+    }
+
+    // --- 毎秒（1秒ごと）最速バックグラウンド同期実行ループ ---
+    setInterval(fetchP2PData, 1000);
+
+    // 初回起動処理
     switchTab('eq');
+    fetchP2PData();
 </script>
 
 </body>
