@@ -84,7 +84,7 @@
             border: 1px solid rgba(0, 255, 102, 0.3);
         }
 
-        /* 新規入電アラート表示（最優先で目立たせる設計） */
+        /* 新規入電アラート表示 */
         .incoming-alert-banner {
             display: none;
             background-color: var(--accent-red);
@@ -209,7 +209,7 @@
             overflow-y: auto;
         }
 
-        /* 2分割画面用：それぞれの画面の直下に独立して配置されるボトムタブバー */
+        /* 2分割画面用ボトムタブバー */
         .pane-footer-tabs {
             display: flex;
             background-color: #141414;
@@ -238,7 +238,7 @@
             background-color: rgba(255, 242, 0, 0.05);
         }
 
-        /* 右ペイン（初期状態は完全に隠蔽） */
+        /* 右ペイン */
         #right-pane {
             display: none;
             border-left: 3px solid var(--border-color);
@@ -278,7 +278,7 @@
         .m-table td:first-child { padding-left: 0; }
         .m-table td:last-child { padding-right: 0; }
 
-        /* 通常（1画面表示時）のメイン最下部グローバルナビ */
+        /* 通常のメイン最下部グローバルナビ */
         #global-footer {
             background-color: var(--footer-bg);
             height: 64px;
@@ -453,7 +453,7 @@
         return res;
     }
 
-    // Excelファイルをフェッチし、列のインデックス（C列=2, E列=4）基準で安全にマッピング
+    // Excelデータをインデックス（C列=2, E列=4）基準でパース
     async function initExcelDictionary() {
         try {
             const response = await fetch(EXCEL_URL);
@@ -463,25 +463,19 @@
             
             workbook.SheetNames.forEach(sheetName => {
                 const worksheet = workbook.Sheets[sheetName];
-                // ヘッダー名に依存せず、完全な2次元配列(行列)としてパースする
                 const matrix = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
                 
                 matrix.forEach((row, index) => {
-                    if (index === 0) return; // ヘッダー行はスキップ
+                    if (index === 0) return; // ヘッダースキップ
                     
-                    // C列(インデックス2)＝市町村の漢字、E列(インデックス4)＝読み仮名
                     const cityKanji = row[2] ? row[2].toString().trim() : "";
                     const cityKana = row[4] ? row[4].toString().trim() : "";
-                    
-                    // B列(インデックス1)＝都道府県の漢字、D列(インデックス3)＝都道府県のカナ
                     const prefKanji = row[1] ? row[1].toString().trim() : "";
                     const prefKana = row[3] ? row[3].toString().trim() : "";
 
                     if (cityKanji && cityKana) {
                         const cityHiragana = kanaToHiragana(cityKana);
                         excelNameRubyMap[cityKanji] = cityHiragana;
-                        
-                        // 「岩手県宮古」などの結合パターンを考慮し、都道府県＋市区町村の複合キーも登録
                         if (prefKanji) {
                             excelNameRubyMap[prefKanji + cityKanji] = kanaToHiragana(prefKana) + cityHiragana;
                         }
@@ -492,15 +486,9 @@
                 });
             });
 
-            // 災害放送用の定型基礎用語も網羅マッピング
+            // 震度タブ用の基礎防災用語マッピング
             const baseTerms = {
-                "震度": "しんど", "震源": "しんげん", "津波": "つなみ", "警報": "けいほう", "注意報": "ちゅういほう",
-                "大津波": "おおつなみ", "緊急地震速報": "きんきゅうじしんそくほう", "観測": "かんそく", "規模": "きぼ",
-                "深さ": "ふかさ", "マグニチュード": "まぐにちゅーど", "心配": "しんぱい", "多少": "たしょう",
-                "海面変動": "かいめんへんどう", "地域": "ちいき", "発生": "はっせい", "強い": "つよい",
-                "揺れ": "ゆれ", "警戒": "けいかい", "避難": "ひなん", "高い": "たかい", "可能な限り": "かのうなかぎり",
-                "確認": "かくにん", "調査中": "ちょうさちゅう", "特定中": "とくていちゅう", "市区町村": "しくちょうそん",
-                "午後": "ごご", "午前": "ごぜん", "地震": "じしん"
+                "震度": "しんど", "観測": "かんそく", "地域": "ちいき", "強い": "つよい", "揺れ": "ゆれ"
             };
             excelNameRubyMap = { ...baseTerms, ...excelNameRubyMap };
 
@@ -514,21 +502,17 @@
         } catch (error) {
             console.error("Excelマスターデータ読み込みエラー:", error);
             const indicator = document.getElementById('dict-indicator');
-            if (indicator) indicator.innerText = "Excel辞書ロード失敗 (C/E列インデックス未検出)";
+            if (indicator) indicator.innerText = "Excel辞書ロード失敗";
         }
     }
 
-    // 漢字テキストへの高速・重複防止インジェクション
+    // 漢字テキストへルビを差し込む自動エンジン（※震度タブでのみ実行）
     function applyExcelRuby(text) {
         if (!text) return "";
         let result = text;
-        
-        // 置換の競合を防ぐため文字数の長い地名からループを展開
         const sortedKeys = Object.keys(excelNameRubyMap).sort((a, b) => b.length - a.length);
-        
         sortedKeys.forEach(k => {
             if (k.length > 0 && result.includes(k)) {
-                // rubyタグ内部の文字列を誤置換しないよう否定後読み・先読みで保護
                 result = result.replace(new RegExp(`(?<!<rt>)${k}(?!<\/rt>)`, 'g'), `<ruby>${k}<rt>${excelNameRubyMap[k]}</rt></ruby>`);
             }
         });
@@ -554,7 +538,6 @@
     // UIマネジメント変数
     let isSplitMode = false;
     let currentGlobalTab = 'eq';
-    
     let paneTabs = { left: 'eq', right: 'shindo' };
     let panePages = { left: 0, right: 0 };
 
@@ -646,7 +629,6 @@
         return names[id] || id;
     }
 
-    // 1分間(60秒)の新規入電アラート制御ロジック
     function triggerIncomingAlert(tabs = []) {
         const alertUi = document.getElementById('incoming-alert-ui');
         if (alertUi) alertUi.style.display = 'block';
@@ -684,9 +666,9 @@
             const sel = item.id === currentSelectedPacketId ? 'class="selected"' : '';
             html += `<tr ${sel} onclick="selectHistoryIndex('${item.id}')">
                 <td>${item.time}</td>
-                <td>${applyExcelRuby(item.name)}</td>
+                <td>${item.name}</td>
                 <td>${item.mag}</td>
-                <td>${applyExcelRuby(item.tsunami)}</td>
+                <td>${item.tsunami}</td>
             </tr>`;
         });
         html += `</table>`;
@@ -794,13 +776,13 @@
                 tScript = `この地震により、多少の海面変動があるかもしれませんが、津波の心配はありません。`;
             }
 
-            const eqRawText = `${dTime}ごろ、${name}で\n最大震度${maxScale}を観測する強い地震がありました。\n\n震源：${name}　　深さ：${depth}\n規模：${mag}\n\n${tScript}`;
-            
-            let parsedEq = applyExcelRuby(eqRawText);
+            // 地震タブはルビなし（通常テキストに装飾タグのみ適用）
+            let parsedEq = `${dTime}ごろ、${name}で\n最大震度${maxScale}を観測する強い地震がありました。\n\n震源：${name}　　深さ：${depth}\n規模：${mag}\n\n${tScript}`;
             parsedEq = parsedEq.replace("大津波警報", '<span class="c-magenta">大津波警報</span>')
                                .replace("津波警報", '<span class="c-red">津波警報</span>');
             database.eq = [{ content: parsedEq }];
 
+            // 震度タブのみルビ（読み仮名）を適用する
             if (packet.points && packet.points.length > 0) {
                 let sMap = {};
                 packet.points.forEach(p => {
@@ -813,6 +795,8 @@
                 Object.keys(sMap).sort((a,b)=>b.localeCompare(a, undefined, {numeric:true})).forEach(sc => {
                     sManuscript += `<span class="c-yellow">震度${sc}</span>\n${sMap[sc].join("　")}\n\n`;
                 });
+                
+                // ここで震度タブにのみルビ自動エンジンをマッピング
                 database.shindo = [{ content: applyExcelRuby(sManuscript) }];
             } else {
                 database.shindo = [{ content: "震度詳細は発表されていません。" }];
@@ -828,23 +812,23 @@
         let yHtml = `<table class="m-table">`;
 
         packet.areas.forEach(a => {
-            let col = "c-yellow", lbl = "津波注意報";
-            if (a.grade === "majorWarning") { col = "c-magenta"; lbl = "大津波警報"; }
-            if (a.grade === "warning") { col = "c-red"; lbl = "津波警報"; }
+            let lbl = "津波注意報";
+            if (a.grade === "majorWarning") { lbl = "大津波警報"; }
+            if (a.grade === "warning") { lbl = "津波警報"; }
             tContent += `${lbl}\n▼${a.name}\n`;
             yHtml += `<tr class="selected"><td>${a.name}</td><td>第１波の到達を確認</td><td>高さ：調査中</td></tr>`;
         });
         yHtml += `</table>`;
 
-        let parsedTsu = applyExcelRuby(tContent);
-        parsedTsu = parsedTsu.replace("今すぐ避難！今すぐ避難！", '<span class="c-yellow">今すぐ避難！今すぐ避難！</span>')
-                             .replace("津波予報", '<span class="c-magenta">津波予報</span>')
-                             .replace("大津波警報", '<span class="c-magenta">大津波警報</span>')
-                             .replace("津波警報", '<span class="c-red">津波警報</span>')
-                             .replace("津波注意報", '<span class="c-yellow">津波注意報</span>');
+        // 津波関連タブはルビなし
+        tContent = tContent.replace("今すぐ避難！今すぐ避難！", '<span class="c-yellow">今すぐ避難！今すぐ避難！</span>')
+                           .replace("津波予報", '<span class="c-magenta">津波予報</span>')
+                           .replace("大津波警報", '<span class="c-magenta">大津波警報</span>')
+                           .replace("津波警報", '<span class="c-red">津波警報</span>')
+                           .replace("津波注意報", '<span class="c-yellow">津波注意報</span>');
 
-        database.tsu = [{ content: parsedTsu }];
-        database.yosou = [{ content: applyExcelRuby(yHtml) }];
+        database.tsu = [{ content: tContent }];
+        database.yosou = [{ content: yHtml }];
         refreshCurrentPanes();
     }
 
@@ -854,9 +838,8 @@
         const mag = packet.earthquake.hypocenter.magnitude >= 0 ? `マグニチュード${packet.earthquake.hypocenter.magnitude.toFixed(1)}` : "";
         const areas = packet.areas ? packet.areas.map(a => a.name).join("　") : "";
 
-        const eewRawText = `緊急地震速報（警報）\n${name}で地震発生　強い揺れに警戒してください。\n推定規模：${mag}\n\n警戒地域：\n${areas}`;
-        
-        let parsedEew = applyExcelRuby(eewRawText);
+        // EEWタブはルビなし
+        let parsedEew = `緊急地震速報（警報）\n${name}で地震発生　強い揺れに警戒してください。\n推定規模：${mag}\n\n警戒地域：\n${areas}`;
         parsedEew = parsedEew.replace("緊急地震速報（警報）", '<span class="c-yellow">緊急地震速報（警報）</span>');
         
         database.eew = [{ content: parsedEew }];
@@ -872,13 +855,10 @@
     (async () => {
         switchGlobalTab('eq');
         
-        // 1. 列インデックス指定でExcelマスターをロード
+        // 1. Excelマスターをロード
         await initExcelDictionary();
         
-        // 2. 定型文のルビ同期
-        database.yobikake[0].content = applyExcelRuby(database.yobikake[0].content);
-        
-        // 3. ポーリング開始
+        // 2. ポーリング開始
         await fetchP2PDataEngine();
         setInterval(fetchP2PDataEngine, 1000);
     })();
