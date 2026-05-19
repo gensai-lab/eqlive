@@ -47,7 +47,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 20px;
+            padding: 0 200px 0 20px; /* 秒数表示確保のために右側を調整可能 */
             border-bottom: 2px solid var(--border-color);
             flex-shrink: 0;
             user-select: none;
@@ -70,18 +70,16 @@
             border: 1px solid #3c3c3c;
         }
 
-        /* 辞書ロード状態表示ランプ */
-        .dict-status {
-            font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 4px;
-            background-color: #333;
-            color: #aaa;
-        }
-        .dict-status.loaded {
-            background-color: rgba(0, 255, 102, 0.15);
+        /* リアルタイム秒単位クロック */
+        .live-clock {
+            font-size: 16px;
             color: var(--status-green);
-            border: 1px solid rgba(0, 255, 102, 0.3);
+            font-family: monospace;
+            background-color: #000000;
+            padding: 4px 12px;
+            border-radius: 4px;
+            border: 1px solid #222222;
+            letter-spacing: 0.05em;
         }
 
         /* 新規入電アラート表示 */
@@ -262,6 +260,21 @@
         ruby { padding: 0 2px; }
         rt { font-size: 0.44em; color: #00ffcc; font-family: 'BIZ UDPGothic', sans-serif; font-weight: normal; letter-spacing: 0.02em; padding-bottom: 1px; }
 
+        /* シナリオ機能専用UI */
+        .scenario-uploader-box {
+            background: #161616;
+            border: 2px dashed #444444;
+            padding: 30px;
+            text-align: center;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            cursor: pointer;
+        }
+        .scenario-uploader-box:hover { border-color: var(--accent-yellow); background: #222222; }
+        .scenario-uploader-box input { display: none; }
+        .scenario-meta-info { font-size: 18px; color: var(--text-sub); margin-bottom: 10px; }
+        .scenario-progress { font-size: 16px; color: var(--accent-yellow); margin-top: 10px; font-weight: bold; }
+
         /* リスト・履歴テーブル */
         .m-table {
             width: 100%;
@@ -340,7 +353,7 @@
     <div class="header-left">
         <span class="brand-logo">EQLive</span>
         <span class="brand-badge">原稿ツール</span>
-        <span id="dict-indicator" class="dict-status">Excel辞書同期中...</span>
+        <span id="live-clock-display" class="live-clock">----/--/-- --:--:--</span>
         <div id="incoming-alert-ui" class="incoming-alert-banner">【新規入電】新着情報があります</div>
     </div>
 
@@ -362,6 +375,14 @@
             </div>
         </div>
         <div class="pane-body">
+            <div id="scenario-upload-zone" style="display: none;">
+                <div class="scenario-uploader-box" onclick="document.getElementById('scenario-file-input').click()">
+                    <div class="scenario-meta-info">🎬 シナリオテキストファイルをここにドラッグ＆ドロップ、またはクリックして選択</div>
+                    <div id="scenario-filename" style="color: var(--status-green); font-size: 14px;">ファイルが選択されていません</div>
+                    <input type="file" id="scenario-file-input" accept=".txt" onchange="handleScenarioFile(event)">
+                </div>
+                <div id="scenario-playback-status" class="scenario-progress"></div>
+            </div>
             <div id="manuscript-display-left" class="manuscript-content"></div>
         </div>
         <div id="left-mini-tabs" class="pane-footer-tabs" style="display: none;">
@@ -411,11 +432,27 @@
 </footer>
 
 <script>
+    // --- リアルタイム秒数時計の同期モジュール ---
+    function updateLiveClock() {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mi = String(now.getMinutes()).padStart(2, '0');
+        const ss = String(now.getSeconds()).padStart(2, '0');
+        
+        const clockStr = `${yyyy}/${mm}/${dd} ${hh}:${hh === '18' && mi === '41' && ss === '00' ? '18:41:00' : hh + ':' + mi + ':' + ss}`;
+        const el = document.getElementById('live-clock-display');
+        if (el) el.innerText = `${yyyy}/${mm}/${dd} ${hh}:${mi}:${ss}`;
+    }
+    setInterval(updateLiveClock, 1000);
+
     // --- Excelマスターデータ同期・パースモジュール ---
     const EXCEL_URL = "https://gensai-lab.github.io/eqlive/assets/code.xlsx";
     let excelNameRubyMap = {}; 
 
-    // 半角・全角カタカナをすべて「ひらがな」に整音変換する補助ロジック
+    // カタカナを「ひらがな」に整音変換するロジック
     function kanaToHiragana(src) {
         if (!src) return "";
         const hankakuMap = {
@@ -453,7 +490,6 @@
         return res;
     }
 
-    // Excelデータをインデックス（C列=2, E列=4）基準でパース
     async function initExcelDictionary() {
         try {
             const response = await fetch(EXCEL_URL);
@@ -466,7 +502,7 @@
                 const matrix = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
                 
                 matrix.forEach((row, index) => {
-                    if (index === 0) return; // ヘッダースキップ
+                    if (index === 0) return; 
                     
                     const cityKanji = row[2] ? row[2].toString().trim() : "";
                     const cityKana = row[4] ? row[4].toString().trim() : "";
@@ -486,47 +522,27 @@
                 });
             });
 
-            // 震度タブ用の基礎防災用語マッピング
-            const baseTerms = {
-                "震度": "しんど", "観測": "かんそく", "地域": "ちいき", "強い": "つよい", "揺れ": "ゆれ"
-            };
-            excelNameRubyMap = { ...baseTerms, ...excelNameRubyMap };
-
-            const indicator = document.getElementById('dict-indicator');
-            if (indicator) {
-                indicator.innerText = `Excel辞書同期完了 (${Object.keys(excelNameRubyMap).length}件)`;
-                indicator.classList.add('loaded');
-            }
-            
+            // 💡 ご要望により、「震度」「観測」などの共通防災用ルビ辞書は割り当てず、純粋な地名のみをルビ化します。
             refreshCurrentPanes();
         } catch (error) {
             console.error("Excelマスターデータ読み込みエラー:", error);
-            const indicator = document.getElementById('dict-indicator');
-            if (indicator) indicator.innerText = "Excel辞書ロード失敗";
         }
     }
 
-    // 漢字テキストへルビを差し込む自動エンジン（※震度タブでのみ実行）
+    // 地名テキストへルビを差し込む自動エンジン（※重複や内側マッチを100%防止）
     function applyExcelRuby(text) {
         if (!text) return "";
         
-        // HTMLタグ自体を誤って置換対象にしないためのトークン分割
         let tokens = text.split(/(<\/?[^>]+>)/g);
-        
-        // 登録単語を文字数が長い順にソート（一関市 -> 関市）
         const sortedKeys = Object.keys(excelNameRubyMap).filter(k => k.length > 0).sort((a, b) => b.length - a.length);
         if (sortedKeys.length === 0) return text;
 
-        // 特殊文字をエスケープした上で、長い順に「|」で結合した巨大な一発置換用正規表現を作成
         const escapedKeys = sortedKeys.map(k => k.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
         const pattern = new RegExp(escapedKeys.join('|'), 'g');
 
         for (let i = 0; i < tokens.length; i++) {
-            // HTMLタグ（<で始まるトークン）は一切触れずにスルーする
             if (tokens[i].startsWith('<')) continue;
             
-            // 地の文に対してのみ、一発検索・一括置換を実行
-            // 正規表現の「最長一致優先(|)」により、一関市がヒットした時点でその中の「関市」への二重置換は100%発生しなくなります
             tokens[i] = tokens[i].replace(pattern, (match) => {
                 return `<ruby>${match}<rt>${excelNameRubyMap[match]}</rt></ruby>`;
             });
@@ -548,7 +564,8 @@
 ▼テーブルや机の下に隠れてください。`
         }],
         eew: [{ content: "現在、緊急地震速報（警報）は発表されていません。" }],
-        switch: [{ content: "<table class='m-table'><tr><td>地震履歴データを読み込み中...</td></tr></table>" }]
+        switch: [{ content: "<table class='m-table'><tr><td>地震履歴データを読み込み中...</td></tr></table>" }],
+        scenario: [{ content: "🎬 シナリオが読み込まれていません。'S'キーを押してテキストファイルをアップロードしてください。" }]
     };
 
     // UIマネジメント変数
@@ -559,8 +576,35 @@
 
     let eqHistoryList = [];
     let currentSelectedPacketId = null;
-    let lastProcessedTopId = null; 
     let alertTimer = null;
+
+    // --- 新機能：シナリオファイルアップロード処理 ---
+    function handleScenarioFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        document.getElementById('scenario-filename').innerText = `読込中: ${file.name}`;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+            // 改行で分割し、空行を除去してシナリオの各ページを生成
+            const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
+            
+            if (lines.length === 0) {
+                database.scenario = [{ content: "⚠️ ファイル内に有効な文章が見つかりませんでした。" }];
+            } else {
+                database.scenario = lines.map(line => {
+                    return { content: line };
+                });
+            }
+            
+            panePages.left = 0;
+            document.getElementById('scenario-filename').innerText = `適用済: ${file.name}`;
+            renderPane('left');
+        };
+        reader.readAsText(file, "UTF-8");
+    }
 
     // 2分割画面切り替え
     window.toggleSplitMode = () => {
@@ -595,6 +639,14 @@
         paneTabs.left = tabId;
         panePages.left = 0;
 
+        // シナリオアップローダーの表示制御
+        const uploadZone = document.getElementById('scenario-upload-zone');
+        if (tabId === 'scenario') {
+            if (uploadZone) uploadZone.style.display = 'block';
+        } else {
+            if (uploadZone) uploadZone.style.display = 'none';
+        }
+
         document.querySelectorAll('#global-footer .nav-btn').forEach(btn => btn.classList.remove('active'));
         const activeBtn = document.getElementById(`gtab-${tabId}`);
         if (activeBtn) activeBtn.classList.add('active');
@@ -608,6 +660,15 @@
     window.switchPaneTab = (side, tabId) => {
         paneTabs[side] = tabId;
         panePages[side] = 0;
+
+        const uploadZone = document.getElementById('scenario-upload-zone');
+        if (side === 'left') {
+            if (tabId === 'scenario') {
+                if (uploadZone) uploadZone.style.display = 'block';
+            } else {
+                if (uploadZone) uploadZone.style.display = 'none';
+            }
+        }
 
         document.querySelectorAll(`#${side}-mini-tabs button`).forEach(btn => btn.classList.remove('active'));
         const activeBtn = document.getElementById(`${side === 'left' ? 'l' : 'r'}tab-${tabId}`);
@@ -633,6 +694,14 @@
         
         document.getElementById(`${side}-title`).innerText = `${side === 'left' ? 'メイン' : 'サブ'}画面: [${getTabName(activeTab)}]`;
         document.getElementById(`manuscript-display-${side}`).innerHTML = pages[pageIdx]?.content || "";
+
+        // シナリオ再生中であれば、行数プログレスを表示
+        if (activeTab === 'scenario' && side === 'left') {
+            const progressEl = document.getElementById('scenario-playback-status');
+            if (progressEl) {
+                progressEl.innerText = `進捗状況: ${pages.length > 0 ? pageIdx + 1 : 0} / ${pages.length} 行目を表示中`;
+            }
+        }
     }
 
     function refreshCurrentPanes() {
@@ -641,7 +710,7 @@
     }
 
     function getTabName(id) {
-        const names = { eq: "地震", shindo: "震度", tsu: "津波", yosou: "到達予想", yobikake: "呼びかけ", eew: "EEW", switch: "地震切替" };
+        const names = { eq: "地震", shindo: "震度", tsu: "津波", yosou: "到達予想", yobikake: "呼びかけ", eew: "EEW", switch: "地震切替", scenario: "シナリオ進行" };
         return names[id] || id;
     }
 
@@ -693,39 +762,74 @@
         refreshCurrentPanes();
     }
 
-    // --- P2PQuake 1秒同期エンジン ---
-    const P2P_HTTP_URL = "https://api.p2pquake.net/v2/history?codes=551&codes=552&codes=556&limit=15";
+    // --- キーボードショートカットキー制御 (Sキーで非表示シナリオに移動) ---
+    document.addEventListener('keydown', (e) => {
+        const targetTag = e.target.tagName.toLowerCase();
+        if (targetTag === 'input' || targetTag === 'textarea') return;
+
+        // Sキー（またはsキー）でシナリオモードを直接オープン
+        if (e.key === 's' || e.key === 'S') {
+            if (isSplitMode) {
+                switchPaneTab('left', 'scenario');
+            } else {
+                switchGlobalTab('scenario');
+            }
+            e.preventDefault();
+            return;
+        }
+
+        // ページ送りショートカットの汎用バインド
+        if (e.key === 'ArrowRight') {
+            movePage('left', 1);
+        } else if (e.key === 'ArrowLeft') {
+            movePage('left', -1);
+        }
+    });
+
+    // --- P2PQuake 551, 552, 556 個別独立取得エンジン (各8件保持) ---
+    const P2P_BASE_URL = "https://api.p2pquake.net/v2/history?limit=8&codes=";
     let processedIds = new Set();
+    let lastTopIds = { "551": null, "552": null, "556": null };
 
     async function fetchP2PDataEngine() {
+        // 551, 552, 556 を完全に別々にフェッチ要請
+        await Promise.all([
+            fetchEndpoint("551", ['eq', 'shindo']),
+            fetchEndpoint("552", ['tsu', 'yosou']),
+            fetchEndpoint("556", ['eew'])
+        ]);
+    }
+
+    async function fetchEndpoint(code, notifyTabs) {
         try {
-            const res = await fetch(P2P_HTTP_URL);
+            const res = await fetch(`${P2P_BASE_URL}${code}`);
             if (!res.ok) return;
             const data = await res.json();
             if (Array.isArray(data) && data.length > 0) {
+                let isNewDetected = false;
                 
-                let isNewPacketDetected = false;
+                // 古いパケットから順に処理
                 for (let i = data.length - 1; i >= 0; i--) {
                     const packet = data[i];
                     if (packet && packet.id && !processedIds.has(packet.id)) {
                         processedIds.add(packet.id);
                         
-                        if (lastProcessedTopId !== null) {
-                            isNewPacketDetected = true;
+                        if (lastTopIds[code] !== null) {
+                            isNewDetected = true;
                         }
                         await processIncomingData(packet);
                     }
                 }
 
-                const latestPacket = data[0];
-                if (latestPacket && latestPacket.id && lastProcessedTopId !== latestPacket.id) {
-                    lastProcessedTopId = latestPacket.id;
-                    if (isNewPacketDetected) {
-                        triggerIncomingAlert(['eq', 'shindo']);
+                const absoluteLatest = data[0];
+                if (absoluteLatest && absoluteLatest.id && lastTopIds[code] !== absoluteLatest.id) {
+                    lastTopIds[code] = absoluteLatest.id;
+                    if (isNewDetected) {
+                        triggerIncomingAlert(notifyTabs);
                     }
                 }
             }
-        } catch (e) { console.error("P2Pデータ取得エラー:", e); }
+        } catch (e) { console.error(`P2Pコード ${code} 取得エラー:`, e); }
     }
 
     async function processIncomingData(packet) {
@@ -750,7 +854,7 @@
                 const item = { id: packet.id, time: dTime, name: name, mag: mShort, tsunami: tShort, rawPacket: packet };
                 
                 eqHistoryList.unshift(item);
-                if (eqHistoryList.length > 15) eqHistoryList.pop();
+                if (eqHistoryList.length > 8) eqHistoryList.pop(); // 各8件制限に対応
                 
                 if (!currentSelectedPacketId || currentSelectedPacketId === eqHistoryList[1]?.id) {
                     currentSelectedPacketId = packet.id;
@@ -761,10 +865,8 @@
 
         } else if (packet.code === 552) {
             await parse552(packet);
-            triggerIncomingAlert(['tsu', 'yosou']);
         } else if (packet.code === 556) {
             await parse556(packet);
-            triggerIncomingAlert(['eew']);
         }
     }
 
@@ -792,7 +894,6 @@
                 tScript = `この地震により、多少の海面変動があるかもしれませんが、津波の心配はありません。`;
             }
 
-            // 地震タブはルビなし
             let parsedEq = `${dTime}ごろ、${name}で\n最大震度${maxScale}を観測する強い地震がありました。\n\n震源：${name}　　深さ：${depth}\n規模：${mag}\n\n${tScript}`;
             parsedEq = parsedEq.replace("大津波警報", '<span class="c-magenta">大津波警報</span>')
                                .replace("津波警報", '<span class="c-red">津波警報</span>');
@@ -812,7 +913,6 @@
                     sManuscript += `<span class="c-yellow">震度${sc}</span>\n${sMap[sc].join("　")}\n\n`;
                 });
                 
-                // 改良された、二重ルビを完全防止する独自一発置換エンジンを適用
                 database.shindo = [{ content: applyExcelRuby(sManuscript) }];
             } else {
                 database.shindo = [{ content: "震度詳細は発表されていません。" }];
@@ -868,11 +968,12 @@
     // イニシャライズ
     (async () => {
         switchGlobalTab('eq');
+        updateLiveClock();
         
         // 1. Excelマスターをロード
         await initExcelDictionary();
         
-        // 2. ポーリング開始
+        // 2. ポーリングエンジンの開始
         await fetchP2PDataEngine();
         setInterval(fetchP2PDataEngine, 1000);
     })();
