@@ -412,14 +412,12 @@
 
 <script>
     // --- Excelマスターデータ同期・パースモジュール ---
-    // 絶対URLまたは環境に応じて同フォルダ内の相対パスに変更可能です
     const EXCEL_URL = "https://gensai-lab.github.io/eqlive/assets/code.xlsx";
     let excelNameRubyMap = {}; 
 
-    // 半角・全角カタカナをひらがなに変換する補助関数
+    // 半角・全角カタカナをすべて「ひらがな」に整音変換する補助ロジック
     function kanaToHiragana(src) {
         if (!src) return "";
-        // 半角カタカナのマップ
         const hankakuMap = {
             'ｱ':'あ','ｲ':'い','ｳ':'う','ｴ':'え','ｵ':'お','ｶ':'か','ｷ':'き','ｸ':'く','ｹ':'け','ｺ':'こ',
             'ｻ':'さ','ｼ':'し','ｽ':'す','ｾ':'せ','ｿ':'そ','ﾀ':'た','ﾁ':'ち','ﾂ':'つ','ﾃ':'て','ﾄ':'と',
@@ -430,10 +428,9 @@
             'ｰ':'ー','ﾞ':'','ﾟ':''
         };
         let res = "";
-        let str = src.toString();
+        let str = src.toString().trim();
         for (let i = 0; i < str.length; i++) {
             let c = str[i];
-            // 濁点・半濁点の処理
             if (str[i+1] === 'ﾞ') {
                 const daku = {'ｶ':'が','ｷ':'ぎ','ｸ':'ぐ','ｹ':'げ','ｺ':'ご','ｻ':'ざ','ｼ':'じ','ｽ':'ず','ｾ':'ぜ','ｿ':'ぞ','ﾀ':'だ','ﾁ':'ぢ','ﾂ':'づ','ﾃ':'で','ﾄ':'ど','ﾊ':'ば','ﾋ':'び','ﾌ':'ぶ','ﾍ':'べ','ﾎ':'ぼ'};
                 if (daku[c]) { res += daku[c]; i++; continue; }
@@ -442,12 +439,9 @@
                 const handaku = {'ﾊ':'ぱ','ﾋ':'ぴ','ﾌ':'ぷ','ﾍ':'ぽ','ﾎ':'ぽ'};
                 if (handaku[c]) { res += handaku[c]; i++; continue; }
             }
-            
-            // 通常変換
             if (hankakuMap[c]) {
                 res += hankakuMap[c];
             } else {
-                // 全角カタカナをひらがなに変換
                 let code = c.charCodeAt(0);
                 if (code >= 0x30A1 && code <= 0x30F6) {
                     res += String.fromCharCode(code - 0x60);
@@ -459,29 +453,38 @@
         return res;
     }
 
-    // Excelファイルをフェッチして辞書マップを初期構築する関数
+    // Excelファイルをフェッチし、列のインデックス（C列=2, E列=4）基準で安全にマッピング
     async function initExcelDictionary() {
         try {
             const response = await fetch(EXCEL_URL);
-            if (!response.ok) throw new Error("Excelファイルのフェッチに失敗しました");
+            if (!response.ok) throw new Error("Excelファイルの取得に失敗しました");
             const arrayBuffer = await response.arrayBuffer();
             const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
             
-            const sheetNames = workbook.SheetNames;
-            sheetNames.forEach(sheetName => {
+            workbook.SheetNames.forEach(sheetName => {
                 const worksheet = workbook.Sheets[sheetName];
-                // 1行目をヘッダーとしてJSON化
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                // ヘッダー名に依存せず、完全な2次元配列(行列)としてパースする
+                const matrix = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
                 
-                jsonData.forEach(row => {
-                    // 各列名から漢字名とカナ名を取得
-                    const prefKanji = row["都道府県名\n（漢字）"] || row["都道府県名\n（ｶﾅ）"] ? row["都道府県名\n（漢字）"] : "";
-                    const cityKanji = row["市区町村名\n（漢字）"] || row["市区町村名\n（ｶﾅ）"] ? row["市区町村名\n（漢字）"] : "";
-                    const prefKana = row["都道府県名\n（カナ）"] || row["都道府県名\n（ｶﾅ）"] || "";
-                    const cityKana = row["市区町村名\n（カナ）"] || row["市区町村名\n（ｶﾅ）"] || "";
+                matrix.forEach((row, index) => {
+                    if (index === 0) return; // ヘッダー行はスキップ
                     
+                    // C列(インデックス2)＝市町村の漢字、E列(インデックス4)＝読み仮名
+                    const cityKanji = row[2] ? row[2].toString().trim() : "";
+                    const cityKana = row[4] ? row[4].toString().trim() : "";
+                    
+                    // B列(インデックス1)＝都道府県の漢字、D列(インデックス3)＝都道府県のカナ
+                    const prefKanji = row[1] ? row[1].toString().trim() : "";
+                    const prefKana = row[3] ? row[3].toString().trim() : "";
+
                     if (cityKanji && cityKana) {
-                        excelNameRubyMap[cityKanji] = kanaToHiragana(cityKana);
+                        const cityHiragana = kanaToHiragana(cityKana);
+                        excelNameRubyMap[cityKanji] = cityHiragana;
+                        
+                        // 「岩手県宮古」などの結合パターンを考慮し、都道府県＋市区町村の複合キーも登録
+                        if (prefKanji) {
+                            excelNameRubyMap[prefKanji + cityKanji] = kanaToHiragana(prefKana) + cityHiragana;
+                        }
                     }
                     if (prefKanji && prefKana && !excelNameRubyMap[prefKanji]) {
                         excelNameRubyMap[prefKanji] = kanaToHiragana(prefKana);
@@ -489,7 +492,7 @@
                 });
             });
 
-            // 基本的な気象・防災用語の補完定義
+            // 災害放送用の定型基礎用語も網羅マッピング
             const baseTerms = {
                 "震度": "しんど", "震源": "しんげん", "津波": "つなみ", "警報": "けいほう", "注意報": "ちゅういほう",
                 "大津波": "おおつなみ", "緊急地震速報": "きんきゅうじしんそくほう", "観測": "かんそく", "規模": "きぼ",
@@ -507,33 +510,32 @@
                 indicator.classList.add('loaded');
             }
             
-            // ロード後に一度画面をリフレッシュ
             refreshCurrentPanes();
         } catch (error) {
             console.error("Excelマスターデータ読み込みエラー:", error);
             const indicator = document.getElementById('dict-indicator');
-            if (indicator) indicator.innerText = "Excel辞書ロード失敗 (ローカル補完を使用)";
+            if (indicator) indicator.innerText = "Excel辞書ロード失敗 (C/E列インデックス未検出)";
         }
     }
 
-    // Excel辞書データを元に原稿テキストへルビを差し込む自動エンジン
+    // 漢字テキストへの高速・重複防止インジェクション
     function applyExcelRuby(text) {
         if (!text) return "";
         let result = text;
         
-        // 文字列の長いキーワードから優先的に置換処理を行い、誤置換を防止する
+        // 置換の競合を防ぐため文字数の長い地名からループを展開
         const sortedKeys = Object.keys(excelNameRubyMap).sort((a, b) => b.length - a.length);
         
         sortedKeys.forEach(k => {
             if (k.length > 0 && result.includes(k)) {
-                // すでにrubyタグが付加されている部分への二重処理をエスケープ
+                // rubyタグ内部の文字列を誤置換しないよう否定後読み・先読みで保護
                 result = result.replace(new RegExp(`(?<!<rt>)${k}(?!<\/rt>)`, 'g'), `<ruby>${k}<rt>${excelNameRubyMap[k]}</rt></ruby>`);
             }
         });
         return result;
     }
 
-    // 内部データベース初期定義
+    // 内部データベース定義
     let database = {
         eq: [{ content: "地震情報を同期しています..." }],
         shindo: [{ content: "震度情報を同期しています..." }],
@@ -549,7 +551,7 @@
         switch: [{ content: "<table class='m-table'><tr><td>地震履歴データを読み込み中...</td></tr></table>" }]
     };
 
-    // UI状態マネージャー
+    // UIマネジメント変数
     let isSplitMode = false;
     let currentGlobalTab = 'eq';
     
@@ -561,7 +563,7 @@
     let lastProcessedTopId = null; 
     let alertTimer = null;
 
-    // 2分割切り替えトグル処理
+    // 2分割画面切り替え
     window.toggleSplitMode = () => {
         isSplitMode = !isSplitMode;
         const btn = document.getElementById('split-toggle');
@@ -589,7 +591,6 @@
         }
     };
 
-    // 1画面モード用：ボトムグローバルタブ切り替え
     window.switchGlobalTab = (tabId) => {
         currentGlobalTab = tabId;
         paneTabs.left = tabId;
@@ -605,7 +606,6 @@
         renderPane('left');
     };
 
-    // 2分割モード用：各画面下部に配備された個別ミニタブ切り替え
     window.switchPaneTab = (side, tabId) => {
         paneTabs[side] = tabId;
         panePages[side] = 0;
@@ -646,7 +646,7 @@
         return names[id] || id;
     }
 
-    // 新規入電警告アラートを1分間（60秒）発動するシステム
+    // 1分間(60秒)の新規入電アラート制御ロジック
     function triggerIncomingAlert(tabs = []) {
         const alertUi = document.getElementById('incoming-alert-ui');
         if (alertUi) alertUi.style.display = 'block';
@@ -662,7 +662,6 @@
         }, 60000); 
     }
 
-    // 地震切り替えスイッチャーイベント
     window.selectHistoryIndex = (packetId) => {
         currentSelectedPacketId = packetId;
         const banner = document.getElementById('history-warning');
@@ -696,7 +695,7 @@
         refreshCurrentPanes();
     }
 
-    // --- P2PQuake ネットワーク高頻度同期エンジン (1秒ポーリング) ---
+    // --- P2PQuake 1秒同期エンジン ---
     const P2P_HTTP_URL = "https://api.p2pquake.net/v2/history?codes=551&codes=552&codes=556&limit=15";
     let processedIds = new Set();
 
@@ -795,10 +794,8 @@
                 tScript = `この地震により、多少の海面変動があるかもしれませんが、津波の心配はありません。`;
             }
 
-            // 特徴的なスタイルクラスはパース後のテキストに適用
             const eqRawText = `${dTime}ごろ、${name}で\n最大震度${maxScale}を観測する強い地震がありました。\n\n震源：${name}　　深さ：${depth}\n規模：${mag}\n\n${tScript}`;
             
-            // ルビ振り後に装飾用タグの補正
             let parsedEq = applyExcelRuby(eqRawText);
             parsedEq = parsedEq.replace("大津波警報", '<span class="c-magenta">大津波警報</span>')
                                .replace("津波警報", '<span class="c-red">津波警報</span>');
@@ -871,17 +868,17 @@
         return dict[scale] || "不明";
     }
 
-    // システムイニシャライズ
+    // イニシャライズ
     (async () => {
         switchGlobalTab('eq');
         
-        // 1. 初めにExcelマスター辞書データの非同期ロードをキック
+        // 1. 列インデックス指定でExcelマスターをロード
         await initExcelDictionary();
         
-        // 2. 呼びかけ用定型文原稿に初期ルビ適用
+        // 2. 定型文のルビ同期
         database.yobikake[0].content = applyExcelRuby(database.yobikake[0].content);
         
-        // 3. P2Pデータの初回取得および1秒間隔の超高頻度監視の開始
+        // 3. ポーリング開始
         await fetchP2PDataEngine();
         setInterval(fetchP2PDataEngine, 1000);
     })();
