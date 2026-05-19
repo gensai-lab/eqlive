@@ -510,22 +510,25 @@
     function applyExcelRuby(text) {
         if (!text) return "";
         
-        // すでにルビ化された部分（<ruby>〜</ruby> または <rt>〜</rt>）を保護するため、
-        // テキストをHTMLタグ部分と一般テキスト部分にトークン分割して、地の文の漢字だけを正確に置換する設計
+        // HTMLタグ自体を誤って置換対象にしないためのトークン分割
         let tokens = text.split(/(<\/?[^>]+>)/g);
-        const sortedKeys = Object.keys(excelNameRubyMap).sort((a, b) => b.length - a.length);
+        
+        // 登録単語を文字数が長い順にソート（一関市 -> 関市）
+        const sortedKeys = Object.keys(excelNameRubyMap).filter(k => k.length > 0).sort((a, b) => b.length - a.length);
+        if (sortedKeys.length === 0) return text;
+
+        // 特殊文字をエスケープした上で、長い順に「|」で結合した巨大な一発置換用正規表現を作成
+        const escapedKeys = sortedKeys.map(k => k.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+        const pattern = new RegExp(escapedKeys.join('|'), 'g');
 
         for (let i = 0; i < tokens.length; i++) {
             // HTMLタグ（<で始まるトークン）は一切触れずにスルーする
             if (tokens[i].startsWith('<')) continue;
             
-            // 地の文のテキストに対してのみ辞書置換を実行
-            sortedKeys.forEach(k => {
-                if (k.length > 0 && tokens[i].includes(k)) {
-                    // ここで作成したrubyタグが、次のキーワードループで再置換されるのを防ぐため、
-                    // トークン配列上では一時的に保護されます（次のループの正規表現バグを完全回避）
-                    tokens[i] = tokens[i].replace(new RegExp(k, 'g'), `<ruby>${k}<rt>${excelNameRubyMap[k]}</rt></ruby>`);
-                }
+            // 地の文に対してのみ、一発検索・一括置換を実行
+            // 正規表現の「最長一致優先(|)」により、一関市がヒットした時点でその中の「関市」への二重置換は100%発生しなくなります
+            tokens[i] = tokens[i].replace(pattern, (match) => {
+                return `<ruby>${match}<rt>${excelNameRubyMap[match]}</rt></ruby>`;
             });
         }
         
@@ -809,7 +812,7 @@
                     sManuscript += `<span class="c-yellow">震度${sc}</span>\n${sMap[sc].join("　")}\n\n`;
                 });
                 
-                // 改良された、二重ルビを完全防止する独自置換エンジンを適用
+                // 改良された、二重ルビを完全防止する独自一発置換エンジンを適用
                 database.shindo = [{ content: applyExcelRuby(sManuscript) }];
             } else {
                 database.shindo = [{ content: "震度詳細は発表されていません。" }];
