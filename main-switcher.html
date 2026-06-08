@@ -9,6 +9,7 @@
             width: 1920px; height: 1080px;
             background-color: black;
             overflow: hidden;
+            font-family: sans-serif;
         }
         #view-container {
             width: 100%;
@@ -54,6 +55,22 @@
             cursor: pointer;
             font-family: sans-serif;
         }
+
+        /* === 【新規追加】自由配置画像用レイヤーのCSS === */
+        #free-image-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 1080px;
+            z-index: 500; /* iframe群(10)より上で、EEW(999)より下 */
+            pointer-events: none; /* OBSの対話を邪魔しない */
+        }
+        #custom-free-image {
+            position: absolute;
+            display: none;
+            object-fit: contain;
+        }
     </style>
 </head>
 <body>
@@ -63,6 +80,11 @@
     <div id="view-container">
         <iframe id="frame-l-screen" class="base-frame" src="l-screen.html"></iframe>
         <iframe id="frame-sub-switcher" class="base-frame" src="sub-switcher.html"></iframe>
+        
+        <div id="free-image-layer">
+            <img id="custom-free-image" src="" alt="Free Overlay">
+        </div>
+
         <iframe id="frame-eew" src="parts/eew.html"></iframe>
     </div>
 
@@ -89,6 +111,9 @@
     const eewAudio = document.getElementById('eew-audio');
     const unlockOverlay = document.getElementById('audio-unlock');
 
+    // 自由配置画像要素の取得
+    const freeImage = document.getElementById('custom-free-image');
+
     // 音声アンロック処理
     unlockOverlay.addEventListener('click', () => {
         eewAudio.play().then(() => {
@@ -114,6 +139,24 @@
         const mode = snapshot.val();
         if (mode) switchView(mode);
         else switchView('sub-switcher');
+    });
+
+    // === 【新規追加】自由配置画像のデータ変更を監視・反映する ===
+    const freeImageRef = ref(db, 'broadcast/free_image');
+    onValue(freeImageRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.visible && data.url) {
+            freeImage.src = data.url;
+            freeImage.style.left = `${data.x || 0}px`;
+            freeImage.style.top = `${data.y || 0}px`;
+            freeImage.style.width = `${data.width || 300}px`;
+            freeImage.style.height = `${data.height || 'auto'}`;
+            freeImage.style.opacity = (data.opacity !== undefined) ? data.opacity : 1;
+            freeImage.style.display = 'block';
+        } else {
+            freeImage.style.display = 'none';
+            freeImage.src = "";
+        }
     });
 
     window.addEventListener('message', (event) => {
