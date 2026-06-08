@@ -65,6 +65,10 @@
             color: white; border-radius: 8px; font-size: 16px; margin-bottom: 15px; font-family: inherit;
         }
 
+        .range-group { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+        .range-group input[type="range"] { margin: 0; flex: 1; }
+        .range-group span { width: 60px; text-align: right; font-size: 14px; color: var(--text-sub); }
+
         .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
         button { font-family: inherit; cursor: pointer; border: none; border-radius: 8px; padding: 14px; font-weight: bold; transition: 0.2s; }
         button.primary { background: var(--accent-blue); color: white; flex: 1; }
@@ -111,14 +115,15 @@
 <main>
     <nav id="side-nav">
         <button class="nav-item active" onclick="switchTab('main')"><i class="material-icons">dashboard</i>①メイン画面</button>
-        <button class="nav-item" onclick="switchTab('mode')"><i class="material-icons">person_search</i>②配信モード選択</button>
-        <button class="nav-item" onclick="switchTab('display')"><i class="material-icons">screenshot_monitor</i>③画面表示</button>
-        <button class="nav-item" onclick="switchTab('title')"><i class="material-icons">subtitles</i>④タイトル</button>
-        <button class="nav-item" onclick="switchTab('ticker')"><i class="material-icons">view_carousel</i>⑤Ticker</button>
-        <button class="nav-item" onclick="switchTab('l-shape')"><i class="material-icons">view_quilt</i>⑥L字設定</button>
-        <button class="nav-item" onclick="switchTab('camera')"><i class="material-icons">videocam</i>⑦ライブカメラ</button>
-        <button class="nav-item" onclick="switchTab('tsunami')"><i class="material-icons">tsunami</i>⑧津波制御</button>
-        <button class="nav-item" onclick="window.open('https://gensai-lab.github.io/eqlive/admin/manuscript.html', '_blank')"><i class="material-icons">description</i>⑨原稿</button>
+            <button class="nav-item" onclick="switchTab('mode')"><i class="material-icons">person_search</i>②配信モード選択</button>
+            <button class="nav-item" onclick="switchTab('display')"><i class="material-icons">screenshot_monitor</i>③画面表示</button>
+            <button class="nav-item" onclick="switchTab('title')"><i class="material-icons">subtitles</i>④タイトル</button>
+            <button class="nav-item" onclick="switchTab('ticker')"><i class="material-icons">view_carousel</i>⑤Ticker</button>
+            <button class="nav-item" onclick="switchTab('l-shape')"><i class="material-icons">view_quilt</i>⑥L字設定</button>
+            <button class="nav-item" onclick="switchTab('camera')"><i class="material-icons">videocam</i>⑦ライブカメラ</button>
+            <button class="nav-item" onclick="switchTab('tsunami')"><i class="material-icons">tsunami</i>⑧津波制御</button>
+            <button class="nav-item" onclick="window.open('https://gensai-lab.github.io/eqlive/admin/manuscript.html', '_blank')"><i class="material-icons">description</i>⑨原稿</button>
+            <button class="nav-item" onclick="switchTab('free-image')"><i class="material-icons">grid_view</i>⑩自由配置画像</button>
     </nav>
 
     <div class="content">
@@ -280,6 +285,47 @@
                 </div>
             </div>
         </div>
+
+        <div id="tab-free-image" class="tab-content">
+            <h2>自由配置画像オーバーレイ</h2>
+            <div class="card">
+                <label>表示スイッチ</label>
+                <div class="btn-group">
+                    <button id="btn-img-on" class="secondary" onclick="updateFB('free_image/visible', true)">表示 ON</button>
+                    <button id="btn-img-off" class="secondary" onclick="updateFB('free_image/visible', false)">表示 OFF</button>
+                </div>
+                
+                <label style="margin-top:15px;">画像の追加（URL指定 または ローカルファイルを変換）</label>
+                <input type="text" id="input-img-url" placeholder="https://... (画像の直リンクURL)" onchange="updateFB('free_image/url', this.value)">
+                <input type="file" id="input-img-file" accept="image/*" style="padding:8px;">
+
+                <label style="margin-top:15px;">配置位置調整（1920 x 1080 基準）</label>
+                <label>X座標 (左からの距離: px)</label>
+                <div class="range-group">
+                    <input type="range" id="range-img-x" min="0" max="1920" value="0" oninput="syncRangeValue('x', this.value)">
+                    <span id="val-img-x">0px</span>
+                </div>
+
+                <label>Y座標 (上からの距離: px)</label>
+                <div class="range-group">
+                    <input type="range" id="range-img-y" min="0" max="1080" value="0" oninput="syncRangeValue('y', this.value)">
+                    <span id="val-img-y">0px</span>
+                </div>
+
+                <label>画像の横幅 (width: px)</label>
+                <div class="range-group">
+                    <input type="range" id="range-img-w" min="50" max="1920" value="300" oninput="syncRangeValue('width', this.value)">
+                    <span id="val-img-w">300px</span>
+                </div>
+
+                <label>不透明度 (opacity)</label>
+                <div class="range-group">
+                    <input type="range" id="range-img-o" min="0" max="1" step="0.1" value="1" oninput="syncRangeValue('opacity', this.value)">
+                    <span id="val-img-o">1.0</span>
+                </div>
+            </div>
+        </div>
+
     </div>
 </main>
 
@@ -359,6 +405,27 @@
             line2: document.getElementById('input-tic-2').value
         });
     };
+
+    // --- 【新規追加】画像自由配置調整用ロジック ---
+    window.syncRangeValue = (field, val) => {
+        let numVal = parseFloat(val);
+        // Firebaseをリアルタイム更新
+        updateFB(`free_image/${field}`, numVal);
+    };
+
+    // ファイルアップロードの簡易DataURL化イベント
+    document.getElementById('input-img-file').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            // Firebaseのサイズ上限に注意が必要ですが、ロゴ等の軽い画像ならそのまま共有可能
+            updateFB('free_image/url', event.target.result);
+            document.getElementById('input-img-url').value = "(ローカルファイルが読み込まれました)";
+        };
+        reader.readAsDataURL(file);
+    });
+
 
     // --- L-Shape Logic ---
     let localLItems = [];
@@ -486,6 +553,7 @@
 
         const cur = data.current || {};
         const tsu = data.tsunami_config || {};
+        const freeImg = data.free_image || {}; // 新規監視
 
         const statDist = document.getElementById('stat-dist');
         const statMode = document.getElementById('stat-mode');
@@ -562,6 +630,24 @@
         setBtn('btn-tsu-manual', tsu.autoPage === false);
         const tsuCtrl = document.getElementById('tsu-manual-ctrl');
         if(tsuCtrl) tsuCtrl.style.display = tsu.autoPage === false ? 'block' : 'none';
+
+        // --- 【新規追加】自由配置画像のコントロール同期 ---
+        setBtn('btn-img-on', freeImg.visible === true);
+        setBtn('btn-img-off', freeImg.visible === false);
+        
+        const syncRange = (id, valId, val, unit="px") => {
+            const el = document.getElementById(id);
+            const vEl = document.getElementById(valId);
+            if (el && document.activeElement.id !== id) el.value = val !== undefined ? val : el.min;
+            if (vEl) vEl.innerText = val !== undefined ? val + unit : "--";
+        };
+        syncRange('range-img-x', 'val-img-x', freeImg.x);
+        syncRange('range-img-y', 'val-img-y', freeImg.y);
+        syncRange('range-img-w', 'val-img-w', freeImg.width);
+        syncRange('range-img-o', 'val-img-o', freeImg.opacity, "");
+        if (freeImg.url && !freeImg.url.startsWith("data:")) {
+            syncInput('input-img-url', freeImg.url);
+        }
 
         isInitialLoad = false;
     });
