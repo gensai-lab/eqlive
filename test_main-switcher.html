@@ -1,1 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>EQLive Main Switcher</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0;
+            width: 1920px; height: 1080px;
+            background-color: black;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+        #view-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        .base-frame {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px;
+            height: 1080px;
+            border: none;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            z-index: 1;
+        }
+        .base-frame.active {
+            opacity: 1;
+            z-index: 10;
+        }
+        #frame-eew {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 1300px;
+            height: 371px;
+            z-index: 999;
+            border: none;
+            background: transparent;
+            pointer-events: none;
+        }
+        #audio-unlock {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            cursor: pointer;
+            font-family: sans-serif;
+        }
 
+        /* === 自由配置画像用レイヤー（複数枚対応） === */
+        #free-image-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 1080px;
+            z-index: 500; /* iframe群(10)より上で、EEW(999)より下 */
+            pointer-events: none;
+        }
+        .custom-free-image {
+            position: absolute;
+            object-fit: contain;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="audio-unlock">音声再生を有効にするにはここをクリック（OBSの場合は「対話」から）</div>
+
+    <div id="view-container">
+        <iframe id="frame-l-screen" class="base-frame" src="l-screen.html"></iframe>
+        <iframe id="frame-sub-switcher" class="base-frame" src="sub-switcher.html"></iframe>
+        
+        <div id="free-image-layer"></div>
+
+        <iframe id="frame-eew" src="parts/eew.html"></iframe>
+    </div>
+
+    <audio id="eew-audio" src="assets/eew-audio.mp3" preload="auto"></audio>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const frameL = document.getElementById('frame-l-screen');
+    const frameSub = document.getElementById('frame-sub-switcher');
+    const eewAudio = document.getElementById('eew-audio');
+    const unlockOverlay = document.getElementById('audio-unlock');
+
+    // 画像レイヤーコンテナの取得
+    const imageLayer = document.getElementById('free-image-layer');
+
+    // 音声アンロック処理
+    unlockOverlay.addEventListener('click', () => {
+        eewAudio.play().then(() => {
+            eewAudio.pause();
+            eewAudio.currentTime = 0;
+            unlockOverlay.style.display = 'none';
+            console.log("Audio Unlocked!");
+        }).catch(err => console.error("Unlock failed:", err));
+    });
+
+    function switchView(viewType) {
+        if (viewType === 'l-screen') {
+            frameL.classList.add('active');
+            frameSub.classList.remove('active');
+        } else {
+            frameSub.classList.add('active');
+            frameL.classList.remove('active');
+        }
+    }
+
+    const modeRef = ref(db, 'broadcast/current_mode');
+    onValue(modeRef, (snapshot) => {
+        const mode = snapshot.val();
+        if (mode) switchView(mode);
+        else switchView('sub-switcher');
+    });
+
+    // === 【複数枚対応】自由配置画像リストのデータ変更を監視・同期反映する ===
+    const freeImagesRef = ref(db, 'broadcast/free_images');
+    onValue(freeImagesRef, (snapshot) => {
+        const imagesData = snapshot.val();
+        
+        // いったんコンテナ内をクリアして再描画
+        imageLayer.innerHTML = "";
+
+        if (imagesData) {
+            // 各画像のID（キー）ごとにループ処理
+            Object.keys(imagesData).forEach(id => {
+                const imgConf = imagesData[id];
+                
+                // 表示ONかつURLが存在する場合のみ要素を生成
+                if (imgConf && imgConf.visible && imgConf.url) {
+                    const img = document.createElement('img');
+                    img.id = `img-node-${id}`;
+                    img.className = 'custom-free-image';
+                    img.src = imgConf.url;
+                    img.style.left = `${imgConf.x !== undefined ? imgConf.x : 0}px`;
+                    img.style.top = `${imgConf.y !== undefined ? imgConf.y : 0}px`;
+                    img.style.width = `${imgConf.width !== undefined ? imgConf.width : 300}px`;
+                    img.style.height = `${imgConf.height !== undefined ? imgConf.height : 'auto'}`;
+                    img.style.opacity = (imgConf.opacity !== undefined) ? imgConf.opacity : 1;
+                    
+                    imageLayer.appendChild(img);
+                }
+            });
+        }
+    });
+
+    window.addEventListener('message', (event) => {
+        if (event.data === 'playEEWAudio') {
+            eewAudio.currentTime = 0; 
+            eewAudio.play().catch(e => {
+                console.warn("再生に失敗しました。OBSの『対話』から画面をクリックしてください。");
+            });
+        }
+    });
+</script>
+</body>
+</html>
