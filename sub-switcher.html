@@ -19,6 +19,20 @@
             z-index: 1;
         }
 
+        /* === ウォーターマーク配置用レイヤー === */
+        #watermark-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px; height: 1080px;
+            z-index: 5; /* メイン画面(1)より上で、各テロップ(10)より下の階層 */
+            pointer-events: none;
+        }
+        #watermark-layer img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
         /* 前面の共通パーツ（オーバーレイ） */
         .overlay-part {
             position: absolute;
@@ -62,6 +76,10 @@
         <iframe id="switcher-iframe" src="main-screen.html"></iframe>
     </div>
 
+    <div id="watermark-layer">
+        <img src="assets/cover/watermark.png" alt="Watermark">
+    </div>
+
     <div class="overlay-part top-left">
         <iframe src="parts/time.html"></iframe>
     </div>
@@ -100,7 +118,6 @@
     let currentLayout = "";
 
     // --- レイアウト切り替え (Firebase) ---
-    // ここで mainSource ではなく layoutMode に基づいて切り替える元のロジックに戻しました
     onValue(ref(db, 'broadcast/current/layoutMode'), (snapshot) => {
         const mode = snapshot.val() || 'live'; 
         let target = (mode === 'emergency') ? 'emergency.html' : 'main-screen.html';
