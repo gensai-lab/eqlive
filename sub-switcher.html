@@ -33,6 +33,22 @@
             object-fit: cover;
         }
 
+        /* === 自由配置画像用レイヤー === */
+        #free-image-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 1080px;
+            z-index: 8; /* ウォーターマーク(5)より上で、時間やタイトルなどのテロップ(10)より手前、または背後に配置されるように調整 */
+            pointer-events: none;
+        }
+        .custom-free-image {
+            position: absolute;
+            object-fit: contain;
+            pointer-events: none;
+        }
+
         /* 前面の共通パーツ（オーバーレイ） */
         .overlay-part {
             position: absolute;
@@ -80,6 +96,8 @@
         <img src="assets/cover/watermark.png" alt="Watermark">
     </div>
 
+    <div id="free-image-layer"></div>
+
     <div class="overlay-part top-left">
         <iframe src="parts/time.html"></iframe>
     </div>
@@ -115,6 +133,7 @@
 
     const switcherIframe = document.getElementById('switcher-iframe');
     const tsunamiContainer = document.getElementById('tsunami-map-container');
+    const imageLayer = document.getElementById('free-image-layer');
     let currentLayout = "";
 
     // --- レイアウト切り替え (Firebase) ---
@@ -126,6 +145,30 @@
             switcherIframe.src = target;
             currentLayout = target;
             console.log("Layout switched to:", target);
+        }
+    });
+
+    // --- 自由配置画像リストの同期反映 ---
+    const freeImagesRef = ref(db, 'broadcast/free_images');
+    onValue(freeImagesRef, (snapshot) => {
+        const imagesData = snapshot.val();
+        imageLayer.innerHTML = ""; // 一旦初期化して再描画
+        if (imagesData) {
+            Object.keys(imagesData).forEach(id => {
+                const imgConf = imagesData[id];
+                if (imgConf && imgConf.visible && imgConf.url) {
+                    const img = document.createElement('img');
+                    img.id = `sub-img-node-${id}`;
+                    img.className = 'custom-free-image';
+                    img.src = imgConf.url;
+                    img.style.left = `${imgConf.x !== undefined ? imgConf.x : 0}px`;
+                    img.style.top = `${imgConf.y !== undefined ? imgConf.y : 0}px`;
+                    img.style.width = `${imgConf.width !== undefined ? imgConf.width : 300}px`;
+                    img.style.height = `${imgConf.height !== undefined ? imgConf.height : 'auto'}`;
+                    img.style.opacity = (imgConf.opacity !== undefined) ? imgConf.opacity : 1;
+                    imageLayer.appendChild(img);
+                }
+            });
         }
     });
 
