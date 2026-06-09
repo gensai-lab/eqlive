@@ -42,7 +42,6 @@
             background: transparent;
             pointer-events: none;
         }
-        /* インタラクションを促すためのオーバーレイ（初回のみ） */
         #audio-unlock {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -56,7 +55,7 @@
             font-family: sans-serif;
         }
 
-        /* === 【新規追加】自由配置画像用レイヤーのCSS === */
+        /* === 自由配置画像用レイヤー（複数枚対応） === */
         #free-image-layer {
             position: absolute;
             top: 0;
@@ -64,12 +63,12 @@
             width: 1920px;
             height: 1080px;
             z-index: 500; /* iframe群(10)より上で、EEW(999)より下 */
-            pointer-events: none; /* OBSの対話を邪魔しない */
+            pointer-events: none;
         }
-        #custom-free-image {
+        .custom-free-image {
             position: absolute;
-            display: none;
             object-fit: contain;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -81,9 +80,7 @@
         <iframe id="frame-l-screen" class="base-frame" src="l-screen.html"></iframe>
         <iframe id="frame-sub-switcher" class="base-frame" src="sub-switcher.html"></iframe>
         
-        <div id="free-image-layer">
-            <img id="custom-free-image" src="" alt="Free Overlay">
-        </div>
+        <div id="free-image-layer"></div>
 
         <iframe id="frame-eew" src="parts/eew.html"></iframe>
     </div>
@@ -111,15 +108,15 @@
     const eewAudio = document.getElementById('eew-audio');
     const unlockOverlay = document.getElementById('audio-unlock');
 
-    // 自由配置画像要素の取得
-    const freeImage = document.getElementById('custom-free-image');
+    // 画像レイヤーコンテナの取得
+    const imageLayer = document.getElementById('free-image-layer');
 
     // 音声アンロック処理
     unlockOverlay.addEventListener('click', () => {
         eewAudio.play().then(() => {
             eewAudio.pause();
             eewAudio.currentTime = 0;
-            unlockOverlay.style.display = 'none'; // オーバーレイを消す
+            unlockOverlay.style.display = 'none';
             console.log("Audio Unlocked!");
         }).catch(err => console.error("Unlock failed:", err));
     });
@@ -141,27 +138,39 @@
         else switchView('sub-switcher');
     });
 
-    // === 【新規追加】自由配置画像のデータ変更を監視・反映する ===
-    const freeImageRef = ref(db, 'broadcast/free_image');
-    onValue(freeImageRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data && data.visible && data.url) {
-            freeImage.src = data.url;
-            freeImage.style.left = `${data.x || 0}px`;
-            freeImage.style.top = `${data.y || 0}px`;
-            freeImage.style.width = `${data.width || 300}px`;
-            freeImage.style.height = `${data.height || 'auto'}`;
-            freeImage.style.opacity = (data.opacity !== undefined) ? data.opacity : 1;
-            freeImage.style.display = 'block';
-        } else {
-            freeImage.style.display = 'none';
-            freeImage.src = "";
+    // === 【複数枚対応】自由配置画像リストのデータ変更を監視・同期反映する ===
+    const freeImagesRef = ref(db, 'broadcast/free_images');
+    onValue(freeImagesRef, (snapshot) => {
+        const imagesData = snapshot.val();
+        
+        // いったんコンテナ内をクリアして再描画
+        imageLayer.innerHTML = "";
+
+        if (imagesData) {
+            // 各画像のID（キー）ごとにループ処理
+            Object.keys(imagesData).forEach(id => {
+                const imgConf = imagesData[id];
+                
+                // 表示ONかつURLが存在する場合のみ要素を生成
+                if (imgConf && imgConf.visible && imgConf.url) {
+                    const img = document.createElement('img');
+                    img.id = `img-node-${id}`;
+                    img.className = 'custom-free-image';
+                    img.src = imgConf.url;
+                    img.style.left = `${imgConf.x !== undefined ? imgConf.x : 0}px`;
+                    img.style.top = `${imgConf.y !== undefined ? imgConf.y : 0}px`;
+                    img.style.width = `${imgConf.width !== undefined ? imgConf.width : 300}px`;
+                    img.style.height = `${imgConf.height !== undefined ? imgConf.height : 'auto'}`;
+                    img.style.opacity = (imgConf.opacity !== undefined) ? imgConf.opacity : 1;
+                    
+                    imageLayer.appendChild(img);
+                }
+            });
         }
     });
 
     window.addEventListener('message', (event) => {
         if (event.data === 'playEEWAudio') {
-            // アンロック済みであれば再生される
             eewAudio.currentTime = 0; 
             eewAudio.play().catch(e => {
                 console.warn("再生に失敗しました。OBSの『対話』から画面をクリックしてください。");
