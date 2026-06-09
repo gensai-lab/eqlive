@@ -24,7 +24,7 @@
             justify-content: center; 
             overflow: hidden; 
             
-            /* 背景と角丸の設定をこちらに移動 */
+            /* 背景と角丸の設定 */
             border-radius: 8px;
             
             /* 初期状態は非表示（発表時のみ表示される） */
@@ -68,8 +68,27 @@
             z-index: 1;
         }
         
-        .pref-path { fill: #BFBFBF; stroke: #BFBFBF; stroke-width: 1px; }
-        .tsunami-path { fill: none; stroke: none; transition: stroke 0.3s, stroke-width 0.3s; }
+        /* 陸地（都道府県パス）：strokeをfillと同色にして内部の県境線を隠します */
+        .pref-path { 
+            fill: #BFBFBF; 
+            stroke: #BFBFBF; 
+            stroke-width: 1px; 
+        }
+
+        /* 日本地図の全輪郭（外枠線）：陸地パスの背面に太めの枠線を配置 */
+        .pref-outline-path {
+            fill: none;
+            stroke: #ffffff; /* 枠線の色（カバー背景に合わせて#ffffffや#444444等に変更可能です） */
+            stroke-width: 6px; /* 枠線の太さ */
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .tsunami-path { 
+            fill: none; 
+            stroke: none; 
+            transition: stroke 0.3s, stroke-width 0.3s; 
+        }
     </style>
 </head>
 <body>
@@ -158,7 +177,24 @@
             tsunamiSvgElement.attr("class", "tsunami-svg");
             prefSvgElement.attr("class", "pref-svg");
 
-            prefSvgElement.selectAll("path").classed("pref-path", true);
+            // --- 日本地図の外枠（アウトライン）自動生成ロジック ---
+            // prefSvgElementの先頭（背面的な位置）に外枠描画用のグループ「g」を挿入します
+            const outlineGroup = prefSvgElement.insert("g", ":first-child")
+                .attr("class", "pref-outline-group");
+
+            // 全ての陸地パスを巡回し、形状(d属性)を複製して外枠用グループに追加します
+            prefSvgElement.selectAll("path").each(function() {
+                const currentPath = d3.select(this);
+                const pathD = currentPath.attr("d");
+                if (pathD) {
+                    outlineGroup.append("path")
+                        .attr("d", pathD)
+                        .attr("class", "pref-outline-path");
+                }
+            });
+            // -----------------------------------------------------
+
+            prefSvgElement.selectAll("path:not(.pref-outline-path)").classed("pref-path", true);
             tsunamiSvgElement.selectAll("path").classed("tsunami-path", true);
 
             const fitToContainer = (svgNode, margin) => {
