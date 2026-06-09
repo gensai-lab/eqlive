@@ -87,6 +87,19 @@
             background: var(--accent-blue); border-color: var(--accent-blue);
         }
 
+        /* ドラッグ用のスタイル設定 */
+        .draggable-card {
+            cursor: grab;
+            user-select: none;
+        }
+        .draggable-card:active {
+            cursor: grabbing;
+        }
+        .draggable-card.dragging {
+            opacity: 0.5;
+            border: 2px dashed var(--accent-blue);
+        }
+
         @media (max-width: 900px) {
             .menu-toggle { display: flex; }
             nav { 
@@ -377,17 +390,18 @@
     };
 
 
-    // --- 【新規更新】複数自由配置画像管理ロジック ---
+    // --- 複数自由配置画像管理ロジック ---
     
     // 新規画像スロットの追加作成
     window.addNewFreeImage = () => {
-        const newId = "img_" + Date.now(); // タイムスタンプベースで一意のIDを発行
+        const newId = "img_" + Date.now(); 
         const initialConfig = {
             name: "新規配置画像",
             url: "",
             x: 0,
             y: 0,
-            width: 1920, // デフォルト幅を1920pxに変更
+            width: 1920, 
+            zIndex: 500, // デフォルトのレイヤー値を設定
             opacity: 1.0,
             visible: true
         };
@@ -486,6 +500,12 @@
                                id="range-${id}-w" oninput="document.getElementById('val-${id}-w').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'width', this.value)">
                     </div>
 
+                    <label>レイヤー順序 (重ね順: z-index) <span style="float:right; color:var(--text-sub);" id="val-${id}-z">${conf.zIndex !== undefined ? conf.zIndex : 500}</span></label>
+                    <div class="range-group">
+                        <input type="range" min="1" max="1000" value="${conf.zIndex !== undefined ? conf.zIndex : 500}" 
+                               id="range-${id}-z" oninput="document.getElementById('val-${id}-z').innerText = this.value; syncRangeImageValue('${id}', 'zIndex', this.value)">
+                    </div>
+
                     <label>不透明度 (opacity) <span style="float:right; color:var(--text-sub);" id="val-${id}-o">${conf.opacity !== undefined ? conf.opacity : 1.0}</span></label>
                     <div class="range-group">
                         <input type="range" min="0" max="1" step="0.1" value="${conf.opacity !== undefined ? conf.opacity : 1.0}" 
@@ -498,7 +518,7 @@
     }
 
 
-    // --- L-Shape Logic ---
+    // --- L-Shape Logic (つまんで並び替えドラッグ＆ドロップ対応) ---
     let localLItems = [];
     
     window.addLItem = () => { 
@@ -514,12 +534,66 @@
     window.updateLItem = (i, field, val) => {
         localLItems[i][field] = val;
     };
-    
-    window.moveItem = (i, dir) => {
-        if(dir === 'up' && i > 0) [localLItems[i], localLItems[i-1]] = [localLItems[i-1], localLItems[i]];
-        if(dir === 'down' && i < localLItems.length-1) [localLItems[i], localLItems[i+1]] = [localLItems[i+1], localLItems[i]];
-        renderLItems();
-    };
+
+    // HTML5 Drag and Drop イベント付与
+    function setupDragAndDrop() {
+        const container = document.getElementById('l-items-container');
+        const cards = container.querySelectorAll('.draggable-card');
+        
+        cards.forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                card.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', card.dataset.index);
+            });
+
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+                // ドラッグ終了時に配列のインデックスを再確定して再レンダリング
+                reorderLocalLItems();
+            });
+
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const draggingCard = container.querySelector('.dragging');
+                const afterElement = getDragAfterElement(container, e.clientY);
+                if (afterElement == null) {
+                    container.appendChild(draggingCard);
+                } else {
+                    container.insertBefore(draggingCard, afterElement);
+                }
+            });
+        });
+    }
+
+    // マウス位置から最も近い要素を計算
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.draggable-card:not(.dragging)')];
+
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    // 現在のDOMの並び順からデータを再インデックス化
+    function reorderLocalLItems() {
+        const container = document.getElementById('l-items-container');
+        const cards = [...container.querySelectorAll('.draggable-card')];
+        const newOrderedList = [];
+        
+        cards.forEach(card => {
+            const oldIndex = parseInt(card.dataset.index);
+            newOrderedList.push(localLItems[oldIndex]);
+        });
+        
+        localLItems = newOrderedList;
+        renderLItems(); // 番号（#0, #1）の表示などを綺麗に同期し直す
+    }
 
     function renderLItems() {
         const container = document.getElementById('l-items-container');
@@ -527,14 +601,16 @@
         container.innerHTML = "";
         localLItems.forEach((item, i) => {
             const div = document.createElement('div');
-            div.className = "card";
+            div.className = "card draggable-card";
+            div.draggable = true; // ドラッグ可能属性
+            div.dataset.index = i;
             div.style.background = "#252525";
             div.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue);">カード #${i}</div>
+                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue); display:flex; align-items:center; gap:5px;">
+                        <i class="material-icons" style="font-size:16px; cursor:move;">drag_indicator</i> カード #${i} (つまんで移動可)
+                    </div>
                     <div class="btn-group" style="margin:0;">
-                        <button class="secondary" style="padding:5px 10px;" onclick="moveItem(${i},'up')">↑</button>
-                        <button class="secondary" style="padding:5px 10px;" onclick="moveItem(${i},'down')">↓</button>
                         <button class="danger" style="padding:5px 10px;" onclick="removeLItem(${i})"><i class="material-icons" style="font-size:14px;">delete</i></button>
                     </div>
                 </div>
@@ -545,6 +621,9 @@
             `;
             container.appendChild(div);
         });
+
+        // ドラッグイベントのリッスン開始
+        setupDragAndDrop();
     }
 
     window.saveLShape = () => {
@@ -619,9 +698,8 @@
         const cur = data.current || {};
         const tsu = data.tsunami_config || {};
         
-        // 【新規更新】複数画像データをコントロールパネルに読み込み・レンダリング
+        // 複数画像データをコントロールパネルに読み込み・レンダリング
         const freeImagesData = data.free_images || {};
-        // 現在スライダー操作中でない時のみコンポーネントカード一式を再生成（干渉回避）
         const activeEl = document.activeElement;
         const isEditingFreeImage = activeEl && (activeEl.id.startsWith('range-') || activeEl.id.startsWith('url-') || activeEl.type === 'file');
         if(!isEditingFreeImage){
@@ -680,7 +758,8 @@
             syncInput('input-tic-2', data.manual_news.line2);
         }
 
-        const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container'));
+        // 入力中またはドラッグ並び替え中の時はFirebase側からの再描画リセットをブロックして操作を優先
+        const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container') || containerIsDragging());
         if(data.l_shape && !isEditingL) {
             syncInput('input-l-leftText', data.l_shape.leftText);
             const items = data.l_shape.topItems;
@@ -704,6 +783,12 @@
 
         isInitialLoad = false;
     });
+
+    // 現在ドラッグ要素があるかチェックするヘルパー
+    function containerIsDragging() {
+        const container = document.getElementById('l-items-container');
+        return container ? container.querySelectorAll('.dragging').length > 0 : false;
+    }
 
     initCameras();
 </script>
