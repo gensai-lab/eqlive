@@ -11,7 +11,7 @@
         :root {
             --warning-red: #DE080A;
             --text-white: #ffffff;
-            --anim-speed: 0.6s;
+            --anim-speed: 0.4s; /* フェードインは少し速め（0.4秒）の方が報道感・緊急感が出ます */
         }
 
         body, html {
@@ -39,13 +39,12 @@
             
             /* 横縮小（スケール）時に左端を基準点にするための設定 */
             transform-origin: left center;
-            transition: transform 0.2s ease; /* 縮小変化を滑らかにする場合 */
         }
 
-        /* アニメーション：左からスライドイン */
-        @keyframes slideIn {
-            from { transform: translateX(-100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+        /* アニメーション：シンプルかつ洗練されたフェードイン */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
         /* 【上段】白ボックスの設定 */
@@ -63,7 +62,7 @@
             margin-left: 0px;
             line-height: 1.2;
             display: none;
-            animation: slideIn var(--anim-speed) cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            animation: fadeIn var(--anim-speed) ease-out forwards;
         }
 
         /* 【下段】赤ボックスの設定 */
@@ -80,7 +79,7 @@
             line-height: 1.1;
             margin-top: 0px; /* 上段の白ボックスと隙間なく密着させる */
             display: none;
-            animation: slideIn var(--anim-speed) cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            animation: fadeIn var(--anim-speed) ease-out forwards;
         }
     </style>
 </head>
@@ -117,19 +116,16 @@
             const groupEl = document.getElementById('titleGroup');
             const MAX_WIDTH = 1215;
 
-            // 一度スケールをリセットして本来のサイズを計測する
-            groupEl.style.transform = "scaleX(1)";
+            // 計測バグを防ぐため、一度縮小を完全に解除（1倍にリセット）
+            groupEl.style.transform = "none";
 
-            // 描画が確定した実際の横幅を取得
-            const currentWidth = groupEl.offsetWidth;
+            // ブラウザに現在の最新のレイアウト（幅）を強制的に確定させる（リフローのトリガー）
+            const currentWidth = groupEl.getBoundingClientRect().width;
 
+            // 1215pxを超えている場合のみ、縮小処理を実行する
             if (currentWidth > MAX_WIDTH) {
-                // 超えている割合を計算
                 const scaleFactor = MAX_WIDTH / currentWidth;
-                // 横方向（scaleX）のみ縮める
                 groupEl.style.transform = `scaleX(${scaleFactor})`;
-            } else {
-                groupEl.style.transform = "scaleX(1)";
             }
         };
 
@@ -160,8 +156,10 @@
             prevSub = data.subtitle;
             prevMain = data.mainTitle;
 
-            // テキスト更新後、要素が画面に表示されてから幅の計算を行う
-            setTimeout(adjustScale, 50);
+            // テキストがDOMに完全に展開され、表示が確立したタイミングで正確に幅を計算する
+            requestAnimationFrame(() => {
+                setTimeout(adjustScale, 30);
+            });
         });
     </script>
 </body>
