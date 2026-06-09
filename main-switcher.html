@@ -96,22 +96,6 @@
             cursor: pointer;
             font-family: sans-serif;
         }
-
-        /* === 自由配置画像用レイヤー === */
-        #free-image-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 1920px;
-            height: 1080px;
-            z-index: 500;
-            pointer-events: none;
-        }
-        .custom-free-image {
-            position: absolute;
-            object-fit: contain;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
@@ -123,8 +107,6 @@
         
         <iframe id="frame-sub-switcher" src="sub-switcher.html"></iframe>
         
-        <div id="free-image-layer"></div>
-
         <iframe id="frame-eew" src="parts/eew.html"></iframe>
     </div>
 
@@ -150,7 +132,6 @@
     const frameSub = document.getElementById('frame-sub-switcher');
     const eewAudio = document.getElementById('eew-audio');
     const unlockOverlay = document.getElementById('audio-unlock');
-    const imageLayer = document.getElementById('free-image-layer');
 
     // タイマー管理用変数
     let offTimer = null;
@@ -167,24 +148,21 @@
 
     // === モード切り替えロジック（タイマー制御付き） ===
     function applyLayoutMode(viewType) {
-        // 既存のOFF予約タイマーがあれば二重動作を防ぐためクリア
         if (offTimer) {
             clearTimeout(offTimer);
             offTimer = null;
         }
 
         if (viewType === 'l-screen') {
-            // 【ONにするとき】：瞬時にL字背景を出して、subの縮小を開始
             frameLBg.classList.add('active');   
             frameSub.classList.add('l-mode');   
         } else {
-            // 【OFFにするとき】：subを全画面に戻し始め、1.8秒（1800ms）後にL字背景をパッと消す
             frameSub.classList.remove('l-mode'); 
             
             offTimer = setTimeout(() => {
                 frameLBg.classList.remove('active');
                 offTimer = null;
-            }, 1800); // 1.8秒の移動アニメーション完了と同時に実行
+            }, 1800);
         }
     }
 
@@ -193,30 +171,6 @@
         const mode = snapshot.val();
         if (mode) applyLayoutMode(mode);
         else applyLayoutMode('sub-switcher');
-    });
-
-    // === 自由配置画像リストの同期反映 ===
-    const freeImagesRef = ref(db, 'broadcast/free_images');
-    onValue(freeImagesRef, (snapshot) => {
-        const imagesData = snapshot.val();
-        imageLayer.innerHTML = "";
-        if (imagesData) {
-            Object.keys(imagesData).forEach(id => {
-                const imgConf = imagesData[id];
-                if (imgConf && imgConf.visible && imgConf.url) {
-                    const img = document.createElement('img');
-                    img.id = `img-node-${id}`;
-                    img.className = 'custom-free-image';
-                    img.src = imgConf.url;
-                    img.style.left = `${imgConf.x !== undefined ? imgConf.x : 0}px`;
-                    img.style.top = `${imgConf.y !== undefined ? imgConf.y : 0}px`;
-                    img.style.width = `${imgConf.width !== undefined ? imgConf.width : 300}px`;
-                    img.style.height = `${imgConf.height !== undefined ? imgConf.height : 'auto'}`;
-                    img.style.opacity = (imgConf.opacity !== undefined) ? imgConf.opacity : 1;
-                    imageLayer.appendChild(img);
-                }
-            });
-        }
     });
 
     window.addEventListener('message', (event) => {
