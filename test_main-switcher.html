@@ -17,35 +17,57 @@
             position: relative;
         }
 
-        /* === ① 通常放送（sub-switcher）レイヤー === */
-        /* 常に最背面で100%全画面で稼働させ続けます */
-        #frame-sub-switcher {
+        /* === ① L字の背景枠（文字情報・座布団など） === */
+        /* sub-switcherの背面に配置し、L字ONの時だけ表示させます */
+        #frame-l-bg {
             position: absolute;
             top: 0; left: 0;
             width: 1920px;
             height: 1080px;
             border: none;
             z-index: 1;
-        }
-
-        /* === ② L字画面レイヤー === */
-        /* ONになったら通常画面の上にフワッと覆い被さるように出現します */
-        #frame-l-screen {
-            position: absolute;
-            top: 0; left: 0;
-            width: 1920px;
-            height: 1080px;
-            border: none;
-            z-index: 10; /* 通常画面より前面 */
             opacity: 0;
-            transform: scale(1.02); /* 出現時に少し引くようなテレビ風のダイナミックな演出 */
-            transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: opacity 0.4s ease-out;
             pointer-events: none;
         }
-        #frame-l-screen.active {
+        #frame-l-bg.active {
             opacity: 1;
-            transform: scale(1);
             pointer-events: auto;
+        }
+
+        /* === ② 通常放送（sub-switcher）レイヤー 【主役】 === */
+        #frame-sub-switcher {
+            position: absolute;
+            border: none;
+            z-index: 10; /* L字背景より常に前面 */
+            
+            /* 初期状態：全画面（100%） */
+            top: 0px;
+            left: 0px;
+            width: 1920px;
+            height: 1080px;
+            transform: scale(1);
+            transform-origin: top left;
+            
+            /* 座標・サイズ・角丸・変形すべてを同じイージングで同期させて滑らかに動かす */
+            transition: 
+                top 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+                left 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+                width 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+                height 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+                border-radius 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* === L字ON（l-screenモード）時の変形座標設定 === */
+        /* l-screen.htmlの #main-content の仕様（left: 182px, width: 90.5%, height: 90.5%）に完全同期 */
+        #frame-sub-switcher.l-mode {
+            top: 0px;
+            left: 182px;
+            width: 1920px;  /* 内部の1920x1080の解像度・レイアウトを維持 */
+            height: 1080px;
+            transform: scale(0.905); /* 90.5% に縮小 */
+            border-bottom-left-radius: 8px; /* l-screen側のデザインに合わせて左下を角丸に */
         }
 
         /* === 緊急地震速報（最前面） === */
@@ -96,9 +118,9 @@
     <div id="audio-unlock">音声再生を有効にするにはここをクリック（OBSの場合は「対話」から）</div>
 
     <div id="view-container">
+        <iframe id="frame-l-bg" src="l-screen.html"></iframe>
+        
         <iframe id="frame-sub-switcher" src="sub-switcher.html"></iframe>
-
-        <iframe id="frame-l-screen" src="l-screen.html"></iframe>
         
         <div id="free-image-layer"></div>
 
@@ -123,7 +145,8 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const frameL = document.getElementById('frame-l-screen');
+    const frameLBg = document.getElementById('frame-l-bg');
+    const frameSub = document.getElementById('frame-sub-switcher');
     const eewAudio = document.getElementById('eew-audio');
     const unlockOverlay = document.getElementById('audio-unlock');
     const imageLayer = document.getElementById('free-image-layer');
@@ -138,12 +161,14 @@
         }).catch(err => console.error("Unlock failed:", err));
     });
 
-    // === L字画面の表示・非表示クラスの切り替えロジック ===
+    // === クラスを切り替えることで、フェードを挟まずダイナミックに移動・縮小させる ===
     function applyLayoutMode(viewType) {
         if (viewType === 'l-screen') {
-            frameL.classList.add('active');      // L字レイヤーをフェードイン（拡大しながらフィット）
+            frameLBg.classList.add('active');   // 背景座布団を表示
+            frameSub.classList.add('l-mode');   // sub-switcherをL字指定の座標(左182px, 90.5%)へ移動・縮小
         } else {
-            frameL.classList.remove('active');   // L字レイヤーをフェードアウト
+            frameLBg.classList.remove('active'); // 背景座布団を非表示
+            frameSub.classList.remove('l-mode'); // sub-switcherを全画面(100%)の位置へ戻す
         }
     }
 
