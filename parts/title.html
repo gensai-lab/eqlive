@@ -11,7 +11,7 @@
         :root {
             --warning-red: #DE080A;
             --text-white: #ffffff;
-            --anim-speed: 0.4s; /* フェードインは少し速め（0.4秒）の方が報道感・緊急感が出ます */
+            --anim-speed: 0.4s;
         }
 
         body, html {
@@ -35,10 +35,9 @@
         .title-group {
             display: inline-flex;
             flex-direction: column;
-            align-items: stretch; /* これにより上下のボックスの幅が同じになります */
-            
-            /* 横縮小（スケール）時に左端を基準点にするための設定 */
-            transform-origin: left center;
+            align-items: stretch; /* 上下のボックスの横幅を自動で長い方に合わせる */
+            max-width: 1215px;    /* グループ全体の最大幅を1215pxに制限 */
+            width: auto;
         }
 
         /* アニメーション：シンプルかつ洗練されたフェードイン */
@@ -53,7 +52,6 @@
             color: var(--warning-red);
             font-size: 44px; 
             font-weight: 700;
-            /* 左右のパディングを赤ボックスと揃えて、文字の開始位置を美しく一致させます */
             padding: 6px 30px; 
             /* ご指定の角丸：右上8px 右下0px 左上8px 左下0px */
             border-radius: 8px 8px 0px 0px; 
@@ -63,6 +61,7 @@
             line-height: 1.2;
             display: none;
             animation: fadeIn var(--anim-speed) ease-out forwards;
+            overflow: hidden;
         }
 
         /* 【下段】赤ボックスの設定 */
@@ -80,14 +79,22 @@
             margin-top: 0px; /* 上段の白ボックスと隙間なく密着させる */
             display: none;
             animation: fadeIn var(--anim-speed) ease-out forwards;
+            overflow: hidden;
+        }
+
+        /* 文字単体を個別に縮小するためのインナースパン */
+        .text-inner {
+            display: inline-block;
+            transform-origin: left center;
+            white-space: nowrap;
         }
     </style>
 </head>
 <body>
     <div class="title-container">
         <div class="title-group" id="titleGroup">
-            <div class="subtitle-box" id="displaySubtitle"></div>
-            <div class="main-title-box" id="displayMainTitle"></div>
+            <div class="subtitle-box" id="displaySubtitle"><span class="text-inner"></span></div>
+            <div class="main-title-box" id="displayMainTitle"><span class="text-inner"></span></div>
         </div>
     </div>
 
@@ -111,22 +118,44 @@
         let prevMain = "";
         let prevSub = "";
 
-        // 横幅を1215px以内に収めるようにスケールを調整する関数
+        // 各ボックス内の文字幅を個別にチェックし、1215pxの枠を超える場合のみ文字を縮小する関数
         const adjustScale = () => {
-            const groupEl = document.getElementById('titleGroup');
             const MAX_WIDTH = 1215;
+            const subBox = document.getElementById('displaySubtitle');
+            const mainBox = document.getElementById('displayMainTitle');
 
-            // 計測バグを防ぐため、一度縮小を完全に解除（1倍にリセット）
-            groupEl.style.transform = "none";
+            const boxes = [subBox, mainBox];
 
-            // ブラウザに現在の最新のレイアウト（幅）を強制的に確定させる（リフローのトリガー）
-            const currentWidth = groupEl.getBoundingClientRect().width;
+            boxes.forEach(box => {
+                if (box.style.display === 'none') return;
 
-            // 1215pxを超えている場合のみ、縮小処理を実行する
-            if (currentWidth > MAX_WIDTH) {
-                const scaleFactor = MAX_WIDTH / currentWidth;
-                groupEl.style.transform = `scaleX(${scaleFactor})`;
-            }
+                const innerText = box.querySelector('.text-inner');
+                if (!innerText) return;
+
+                // スケールを一度リセット
+                innerText.style.transform = "none";
+                innerText.style.width = "auto";
+
+                // ボックスのパディング分を差し引いた「利用可能な最大文字幅」を算出
+                const computedStyle = window.getComputedStyle(box);
+                const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                const maxAvailableTextWidth = MAX_WIDTH - paddingLeft - paddingRight;
+
+                // 現在の文字自体の本来の横幅を取得
+                const currentTextWidth = innerText.getBoundingClientRect().width;
+
+                // 文字幅が制限枠を超えている場合のみ、そのボックスの文字だけを縮小
+                if (currentTextWidth > maxAvailableTextWidth) {
+                    const scaleFactor = maxAvailableTextWidth / currentTextWidth;
+                    innerText.style.transform = `scaleX(${scaleFactor})`;
+                    // スケール縮小しても親のwidth領域を余分に占有し続けないよう、幅を明示的に固定
+                    innerText.style.width = `${maxAvailableTextWidth}px`;
+                } else {
+                    innerText.style.transform = "none";
+                    innerText.style.width = "auto";
+                }
+            });
         };
 
         onValue(ref(db, 'broadcast/current'), (snapshot) => {
@@ -136,17 +165,19 @@
             const subEl = document.getElementById('displaySubtitle');
             const mainEl = document.getElementById('displayMainTitle');
 
-            // 更新ロジック：値が変わったときだけアニメーションをリセットして実行
+            // 更新ロジック：値が変わったときだけ中身のインナースパンを書き換えてアニメーション
             const updateUI = (el, newText, oldText) => {
+                const inner = el.querySelector('.text-inner');
                 if (newText) {
                     if (newText !== oldText) {
                         el.style.display = 'none';
                         void el.offsetWidth; // 強制リフロー
-                        el.innerText = newText;
+                        if (inner) inner.innerText = newText;
                         el.style.display = 'block';
                     }
                 } else {
                     el.style.display = 'none';
+                    if (inner) inner.innerText = "";
                 }
             };
 
@@ -156,7 +187,7 @@
             prevSub = data.subtitle;
             prevMain = data.mainTitle;
 
-            // テキストがDOMに完全に展開され、表示が確立したタイミングで正確に幅を計算する
+            // 文字のレンダリングが確定した後に個別に幅チェックを行う
             requestAnimationFrame(() => {
                 setTimeout(adjustScale, 30);
             });
