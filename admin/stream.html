@@ -47,6 +47,85 @@
         button:active { opacity: 0.8; }
         .btn-start { background-color: #e74c3c; color: white; }
         .btn-stop { background-color: #2ecc71; color: white; }
+
+        /* --- カスタム確認モーダルのスタイル --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        /* モーダル表示中のクラス */
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content {
+            background-color: #2f3640;
+            padding: 25px;
+            border-radius: 10px;
+            width: 85%;
+            max-width: 360px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #4f5660;
+        }
+        .modal-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .modal-text {
+            font-size: 1rem;
+            color: #dcdde1;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .modal-actions button {
+            margin: 0;
+            padding: 12px;
+            font-size: 1rem;
+        }
+        .btn-cancel {
+            background-color: #718093;
+            color: white;
+        }
+        .btn-confirm-live {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .btn-confirm-normal {
+            background-color: #2ecc71;
+            color: white;
+        }
+        /* 送信中メッセージの簡易通知スタイル */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            background-color: #485460;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .toast.active { opacity: 1; }
     </style>
 </head>
 <body>
@@ -57,15 +136,27 @@
         
         <div id="currentStatus" class="current-status">現在の状態: 読込中...</div>
 
-        <button class="btn-start" onclick="setStatus('LIVE')">🚨 災害配信モード（開始）</button>
-        <button class="btn-stop" onclick="setStatus('NORMAL')">🟢 平時モード（終了）</button>
+        <button class="btn-start" onclick="openConfirmModal('LIVE')">🚨 災害配信モード（開始）</button>
+        <button class="btn-stop" onclick="openConfirmModal('NORMAL')">🟢 平時モード（終了）</button>
     </div>
+
+    <div id="confirmModal" class="modal-overlay">
+        <div class="modal-content">
+            <div id="modalTitle" class="modal-title">確認</div>
+            <div id="modalText" class="modal-text">本当にステータスを変更しますか？</div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeConfirmModal()">キャンセル</button>
+                <button id="modalConfirmBtn" class="btn-start" onclick="executeStatusChange()">変更する</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">ステータスを更新しました</div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js";
 
-        // 共有いただいたFirebaseのコンフィグを設定
         const firebaseConfig = {
             apiKey: "AIzaSyDkKyt6-FTaVf0xMiXAk7zhtwEkaHl6k04",
             authDomain: "eqlive-steamswitch.firebaseapp.com",
@@ -80,6 +171,8 @@
         const db = getDatabase(app);
         const statusRef = ref(db, 'status/eqlive_status');
 
+        let pendingStatus = null; // 変更待機中のステータスを一時保持する変数
+
         // 現在の状況を画面にリアルタイム表示
         onValue(statusRef, (snapshot) => {
             const data = snapshot.val();
@@ -93,13 +186,56 @@
             }
         });
 
-        // ボタンが押されたらFirebaseに書き込む関数
-        window.setStatus = function(value) {
-            set(statusRef, value).then(() => {
-                alert(`ステータスを ${value} に変更しました。`);
+        // モーダルを開く処理
+        window.openConfirmModal = function(value) {
+            pendingStatus = value;
+            const modal = document.getElementById('confirmModal');
+            const title = document.getElementById('modalTitle');
+            const text = document.getElementById('modalText');
+            const confirmBtn = document.getElementById('modalConfirmBtn');
+
+            if (value === 'LIVE') {
+                title.innerText = "⚠️ 災害配信モードの開始";
+                text.innerHTML = "本当に公式ホームページを<br><strong>【配信中】</strong>に変更しますか？";
+                confirmBtn.innerText = "配信を開始する";
+                confirmBtn.className = "btn-confirm-live";
+            } else {
+                title.innerText = "🟢 平時モードへの復帰";
+                text.innerHTML = "本当に公式ホームページを<br><strong>【平時（配信なし）】</strong>に戻しますか？";
+                confirmBtn.innerText = "配信を終了する";
+                confirmBtn.className = "btn-confirm-normal";
+            }
+            modal.classList.add('active');
+        }
+
+        // モーダルを閉じる処理
+        window.closeConfirmModal = function() {
+            document.getElementById('confirmModal').classList.remove('active');
+            pendingStatus = null;
+        }
+
+        // 実際にFirebaseへデータを書き込む処理
+        window.executeStatusChange = function() {
+            if (!pendingStatus) return;
+            
+            const targetStatus = pendingStatus;
+            closeConfirmModal();
+
+            set(statusRef, targetStatus).then(() => {
+                showToast(targetStatus === 'LIVE' ? "🚨 配信中モードに切り替えました" : "🟢 平時モードに戻しました");
             }).catch((error) => {
-                alert("エラーが発生しました。Firebaseのセキュリティルールが『テストモード』になっているか確認してください。: " + error.message);
+                alert("エラーが発生しました: " + error.message);
             });
+        }
+
+        // トースト通知を表示する関数
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.classList.add('active');
+            setTimeout(() => {
+                toast.classList.remove('active');
+            }, 3000);
         }
     </script>
 </body>
