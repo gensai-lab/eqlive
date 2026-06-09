@@ -87,6 +87,19 @@
             background: var(--accent-blue); border-color: var(--accent-blue);
         }
 
+        /* ドラッグ用のスタイル設定 */
+        .draggable-card {
+            cursor: grab;
+            user-select: none;
+        }
+        .draggable-card:active {
+            cursor: grabbing;
+        }
+        .draggable-card.dragging {
+            opacity: 0.5;
+            border: 2px dashed var(--accent-blue);
+        }
+
         @media (max-width: 900px) {
             .menu-toggle { display: flex; }
             nav { 
@@ -377,17 +390,18 @@
     };
 
 
-    // --- 【新規更新】複数自由配置画像管理ロジック ---
+    // --- 複数自由配置画像管理ロジック ---
     
     // 新規画像スロットの追加作成
     window.addNewFreeImage = () => {
-        const newId = "img_" + Date.now(); // タイムスタンプベースで一意のIDを発行
+        const newId = "img_" + Date.now(); 
         const initialConfig = {
             name: "新規配置画像",
             url: "",
             x: 0,
             y: 0,
-            width: 300,
+            width: 1920, 
+            zIndex: 1, // 初期値を1（最小レイヤー）に設定
             opacity: 1.0,
             visible: true
         };
@@ -397,6 +411,7 @@
     // 特定の画像ノードの値のリアルタイムスライダー同期
     window.syncRangeImageValue = (id, field, val) => {
         let numVal = parseFloat(val);
+        if (isNaN(numVal)) numVal = 1;
         set(ref(db, `broadcast/free_images/${id}/${field}`), numVal);
     };
 
@@ -443,6 +458,8 @@
             card.style.background = "#222";
             card.style.borderLeft = conf.visible ? "5px solid var(--accent-blue)" : "5px solid #555";
 
+            const currentZIndex = conf.zIndex !== undefined ? conf.zIndex : 1;
+
             card.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:10px;">
                     <input type="text" value="${conf.name || '名称未設定'}" 
@@ -480,10 +497,19 @@
                                id="range-${id}-y" oninput="document.getElementById('val-${id}-y').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'y', this.value)">
                     </div>
 
-                    <label>画像横幅尺寸 (width: px) <span style="float:right; color:var(--text-sub);" id="val-${id}-w">${conf.width || 300}px</span></label>
+                    <label>画像横幅尺寸 (width: px) <span style="float:right; color:var(--text-sub);" id="val-${id}-w">${conf.width !== undefined ? conf.width : 1920}px</span></label>
                     <div class="range-group">
-                        <input type="range" min="50" max="1920" value="${conf.width || 300}" 
+                        <input type="range" min="50" max="1920" value="${conf.width !== undefined ? conf.width : 1920}" 
                                id="range-${id}-w" oninput="document.getElementById('val-${id}-w').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'width', this.value)">
+                    </div>
+
+                    <label>レイヤー順序 (重ね順: z-index 1〜10)</label>
+                    <div class="range-group">
+                        <input type="range" min="1" max="10" value="${currentZIndex}" 
+                               id="range-${id}-z" oninput="document.getElementById('num-${id}-z').value = this.value; syncRangeImageValue('${id}', 'zIndex', this.value)">
+                        <input type="number" min="1" max="999" value="${currentZIndex}" id="num-${id}-z"
+                               style="width: 65px; padding: 6px; font-size: 14px; margin: 0; text-align: center; background: #000; border: 1px solid #444; border-radius: 6px;"
+                               onchange="document.getElementById('range-${id}-z').value = this.value; syncRangeImageValue('${id}', 'zIndex', this.value)">
                     </div>
 
                     <label>不透明度 (opacity) <span style="float:right; color:var(--text-sub);" id="val-${id}-o">${conf.opacity !== undefined ? conf.opacity : 1.0}</span></label>
@@ -498,7 +524,7 @@
     }
 
 
-    // --- L-Shape Logic ---
+    // --- L-Shape Logic (つまんで並び替えドラッグ＆ドロップ対応) ---
     let localLItems = [];
     
     window.addLItem = () => { 
@@ -514,12 +540,65 @@
     window.updateLItem = (i, field, val) => {
         localLItems[i][field] = val;
     };
-    
-    window.moveItem = (i, dir) => {
-        if(dir === 'up' && i > 0) [localLItems[i], localLItems[i-1]] = [localLItems[i-1], localLItems[i]];
-        if(dir === 'down' && i < localLItems.length-1) [localLItems[i], localLItems[i+1]] = [localLItems[i+1], localLItems[i]];
-        renderLItems();
-    };
+
+    // HTML5 Drag and Drop イベント付与
+    function setupDragAndDrop() {
+        const container = document.getElementById('l-items-container');
+        const cards = container.querySelectorAll('.draggable-card');
+        
+        cards.forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                card.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', card.dataset.index);
+            });
+
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+                reorderLocalLItems();
+            });
+
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const draggingCard = container.querySelector('.dragging');
+                const afterElement = getDragAfterElement(container, e.clientY);
+                if (afterElement == null) {
+                    container.appendChild(draggingCard);
+                } else {
+                    container.insertBefore(draggingCard, afterElement);
+                }
+            });
+        });
+    }
+
+    // マウス位置から最も近い要素を計算
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.draggable-card:not(.dragging)')];
+
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    // 現在のDOMの並び順からデータを再インデックス化
+    function reorderLocalLItems() {
+        const container = document.getElementById('l-items-container');
+        const cards = [...container.querySelectorAll('.draggable-card')];
+        const newOrderedList = [];
+        
+        cards.forEach(card => {
+            const oldIndex = parseInt(card.dataset.index);
+            newOrderedList.push(localLItems[oldIndex]);
+        });
+        
+        localLItems = newOrderedList;
+        renderLItems(); 
+    }
 
     function renderLItems() {
         const container = document.getElementById('l-items-container');
@@ -527,14 +606,16 @@
         container.innerHTML = "";
         localLItems.forEach((item, i) => {
             const div = document.createElement('div');
-            div.className = "card";
+            div.className = "card draggable-card";
+            div.draggable = true; 
+            div.dataset.index = i;
             div.style.background = "#252525";
             div.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue);">カード #${i}</div>
+                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue); display:flex; align-items:center; gap:5px;">
+                        <i class="material-icons" style="font-size:16px; cursor:move;">drag_indicator</i> カード #${i} (つまんで移動可)
+                    </div>
                     <div class="btn-group" style="margin:0;">
-                        <button class="secondary" style="padding:5px 10px;" onclick="moveItem(${i},'up')">↑</button>
-                        <button class="secondary" style="padding:5px 10px;" onclick="moveItem(${i},'down')">↓</button>
                         <button class="danger" style="padding:5px 10px;" onclick="removeLItem(${i})"><i class="material-icons" style="font-size:14px;">delete</i></button>
                     </div>
                 </div>
@@ -545,6 +626,8 @@
             `;
             container.appendChild(div);
         });
+
+        setupDragAndDrop();
     }
 
     window.saveLShape = () => {
@@ -619,11 +702,10 @@
         const cur = data.current || {};
         const tsu = data.tsunami_config || {};
         
-        // 【新規更新】複数画像データをコントロールパネルに読み込み・レンダリング
+        // 複数画像データをコントロールパネルに読み込み・レンダリング
         const freeImagesData = data.free_images || {};
-        // 現在スライダー操作中でない時のみコンポーネントカード一式を再生成（干渉回避）
         const activeEl = document.activeElement;
-        const isEditingFreeImage = activeEl && (activeEl.id.startsWith('range-') || activeEl.id.startsWith('url-') || activeEl.type === 'file');
+        const isEditingFreeImage = activeEl && (activeEl.id.startsWith('range-') || activeEl.id.startsWith('num-') || activeEl.id.startsWith('url-') || activeEl.type === 'file');
         if(!isEditingFreeImage){
             renderFreeImagesControls(freeImagesData);
         }
@@ -680,7 +762,7 @@
             syncInput('input-tic-2', data.manual_news.line2);
         }
 
-        const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container'));
+        const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container') || containerIsDragging());
         if(data.l_shape && !isEditingL) {
             syncInput('input-l-leftText', data.l_shape.leftText);
             const items = data.l_shape.topItems;
@@ -704,6 +786,11 @@
 
         isInitialLoad = false;
     });
+
+    function containerIsDragging() {
+        const container = document.getElementById('l-items-container');
+        return container ? container.querySelectorAll('.dragging').length > 0 : false;
+    }
 
     initCameras();
 </script>
