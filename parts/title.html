@@ -11,7 +11,6 @@
         :root {
             --warning-red: #DE080A;
             --text-white: #ffffff;
-            --main-text-indent: 53px;
             --anim-speed: 0.6s;
         }
 
@@ -28,8 +27,15 @@
             flex-direction: column;
             align-items: flex-start;
             padding: 0px;
-            /* 画面全体のパーツに合わせ、少しだけドロップシャドウを適用 */
-            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0));
+            /* 視認性向上のため、全体のドロップシャドウ */
+            filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));
+        }
+
+        /* 上下のボックスの横幅を完全に一致させるためのラッパー（グループ化） */
+        .title-group {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: stretch; /* これにより上下のボックスの幅が同じになります */
         }
 
         /* アニメーション：左からスライドイン */
@@ -38,31 +44,37 @@
             to { transform: translateX(0); opacity: 1; }
         }
 
+        /* 【上段】白ボックスの設定 */
         .subtitle-box {
             background-color: var(--text-white);
             color: var(--warning-red);
             font-size: 44px; 
-            font-weight: 400;
-            padding: 4px 20px;
+            font-weight: 700;
+            /* 左右のパディングを赤ボックスと揃えて、文字の開始位置を美しく一致させます */
+            padding: 6px 45px; 
+            /* ご指定の角丸：右上8px 右下0px 左上8px 左下0px */
             border-radius: 8px 8px 0px 0px; 
             white-space: nowrap;
             font-feature-settings: "palt";
-            margin-left: var(--main-text-indent);
+            margin-left: 0px;
             line-height: 1.2;
             display: none;
             animation: slideIn var(--anim-speed) cubic-bezier(0.25, 1, 0.5, 1) forwards;
         }
 
+        /* 【下段】赤ボックスの設定 */
         .main-title-box {
             background-color: var(--warning-red);
             color: var(--text-white);
             font-size: 90px;
-            font-weight: 400;
-            padding: 8px 30px 8px 60px;
-            border-radius: 0px 8px 8px 0px; 
+            font-weight: 700;
+            padding: 10px 45px;
+            /* ご指定の角丸：右上0px 右下8px 左上0px 左下8px */
+            border-radius: 0px 0px 8px 8px; 
             white-space: nowrap;
             font-feature-settings: "palt";
             line-height: 1.1;
+            margin-top: 0px; /* 上段の白ボックスと隙間なく密着させる */
             display: none;
             animation: slideIn var(--anim-speed) cubic-bezier(0.25, 1, 0.5, 1) forwards;
         }
@@ -70,8 +82,10 @@
 </head>
 <body>
     <div class="title-container">
-        <div class="subtitle-box" id="displaySubtitle"></div>
-        <div class="main-title-box" id="displayMainTitle"></div>
+        <div class="title-group">
+            <div class="subtitle-box" id="displaySubtitle"></div>
+            <div class="main-title-box" id="displayMainTitle"></div>
+        </div>
     </div>
 
     <script type="module">
