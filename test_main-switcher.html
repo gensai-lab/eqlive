@@ -18,7 +18,6 @@
         }
 
         /* === ① L字の背景枠（文字情報・座布団など） === */
-        /* sub-switcherの背面に配置し、L字ONの時だけ表示させます */
         #frame-l-bg {
             position: absolute;
             top: 0; left: 0;
@@ -26,16 +25,19 @@
             height: 1080px;
             border: none;
             z-index: 1;
+            
+            /* フェードによる余韻を残さないため、opacityのtransitionは削除 */
             opacity: 0;
-            transition: opacity 0.4s ease-out;
+            display: none; /* 完全に描画・イベントをシャットアウト */
             pointer-events: none;
         }
         #frame-l-bg.active {
             opacity: 1;
+            display: block;
             pointer-events: auto;
         }
 
-        /* === ② 通常放送（sub-switcher）レイヤー 【主役】 === */
+        /* === ② 通常放送（sub-switcher）レイヤー === */
         #frame-sub-switcher {
             position: absolute;
             border: none;
@@ -49,25 +51,24 @@
             transform: scale(1);
             transform-origin: top left;
             
-            /* 座標・サイズ・角丸・変形すべてを同じイージングで同期させて滑らかに動かす */
+            /* 1.8秒の等速（linear）に統一 */
             transition: 
-                top 1.5s cubic-bezier(0.16, 1, 0.3, 1),
-                left 1.5s cubic-bezier(0.16, 1, 0.3, 1),
-                width 1.5s cubic-bezier(0.16, 1, 0.3, 1),
-                height 1.5s cubic-bezier(0.16, 1, 0.3, 1),
-                transform 1.5s cubic-bezier(0.16, 1, 0.3, 1),
-                border-radius 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+                top 1.8s linear,
+                left 1.8s linear,
+                width 1.8s linear,
+                height 1.8s linear,
+                transform 1.8s linear,
+                border-radius 1.8s linear;
         }
 
         /* === L字ON（l-screenモード）時の変形座標設定 === */
-        /* l-screen.htmlの #main-content の仕様（left: 182px, width: 90.5%, height: 90.5%）に完全同期 */
         #frame-sub-switcher.l-mode {
             top: 0px;
             left: 182px;
-            width: 1920px;  /* 内部の1920x1080の解像度・レイアウトを維持 */
+            width: 1920px;
             height: 1080px;
             transform: scale(0.905); /* 90.5% に縮小 */
-            border-bottom-left-radius: 8px; /* l-screen側のデザインに合わせて左下を角丸に */
+            border-bottom-left-radius: 8px;
         }
 
         /* === 緊急地震速報（最前面） === */
@@ -151,6 +152,9 @@
     const unlockOverlay = document.getElementById('audio-unlock');
     const imageLayer = document.getElementById('free-image-layer');
 
+    // タイマー管理用変数
+    let offTimer = null;
+
     // 音声アンロック処理
     unlockOverlay.addEventListener('click', () => {
         eewAudio.play().then(() => {
@@ -161,14 +165,26 @@
         }).catch(err => console.error("Unlock failed:", err));
     });
 
-    // === クラスを切り替えることで、フェードを挟まずダイナミックに移動・縮小させる ===
+    // === モード切り替えロジック（タイマー制御付き） ===
     function applyLayoutMode(viewType) {
+        // 既存のOFF予約タイマーがあれば二重動作を防ぐためクリア
+        if (offTimer) {
+            clearTimeout(offTimer);
+            offTimer = null;
+        }
+
         if (viewType === 'l-screen') {
-            frameLBg.classList.add('active');   // 背景座布団を表示
-            frameSub.classList.add('l-mode');   // sub-switcherをL字指定の座標(左182px, 90.5%)へ移動・縮小
+            // 【ONにするとき】：瞬時にL字背景を出して、subの縮小を開始
+            frameLBg.classList.add('active');   
+            frameSub.classList.add('l-mode');   
         } else {
-            frameLBg.classList.remove('active'); // 背景座布団を非表示
-            frameSub.classList.remove('l-mode'); // sub-switcherを全画面(100%)の位置へ戻す
+            // 【OFFにするとき】：subを全画面に戻し始め、1.8秒（1800ms）後にL字背景をパッと消す
+            frameSub.classList.remove('l-mode'); 
+            
+            offTimer = setTimeout(() => {
+                frameLBg.classList.remove('active');
+                offTimer = null;
+            }, 1800); // 1.8秒の移動アニメーション完了と同時に実行
         }
     }
 
