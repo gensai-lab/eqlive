@@ -44,6 +44,20 @@
             object-fit: cover;
         }
 
+        /* 【追加】YouTubeのコントロールバー・ロゴ表示を完全にブロックするマスク
+           最前面(z-index: 50)に透明な壁を作ることで、ホバーやクリックによるバーの浮き上がりを防ぎます
+        */
+        #player-guard-mask {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 50;
+            background: transparent;
+            cursor: none; /* 配信画面にマウスカーソルが乗っても矢印を消す */
+        }
+
         /* 中継テロップ */
         #live-location-overlay {
             position: absolute;
@@ -52,7 +66,7 @@
             display: flex;
             align-items: center;
             color: white;
-            z-index: 100;
+            z-index: 100; /* マスク(50)より上に配置 */
             transition: opacity 0.3s;
             opacity: 0;
             pointer-events: none;
@@ -91,6 +105,8 @@
 <body>
 
 <div id="video-container">
+    <div id="player-guard-mask"></div>
+
     <div id="live-location-overlay">
         <img src="assets/live.svg" class="live-icon" alt="中継">
         <span id="target-location-name" class="location-name">---</span>
@@ -177,8 +193,10 @@
                     vidId = cam.url;
                 }
 
-                // ご指定のオプション：?autoplay=1&mute=1&controls=0&rel=0
-                const embedUrl = `https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&controls=0&rel=0`;
+                /* 【最適化】隠しパラメータをフル適用
+                   iv_load_policy=3 (アノテーション非表示), modestbranding=1 (ロゴを最小化), rel=0 (関連動画非表示)
+                */
+                const embedUrl = `https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&controls=0&rel=0&iv_load_policy=3&modestbranding=1`;
 
                 container.innerHTML = `
                     <iframe src="${embedUrl}" 
