@@ -182,7 +182,7 @@
         "genre": "鉄道",
         "type": "youtube",
         "url": "https://www.youtube.com/embed/aSnBosCInD8"
-    }
+    },
     {
         "id":  "honmoku_vtss",
         "name":  "横浜",
@@ -230,7 +230,7 @@
         "genre": "海",
         "type": "youtube",
         "url": "https://www.youtube.com/embed/WAb_fXdeQMs"
-    }
+    },
     {
         "id": "tokyo_ogasawara",
         "name": "東京 小笠原村",
@@ -238,7 +238,7 @@
         "genre": "",
         "type": "youtube",
         "url": "https://www.youtube.com/embed/DkDu14lDBy0"
-    }
+    },
     {
         "id":  "omaesaki_lt",
         "name":  "静岡 御前崎市",
