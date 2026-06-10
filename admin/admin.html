@@ -153,7 +153,7 @@
             </div>
             <div class="card">
                 <label>プレビュー（自動埋め込み）</label>
-                <div style="aspect-ratio: 16/9; background:#000; display:flex; align-items:center; justify-content:center; color:#444; border-radius:8px;">
+                <div id="preview-player-container" style="aspect-ratio: 16/9; background:#000; display:flex; align-items:center; justify-content:center; color:#444; border-radius:8px; overflow:hidden; position:relative;">
                     現在、ライブ映像はここに表示されます
                 </div>
             </div>
@@ -336,6 +336,7 @@
     let allCameras = [];
     let currentSelectedArea = "すべて";
     let currentSelectedGenre = "すべて";
+    let currentCameraSourceId = ""; // 現在のアクティブカメラIDを保持
 
     // --- UI Logic ---
     window.toggleNav = () => {
@@ -647,14 +648,11 @@
         update(ref(db, 'broadcast/tsunami_config/manualTrigger'), { direction: dir, timestamp: Date.now() });
     };
 
-    // --- Camera Dynamic Multi-Filter Logic (動的ジャンルボタン生成) ---
-    
-    // JSONのデータから現在存在するジャンルだけを検出してボタンを生成する
+    // --- Camera Dynamic Multi-Filter Logic ---
     function buildGenreFilterButtons(cams) {
         const container = document.getElementById('genre-filter-container');
         if (!container) return;
         
-        // 存在するジャンルを抽出（重複排除）
         const genres = new Set();
         cams.forEach(c => {
             if (c.genre && c.genre.trim() !== "") {
@@ -662,18 +660,15 @@
             }
         });
 
-        // 一旦コンテナの中身を初期化し、「全ジャンル」ボタンを配置
         container.innerHTML = `<button class="filter-btn active" id="genre-btn-all" onclick="filterByGenre('すべて', this)">全ジャンル</button>`;
 
-        // 抽出された実際のジャンル（例：「海」など）のボタンだけを追加
         genres.forEach(genreName => {
             const btn = document.createElement('button');
             btn.className = "filter-btn";
-            // ジャンル名に応じてアイコン絵文字を付与
             let icon = "📷 ";
             if(genreName === "海") icon = "🌊 ";
             else if(genreName === "河川") icon = "🏞️ ";
-            else if(genreName === "道路") icon = "🛣 ";
+            else if(genreName === "道路") icon = "🛣️ ";
             else if(genreName === "都市") icon = "🏙️ ";
 
             btn.innerText = `${icon}${genreName}`;
@@ -703,12 +698,10 @@
     function applyCombinedFilter() {
         let filtered = allCameras;
 
-        // 1. エリア条件適用
         if (currentSelectedArea !== 'すべて') {
             filtered = filtered.filter(c => c.area === currentSelectedArea);
         }
 
-        // 2. ジャンル条件適用
         if (currentSelectedGenre !== 'すべて') {
             filtered = filtered.filter(c => c.genre === currentSelectedGenre);
         }
@@ -749,15 +742,64 @@
         });
     }
 
+    // --- プレビュープレイヤー更新処理（YouTube対応） ---
+    function updatePreviewPlayer(cameraId) {
+        const container = document.getElementById('preview-player-container');
+        if (!container) return;
+
+        // 対象のカメラオブジェクトを検索
+        const cam = allCameras.find(c => c.id === cameraId);
+        if (!cam) {
+            container.innerHTML = `現在、ライブ映像はここに表示されます`;
+            return;
+        }
+
+        // typeがyoutubeの場合
+        if (cam.type === 'youtube') {
+            // URLから埋め込み用のアドレスを補正して構築
+            let embedUrl = cam.url;
+            
+            // 通常のURL（watch?v=...）で登録された場合の簡易判定・置換
+            if (embedUrl.includes('watch?v=')) {
+                const vid = embedUrl.split('watch?v=')[1].split('&')[0];
+                embedUrl = `https://www.youtube.com/embed/${vid}`;
+            } else if (embedUrl.includes('youtu.be/')) {
+                const vid = embedUrl.split('youtu.be/')[1].split('?')[0];
+                embedUrl = `https://www.youtube.com/embed/${vid}`;
+            }
+
+            // 指定オプションをクエリパラメータとして結合 (?autoplay=1&mute=1&controls=0&rel=0)
+            const queryParams = "autoplay=1&mute=1&controls=0&rel=0";
+            const finalUrl = embedUrl.includes('?') ? `${embedUrl}&${queryParams}` : `${embedUrl}?${queryParams}`;
+
+            container.innerHTML = `
+                <iframe src="${finalUrl}" 
+                        style="width:100%; height:100%; border:none; position:absolute; top:0; left:0;" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                        allowfullscreen>
+                </iframe>`;
+        } else {
+            // 通常のHLSストリーミングや静止画などの場合は、現状通りモックテキスト（または既存のプレイヤー処理）
+            container.innerHTML = `
+                <div style="text-align:center; padding:20px;">
+                    <div style="font-weight:bold; color:var(--accent-blue); margin-bottom:5px;">📹 ${cam.name} (HLSストリーム)</div>
+                    <div style="font-size:12px; color:var(--text-sub); word-break:break-all;">${cam.url}</div>
+                </div>`;
+        }
+    }
+
     async function initCameras() {
         try {
             const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json");
             allCameras = await res.json();
             
-            // 💡 取得したJSONデータ内に「実際に含まれているジャンルだけ」でフィルターUIを生成
             buildGenreFilterButtons(allCameras);
-            
             applyCombinedFilter();
+
+            // Firebaseから読み込み済みだった場合はここでプレイヤーを更新
+            if (currentCameraSourceId) {
+                updatePreviewPlayer(currentCameraSourceId);
+            }
         } catch(e) {
             console.error("Camera Init Error:", e);
         }
@@ -786,6 +828,14 @@
         if(statDist) statDist.innerText = `${cur.distributor === 'bot' ? '🤖 自動 (Bot)' : '👤 有人'} (${cur.operator || '--'})`;
         if(statMode) statMode.innerText = cur.layoutMode === 'emergency' ? '🚨 有事放送' : '🏠 通常放送';
         if(statCam) statCam.innerText = cur.cameraSource || '--';
+
+        // カメラソースIDに変更があれば、ダッシュボードのプレイヤープレビューを更新
+        if (cur.cameraSource && cur.cameraSource !== currentCameraSourceId) {
+            currentCameraSourceId = cur.cameraSource;
+            if (allCameras.length > 0) {
+                updatePreviewPlayer(currentCameraSourceId);
+            }
+        }
 
         const alertArea = document.getElementById('status-alert-area');
         if(alertArea) alertArea.innerHTML = data.current_mode === 'l-screen' ? '<div class="card alert"><i class="material-icons" style="vertical-align:bottom; color:var(--accent-red)">warning</i> L字放送が実行中です</div>' : '';
