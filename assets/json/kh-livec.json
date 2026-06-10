@@ -176,14 +176,6 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/inubosaki_lt-live.m3u8"
     },
     {
-        "id": "saitama",
-        "name": "さいたま市",
-        "area": "関東",
-        "genre": "鉄道",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/aSnBosCInD8"
-    },
-    {
         "id":  "honmoku_vtss",
         "name":  "横浜",
         "area":  "関東",
@@ -222,22 +214,6 @@
         "genre":  "海",
         "type":  "hls",
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/hachijosima_lt-live.m3u8"
-    },
-    {
-        "id": "tokyo_izu-oshima",
-        "name": "伊豆大島",
-        "area": "関東",
-        "genre": "海",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/WAb_fXdeQMs"
-    },
-    {
-        "id": "tokyo_ogasawara",
-        "name": "東京 小笠原村",
-        "area": "",
-        "genre": "",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/DkDu14lDBy0"
     },
     {
         "id":  "omaesaki_lt",
