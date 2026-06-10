@@ -82,6 +82,7 @@
         }
         .filter-btn {
             background: #333; color: #fff; padding: 6px 15px; border-radius: 20px; font-size: 12px; border: 1px solid #444;
+            cursor: pointer; transition: 0.2s;
         }
         .filter-btn.active {
             background: var(--accent-blue); border-color: var(--accent-blue);
@@ -261,19 +262,22 @@
 
         <div id="tab-camera" class="tab-content">
             <h2>ライブカメラ切替</h2>
-            <div class="filter-container">
-                <button class="filter-btn active" onclick="filterCameras('すべて', this)">すべて</button>
-                <button class="filter-btn" onclick="filterCameras('北海道', this)">北海道</button>
-                <button class="filter-btn" onclick="filterCameras('東北', this)">東北</button>
-                <button class="filter-btn" onclick="filterCameras('関東', this)">関東</button>
-                <button class="filter-btn" onclick="filterCameras('東海', this)">東海</button>
-                <button class="filter-btn" onclick="filterCameras('北陸', this)">北陸</button>
-                <button class="filter-btn" onclick="filterCameras('近畿', this)">近畿</button>
-                <button class="filter-btn" onclick="filterCameras('中国', this)">中国</button>
-                <button class="filter-btn" onclick="filterCameras('四国', this)">四国</button>
-                <button class="filter-btn" onclick="filterCameras('九州', this)">九州</button>
-                <button class="filter-btn" onclick="filterCameras('沖縄', this)">沖縄</button>
+            <div class="filter-container" id="area-filter-container">
+                <button class="filter-btn active" onclick="filterByArea('すべて', this)">すべて</button>
+                <button class="filter-btn" onclick="filterByArea('北海道', this)">北海道</button>
+                <button class="filter-btn" onclick="filterByArea('東北', this)">東北</button>
+                <button class="filter-btn" onclick="filterByArea('関東', this)">関東</button>
+                <button class="filter-btn" onclick="filterByArea('東海', this)">東海</button>
+                <button class="filter-btn" onclick="filterByArea('北陸', this)">北陸</button>
+                <button class="filter-btn" onclick="filterByArea('近畿', this)">近畿</button>
+                <button class="filter-btn" onclick="filterByArea('中国', this)">中国</button>
+                <button class="filter-btn" onclick="filterByArea('四国', this)">四国</button>
+                <button class="filter-btn" onclick="filterByArea('九州', this)">九州</button>
+                <button class="filter-btn" onclick="filterByArea('沖縄', this)">沖縄</button>
             </div>
+            <div class="filter-container" id="genre-filter-container" style="border-top:none; background:#1c1c1c;">
+                </div>
+            
             <div class="card" style="padding:0; overflow:hidden;">
                 <div id="cam-list" style="height:500px; overflow-y:auto; background:#000;"></div>
             </div>
@@ -330,6 +334,8 @@
     const db = getDatabase(app);
 
     let allCameras = [];
+    let currentSelectedArea = "すべて";
+    let currentSelectedGenre = "すべて";
 
     // --- UI Logic ---
     window.toggleNav = () => {
@@ -389,10 +395,7 @@
         });
     };
 
-
     // --- 複数自由配置画像管理ロジック ---
-    
-    // 新規画像スロットの追加作成
     window.addNewFreeImage = () => {
         const newId = "img_" + Date.now(); 
         const initialConfig = {
@@ -401,33 +404,29 @@
             x: 0,
             y: 0,
             width: 1920, 
-            zIndex: 1, // 初期値を1（最小レイヤー）に設定
+            zIndex: 1, 
             opacity: 1.0,
             visible: true
         };
         set(ref(db, `broadcast/free_images/${newId}`), initialConfig);
     };
 
-    // 特定の画像ノードの値のリアルタイムスライダー同期
     window.syncRangeImageValue = (id, field, val) => {
         let numVal = parseFloat(val);
         if (isNaN(numVal)) numVal = 1;
         set(ref(db, `broadcast/free_images/${id}/${field}`), numVal);
     };
 
-    // 特定の画像ノードのテキスト・トグル変更同期
     window.updateImageProperty = (id, field, val) => {
         set(ref(db, `broadcast/free_images/${id}/${field}`), val);
     };
 
-    // 画像ノードの完全削除
     window.deleteFreeImage = (id) => {
         if(confirm("この画像を配信レイヤーから完全に削除しますか？")) {
             remove(ref(db, `broadcast/free_images/${id}`));
         }
     };
 
-    // ローカルファイルからBase64形式で画像を同期格納するイベントトリガー
     window.handleImageFileSelect = (id, event) => {
         const file = event.target.files[0];
         if (!file) return;
@@ -438,7 +437,6 @@
         reader.readAsDataURL(file);
     };
 
-    // Firebase受信データからコントロール画面を動的にHTML再構築
     function renderFreeImagesControls(imagesData) {
         const container = document.getElementById('free-images-control-container');
         if (!container) return;
@@ -523,8 +521,7 @@
         });
     }
 
-
-    // --- L-Shape Logic (つまんで並び替えドラッグ＆ドロップ対応) ---
+    // --- L-Shape Logic ---
     let localLItems = [];
     
     window.addLItem = () => { 
@@ -541,7 +538,6 @@
         localLItems[i][field] = val;
     };
 
-    // HTML5 Drag and Drop イベント付与
     function setupDragAndDrop() {
         const container = document.getElementById('l-items-container');
         const cards = container.querySelectorAll('.draggable-card');
@@ -570,7 +566,6 @@
         });
     }
 
-    // マウス位置から最も近い要素を計算
     function getDragAfterElement(container, y) {
         const draggableElements = [...container.querySelectorAll('.draggable-card:not(.dragging)')];
 
@@ -585,7 +580,6 @@
         }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
-    // 現在のDOMの並び順からデータを再インデックス化
     function reorderLocalLItems() {
         const container = document.getElementById('l-items-container');
         const cards = [...container.querySelectorAll('.draggable-card')];
@@ -653,28 +647,101 @@
         update(ref(db, 'broadcast/tsunami_config/manualTrigger'), { direction: dir, timestamp: Date.now() });
     };
 
-    // --- Camera Logic ---
-    window.filterCameras = (area, btn) => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    // --- Camera Dynamic Multi-Filter Logic (動的ジャンルボタン生成) ---
+    
+    // JSONのデータから現在存在するジャンルだけを検出してボタンを生成する
+    function buildGenreFilterButtons(cams) {
+        const container = document.getElementById('genre-filter-container');
+        if (!container) return;
+        
+        // 存在するジャンルを抽出（重複排除）
+        const genres = new Set();
+        cams.forEach(c => {
+            if (c.genre && c.genre.trim() !== "") {
+                genres.add(c.genre.trim());
+            }
+        });
+
+        // 一旦コンテナの中身を初期化し、「全ジャンル」ボタンを配置
+        container.innerHTML = `<button class="filter-btn active" id="genre-btn-all" onclick="filterByGenre('すべて', this)">全ジャンル</button>`;
+
+        // 抽出された実際のジャンル（例：「海」など）のボタンだけを追加
+        genres.forEach(genreName => {
+            const btn = document.createElement('button');
+            btn.className = "filter-btn";
+            // ジャンル名に応じてアイコン絵文字を付与
+            let icon = "📷 ";
+            if(genreName === "海") icon = "🌊 ";
+            else if(genreName === "河川") icon = "🏞️ ";
+            else if(genreName === "道路") icon = "🛣 ";
+            else if(genreName === "都市") icon = "🏙️ ";
+
+            btn.innerText = `${icon}${genreName}`;
+            btn.onclick = () => filterByGenre(genreName, btn);
+            container.appendChild(btn);
+        });
+    }
+
+    window.filterByArea = (area, btn) => {
+        const container = document.getElementById('area-filter-container');
+        container.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        const filtered = (area === 'すべて') ? allCameras : allCameras.filter(c => c.area === area);
-        renderCameraList(filtered);
+        
+        currentSelectedArea = area;
+        applyCombinedFilter();
     };
+
+    window.filterByGenre = (genre, btn) => {
+        const container = document.getElementById('genre-filter-container');
+        container.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        currentSelectedGenre = genre;
+        applyCombinedFilter();
+    };
+
+    function applyCombinedFilter() {
+        let filtered = allCameras;
+
+        // 1. エリア条件適用
+        if (currentSelectedArea !== 'すべて') {
+            filtered = filtered.filter(c => c.area === currentSelectedArea);
+        }
+
+        // 2. ジャンル条件適用
+        if (currentSelectedGenre !== 'すべて') {
+            filtered = filtered.filter(c => c.genre === currentSelectedGenre);
+        }
+
+        renderCameraList(filtered);
+    }
 
     function renderCameraList(cams) {
         const list = document.getElementById('cam-list');
         if(!list) return;
         list.innerHTML = "";
+        
+        if(cams.length === 0) {
+            list.innerHTML = `<div style="text-align:center; padding:40px; color:#555; font-size:14px;">該当するカメラがありません</div>`;
+            return;
+        }
+
         cams.forEach(c => {
             const d = document.createElement('div');
             d.style.cssText = "padding:18px; border-bottom:1px solid #222; cursor:pointer;";
+            
+            const genreTag = c.genre ? c.genre : '未分類';
+            
             d.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <div>
                         <div style="font-weight:bold;">${c.name}</div>
                         <small style="color:#777;">ID: ${c.id}</small>
                     </div>
-                    <div style="font-size:10px; background:#333; padding:2px 8px; border-radius:4px;">${c.area || '未設定'}</div>
+                    <div style="display:flex; gap:6px;">
+                        <span style="font-size:10px; background:#1A365D; color:#90CDF4; padding:2px 8px; border-radius:4px;">${genreTag}</span>
+                        <span style="font-size:10px; background:#333; padding:2px 8px; border-radius:4px;">${c.area || '未設定'}</span>
+                    </div>
                 </div>
             `;
             d.onclick = () => updateFB('current/cameraSource', c.id);
@@ -686,7 +753,11 @@
         try {
             const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json");
             allCameras = await res.json();
-            renderCameraList(allCameras);
+            
+            // 💡 取得したJSONデータ内に「実際に含まれているジャンルだけ」でフィルターUIを生成
+            buildGenreFilterButtons(allCameras);
+            
+            applyCombinedFilter();
         } catch(e) {
             console.error("Camera Init Error:", e);
         }
@@ -702,7 +773,6 @@
         const cur = data.current || {};
         const tsu = data.tsunami_config || {};
         
-        // 複数画像データをコントロールパネルに読み込み・レンダリング
         const freeImagesData = data.free_images || {};
         const activeEl = document.activeElement;
         const isEditingFreeImage = activeEl && (activeEl.id.startsWith('range-') || activeEl.id.startsWith('num-') || activeEl.id.startsWith('url-') || activeEl.type === 'file');
