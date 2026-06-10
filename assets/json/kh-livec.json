@@ -226,8 +226,8 @@
     {
         "id": "tokyo_ogasawara",
         "name": "東京 小笠原村",
-        "area": "",
-        "genre": "",
+        "area": "関東",
+        "genre": "海",
         "type": "youtube",
         "url": "https://www.youtube.com/embed/DkDu14lDBy0"
     },
