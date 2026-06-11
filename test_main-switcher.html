@@ -81,19 +81,20 @@
             margin-right: 24px;
         }
 
-        /* テキストグループの配置調整（位置維持のための最小限の高さ設定） */
+        /* テキストグループの配置調整（位置維持のためマージンをリセット） */
         .location-text-group {
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
-            margin-top: -4px; /* LIVEアイコンとの中心線を合わせる微調整 */
+            justify-content: center;
+            margin-top: 0; 
         }
 
+        /* 地名のスタイル設定 */
         .location-name {
             font-size: 48px;
             font-weight: bold;
             letter-spacing: 0.08em;
-            line-spacing: 1.0;
+            line-height: 1.0; /* ★地名単体の文字行高（1.0〜1.2等で調整可能） */
             text-shadow: 
                 2px 2px 0 #000, -2px -2px 0 #000,
                 -2px 2px 0 #000, 2px -2px 0 #000,
@@ -101,12 +102,13 @@
                 -2px 0px 0 #000, 2px 0px 0 #000;
         }
 
-        /* 注釈テキスト（地名の高さを圧迫しないよう絶対配置化、またはマージン管理） */
+        /* 注釈テキスト（地名との隙間を自由に変えられるように設計） */
         .location-note {
             font-size: 24px;
             font-weight: bold;
             color: #dddddd;
-            margin-top: 0px; /* 地名の直下に隙間なく配置 */
+            margin-top: 6px; /* ★ここで地名と注釈の「行間の隙間」をピクセル単位で微調整できます */
+            line-height: 1.0; /* ★注釈自体の文字行高 */
             letter-spacing: 0.04em;
             display: none; /* 初期状態は非表示 */
             text-shadow: 
@@ -260,7 +262,7 @@
                     });
                 }
             
-            // ③ その他のWebソース埋め込み
+            // ③ その元のWebソース埋め込み
             } else {
                 // 注記を非表示に
                 noteElement.classList.remove('show');
