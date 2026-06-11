@@ -569,6 +569,14 @@
     },
     {
         "id":  "kasarisaki_lt",
+        "name":  "鹿児島 十島村",
+        "area":  "九州",
+        "genre":  "海",
+        "type":  "img",
+        "url":  "http://210.237.44.104:8080/images/akuseki.jpg"
+    },
+    {
+        "id":  "kasarisaki_lt",
         "name":  "鹿児島 奄美市",
         "area":  "九州",
         "genre":  "海",
