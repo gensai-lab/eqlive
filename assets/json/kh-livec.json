@@ -392,14 +392,6 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/shionomisaki_lt-live.m3u8"
     },
     {
-        "id": "shirahamacho",
-        "name": "和歌山 白浜町",
-        "area": "近畿",
-        "genre": "河川",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/uJK1eMzL6Fc"
-    },
-    {
         "id":  "kyogamisaki_lt",
         "name":  "京都 京丹後市",
         "area":  "近畿",
