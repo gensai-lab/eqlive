@@ -81,18 +81,19 @@
             margin-right: 24px;
         }
 
-        /* 縦並びにして地名の下に注記が来るようにレイアウト */
+        /* テキストグループの配置調整（位置維持のための最小限の高さ設定） */
         .location-text-group {
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
+            margin-top: -4px; /* LIVEアイコンとの中心線を合わせる微調整 */
         }
 
         .location-name {
             font-size: 48px;
             font-weight: bold;
             letter-spacing: 0.08em;
-            line-height: 1.2;
+            line-spacing: 1.0;
             text-shadow: 
                 2px 2px 0 #000, -2px -2px 0 #000,
                 -2px 2px 0 #000, 2px -2px 0 #000,
@@ -100,12 +101,12 @@
                 -2px 0px 0 #000, 2px 0px 0 #000;
         }
 
-        /* YouTube配信元注記のスタイル */
+        /* 注釈テキスト（地名の高さを圧迫しないよう絶対配置化、またはマージン管理） */
         .location-note {
             font-size: 24px;
             font-weight: bold;
             color: #dddddd;
-            margin-top: 4px;
+            margin-top: 0px; /* 地名の直下に隙間なく配置 */
             letter-spacing: 0.04em;
             display: none; /* 初期状態は非表示 */
             text-shadow: 
@@ -115,7 +116,7 @@
                 -2px 0px 0 #000, 2px 0px 0 #000;
         }
 
-        /* YouTubeの時だけ注記を表示する用 */
+        /* YouTubeの時だけ注記を表示 */
         .location-note.show {
             display: block;
         }
