@@ -44,9 +44,7 @@
             object-fit: cover;
         }
 
-        /* 【追加】YouTubeのコントロールバー・ロゴ表示を完全にブロックするマスク
-           最前面(z-index: 50)に透明な壁を作ることで、ホバーやクリックによるバーの浮き上がりを防ぎます
-        */
+        /* YouTubeのコントロールバー・ロゴ表示を完全にブロックするマスク */
         #player-guard-mask {
             position: absolute;
             top: 0;
@@ -61,12 +59,12 @@
         /* 中継テロップ */
         #live-location-overlay {
             position: absolute;
-            top: 140px;
+            top: 200px;
             left: 60px;
             display: flex;
-            align-items: center;
+            align-items: flex-start; /* アイコンの上端とテキストグループの上端を合わせる */
             color: white;
-            z-index: 100; /* マスク(50)より上に配置 */
+            z-index: 100;
             transition: opacity 0.3s;
             opacity: 0;
             pointer-events: none;
@@ -81,17 +79,53 @@
             width: 115px;
             height: auto;
             margin-right: 24px;
+            margin-top: -2px; /* アイコンと地名の文字（1行目）の中心を合わせる微調整 */
         }
 
+        /* テキストグループの配置調整（上揃えにして高さを固定） */
+        .location-text-group {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            margin-top: 0; 
+        }
+
+        /* 地名のスタイル設定 */
         .location-name {
             font-size: 48px;
             font-weight: bold;
             letter-spacing: 0.08em;
+            line-height: 1.0; /* 行高を1.0に固定して無駄な上下の余白をカット */
             text-shadow: 
                 2px 2px 0 #000, -2px -2px 0 #000,
                 -2px 2px 0 #000, 2px -2px 0 #000,
                 0px 2px 0 #000, 0px -2px 0 #000,
                 -2px 0px 0 #000, 2px 0px 0 #000;
+        }
+
+        /* 注釈テキスト（絶対配置にして、地名の表示領域や親要素の高さに影響させない） */
+        .location-note {
+            position: absolute;
+            top: 56px; /* ★地名のフォントサイズ(48px)＋隙間(8px)の位置に固定 */
+            left: 0;
+            white-space: nowrap;
+            font-size: 24px;
+            font-weight: bold;
+            color: #dddddd;
+            line-height: 1.6;
+            letter-spacing: 0.04em;
+            display: none; /* 初期状態は非表示 */
+            text-shadow: 
+                2px 2px 0 #000, -2px -2px 0 #000,
+                -2px 2px 0 #000, 2px -2px 0 #000,
+                0px 2px 0 #000, 0px -2px 0 #000,
+                -2px 0px 0 #000, 2px 0px 0 #000;
+        }
+
+        /* YouTubeの時だけ注記を表示 */
+        .location-note.show {
+            display: block;
         }
 
         #player-target {
@@ -109,7 +143,10 @@
 
     <div id="live-location-overlay">
         <img src="assets/live.svg" class="live-icon" alt="中継">
-        <span id="target-location-name" class="location-name">---</span>
+        <div class="location-text-group">
+            <span id="target-location-name" class="location-name">---</span>
+            <span id="target-location-note" class="location-note">(YouTube配信より)</span>
+        </div>
     </div>
 
     <div id="player-target"></div>
@@ -162,6 +199,7 @@
         const cam = cameraList.find(c => c.id === id);
         const overlay = document.getElementById('live-location-overlay');
         const nameElement = document.getElementById('target-location-name');
+        const noteElement = document.getElementById('target-location-note');
         const container = document.getElementById('player-target');
 
         // 前のHLSインスタンスがあれば破棄
@@ -170,18 +208,21 @@
             hls = null;
         }
 
-        // コンテナを空にする（アニメーションなしで即入れ替え）
         container.innerHTML = "";
 
         if (cam) {
             nameElement.innerText = cam.name;
             overlay.classList.add('active');
 
-            // ① 明示的に type: "youtube" の場合、またはURLにyoutube系のドメインが含まれる場合
-            if (cam.type === 'youtube' || cam.url.includes('youtube.com') || cam.url.includes('youtu.be')) {
-                let vidId = "";
+            const lowerUrl = cam.url.toLowerCase();
+
+            // ① YouTubeの場合（typeがyoutube、またはURLで判定）
+            if (cam.type === 'youtube' || lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) {
                 
-                // URLの様々な形式から11桁の動画IDを安全に抽出
+                // YouTube配信なので注記を追加
+                noteElement.classList.add('show');
+
+                let vidId = "";
                 if (cam.url.includes('watch?v=')) {
                     vidId = cam.url.split('watch?v=')[1].split('&')[0];
                 } else if (cam.url.includes('youtu.be/')) {
@@ -189,13 +230,9 @@
                 } else if (cam.url.includes('embed/')) {
                     vidId = cam.url.split('embed/')[1].split('?')[0];
                 } else {
-                    // 万が一IDだけが記述されていた場合のフォールバック
                     vidId = cam.url;
                 }
 
-                /* 【最適化】隠しパラメータをフル適用
-                   iv_load_policy=3 (アノテーション非表示), modestbranding=1 (ロゴを最小化), rel=0 (関連動画非表示)
-                */
                 const embedUrl = `https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&controls=0&rel=0&iv_load_policy=3&modestbranding=1`;
 
                 container.innerHTML = `
@@ -205,7 +242,11 @@
                     </iframe>`;
 
             // ② HLSストリーミング配信の場合
-            } else if (cam.type === 'hls' || cam.url.includes('.m3u8')) {
+            } else if (cam.type === 'hls' || lowerUrl.includes('.m3u8')) {
+                
+                // YouTubeではないので注記を非表示に
+                noteElement.classList.remove('show');
+
                 const video = document.createElement('video');
                 video.muted = true;
                 video.autoplay = true;
@@ -228,10 +269,13 @@
             
             // ③ その他のWebソース埋め込み
             } else {
+                // 注記を非表示に
+                noteElement.classList.remove('show');
                 container.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
             }
         } else {
             overlay.classList.remove('active');
+            noteElement.classList.remove('show');
         }
     }
 
