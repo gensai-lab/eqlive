@@ -30,8 +30,8 @@
             align-items: center;
         }
 
-        /* 映像・画像表示エリア共通 */
-        video, iframe, .live-image-src {
+        /* 映像表示エリア */
+        video, iframe {
             position: absolute;
             top: 0;
             left: 0;
@@ -40,8 +40,7 @@
             border: none;
         }
         
-        /* 映像と静止画はアスペクト比を維持しつつ画面いっぱいにカバー */
-        video, .live-image-src {
+        video {
             object-fit: cover;
         }
 
@@ -82,15 +81,43 @@
             margin-right: 24px;
         }
 
+        /* 縦並びにして地名の下に注記が来るようにレイアウト */
+        .location-text-group {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
         .location-name {
             font-size: 48px;
             font-weight: bold;
             letter-spacing: 0.08em;
+            line-height: 1.2;
             text-shadow: 
                 2px 2px 0 #000, -2px -2px 0 #000,
                 -2px 2px 0 #000, 2px -2px 0 #000,
                 0px 2px 0 #000, 0px -2px 0 #000,
                 -2px 0px 0 #000, 2px 0px 0 #000;
+        }
+
+        /* YouTube配信元注記のスタイル */
+        .location-note {
+            font-size: 24px;
+            font-weight: bold;
+            color: #dddddd;
+            margin-top: 4px;
+            letter-spacing: 0.04em;
+            display: none; /* 初期状態は非表示 */
+            text-shadow: 
+                2px 2px 0 #000, -2px -2px 0 #000,
+                -2px 2px 0 #000, 2px -2px 0 #000,
+                0px 2px 0 #000, 0px -2px 0 #000,
+                -2px 0px 0 #000, 2px 0px 0 #000;
+        }
+
+        /* YouTubeの時だけ注記を表示する用 */
+        .location-note.show {
+            display: block;
         }
 
         #player-target {
@@ -108,7 +135,10 @@
 
     <div id="live-location-overlay">
         <img src="assets/live.svg" class="live-icon" alt="中継">
-        <span id="target-location-name" class="location-name">---</span>
+        <div class="location-text-group">
+            <span id="target-location-name" class="location-name">---</span>
+            <span id="target-location-note" class="location-note">（YouTube配信より）</span>
+        </div>
     </div>
 
     <div id="player-target"></div>
@@ -134,7 +164,6 @@
     let cameraList = [];
     let currentCameraId = "";
     let hls = null;
-    let imageRefreshInterval = null; // 静止画定期更新用のタイマー
 
     async function loadConfig() {
         try {
@@ -162,21 +191,15 @@
         const cam = cameraList.find(c => c.id === id);
         const overlay = document.getElementById('live-location-overlay');
         const nameElement = document.getElementById('target-location-name');
+        const noteElement = document.getElementById('target-location-note');
         const container = document.getElementById('player-target');
 
-        // 前のHLSインスタンスがあれば確実に破棄
+        // 前のHLSインスタンスがあれば破棄
         if (hls) {
             hls.destroy();
             hls = null;
         }
 
-        // 前の静止画リフレッシュタイマーが動いていればクリア
-        if (imageRefreshInterval) {
-            clearInterval(imageRefreshInterval);
-            imageRefreshInterval = null;
-        }
-
-        // プレイヤーコンテナの内容をクリア
         container.innerHTML = "";
 
         if (cam) {
@@ -185,29 +208,13 @@
 
             const lowerUrl = cam.url.toLowerCase();
 
-            // ① 【追加】静止画（img形式）への対応判定
-            // JSONのtypeが "img" または "image" であるか、URLに拡張子が含まれる場合
-            if (cam.type === 'img' || cam.type === 'image' || lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || lowerUrl.includes('.png')) {
+            // ① YouTubeの場合（typeがyoutube、またはURLで判定）
+            if (cam.type === 'youtube' || lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) {
                 
-                const img = document.createElement('img');
-                img.className = "live-image-src";
-                
-                // 初回読み込み時のブラウザキャッシュを回避するためのタイムスタンプ付与
-                const cacheBuster = cam.url.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`;
-                img.src = cam.url + cacheBuster;
-                
-                container.appendChild(img);
+                // YouTube配信なので注記を追加
+                noteElement.classList.add('show');
 
-                // カメラが選ばれている間、10秒（10000ms）ごとに画像を最新のものにバックグラウンドで差し替える
-                imageRefreshInterval = setInterval(() => {
-                    const nextBuster = cam.url.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`;
-                    img.src = cam.url + nextBuster;
-                }, 10000);
-
-            // ② YouTubeの場合
-            } else if (cam.type === 'youtube' || lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) {
                 let vidId = "";
-                
                 if (cam.url.includes('watch?v=')) {
                     vidId = cam.url.split('watch?v=')[1].split('&')[0];
                 } else if (cam.url.includes('youtu.be/')) {
@@ -226,8 +233,12 @@
                             allowfullscreen>
                     </iframe>`;
 
-            // ③ HLSストリーミング配信の場合
+            // ② HLSストリーミング配信の場合
             } else if (cam.type === 'hls' || lowerUrl.includes('.m3u8')) {
+                
+                // YouTubeではないので注記を非表示に
+                noteElement.classList.remove('show');
+
                 const video = document.createElement('video');
                 video.muted = true;
                 video.autoplay = true;
@@ -248,12 +259,15 @@
                     });
                 }
             
-            // ④ その他のWebソース埋め込み
+            // ③ その他のWebソース埋め込み
             } else {
+                // 注記を非表示に
+                noteElement.classList.remove('show');
                 container.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
             }
         } else {
             overlay.classList.remove('active');
+            noteElement.classList.remove('show');
         }
     }
 
