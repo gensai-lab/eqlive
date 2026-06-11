@@ -215,7 +215,7 @@
         "type":  "hls",
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/hachijosima_lt-live.m3u8"
     },
-        {
+    {
         "id": "tokyo_izu-oshima",
         "name": "伊豆大島",
         "area": "関東",
@@ -390,6 +390,14 @@
         "genre":  "海",
         "type":  "hls",
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/shionomisaki_lt-live.m3u8"
+    },
+    {
+        "id": "shirahamacho",
+        "name": "和歌山 白浜町",
+        "area": "近畿",
+        "genre": "河川",
+        "type": "youtube",
+        "url": "https://www.youtube.com/embed/uJK1eMzL6Fc"
     },
     {
         "id":  "kyogamisaki_lt",
