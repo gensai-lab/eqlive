@@ -62,7 +62,7 @@
             top: 200px;
             left: 60px;
             display: flex;
-            align-items: center;
+            align-items: flex-start; /* アイコンの上端とテキストグループの上端を合わせる */
             color: white;
             z-index: 100;
             transition: opacity 0.3s;
@@ -79,14 +79,15 @@
             width: 115px;
             height: auto;
             margin-right: 24px;
-            margin-top: -32px;
+            margin-top: 4px; /* アイコンと地名の文字（1行目）の中心を合わせる微調整 */
         }
 
-        /* テキストグループの配置調整（位置維持のためマージンをリセット） */
+        /* テキストグループの配置調整（上揃えにして高さを固定） */
         .location-text-group {
+            position: relative;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
             margin-top: 0; 
         }
 
@@ -95,7 +96,7 @@
             font-size: 48px;
             font-weight: bold;
             letter-spacing: 0.08em;
-            line-height: 1.4; /* ★地名単体の文字行高（1.0〜1.2等で調整可能） */
+            line-height: 1.0; /* 行高を1.0に固定して無駄な上下の余白をカット */
             text-shadow: 
                 2px 2px 0 #000, -2px -2px 0 #000,
                 -2px 2px 0 #000, 2px -2px 0 #000,
@@ -103,13 +104,16 @@
                 -2px 0px 0 #000, 2px 0px 0 #000;
         }
 
-        /* 注釈テキスト（地名との隙間を自由に変えられるように設計） */
+        /* 注釈テキスト（絶対配置にして、地名の表示領域や親要素の高さに影響させない） */
         .location-note {
+            position: absolute;
+            top: 56px; /* ★地名のフォントサイズ(48px)＋隙間(8px)の位置に固定 */
+            left: 0;
+            white-space: nowrap;
             font-size: 24px;
             font-weight: bold;
             color: #dddddd;
-            margin-top: 6px; /* ★ここで地名と注釈の「行間の隙間」をピクセル単位で微調整できます */
-            line-height: 1.0; /* ★注釈自体の文字行高 */
+            line-height: 1.0;
             letter-spacing: 0.04em;
             display: none; /* 初期状態は非表示 */
             text-shadow: 
@@ -263,7 +267,7 @@
                     });
                 }
             
-            // ③ その元のWebソース埋め込み
+            // ③ その他のWebソース埋め込み
             } else {
                 // 注記を非表示に
                 noteElement.classList.remove('show');
