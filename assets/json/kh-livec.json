@@ -344,6 +344,14 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/hegurashima_lt-live.m3u8"
     },
     {
+        "id": "ishikawa_anamizu",
+        "name": "石川 穴水町",
+        "area": "北陸",
+        "genre": "道",
+        "type": "youtube",
+        "url": "https://www.youtube.com/embed/Z78oTM1uLyQ"
+    },
+    {
         "id":  "ono_lt",
         "name":  "金沢",
         "area":  "北陸",
