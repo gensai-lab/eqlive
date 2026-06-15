@@ -304,10 +304,17 @@
 
         <div id="tab-free-image" class="tab-content">
             <h2>自由配置画像オーバーレイ（複数対応）</h2>
-            <div style="margin-bottom: 20px;">
-                <button class="primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="addNewFreeImage()">
-                    <i class="material-icons">add_photo_alternate</i> ＋ 新しい画像を追加
+            <div style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;">
+                <button class="primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px;" onclick="addNewFreeImage()">
+                    <i class="material-icons">add_photo_alternate</i> ＋ 新しい画像を追加（空）
                 </button>
+                
+                <div class="card" style="margin: 0; padding: 15px; background: #151515;">
+                    <label style="margin-bottom: 10px;"><i class="material-icons" style="font-size: 16px; vertical-align: middle;">auto_awesome</i> プリセットからクイック追加</label>
+                    <div id="preset-buttons-container" class="btn-group" style="margin: 0;">
+                        <span style="color: var(--text-sub); font-size: 13px;">プリセットを読み込み中...</span>
+                    </div>
+                </div>
             </div>
             
             <div id="free-images-control-container"></div>
@@ -334,6 +341,7 @@
     const db = getDatabase(app);
 
     let allCameras = [];
+    let imagePresets = []; // 読み込んだプリセット情報を保持する配列
     let currentSelectedArea = "すべて";
     let currentSelectedGenre = "すべて";
     let currentCameraSourceId = ""; // 現在のアクティブカメラIDを保持
@@ -410,6 +418,25 @@
             visible: true
         };
         set(ref(db, `broadcast/free_images/${newId}`), initialConfig);
+    };
+
+    // プリセット情報をベースにFirebaseへ新規追加する関数
+    window.addFreeImageFromPreset = (index) => {
+        const preset = imagePresets[index];
+        if (!preset) return;
+        
+        const newId = "img_" + Date.now();
+        const config = {
+            name: preset.name || "プリセット画像",
+            url: preset.url || "",
+            x: preset.x !== undefined ? preset.x : 0,
+            y: preset.y !== undefined ? preset.y : 0,
+            width: preset.width !== undefined ? preset.width : 1920,
+            zIndex: preset.zIndex !== undefined ? preset.zIndex : 1,
+            opacity: preset.opacity !== undefined ? preset.opacity : 1.0,
+            visible: preset.visible !== undefined ? preset.visible : true
+        };
+        set(ref(db, `broadcast/free_images/${newId}`), config);
     };
 
     window.syncRangeImageValue = (id, field, val) => {
@@ -747,7 +774,7 @@
         const container = document.getElementById('preview-player-container');
         if (!container) return;
 
-        // 対象のカメラオブジェクトを検索
+        // 対象 of カメラオブジェクトを検索
         const cam = allCameras.find(c => c.id === cameraId);
         if (!cam) {
             container.innerHTML = `現在、ライブ映像はここに表示されます`;
@@ -785,6 +812,37 @@
                     <div style="font-weight:bold; color:var(--accent-blue); margin-bottom:5px;">📹 ${cam.name} (HLSストリーム)</div>
                     <div style="font-size:12px; color:var(--text-sub); word-break:break-all;">${cam.url}</div>
                 </div>`;
+        }
+    }
+
+    // --- 外部プリセットJSONの読み込みとUI反映 ---
+    async function initPresets() {
+        const container = document.getElementById('preset-buttons-container');
+        if (!container) return;
+
+        try {
+            // GitHub Pages等にアップロードした独自のプリセット用JSONファイルのURLを指定
+            const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/presets.json");
+            imagePresets = await res.json();
+            
+            if (imagePresets.length === 0) {
+                container.innerHTML = `<span style="color: var(--text-sub); font-size: 13px;">登録されているプリセットはありません。</span>`;
+                return;
+            }
+
+            container.innerHTML = ""; // 読み込み中テキストをクリア
+            imagePresets.forEach((preset, index) => {
+                const btn = document.createElement('button');
+                btn.className = "secondary";
+                btn.style.cssText = "padding: 8px 14px; font-size: 13px; font-weight: normal; flex: none;";
+                btn.innerText = preset.name || `プリセット ${index + 1}`;
+                btn.onclick = () => addFreeImageFromPreset(index);
+                container.appendChild(btn);
+            });
+
+        } catch(e) {
+            console.error("Preset Init Error:", e);
+            container.innerHTML = `<span style="color: var(--accent-red); font-size: 13px;">プリセットの読み込みに失敗しました。</span>`;
         }
     }
 
@@ -913,6 +971,7 @@
     }
 
     initCameras();
+    initPresets(); // プリセット読み込み処理の実行
 </script>
 </body>
 </html>
