@@ -1,0 +1,22 @@
+[
+  {
+    "name": "【プリセット】EQLive ロゴ",
+    "url": "https://gensai-lab.github.io/eqlive/assets/logo/logo-ptn1_white.svg",
+    "x": 60,
+    "y": 40,
+    "width": 300,
+    "zIndex": 5,
+    "opacity": 1.0,
+    "visible": true
+  },
+  {
+    "name": "【プリセット】緊急地震速報 見出し枠",
+    "url": "https://gensai-lab.github.io/eqlive/assets/images/eew_frame.png",
+    "x": 0,
+    "y": 0,
+    "width": 1920,
+    "zIndex": 2,
+    "opacity": 0.9,
+    "visible": true
+  }
+]
