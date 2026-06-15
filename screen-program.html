@@ -64,6 +64,7 @@
 
     let hls = null;
     let currentType = "";
+    let currentUrl = ""; // URLの変化も追うための変数
     const container = document.getElementById('media-target');
     const overlay = document.getElementById('program-overlay');
     const titleElement = document.getElementById('target-title');
@@ -90,7 +91,12 @@
         onValue(ref(db, 'broadcast/screen_program'), (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
-            if (data.type !== currentType) updateMedia(data);
+
+            // type、もしくはurlのどちらかが変わったらメディアを更新する
+            if (data.type !== currentType || data.url !== currentUrl) {
+                updateMedia(data);
+            }
+
             titleElement.innerText = data.title || "";
             data.title ? overlay.classList.add('active') : overlay.classList.remove('active');
         });
@@ -98,8 +104,13 @@
 
     async function updateMedia(data) {
         currentType = data.type;
+        currentUrl = data.url || ""; // 現在のURLを保持
+        
         if (hls) { hls.destroy(); hls = null; }
         container.innerHTML = "";
+
+        // URLがないタイプ（screenshareなど）を除き、URLが空なら処理をスキップ
+        if (data.type !== 'screenshare' && !data.url) return;
 
         switch (data.type) {
             case 'screenshare':
@@ -120,7 +131,7 @@
                 container.innerHTML = `<iframe class="content-media" src="https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1" allow="autoplay"></iframe>`;
                 break;
             case 'image':
-                container.innerHTML = `<img src="${data.url}" class="content-media">`;
+                container.innerHTML = `<img src="${data.url}" class="content-media" onerror="console.error('画像の読み込みに失敗しました: ' + this.src)">`;
                 break;
             case 'video':
                 const video = document.createElement('video');
