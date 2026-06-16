@@ -137,6 +137,7 @@
         <button class="nav-item" onclick="switchTab('tsunami')"><i class="material-icons">tsunami</i>⑧津波制御</button>
         <button class="nav-item" onclick="window.open('https://gensai-lab.github.io/eqlive/admin/manuscript.html', '_blank')"><i class="material-icons">description</i>⑨原稿</button>
         <button class="nav-item" onclick="switchTab('free-image')"><i class="material-icons">grid_view</i>⑩自由配置画像</button>
+        <button class="nav-item" onclick="switchTab('auth-config')" style="margin-top: auto; border-top: 1px solid #333; color: #ffb300;"><i class="material-icons">vpn_key</i>🔑 認証設定</button>
     </nav>
 
     <div class="content">
@@ -339,6 +340,19 @@
             <div id="free-images-control-container"></div>
         </div>
 
+        <!-- 認証設定用の新タブ -->
+        <div id="tab-auth-config" class="tab-content">
+            <h2>🔑 EQLive 団体内認証設定</h2>
+            <div class="card">
+                <p style="font-size: 14px; color: var(--text-sub); line-height: 1.6; margin-top: 0;">
+                    Firebaseの書き込み権限を保護するための共通パスワードを設定します。ここに正しいパスワードが保存されていない場合、配信制御がエラーになります。
+                </p>
+                <label>現在の共通パスワード（LocalStorageに保存されます）</label>
+                <input type="password" id="input-global-secret" placeholder="パスワードを入力してください">
+                <button class="primary" style="width: 100%; background: var(--accent-green);" onclick="saveSecretKeyToLocal()">パスワードをブラウザに保存</button>
+            </div>
+        </div>
+
     </div>
 </main>
 
@@ -364,6 +378,69 @@
     let currentSelectedArea = "すべて";
     let currentSelectedGenre = "すべて";
     let currentCameraSourceId = ""; // 現在のアクティブカメラIDを保持
+
+    // --- 共通パスワード認証ロジック ---
+    function getSecretKey() {
+        const savedKey = localStorage.getItem('eqlive_secret_key');
+        if (!savedKey) {
+            // パスワードが未保存の場合はプロンプトを出し、タブを切り替える
+            const input = prompt("【EQLiveセキュリティ】\n団体共通のパスワードを入力してください。");
+            if (input) {
+                localStorage.setItem('eqlive_secret_key', input);
+                document.getElementById('input-global-secret').value = input;
+                return input;
+            } else {
+                alert("パスワードが入力されなかったため、一部の更新操作が弾かれる可能性があります。サイドメニュー最下部の「認証設定」からいつでも入力可能です。");
+                switchTab('auth-config');
+                return "";
+            }
+        }
+        return savedKey;
+    }
+
+    window.saveSecretKeyToLocal = () => {
+        const key = document.getElementById('input-global-secret').value;
+        if(key.trim() === "") {
+            alert("パスワードを入力してください。");
+            return;
+        }
+        localStorage.setItem('eqlive_secret_key', key.trim());
+        alert("パスワードをブラウザに記憶しました。以降の配信操作が保護されます。");
+        switchTab('main');
+    };
+
+    // 起動時にインプット欄へ初期同期
+    document.getElementById('input-global-secret').value = localStorage.getItem('eqlive_secret_key') || "";
+
+    // データ送信の際にシークレットキーを自動マージする補助関数
+    function secureSet(dbRef, dataObject) {
+        const secret = getSecretKey();
+        let finalData = dataObject;
+        if (typeof dataObject === 'object' && dataObject !== null) {
+            if (Array.isArray(dataObject)) {
+                // 配列（ほぼないが念のため）
+                finalData = { ...dataObject, secret_key: secret };
+            } else {
+                finalData = { ...dataObject, secret_key: secret };
+            }
+        } else {
+            // プリミティブ値（文字列や真偽値）が直接渡された場合はオブジェクト化して処理
+            finalData = { value: dataObject, secret_key: secret };
+        }
+        return set(dbRef, finalData).catch(err => {
+            alert("エラー: Firebaseへの保存が拒否されました。\nパスワードが間違っているか、未入力の可能性があります。サイド最下部の「認証設定」を確認してください。");
+            console.error(err);
+        });
+    }
+
+    function secureUpdate(dbRef, dataObject) {
+        const secret = getSecretKey();
+        const finalData = { ...dataObject, secret_key: secret };
+        return update(dbRef, finalData).catch(err => {
+            alert("エラー: Firebaseの更新が拒否されました。\nパスワード設定を確認してください。");
+            console.error(err);
+        });
+    }
 
     // --- UI Logic ---
     window.toggleNav = () => {
@@ -422,7 +499,7 @@
             programData.muted = document.getElementById('input-screen-muted').value === 'true';
         }
 
-        set(ref(db, 'broadcast/screen_program'), programData).then(() => {
+        secureSet(ref(db, 'broadcast/screen_program'), programData).then(() => {
             alert("画面投影設定を反映しました");
         });
     };
@@ -439,32 +516,51 @@
             url: 'https://gensai-lab.github.io/eqlive/assets/image/prepare.png'
         };
 
-        set(ref(db, 'broadcast/screen_program'), programData).then(() => {
+        secureSet(ref(db, 'broadcast/screen_program'), programData).then(() => {
             alert("準備中画面を配信にセットしました");
         });
     };
 
     // --- Firebase Write ---
-    window.updateFB = (path, val) => set(ref(db, `broadcast/${path}`), val);
+    window.updateFB = (path, val) => {
+        if (typeof val === 'object' && val !== null) {
+            secureSet(ref(db, `broadcast/${path}`), val);
+        } else {
+            // パス単発の更新の際もセキュリティキーをマージするためのオブジェクト構築
+            const segments = path.split('/');
+            if(segments.length === 1) {
+                const obj = {};
+                obj[path] = val;
+                secureUpdate(ref(db, 'broadcast'), obj);
+            } else {
+                // 入れ子パスの場合は親ノードに対してupdate
+                const leaf = segments.pop();
+                const parentPath = segments.join('/');
+                const obj = {};
+                obj[leaf] = val;
+                secureUpdate(ref(db, `broadcast/${parentPath}`), obj);
+            }
+        }
+    };
 
     window.saveDist = () => {
         const d = document.getElementById('input-distributor').value;
         const o = document.getElementById('input-operator').value;
         if(d === 'ningen' && !o) return;
-        update(ref(db, 'broadcast/current'), { distributor: d, operator: (d==='bot'?"System":o) });
+        secureUpdate(ref(db, 'broadcast/current'), { distributor: d, operator: (d==='bot'?"System":o) });
     };
 
     window.saveTitle = () => {
-        update(ref(db, 'broadcast/current'), {
+        secureUpdate(ref(db, 'broadcast/current'), {
             mainTitle: document.getElementById('input-mainTitle').value,
             subtitle: document.getElementById('input-subtitle').value
         });
     };
 
-    window.clearTitle = () => update(ref(db, 'broadcast/current'), { mainTitle: "", subtitle: "" });
+    window.clearTitle = () => secureUpdate(ref(db, 'broadcast/current'), { mainTitle: "", subtitle: "" });
 
     window.saveTicker = () => {
-        update(ref(db, 'broadcast/manual_news'), {
+        secureUpdate(ref(db, 'broadcast/manual_news'), {
             genre: document.getElementById('input-tic-g').value,
             line1: document.getElementById('input-tic-1').value,
             line2: document.getElementById('input-tic-2').value
@@ -484,7 +580,7 @@
             opacity: 1.0,
             visible: true
         };
-        set(ref(db, `broadcast/free_images/${newId}`), initialConfig);
+        secureSet(ref(db, `broadcast/free_images/${newId}`), initialConfig);
     };
 
     // プリセット情報をベースにFirebaseへ新規追加する関数
@@ -503,22 +599,32 @@
             opacity: preset.opacity !== undefined ? preset.opacity : 1.0,
             visible: preset.visible !== undefined ? preset.visible : true
         };
-        set(ref(db, `broadcast/free_images/${newId}`), config);
+        secureSet(ref(db, `broadcast/free_images/${newId}`), config);
     };
 
     window.syncRangeImageValue = (id, field, val) => {
         let numVal = parseFloat(val);
         if (isNaN(numVal)) numVal = 1;
-        set(ref(db, `broadcast/free_images/${id}/${field}`), numVal);
+        
+        const obj = {};
+        obj[field] = numVal;
+        secureUpdate(ref(db, `broadcast/free_images/${id}`), obj);
     };
 
     window.updateImageProperty = (id, field, val) => {
-        set(ref(db, `broadcast/free_images/${id}/${field}`), val);
+        const obj = {};
+        obj[field] = val;
+        secureUpdate(ref(db, `broadcast/free_images/${id}`), obj);
     };
 
     window.deleteFreeImage = (id) => {
         if(confirm("この画像を配信レイヤーから完全に削除しますか？")) {
-            remove(ref(db, `broadcast/free_images/${id}`));
+            // 削除の際もセキュリティルールを通過するため、親の階層からキーを付与して削除を実行
+            const secret = getSecretKey();
+            const updates = {};
+            updates[`broadcast/free_images/${id}`] = null;
+            updates[`broadcast/secret_key`] = secret;
+            update(ref(db), updates).catch(err => alert("削除に失敗しました。認証キーを確認してください。"));
         }
     };
 
@@ -527,7 +633,8 @@
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (e) => {
-            set(ref(db, `broadcast/free_images/${id}/url`), e.target.result);
+            const obj = { url: e.target.result };
+            secureUpdate(ref(db, `broadcast/free_images/${id}`), obj);
         };
         reader.readAsDataURL(file);
     };
@@ -544,7 +651,7 @@
 
         Object.keys(imagesData).forEach(id => {
             const conf = imagesData[id];
-            if(!conf) return;
+            if(!conf || id === 'secret_key') return; // 認証キー自体はスキップ
 
             const card = document.createElement('div');
             card.className = "card";
@@ -728,18 +835,16 @@
             };
         });
 
-        set(ref(db, 'broadcast/l_shape'), {
+        secureSet(ref(db, 'broadcast/l_shape'), {
             leftText: document.getElementById('input-l-leftText').value || "",
             topItems: topItemsObj
         }).then(() => {
             alert("L字放送設定をFirebaseに保存しました");
-        }).catch((error) => {
-            alert("保存に失敗しました: " + error.message);
         });
     };
 
     window.triggerTsu = (dir) => {
-        update(ref(db, 'broadcast/tsunami_config/manualTrigger'), { direction: dir, timestamp: Date.now() });
+        secureSet(ref(db, 'broadcast/tsunami_config/manualTrigger'), { direction: dir, timestamp: Date.now() });
     };
 
     // --- Camera Dynamic Multi-Filter Logic ---
@@ -1048,6 +1153,9 @@
 
     initCameras();
     initPresets(); // プリセット読み込み処理の実行
+    
+    // 初回読み込み時のパスワードチェック
+    setTimeout(() => { getSecretKey(); }, 500);
 </script>
 </body>
 </html>
