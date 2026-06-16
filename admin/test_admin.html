@@ -1,1 +1,1053 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-title" content="EQLive Admin">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
+    <title>Kactuif EQLive Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="apple-touch-icon" href="https://gensai-lab.github.io/eqlive/assets/logo/app-icon.png">
+    <style>
+        :root {
+            --bg-color: #0a0a0a; --sidebar-bg: #151515; --card-bg: #1e1e1e;
+            --accent-blue: #005AFF; --accent-red: #d13438; --accent-green: #107c10;
+            --text-main: #ffffff; --text-sub: #aaaaaa;
+            --header-height: 60px; --nav-width: 260px;
+        }
 
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0; font-family: 'BIZ UDPGothic', sans-serif;
+            background: var(--bg-color); color: var(--text-main);
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+        }
+
+        header {
+            height: var(--header-height); background: #000; border-bottom: 1px solid #333;
+            display: flex; align-items: center; justify-content: space-between; padding: 0 15px; 
+            z-index: 2000; flex-shrink: 0;
+        }
+        .menu-toggle { background: none; border: none; color: white; cursor: pointer; display: none; padding: 8px; }
+        .header-logo img { height: 28px; }
+
+        main { display: flex; flex: 1; overflow: hidden; position: relative; }
+        
+        nav {
+            width: var(--nav-width); background: var(--sidebar-bg); border-right: 1px solid #333;
+            display: flex; flex-direction: column; overflow-y: auto; transition: transform 0.3s ease;
+            z-index: 1500;
+        }
+        
+        .nav-item {
+            background: none; border: none; color: var(--text-sub); padding: 14px 20px;
+            text-align: left; font-size: 14px; cursor: pointer; border-left: 4px solid transparent;
+            display: flex; align-items: center; gap: 12px; transition: 0.2s; font-family: inherit;
+        }
+        .nav-item i { font-size: 20px; }
+        .nav-item.active { background: rgba(0, 90, 255, 0.1); color: white; border-left-color: var(--accent-blue); }
+        .nav-item:hover { background: #252525; }
+
+        .content { flex: 1; padding: 25px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .tab-content { display: none; max-width: 1000px; margin: 0 auto; }
+        .tab-content.active { display: block; }
+
+        .card { background: var(--card-bg); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; position: relative; }
+        .card.alert { border-left: 5px solid var(--accent-red); }
+        
+        h2 { font-size: 18px; margin: 0 0 18px 0; display: flex; align-items: center; gap: 10px; color: var(--accent-blue); }
+        label { display: block; color: var(--text-sub); font-size: 12px; margin-bottom: 8px; font-weight: bold; }
+        
+        input, select, textarea {
+            width: 100%; padding: 14px; background: #000; border: 1px solid #444; 
+            color: white; border-radius: 8px; font-size: 16px; margin-bottom: 15px; font-family: inherit;
+        }
+
+        .range-group { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+        .range-group input[type="range"] { margin: 0; flex: 1; }
+        .range-group span { width: 60px; text-align: right; font-size: 14px; color: var(--text-sub); }
+
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        button { font-family: inherit; cursor: pointer; border: none; border-radius: 8px; padding: 14px; font-weight: bold; transition: 0.2s; }
+        button.primary { background: var(--accent-blue); color: white; flex: 1; }
+        button.secondary { background: #333; color: white; flex: 1; }
+        button.danger { background: var(--accent-red); color: white; flex: 1; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .filter-container {
+            padding: 10px; background: #151515; border-bottom: 1px solid #333;
+            display: flex; gap: 8px; overflow-x: auto; white-space: nowrap;
+        }
+        .filter-btn {
+            background: #333; color: #fff; padding: 6px 15px; border-radius: 20px; font-size: 12px; border: 1px solid #444;
+            cursor: pointer; transition: 0.2s;
+        }
+        .filter-btn.active {
+            background: var(--accent-blue); border-color: var(--accent-blue);
+        }
+
+        /* ドラッグ用のスタイル設定 */
+        .draggable-card {
+            cursor: grab;
+            user-select: none;
+        }
+        .draggable-card:active {
+            cursor: grabbing;
+        }
+        .draggable-card.dragging {
+            opacity: 0.5;
+            border: 2px dashed var(--accent-blue);
+        }
+
+        @media (max-width: 900px) {
+            .menu-toggle { display: flex; }
+            nav { 
+                position: absolute; left: 0; top: 0; padding-top: var(--header-height);
+                height: 100%; transform: translateX(-100%); 
+            }
+            nav.open { transform: translateX(0); box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
+            .nav-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1400; }
+            .nav-overlay.active { display: block; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <button class="menu-toggle" onclick="toggleNav()"><i class="material-icons">menu</i></button>
+    <div class="header-logo">
+        <img src="https://gensai-lab.github.io/eqlive/assets/logo/logo-ptn1_white.svg" alt="EQLive Logo">
+    </div>
+    <div style="width:40px;"></div>
+</header>
+
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+
+<main>
+    <nav id="side-nav">
+        <button class="nav-item active" onclick="switchTab('main')"><i class="material-icons">dashboard</i>①メイン画面</button>
+        <button class="nav-item" onclick="switchTab('mode')"><i class="material-icons">person_search</i>②配信モード選択</button>
+        <button class="nav-item" onclick="switchTab('display')"><i class="material-icons">screenshot_monitor</i>③画面表示</button>
+        <button class="nav-item" onclick="switchTab('title')"><i class="material-icons">subtitles</i>④タイトル</button>
+        <button class="nav-item" onclick="switchTab('ticker')"><i class="material-icons">view_carousel</i>⑤Ticker</button>
+        <button class="nav-item" onclick="switchTab('l-shape')"><i class="material-icons">view_quilt</i>⑥L字設定</button>
+        <button class="nav-item" onclick="switchTab('camera')"><i class="material-icons">videocam</i>⑦ライブカメラ</button>
+        <button class="nav-item" onclick="switchTab('tsunami')"><i class="material-icons">tsunami</i>⑧津波制御</button>
+        <button class="nav-item" onclick="window.open('https://gensai-lab.github.io/eqlive/admin/manuscript.html', '_blank')"><i class="material-icons">description</i>⑨原稿</button>
+        <button class="nav-item" onclick="switchTab('free-image')"><i class="material-icons">grid_view</i>⑩自由配置画像</button>
+    </nav>
+
+    <div class="content">
+        <div id="tab-main" class="tab-content active">
+            <h2>ダッシュボード</h2>
+            <div id="status-alert-area"></div>
+            <div class="card">
+                <label>配信ステータス</label>
+                <div style="font-size: 14px; line-height: 1.8;">
+                    <div>配信担当: <span id="stat-dist">--</span></div>
+                    <div>現在のモード: <span id="stat-mode">--</span></div>
+                    <div>カメラソース: <span id="stat-cam">--</span></div>
+                </div>
+            </div>
+            <div class="card">
+                <label>プレビュー（自動埋め込み）</label>
+                <div id="preview-player-container" style="aspect-ratio: 16/9; background:#000; display:flex; align-items:center; justify-content:center; color:#444; border-radius:8px; overflow:hidden; position:relative;">
+                    現在、ライブ映像はここに表示されます
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-mode" class="tab-content">
+            <h2>配信担当選択</h2>
+            <div class="card">
+                <label>配信主体 (distributor)</label>
+                <select id="input-distributor" onchange="toggleNingen()">
+                    <option value="bot">🤖 自動 (Bot)</option>
+                    <option value="ningen">👤 有人 (人間)</option>
+                </select>
+                <div id="ningen-area" style="display:none;">
+                    <label>担当者選択 (必須)</label>
+                    <select id="input-operator">
+                        <option value="">-- 選択してください --</option>
+                        <option value="Kabeya">壁谷 來夢</option>
+                        <option value="Tsuboguchi">坪口 冬真</option>
+                    </select>
+                </div>
+                <button id="btn-save-dist" class="primary" onclick="saveDist()">設定を反映</button>
+            </div>
+        </div>
+
+        <div id="tab-display" class="tab-content">
+            <h2>画面ソース・レイアウト</h2>
+            <div class="card">
+                <label>基本モード (layoutMode)</label>
+                <div class="btn-group">
+                    <button id="btn-lay-live" class="secondary" onclick="updateFB('current/layoutMode','live')">通常放送</button>
+                    <button id="btn-lay-emer" class="secondary" onclick="updateFB('current/layoutMode','emergency')">有事放送</button>
+                </div>
+                
+                <label>L字表示切替 (current_mode)</label>
+                <div class="btn-group">
+                    <button id="btn-m-sub" class="secondary" onclick="updateFB('current_mode','sub-switcher')">L字 OFF</button>
+                    <button id="btn-m-l" class="secondary" onclick="updateFB('current_mode','l-screen')">L字 ON</button>
+                </div>
+                <div id="link-to-l" style="display:none; text-align:right;">
+                    <a href="#" onclick="switchTab('l-shape')" style="color:var(--accent-blue); font-size:12px;">→ L字の詳細設定へ</a>
+                </div>
+            </div>
+
+            <div class="card">
+                <label>メインソース選択 (mainSource)</label>
+                <select id="input-mainSource" onchange="updateFB('current/mainSource', this.value)">
+                    <option value="camera">📹 ライブカメラ</option>
+                    <option value="screen">📺 画面投影</option>
+                </select>
+
+                <div id="screen-options" style="display:none; border-top:1px solid #333; padding-top:15px;">
+                    <label>投影種別 (screen_program/type)</label>
+                    <select id="input-screen-type" onchange="toggleVideoOptions(this.value)">
+                        <option value="screenshare">PC画面共有</option>
+                        <option value="image">画像投影</option>
+                        <option value="video">映像投影</option>
+                        <option value="youtube">YouTube投影</option>
+                        <option value="web">Webサイト投影</option>
+                    </select>
+                    
+                    <div id="video-extra-options" style="display:none; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                        <label>ループ設定</label>
+                        <select id="input-screen-loop" style="margin-bottom: 10px;">
+                            <option value="true">ループ再生する</option>
+                            <option value="false">ループ再生しない</option>
+                        </select>
+                        <label>音量設定</label>
+                        <select id="input-screen-muted" style="margin-bottom: 0;">
+                            <option value="false">音量ON（自動再生対応）</option>
+                            <option value="true">ミュート（消音）</option>
+                        </select>
+                    </div>
+
+                    <label>オーバーレイ・タイトル</label>
+                    <input type="text" id="input-screen-title">
+                    <label>URL (画像/映像/YouTube/Web)</label>
+                    <input type="text" id="input-screen-url" placeholder="https://...">
+                    
+                    <div class="btn-group" style="margin-top: 10px;">
+                        <button class="primary" onclick="saveScreenProgram()"><i class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:5px;">send</i> 設定を反映する</button>
+                        <button class="secondary" style="background:#d13438; color:white;" onclick="setPrepareScreen()"><i class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:5px;">visibility_off</i> 準備中画面</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-title" class="tab-content">
+            <h2>タイトル編集</h2>
+            <div class="card">
+                <label>メインタイトル</label>
+                <input type="text" id="input-mainTitle">
+                <label>サブタイトル</label>
+                <input type="text" id="input-subtitle">
+                <div class="btn-group">
+                    <button class="primary" onclick="saveTitle()">設定反映</button>
+                    <button class="danger" onclick="clearTitle()">タイトルを削除</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-ticker" class="tab-content">
+            <h2>Ticker（最新情報）</h2>
+            <div class="card">
+                <label>ジャンル</label>
+                <input type="text" id="input-tic-g" placeholder="例：地震速報">
+                <label>本文 1行目</label>
+                <input type="text" id="input-tic-1">
+                <label>本文 2行目</label>
+                <input type="text" id="input-tic-2">
+                <button class="primary" style="width:100%" onclick="saveTicker()">Tickerを更新</button>
+            </div>
+        </div>
+
+        <div id="tab-l-shape" class="tab-content">
+            <h2>L字放送・詳細設定</h2>
+            <div class="card">
+                <label>左側縦書きテロップ (leftText)</label>
+                <textarea id="input-l-leftText" style="height:80px;"></textarea>
+            </div>
+            <div id="l-items-container"></div>
+            <button class="secondary" style="width:100%; margin-bottom:10px;" onclick="addLItem()"><i class="material-icons">add</i> カードを追加</button>
+            <button class="primary" style="width:100%;" onclick="saveLShape()">Firebaseに保存反映</button>
+        </div>
+
+        <div id="tab-camera" class="tab-content">
+            <h2>ライブカメラ切替</h2>
+            <div class="filter-container" id="area-filter-container">
+                <button class="filter-btn active" onclick="filterByArea('すべて', this)">すべて</button>
+                <button class="filter-btn" onclick="filterByArea('北海道', this)">北海道</button>
+                <button class="filter-btn" onclick="filterByArea('東北', this)">東北</button>
+                <button class="filter-btn" onclick="filterByArea('関東', this)">関東</button>
+                <button class="filter-btn" onclick="filterByArea('東海', this)">東海</button>
+                <button class="filter-btn" onclick="filterByArea('北陸', this)">北陸</button>
+                <button class="filter-btn" onclick="filterByArea('近畿', this)">近畿</button>
+                <button class="filter-btn" onclick="filterByArea('中国', this)">中国</button>
+                <button class="filter-btn" onclick="filterByArea('四国', this)">四国</button>
+                <button class="filter-btn" onclick="filterByArea('九州', this)">九州</button>
+                <button class="filter-btn" onclick="filterByArea('沖縄', this)">沖縄</button>
+            </div>
+            <div class="filter-container" id="genre-filter-container" style="border-top:none; background:#1c1c1c;">
+                </div>
+            
+            <div class="card" style="padding:0; overflow:hidden;">
+                <div id="cam-list" style="height:500px; overflow-y:auto; background:#000;"></div>
+            </div>
+        </div>
+
+        <div id="tab-tsunami" class="tab-content">
+            <h2>津波リスト制御</h2>
+            <div class="card">
+                <label>ページ送り設定</label>
+                <div class="btn-group">
+                    <button id="btn-tsu-auto" class="secondary" onclick="updateFB('tsunami_config/autoPage', true)">自動送り</button>
+                    <button id="btn-tsu-manual" class="secondary" onclick="updateFB('tsunami_config/autoPage', false)">手動送り</button>
+                </div>
+                
+                <div id="tsu-manual-ctrl" style="margin-top:20px; display:none;">
+                    <label>ページ操作</label>
+                    <div class="btn-group">
+                        <button class="primary" onclick="triggerTsu('prev')"><i class="material-icons">arrow_back</i> 前のページ</button>
+                        <button class="primary" onclick="triggerTsu('next')">次のページ <i class="material-icons">arrow_forward</i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-free-image" class="tab-content">
+            <h2>自由配置画像オーバーレイ（複数対応）</h2>
+            <div style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;">
+                <button class="primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px;" onclick="addNewFreeImage()">
+                    <i class="material-icons">add_photo_alternate</i> ＋ 新しい画像を追加（空）
+                </button>
+                
+                <div class="card" style="margin: 0; padding: 15px; background: #151515;">
+                    <label style="margin-bottom: 10px;"><i class="material-icons" style="font-size: 16px; vertical-align: middle;">auto_awesome</i> プリセットからクイック追加</label>
+                    <div id="preset-buttons-container" class="btn-group" style="margin: 0;">
+                        <span style="color: var(--text-sub); font-size: 13px;">プリセットを読み込み中...</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="free-images-control-container"></div>
+        </div>
+
+    </div>
+</main>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue, update, set, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let allCameras = [];
+    let imagePresets = []; // 読み込んだプリセット情報を保持する配列
+    let currentSelectedArea = "すべて";
+    let currentSelectedGenre = "すべて";
+    let currentCameraSourceId = ""; // 現在のアクティブカメラIDを保持
+
+    // --- UI Logic ---
+    window.toggleNav = () => {
+        document.getElementById('side-nav').classList.toggle('open');
+        document.getElementById('nav-overlay').classList.toggle('active');
+    };
+
+    window.switchTab = (id) => {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(`tab-${id}`).classList.add('active');
+        
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
+            if(item.getAttribute('onclick')?.includes(`'${id}'`)) item.classList.add('active');
+        });
+
+        if(window.innerWidth <= 900) {
+            document.getElementById('side-nav').classList.remove('open');
+            document.getElementById('nav-overlay').classList.remove('active');
+        }
+    };
+
+    window.toggleNingen = () => {
+        const val = document.getElementById('input-distributor').value;
+        const nArea = document.getElementById('ningen-area');
+        const btn = document.getElementById('btn-save-dist');
+        if(!nArea || !btn) return;
+        nArea.style.display = (val === 'ningen') ? 'block' : 'none';
+        btn.disabled = (val === 'ningen' && !document.getElementById('input-operator').value);
+    };
+
+    // 映像投影時のみ詳細オプションを表示する制御
+    window.toggleVideoOptions = (type) => {
+        const vOpts = document.getElementById('video-extra-options');
+        if(vOpts) {
+            vOpts.style.display = (type === 'video') ? 'block' : 'none';
+        }
+    };
+
+    // 画面投影設定を一括反映させる関数
+    window.saveScreenProgram = () => {
+        const type = document.getElementById('input-screen-type').value;
+        const title = document.getElementById('input-screen-title').value;
+        const url = document.getElementById('input-screen-url').value;
+
+        const programData = {
+            type: type,
+            title: title,
+            url: url
+        };
+
+        // 映像投影の場合はループ・ミュート設定もマージする
+        if (type === 'video') {
+            programData.loop = document.getElementById('input-screen-loop').value === 'true';
+            programData.muted = document.getElementById('input-screen-muted').value === 'true';
+        }
+
+        set(ref(db, 'broadcast/screen_program'), programData).then(() => {
+            alert("画面投影設定を反映しました");
+        });
+    };
+
+    // 準備中画面の瞬間セット・即反映
+    window.setPrepareScreen = () => {
+        document.getElementById('input-screen-type').value = 'image';
+        document.getElementById('input-screen-url').value = 'https://gensai-lab.github.io/eqlive/assets/image/prepare.png';
+        toggleVideoOptions('image'); // 映像オプションを隠す
+
+        const programData = {
+            type: 'image',
+            title: document.getElementById('input-screen-title').value || "",
+            url: 'https://gensai-lab.github.io/eqlive/assets/image/prepare.png'
+        };
+
+        set(ref(db, 'broadcast/screen_program'), programData).then(() => {
+            alert("準備中画面を配信にセットしました");
+        });
+    };
+
+    // --- Firebase Write ---
+    window.updateFB = (path, val) => set(ref(db, `broadcast/${path}`), val);
+
+    window.saveDist = () => {
+        const d = document.getElementById('input-distributor').value;
+        const o = document.getElementById('input-operator').value;
+        if(d === 'ningen' && !o) return;
+        update(ref(db, 'broadcast/current'), { distributor: d, operator: (d==='bot'?"System":o) });
+    };
+
+    window.saveTitle = () => {
+        update(ref(db, 'broadcast/current'), {
+            mainTitle: document.getElementById('input-mainTitle').value,
+            subtitle: document.getElementById('input-subtitle').value
+        });
+    };
+
+    window.clearTitle = () => update(ref(db, 'broadcast/current'), { mainTitle: "", subtitle: "" });
+
+    window.saveTicker = () => {
+        update(ref(db, 'broadcast/manual_news'), {
+            genre: document.getElementById('input-tic-g').value,
+            line1: document.getElementById('input-tic-1').value,
+            line2: document.getElementById('input-tic-2').value
+        });
+    };
+
+    // --- 複数自由配置画像管理ロジック ---
+    window.addNewFreeImage = () => {
+        const newId = "img_" + Date.now(); 
+        const initialConfig = {
+            name: "新規配置画像",
+            url: "",
+            x: 0,
+            y: 0,
+            width: 1920, 
+            zIndex: 1, 
+            opacity: 1.0,
+            visible: true
+        };
+        set(ref(db, `broadcast/free_images/${newId}`), initialConfig);
+    };
+
+    // プリセット情報をベースにFirebaseへ新規追加する関数
+    window.addFreeImageFromPreset = (index) => {
+        const preset = imagePresets[index];
+        if (!preset) return;
+        
+        const newId = "img_" + Date.now();
+        const config = {
+            name: preset.name || "プリセット画像",
+            url: preset.url || "",
+            x: preset.x !== undefined ? preset.x : 0,
+            y: preset.y !== undefined ? preset.y : 0,
+            width: preset.width !== undefined ? preset.width : 1920,
+            zIndex: preset.zIndex !== undefined ? preset.zIndex : 1,
+            opacity: preset.opacity !== undefined ? preset.opacity : 1.0,
+            visible: preset.visible !== undefined ? preset.visible : true
+        };
+        set(ref(db, `broadcast/free_images/${newId}`), config);
+    };
+
+    window.syncRangeImageValue = (id, field, val) => {
+        let numVal = parseFloat(val);
+        if (isNaN(numVal)) numVal = 1;
+        set(ref(db, `broadcast/free_images/${id}/${field}`), numVal);
+    };
+
+    window.updateImageProperty = (id, field, val) => {
+        set(ref(db, `broadcast/free_images/${id}/${field}`), val);
+    };
+
+    window.deleteFreeImage = (id) => {
+        if(confirm("この画像を配信レイヤーから完全に削除しますか？")) {
+            remove(ref(db, `broadcast/free_images/${id}`));
+        }
+    };
+
+    window.handleImageFileSelect = (id, event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            set(ref(db, `broadcast/free_images/${id}/url`), e.target.result);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    function renderFreeImagesControls(imagesData) {
+        const container = document.getElementById('free-images-control-container');
+        if (!container) return;
+        container.innerHTML = "";
+
+        if (!imagesData || Object.keys(imagesData).length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-sub); font-size:14px;">配置されている画像はありません。「新しい画像を追加」から作成してください。</div>`;
+            return;
+        }
+
+        Object.keys(imagesData).forEach(id => {
+            const conf = imagesData[id];
+            if(!conf) return;
+
+            const card = document.createElement('div');
+            card.className = "card";
+            card.style.background = "#222";
+            card.style.borderLeft = conf.visible ? "5px solid var(--accent-blue)" : "5px solid #555";
+
+            const currentZIndex = conf.zIndex !== undefined ? conf.zIndex : 1;
+
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:10px;">
+                    <input type="text" value="${conf.name || '名称未設定'}" 
+                           style="margin:0; width:60%; padding:6px 10px; font-size:14px; background:#000;" 
+                           onchange="updateImageProperty('${id}', 'name', this.value)">
+                    <div class="btn-group" style="margin:0;">
+                        <button class="${conf.visible ? 'primary' : 'secondary'}" style="padding:6px 12px; font-size:12px;" 
+                                onclick="updateImageProperty('${id}', 'visible', ${!conf.visible})">
+                            ${conf.visible ? '表示中' : '非表示'}
+                        </button>
+                        <button class="danger" style="padding:6px 12px; font-size:12px;" onclick="deleteFreeImage('${id}')">
+                            <i class="material-icons" style="font-size:14px; vertical-align:middle;">delete</i>
+                        </button>
+                    </div>
+                </div>
+
+                <label>画像直リンクURL</label>
+                <input type="text" id="url-${id}" value="${conf.url && !conf.url.startsWith('data:') ? conf.url : ''}" 
+                       placeholder="https://... (または下からファイルをアップロード)" 
+                       onchange="updateImageProperty('${id}', 'url', this.value)">
+                
+                <label>ローカル画像ファイルをアップロード</label>
+                <input type="file" accept="image/*" style="padding:6px; font-size:12px;" onchange="handleImageFileSelect('${id}', event)">
+
+                <div style="margin-top:15px;">
+                    <label>X座標 (左からの距離: px) <span style="float:right; color:var(--text-sub);" id="val-${id}-x">${conf.x || 0}px</span></label>
+                    <div class="range-group">
+                        <input type="range" min="0" max="1920" value="${conf.x || 0}" 
+                               id="range-${id}-x" oninput="document.getElementById('val-${id}-x').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'x', this.value)">
+                    </div>
+
+                    <label>Y座標 (上からの距離: px) <span style="float:right; color:var(--text-sub);" id="val-${id}-y">${conf.y || 0}px</span></label>
+                    <div class="range-group">
+                        <input type="range" min="0" max="1080" value="${conf.y || 0}" 
+                               id="range-${id}-y" oninput="document.getElementById('val-${id}-y').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'y', this.value)">
+                    </div>
+
+                    <label>画像横幅尺寸 (width: px) <span style="float:right; color:var(--text-sub);" id="val-${id}-w">${conf.width !== undefined ? conf.width : 1920}px</span></label>
+                    <div class="range-group">
+                        <input type="range" min="50" max="1920" value="${conf.width !== undefined ? conf.width : 1920}" 
+                               id="range-${id}-w" oninput="document.getElementById('val-${id}-w').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'width', this.value)">
+                    </div>
+
+                    <label>レイヤー順序 (重ね順: z-index 1〜10)</label>
+                    <div class="range-group">
+                        <input type="range" min="1" max="10" value="${currentZIndex}" 
+                               id="range-${id}-z" oninput="document.getElementById('num-${id}-z').value = this.value; syncRangeImageValue('${id}', 'zIndex', this.value)">
+                        <input type="number" min="1" max="999" value="${currentZIndex}" id="num-${id}-z"
+                               style="width: 65px; padding: 6px; font-size: 14px; margin: 0; text-align: center; background: #000; border: 1px solid #444; border-radius: 6px;"
+                               onchange="document.getElementById('range-${id}-z').value = this.value; syncRangeImageValue('${id}', 'zIndex', this.value)">
+                    </div>
+
+                    <label>不透明度 (opacity) <span style="float:right; color:var(--text-sub);" id="val-${id}-o">${conf.opacity !== undefined ? conf.opacity : 1.0}</span></label>
+                    <div class="range-group">
+                        <input type="range" min="0" max="1" step="0.1" value="${conf.opacity !== undefined ? conf.opacity : 1.0}" 
+                               id="range-${id}-o" oninput="document.getElementById('val-${id}-o').innerText = this.value; syncRangeImageValue('${id}', 'opacity', this.value)">
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    // --- L-Shape Logic ---
+    let localLItems = [];
+    
+    window.addLItem = () => { 
+        localLItems.push({genre:"", text:""}); 
+        renderLItems(); 
+    };
+    
+    window.removeLItem = (i) => { 
+        localLItems.splice(i,1); 
+        renderLItems(); 
+    };
+
+    window.updateLItem = (i, field, val) => {
+        localLItems[i][field] = val;
+    };
+
+    function setupDragAndDrop() {
+        const container = document.getElementById('l-items-container');
+        const cards = container.querySelectorAll('.draggable-card');
+        
+        cards.forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                card.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', card.dataset.index);
+            });
+
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+                reorderLocalLItems();
+            });
+
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const draggingCard = container.querySelector('.dragging');
+                const afterElement = getDragAfterElement(container, e.clientY);
+                if (afterElement == null) {
+                    container.appendChild(draggingCard);
+                } else {
+                    container.insertBefore(draggingCard, afterElement);
+                }
+            });
+        });
+    }
+
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.draggable-card:not(.dragging)')];
+
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function reorderLocalLItems() {
+        const container = document.getElementById('l-items-container');
+        const cards = [...container.querySelectorAll('.draggable-card')];
+        const newOrderedList = [];
+        
+        cards.forEach(card => {
+            const oldIndex = parseInt(card.dataset.index);
+            newOrderedList.push(localLItems[oldIndex]);
+        });
+        
+        localLItems = newOrderedList;
+        renderLItems(); 
+    }
+
+    function renderLItems() {
+        const container = document.getElementById('l-items-container');
+        if(!container) return;
+        container.innerHTML = "";
+        localLItems.forEach((item, i) => {
+            const div = document.createElement('div');
+            div.className = "card draggable-card";
+            div.draggable = true; 
+            div.dataset.index = i;
+            div.style.background = "#252525";
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue); display:flex; align-items:center; gap:5px;">
+                        <i class="material-icons" style="font-size:16px; cursor:move;">drag_indicator</i> カード #${i} (つまんで移動可)
+                    </div>
+                    <div class="btn-group" style="margin:0;">
+                        <button class="danger" style="padding:5px 10px;" onclick="removeLItem(${i})"><i class="material-icons" style="font-size:14px;">delete</i></button>
+                    </div>
+                </div>
+                <label>ジャンル</label>
+                <input type="text" value="${item.genre || ''}" oninput="updateLItem(${i}, 'genre', this.value)">
+                <label>内容</label>
+                <input type="text" value="${item.text || ''}" oninput="updateLItem(${i}, 'text', this.value)">
+            `;
+            container.appendChild(div);
+        });
+
+        setupDragAndDrop();
+    }
+
+    window.saveLShape = () => {
+        const topItemsObj = {};
+        localLItems.forEach((item, index) => {
+            topItemsObj[index] = { 
+                genre: item.genre || "", 
+                text: item.text || "" 
+            };
+        });
+
+        set(ref(db, 'broadcast/l_shape'), {
+            leftText: document.getElementById('input-l-leftText').value || "",
+            topItems: topItemsObj
+        }).then(() => {
+            alert("L字放送設定をFirebaseに保存しました");
+        }).catch((error) => {
+            alert("保存に失敗しました: " + error.message);
+        });
+    };
+
+    window.triggerTsu = (dir) => {
+        update(ref(db, 'broadcast/tsunami_config/manualTrigger'), { direction: dir, timestamp: Date.now() });
+    };
+
+    // --- Camera Dynamic Multi-Filter Logic ---
+    function buildGenreFilterButtons(cams) {
+        const container = document.getElementById('genre-filter-container');
+        if (!container) return;
+        
+        const genres = new Set();
+        cams.forEach(c => {
+            if (c.genre && c.genre.trim() !== "") {
+                genres.add(c.genre.trim());
+            }
+        });
+
+        container.innerHTML = `<button class="filter-btn active" id="genre-btn-all" onclick="filterByGenre('すべて', this)">全ジャンル</button>`;
+
+        genres.forEach(genreName => {
+            const btn = document.createElement('button');
+            btn.className = "filter-btn";
+            let icon = "📷 ";
+            if(genreName === "海") icon = "🌊 ";
+            else if(genreName === "河川") icon = "🏞️ ";
+            else if(genreName === "道路") icon = "🛣️ ";
+            else if(genreName === "都市") icon = "🏙️ ";
+
+            btn.innerText = `${icon}${genreName}`;
+            btn.onclick = () => filterByGenre(genreName, btn);
+            container.appendChild(btn);
+        });
+    }
+
+    window.filterByArea = (area, btn) => {
+        const container = document.getElementById('area-filter-container');
+        container.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        currentSelectedArea = area;
+        applyCombinedFilter();
+    };
+
+    window.filterByGenre = (genre, btn) => {
+        const container = document.getElementById('genre-filter-container');
+        container.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        currentSelectedGenre = genre;
+        applyCombinedFilter();
+    };
+
+    function applyCombinedFilter() {
+        let filtered = allCameras;
+
+        if (currentSelectedArea !== 'すべて') {
+            filtered = filtered.filter(c => c.area === currentSelectedArea);
+        }
+
+        if (currentSelectedGenre !== 'すべて') {
+            filtered = filtered.filter(c => c.genre === currentSelectedGenre);
+        }
+
+        renderCameraList(filtered);
+    }
+
+    function renderCameraList(cams) {
+        const list = document.getElementById('cam-list');
+        if(!list) return;
+        list.innerHTML = "";
+        
+        if(cams.length === 0) {
+            list.innerHTML = `<div style="text-align:center; padding:40px; color:#555; font-size:14px;">該当するカメラがありません</div>`;
+            return;
+        }
+
+        cams.forEach(c => {
+            const d = document.createElement('div');
+            d.style.cssText = "padding:18px; border-bottom:1px solid #222; cursor:pointer;";
+            
+            const genreTag = c.genre ? c.genre : '未分類';
+            
+            d.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <div style="font-weight:bold;">${c.name}</div>
+                        <small style="color:#777;">ID: ${c.id}</small>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <span style="font-size:10px; background:#1A365D; color:#90CDF4; padding:2px 8px; border-radius:4px;">${genreTag}</span>
+                        <span style="font-size:10px; background:#333; padding:2px 8px; border-radius:4px;">${c.area || '未設定'}</span>
+                    </div>
+                </div>
+            `;
+            d.onclick = () => updateFB('current/cameraSource', c.id);
+            list.appendChild(d);
+        });
+    }
+
+    // --- プレビュープレイヤー更新処理（YouTube対応） ---
+    function updatePreviewPlayer(cameraId) {
+        const container = document.getElementById('preview-player-container');
+        if (!container) return;
+
+        // 対象 of カメラオブジェクトを検索
+        const cam = allCameras.find(c => c.id === cameraId);
+        if (!cam) {
+            container.innerHTML = `現在、ライブ映像はここに表示されます`;
+            return;
+        }
+
+        // typeがyoutubeの場合
+        if (cam.type === 'youtube') {
+            // URLから埋め込み用のアドレスを補正して構築
+            let embedUrl = cam.url;
+            
+            // 通常のURL（watch?v=...）で登録された場合の簡易判定・置換
+            if (embedUrl.includes('watch?v=')) {
+                const vid = embedUrl.split('watch?v=')[1].split('&')[0];
+                embedUrl = `https://www.youtube.com/embed/${vid}`;
+            } else if (embedUrl.includes('youtu.be/')) {
+                const vid = embedUrl.split('youtu.be/')[1].split('?')[0];
+                embedUrl = `https://www.youtube.com/embed/${vid}`;
+            }
+
+            // 指定オプションをクエリパラメータとして結合 (?autoplay=1&mute=1&controls=0&rel=0)
+            const queryParams = "autoplay=1&mute=1&controls=0&rel=0";
+            const finalUrl = embedUrl.includes('?') ? `${embedUrl}&${queryParams}` : `${embedUrl}?${queryParams}`;
+
+            container.innerHTML = `
+                <iframe src="${finalUrl}" 
+                        style="width:100%; height:100%; border:none; position:absolute; top:0; left:0;" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                        allowfullscreen>
+                </iframe>`;
+        } else {
+            // 通常のHLSストリーミングや静止画などの場合は、現状通りモックテキスト（または既存のプレイヤー処理）
+            container.innerHTML = `
+                <div style="text-align:center; padding:20px;">
+                    <div style="font-weight:bold; color:var(--accent-blue); margin-bottom:5px;">📹 ${cam.name} (HLSストリーム)</div>
+                    <div style="font-size:12px; color:var(--text-sub); word-break:break-all;">${cam.url}</div>
+                </div>`;
+        }
+    }
+
+    // --- 外部プリセットJSONの読み込みとUI反映 ---
+    async function initPresets() {
+        const container = document.getElementById('preset-buttons-container');
+        if (!container) return;
+
+        try {
+            // GitHub Pages等にアップロードした独自のプリセット用JSONファイルのURLを指定
+            const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/presets.json");
+            imagePresets = await res.json();
+            
+            if (imagePresets.length === 0) {
+                container.innerHTML = `<span style="color: var(--text-sub); font-size: 13px;">登録されているプリセットはありません。</span>`;
+                return;
+            }
+
+            container.innerHTML = ""; // 読み込み中テキストをクリア
+            imagePresets.forEach((preset, index) => {
+                const btn = document.createElement('button');
+                btn.className = "secondary";
+                btn.style.cssText = "padding: 8px 14px; font-size: 13px; font-weight: normal; flex: none;";
+                btn.innerText = preset.name || `プリセット ${index + 1}`;
+                btn.onclick = () => addFreeImageFromPreset(index);
+                container.appendChild(btn);
+            });
+
+        } catch(e) {
+            console.error("Preset Init Error:", e);
+            container.innerHTML = `<span style="color: var(--accent-red); font-size: 13px;">プリセットの読み込みに失敗しました。</span>`;
+        }
+    }
+
+    async function initCameras() {
+        try {
+            const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json");
+            allCameras = await res.json();
+            
+            buildGenreFilterButtons(allCameras);
+            applyCombinedFilter();
+
+            // Firebaseから読み込み済みだった場合はここでプレイヤーを更新
+            if (currentCameraSourceId) {
+                updatePreviewPlayer(currentCameraSourceId);
+            }
+        } catch(e) {
+            console.error("Camera Init Error:", e);
+        }
+    }
+
+    // --- Data Sync ---
+    let isInitialLoad = true;
+
+    onValue(ref(db, 'broadcast'), (snapshot) => {
+        const data = snapshot.val();
+        if(!data) return;
+
+        const cur = data.current || {};
+        const tsu = data.tsunami_config || {};
+        
+        const freeImagesData = data.free_images || {};
+        const activeEl = document.activeElement;
+        const isEditingFreeImage = activeEl && (activeEl.id.startsWith('range-') || activeEl.id.startsWith('num-') || activeEl.id.startsWith('url-') || activeEl.type === 'file');
+        if(!isEditingFreeImage){
+            renderFreeImagesControls(freeImagesData);
+        }
+
+        const statDist = document.getElementById('stat-dist');
+        const statMode = document.getElementById('stat-mode');
+        const statCam = document.getElementById('stat-cam');
+        if(statDist) statDist.innerText = `${cur.distributor === 'bot' ? '🤖 自動 (Bot)' : '👤 有人'} (${cur.operator || '--'})`;
+        if(statMode) statMode.innerText = cur.layoutMode === 'emergency' ? '🚨 有事放送' : '🏠 通常放送';
+        if(statCam) statCam.innerText = cur.cameraSource || '--';
+
+        // カメラソースIDに変更があれば、ダッシュボードのプレイヤープレビューを更新
+        if (cur.cameraSource && cur.cameraSource !== currentCameraSourceId) {
+            currentCameraSourceId = cur.cameraSource;
+            if (allCameras.length > 0) {
+                updatePreviewPlayer(currentCameraSourceId);
+            }
+        }
+
+        const alertArea = document.getElementById('status-alert-area');
+        if(alertArea) alertArea.innerHTML = data.current_mode === 'l-screen' ? '<div class="card alert"><i class="material-icons" style="vertical-align:bottom; color:var(--accent-red)">warning</i> L字放送が実行中です</div>' : '';
+
+        const syncSelect = (id, val) => { 
+            const el = document.getElementById(id);
+            if(el && document.activeElement.id !== id) el.value = val || ""; 
+        };
+        syncSelect('input-distributor', cur.distributor);
+        syncSelect('input-operator', cur.operator === "System" ? "" : cur.operator);
+        toggleNingen();
+
+        const setBtn = (id, cond) => { 
+            const el = document.getElementById(id);
+            if(el) el.className = cond ? "primary" : "secondary"; 
+        };
+        setBtn('btn-lay-live', cur.layoutMode === 'live');
+        setBtn('btn-lay-emer', cur.layoutMode === 'emergency');
+        setBtn('btn-m-sub', data.current_mode === 'sub-switcher');
+        setBtn('btn-m-l', data.current_mode === 'l-screen');
+        
+        const linkToL = document.getElementById('link-to-l');
+        if(linkToL) linkToL.style.display = data.current_mode === 'l-screen' ? 'block' : 'none';
+
+        syncSelect('input-mainSource', cur.mainSource);
+        const screenOpts = document.getElementById('screen-options');
+        if(screenOpts) screenOpts.style.display = cur.mainSource === 'screen' ? 'block' : 'none';
+        
+        // 入力フォーカスが外れている時のみ、Firebaseの最新状態をインプット欄へ同期
+        if(data.screen_program) {
+            syncSelect('input-screen-type', data.screen_program.type);
+            toggleVideoOptions(data.screen_program.type);
+            
+            const syncInputOrValue = (id, val) => {
+                const el = document.getElementById(id);
+                if(el && document.activeElement.id !== id) el.value = String(val !== undefined ? val : "");
+            };
+            syncInputOrValue('input-screen-title', data.screen_program.title);
+            syncInputOrValue('input-screen-url', data.screen_program.url);
+            syncSelect('input-screen-loop', data.screen_program.loop !== undefined ? String(data.screen_program.loop) : 'true');
+            syncSelect('input-screen-muted', data.screen_program.muted !== undefined ? String(data.screen_program.muted) : 'false');
+        }
+
+        const syncInput = (id, val) => { 
+            const el = document.getElementById(id);
+            if(el && document.activeElement.id !== id) el.value = val || ""; 
+        };
+        syncInput('input-mainTitle', cur.mainTitle);
+        syncInput('input-subtitle', cur.subtitle);
+        if(data.manual_news) {
+            syncInput('input-tic-g', data.manual_news.genre);
+            syncInput('input-tic-1', data.manual_news.line1);
+            syncInput('input-tic-2', data.manual_news.line2);
+        }
+
+        const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container') || containerIsDragging());
+        if(data.l_shape && !isEditingL) {
+            syncInput('input-l-leftText', data.l_shape.leftText);
+            const items = data.l_shape.topItems;
+            if(items) {
+                const keys = Object.keys(items).sort((a,b) => parseInt(a) - parseInt(b));
+                const newItems = keys.map(key => ({
+                    genre: items[key].genre || "",
+                    text: items[key].text || ""
+                }));
+                if(isInitialLoad || localLItems.length !== newItems.length) {
+                    localLItems = newItems;
+                    renderLItems();
+                }
+            }
+        }
+        
+        setBtn('btn-tsu-auto', tsu.autoPage === true);
+        setBtn('btn-tsu-manual', tsu.autoPage === false);
+        const tsuCtrl = document.getElementById('tsu-manual-ctrl');
+        if(tsuCtrl) tsuCtrl.style.display = tsu.autoPage === false ? 'block' : 'none';
+
+        isInitialLoad = false;
+    });
+
+    function containerIsDragging() {
+        const container = document.getElementById('l-items-container');
+        return container ? container.querySelectorAll('.dragging').length > 0 : false;
+    }
+
+    initCameras();
+    initPresets(); // プリセット読み込み処理の実行
+</script>
+</body>
+</html>
