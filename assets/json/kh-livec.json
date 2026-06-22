@@ -192,6 +192,14 @@
         "url":  "https://www.youtube.com/embed/_8cZwk5WikY"
     },
     {
+        "id":  "tokyo_suginami",
+        "name":  "群馬",
+        "area":  "関東",
+        "genre":  "道",
+        "type":  "youtube",
+        "url":  "https://www.youtube.com/embed/D1w7umb0ZqI"
+    },
+    {
         "id":  "tsurugisaki_lt",
         "name":  "神奈川 三浦市",
         "area":  "関東",
