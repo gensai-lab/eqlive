@@ -552,6 +552,14 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/toimisaki_lt-live.m3u8"
     },
     {
+        "id":  "omarugawa",
+        "name":  "宮崎 高鍋町",
+        "area":  "九州",
+        "genre":  "河川",
+        "type":  "youtube",
+        "url":  "https://www.youtube.com/embed/0Imi1eyElV8"
+    },
+    {
         "id":  "satamisaki_lt",
         "name":  "鹿児島 大隈町",
         "area":  "九州",
