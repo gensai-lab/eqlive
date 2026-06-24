@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>リアルタイム雨雲レーダー</title>
+    <style>
+        body { margin: 0; padding: 0; font-family: sans-serif; }
+        .radar-container { width: 100%; max-width: 800px; margin: 0 auto; padding: 20px; }
+        iframe { width: 100%; height: 600px; border: none; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+<div class="radar-container">
+    <h2>リアルタイム雨雲レーダー</h2>
+    <iframe src="https://www.jma.go.jp/bosai/nowc/#zoom:5/lat:35.460670/lon:137.614746/colordisplay:1" allow="geolocation"></iframe>
+    <p>出典：気象庁ホームページ（高解像度降水ナウキャスト）</p>
+</div>
+
+</body>
+</html>
