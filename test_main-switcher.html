@@ -86,9 +86,9 @@
             top: 40px;
             left: 50%;
             transform: translateX(-50%) translateY(-20px);
-            width: 900px; /* パディング・マージン拡張を考慮し余裕を確保 */
+            width: 1000px; /* 多色座布団のパディングや右詰めマージンを考慮 */
             min-height: 140px;
-            z-index: 15; /* 最前面配置 */
+            z-index: 15;
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
@@ -99,18 +99,11 @@
             font-weight: bold;
             color: #ffffff;
             text-align: left;
-            
-            /* 行間の調整（上下10pxずつのパディング領域を考慮） */
             line-height: 1.7;
-            
-            /* 文字間隔を3% (0.03em) に設定 */
             letter-spacing: 0.03em;
-            
-            /* プロポーショナルメトリクス詰め */
             font-feature-settings: "palt" 1;
         }
 
-        /* 管理画面から入る各行ブロックの初期化 */
         #text-super-container p, 
         #text-super-container div {
             margin: 0;
@@ -119,7 +112,7 @@
             white-space: nowrap;
         }
 
-        /* 【10重影】文字および子要素全体に 0 0 10px の影を10回重ね掛け */
+        /* 【10重影】すべての文字スーパーエレメントの視認性を劇的に高める多重ぼかし影 */
         #text-super-container,
         #text-super-container * {
             text-shadow: 
@@ -135,22 +128,18 @@
                 0 0 10px rgba(0, 0, 0, 1.0);
         }
 
-        /* 通常・背景色付き共通spanのスタイル調整 */
         #text-super-container span {
             display: inline-block;
             border-radius: 0px;
             line-height: 1.1;
         }
 
-        /* 【新設】背景色（座布団）が設定されているspan要素限定の特殊スタイル */
+        /* 座布団（背景色あり）全カラー共通共通設定 */
         #text-super-container span.has-bg-super {
-            /* パディング：縦10px、横15px */
-            padding: 10px 15px;
+            padding: 10px 15px; /* 縦10px 横15px 固定 */
+            margin-right: -15px; /* 右側マージンを-15pxして綺麗に整列 */
             
-            /* 【ご要望】右マージンを-15pxして詰める調整 */
-            margin-right: -15px;
-            
-            /* 座布団のボックス自体にも10重のドロップシャドウを適用 */
+            /* ボックス自体の影も10重にして超重厚にする */
             box-shadow: 
                 0 0 10px rgba(0, 0, 0, 1.0),
                 0 0 10px rgba(0, 0, 0, 1.0),
@@ -162,6 +151,18 @@
                 0 0 10px rgba(0, 0, 0, 1.0),
                 0 0 10px rgba(0, 0, 0, 1.0),
                 0 0 10px rgba(0, 0, 0, 1.0);
+        }
+
+        /* 各種カラーの割り当て定義 */
+        #text-super-container span.bg-red { background-color: #d13438 !important; color: #ffffff !important; }
+        #text-super-container span.bg-blue { background-color: #005AFF !important; color: #ffffff !important; }
+        #text-super-container span.bg-yellow { background-color: #fce100 !important; color: #000000 !important; } /* 黄色の場合は文字影を突き抜けて読みやすい黒文字 */
+        #text-super-container span.bg-gray { background-color: #555555 !important; color: #ffffff !important; }
+        #text-super-container span.bg-black { background-color: #000000 !important; color: #ffffff !important; }
+
+        /* 黄色座布団の場合のみ、見やすさのためテキストシャドウをクリア */
+        #text-super-container span.bg-yellow {
+            text-shadow: none !important;
         }
 
         #text-super-container.is-active {
@@ -233,7 +234,6 @@
     const textSuperContainer = document.getElementById('text-super-container');
     let currentLayout = "";
 
-    // 速報音再生用のオーディオ設定と表示フラグ
     const newsSound = new Audio('assets/news.wav');
     let isSuperActive = false;
 
@@ -273,28 +273,22 @@
         }
     });
 
-    // --- ⑪ 手動文字スーパーリアルタイム同期反映 (1行・2行分離＆10重影・右マージン最適化版) ---
+    // --- 手動文字スーパー同期（マルチカラー＆マージン同期処理） ---
     onValue(ref(db, 'broadcast/text_super'), (snapshot) => {
         const data = snapshot.val();
         if (data && data.visible && data.htmlContent) {
             
-            // 非表示から表示に切り替わった瞬間に音声を再生
             if (!isSuperActive) {
                 newsSound.currentTime = 0;
                 newsSound.play().catch(err => console.log("Audio play blocked by browser:", err));
                 isSuperActive = true;
             }
 
-            // HTMLを流し込む
             textSuperContainer.innerHTML = data.htmlContent;
 
-            // クラスの割り振りと、背景色のない素の文字のパディング初期化
+            // クラス有無の精査と、座布団なしspanのパディングの初期化
             textSuperContainer.querySelectorAll('span').forEach(span => {
-                if (span.style.backgroundColor && span.style.backgroundColor !== 'transparent') {
-                    // 背景色付き（座布団）にはスタイル制御用クラスを付与
-                    span.classList.add('has-bg-super');
-                } else {
-                    // 背景色がない場合は、余計な余白・箱影をリセット
+                if (!span.classList.contains('has-bg-super')) {
                     span.style.padding = '0';
                     span.style.margin = '0';
                     span.style.boxShadow = 'none';
