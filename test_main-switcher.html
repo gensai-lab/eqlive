@@ -87,7 +87,7 @@
             left: 50%;
             transform: translateX(-50%) translateY(-20px);
             width: 780px;
-            height: 130px;
+            height: 140px;
             z-index: 15; /* 他のテロップより最前面に配置 */
             pointer-events: none;
             opacity: 0;
@@ -109,7 +109,7 @@
             text-align: left;
             
             /* 1行目と2行目の独立したボックス間の隙間 */
-            gap: 12px;
+            gap: 16px;
             
             /* 文字間隔を3% (0.03em) に設定 */
             letter-spacing: 0.03em;
@@ -118,30 +118,33 @@
             font-feature-settings: "palt" 1;
         }
 
-        /* 1つの行、1つの行として生成される各行ボックスの個別スタイル */
+        /* 1つの行として生成される各行ボックスの個別スタイル */
         .super-line-row {
             display: block;
             white-space: nowrap;
             line-height: 1.0;
         }
 
-        /* 行内のテキスト全体および装飾スパンに適用する文字枠線設定 */
-        .super-line-row, .super-line-row span {
-            /* 文字の外側丸縁取りを一律 15px に設定 */
+        /* 【改善】背景色の有無に関わらず、すべての文字に一律で15pxの黒縁取りを回り込ませる設定 */
+        .super-line-row, 
+        .super-line-row span {
             -webkit-text-stroke: 15px #000000;
             paint-order: stroke fill;
             stroke-linejoin: round;
         }
 
-        /* 背景色が設定された個別スパン（座布団部分）の調整 */
+        /* 【改善】背景色が設定された個別スパン（座布団部分）が縁取りを隠さないようにinline化・最適化 */
         .super-line-row span {
-            display: inline-block;
+            display: inline;
             /* パディング：上下1px、左右11px */
             padding: 1px 11px;
             /* 角丸：0px */
             border-radius: 0px;
-            /* 行の縦幅が壊れるのを防ぐ */
             line-height: 1.0;
+            
+            /* 改行や折り返し時のボックスの装飾破綻を防ぐ */
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
         }
 
         /* 重ね掛けで中の文字色が表示破綻するのを防ぐリセット処理 */
@@ -259,7 +262,7 @@
         }
     });
 
-    // --- ⑪ 手動文字スーパーリアルタイム同期反映 (あらゆる改行パターン・部分背景維持・速報音対応) ---
+    // --- ⑪ 手動文字スーパーリアルタイム同期反映 (改行ロジックの完全標準化・個別縁取り両立版) ---
     onValue(ref(db, 'broadcast/text_super'), (snapshot) => {
         const data = snapshot.val();
         if (data && data.visible && data.htmlContent) {
@@ -271,41 +274,37 @@
                 isSuperActive = true;
             }
 
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = data.htmlContent;
+            // 【改善】送られてきたHTMLから改行・段落要素を安全に抽出し、確実に個別行（最大2行）へマッピングする処理
+            const parserDiv = document.createElement('div');
+            parserDiv.innerHTML = data.htmlContent;
 
-            // 1. 管理画面から送られてくるHTML内のブロック要素（pやdiv）を走査して改行の切れ目を標準化する
-            const blocks = tempDiv.querySelectorAll('p, div');
-            let htmlLines = [];
+            // まずHTML内部の<p>や<div>、<br>タグ等の様々な改行スタイルを統一された改行プレイスホルダーへ置換
+            let processedHtml = data.htmlContent
+                .replace(/<\/p><p>/gi, '<br>')
+                .replace(/<\/div><div>/gi, '<br>')
+                .replace(/<p[^>]*>/gi, '')
+                .replace(/<\/p>/gi, '')
+                .replace(/<div[^>]*>/gi, '')
+                .replace(/<\/div>/gi, '');
 
-            if (blocks.length > 0) {
-                // pタグやdivタグで構築されている場合
-                blocks.forEach(block => {
-                    const blockHtml = block.innerHTML.trim();
-                    if (blockHtml) {
-                        // ブロック内に入り込んでいるさらに細かいbrタグ等があればさらに分割して格納
-                        const subLines = blockHtml.split(/<br\s*\/?>/gi);
-                        subLines.forEach(sl => {
-                            if (sl.trim() !== "") htmlLines.push(sl.trim());
-                        });
-                    }
-                });
-            } else {
-                // 純粋な通常のbrタグのみ、あるいはプレーンテキスト改行の場合
-                htmlLines = tempDiv.innerHTML.split(/<br\s*\/?>/gi);
-            }
+            const finalTemp = document.createElement('div');
+            finalTemp.innerHTML = processedHtml;
+
+            // 置換した<br>タグで配列化
+            const rawLines = finalTemp.innerHTML.split(/<br\s*\/?>/gi);
             
-            // コンテナを初期化して、安全な配列から最大2行を描画
+            // コンテナを初期化
             textSuperContainer.innerHTML = "";
 
-            htmlLines.forEach(lineHtml => {
+            // 組み立て処理
+            rawLines.forEach(lineHtml => {
                 const trimmedHtml = lineHtml.trim();
                 if (trimmedHtml !== "") {
                     const rowDiv = document.createElement('div');
                     rowDiv.className = 'super-line-row';
                     rowDiv.innerHTML = trimmedHtml;
 
-                    // 行内の要素（spanなど）を走査してパディングやスタイルの最適化
+                    // 背景色付きスパン、あるいは背景色がない通常スパンのスタイルを最適化調整
                     rowDiv.querySelectorAll('span').forEach(span => {
                         if (!span.style.backgroundColor || span.style.backgroundColor === 'transparent') {
                             span.style.padding = '0';
