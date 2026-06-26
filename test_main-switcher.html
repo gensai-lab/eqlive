@@ -111,7 +111,7 @@
             /* 1行目と2行目の独立したボックス間の隙間 */
             gap: 12px;
             
-            /* 【修正】文字間隔を3% (0.03em) に設定 */
+            /* 文字間隔を3% (0.03em) に設定 */
             letter-spacing: 0.03em;
             
             /* プロポーショナルメトリクス詰め */
@@ -119,30 +119,33 @@
         }
 
         /* 1つの行、1つの行として生成される各行ボックスの個別スタイル */
-        .super-line-box {
-            display: inline-block;
+        .super-line-row {
+            display: block;
             white-space: nowrap;
-            
-            /* パディング：上下1px、左右11px */
-            padding: 1px 11px;
-            
-            /* 角丸：0px */
-            border-radius: 0px;
-            
-            /* 1行ごとの高さを維持 */
             line-height: 1.0;
-            
+        }
+
+        /* 行内のテキスト全体および装飾スパンに適用する文字枠線設定 */
+        .super-line-row, .super-line-row span {
             /* 文字の外側丸縁取りを一律 15px に設定 */
             -webkit-text-stroke: 15px #000000;
             paint-order: stroke fill;
             stroke-linejoin: round;
-            
-            /* ボックス枠線はなし */
-            box-shadow: none;
         }
 
-        /* 管理画面等から元々適用されている可能性のある内包要素の文字破綻リセット */
-        .super-line-box * {
+        /* 背景色が設定された個別スパン（座布団部分）の調整 */
+        .super-line-row span {
+            display: inline-block;
+            /* パディング：上下1px、左右11px */
+            padding: 1px 11px;
+            /* 角丸：0px */
+            border-radius: 0px;
+            /* 行の縦幅が壊れるのを防ぐ */
+            line-height: 1.0;
+        }
+
+        /* 重ね掛けで中の文字色が表示破綻するのを防ぐリセット処理 */
+        .super-line-row *, .super-line-row span * {
             -webkit-text-stroke: 0px transparent !important;
             font-feature-settings: "palt" 1;
         }
@@ -216,6 +219,10 @@
     const textSuperContainer = document.getElementById('text-super-container');
     let currentLayout = "";
 
+    // 速報音再生用のオーディオ設定と表示フラグ
+    const newsSound = new Audio('assets/news.wav');
+    let isSuperActive = false;
+
     // --- レイアウト切り替え (Firebase) ---
     onValue(ref(db, 'broadcast/current/layoutMode'), (snapshot) => {
         const mode = snapshot.val() || 'live'; 
@@ -252,44 +259,51 @@
         }
     });
 
-    // --- ⑪ 手動文字スーパーリアルタイム同期反映 ---
+    // --- ⑪ 手動文字スーパーリアルタイム同期反映 (部分背景色維持・速報音再生対応) ---
     onValue(ref(db, 'broadcast/text_super'), (snapshot) => {
         const data = snapshot.val();
         if (data && data.visible && data.htmlContent) {
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = data.htmlContent.replace(/<br\s*\/?>/gi, '\n');
             
-            const rawLines = tempDiv.innerText.split('\n');
-            const lines = rawLines.map(l => l.trim()).filter(l => l !== "");
+            // 【新設】非表示から表示に切り替わった瞬間に音声を再生
+            if (!isSuperActive) {
+                newsSound.currentTime = 0; // 再生位置を先頭に戻す
+                newsSound.play().catch(err => console.log("Audio play blocked by browser:", err));
+                isSuperActive = true;
+            }
 
+            // HTML内の構造や個別背景色の指定を壊さずに安全に行分割を処理するロジック
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = data.htmlContent;
+
+            // <br>タグを基準としてHTMLコンテンツ自体を配列に分割
+            const htmlLines = tempDiv.innerHTML.split(/<br\s*\/?>/gi);
+            
             textSuperContainer.innerHTML = "";
 
-            lines.forEach(lineText => {
-                if (lineText) {
-                    const lineSpan = document.createElement('span');
-                    lineSpan.className = 'super-line-box';
-                    
-                    const originSpan = tempDiv.querySelector('span');
-                    if (originSpan && originSpan.style.backgroundColor) {
-                        // 管理画面側で背景色が明示的に指定されている場合のみ適用
-                        lineSpan.style.backgroundColor = originSpan.style.backgroundColor;
-                    } else {
-                        // 【修正】背景色の指定がない場合は透明（背景なし）にする
-                        lineSpan.style.backgroundColor = "transparent";
-                    }
+            htmlLines.forEach(lineHtml => {
+                const trimmedHtml = lineHtml.trim();
+                if (trimmedHtml !== "") {
+                    const rowDiv = document.createElement('div');
+                    rowDiv.className = 'super-line-row';
+                    rowDiv.innerHTML = trimmedHtml;
 
-                    if (originSpan && originSpan.style.color) {
-                        lineSpan.style.color = originSpan.style.color;
-                    }
+                    // 行内の要素（spanなど）を走査してパディングやスタイルの最適化
+                    rowDiv.querySelectorAll('span').forEach(span => {
+                        // 背景色がないものはインラインとしてそのまま扱い、背景があるものだけ左右パディング等を適用
+                        if (!span.style.backgroundColor || span.style.backgroundColor === 'transparent') {
+                            span.style.padding = '0';
+                            span.style.borderRadius = '0';
+                        }
+                    });
 
-                    lineSpan.textContent = lineText;
-                    textSuperContainer.appendChild(lineSpan);
+                    textSuperContainer.appendChild(rowDiv);
                 }
             });
 
             textSuperContainer.classList.add('is-active');
         } else {
             textSuperContainer.classList.remove('is-active');
+            isSuperActive = false; // フラグをリセット
         }
     });
 
