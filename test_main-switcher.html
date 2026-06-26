@@ -259,25 +259,43 @@
         }
     });
 
-    // --- ⑪ 手動文字スーパーリアルタイム同期反映 (部分背景色維持・速報音再生対応) ---
+    // --- ⑪ 手動文字スーパーリアルタイム同期反映 (あらゆる改行パターン・部分背景維持・速報音対応) ---
     onValue(ref(db, 'broadcast/text_super'), (snapshot) => {
         const data = snapshot.val();
         if (data && data.visible && data.htmlContent) {
             
-            // 【新設】非表示から表示に切り替わった瞬間に音声を再生
+            // 非表示から表示に切り替わった瞬間に音声を再生
             if (!isSuperActive) {
-                newsSound.currentTime = 0; // 再生位置を先頭に戻す
+                newsSound.currentTime = 0;
                 newsSound.play().catch(err => console.log("Audio play blocked by browser:", err));
                 isSuperActive = true;
             }
 
-            // HTML内の構造や個別背景色の指定を壊さずに安全に行分割を処理するロジック
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = data.htmlContent;
 
-            // <br>タグを基準としてHTMLコンテンツ自体を配列に分割
-            const htmlLines = tempDiv.innerHTML.split(/<br\s*\/?>/gi);
+            // 1. 管理画面から送られてくるHTML内のブロック要素（pやdiv）を走査して改行の切れ目を標準化する
+            const blocks = tempDiv.querySelectorAll('p, div');
+            let htmlLines = [];
+
+            if (blocks.length > 0) {
+                // pタグやdivタグで構築されている場合
+                blocks.forEach(block => {
+                    const blockHtml = block.innerHTML.trim();
+                    if (blockHtml) {
+                        // ブロック内に入り込んでいるさらに細かいbrタグ等があればさらに分割して格納
+                        const subLines = blockHtml.split(/<br\s*\/?>/gi);
+                        subLines.forEach(sl => {
+                            if (sl.trim() !== "") htmlLines.push(sl.trim());
+                        });
+                    }
+                });
+            } else {
+                // 純粋な通常のbrタグのみ、あるいはプレーンテキスト改行の場合
+                htmlLines = tempDiv.innerHTML.split(/<br\s*\/?>/gi);
+            }
             
+            // コンテナを初期化して、安全な配列から最大2行を描画
             textSuperContainer.innerHTML = "";
 
             htmlLines.forEach(lineHtml => {
@@ -289,7 +307,6 @@
 
                     // 行内の要素（spanなど）を走査してパディングやスタイルの最適化
                     rowDiv.querySelectorAll('span').forEach(span => {
-                        // 背景色がないものはインラインとしてそのまま扱い、背景があるものだけ左右パディング等を適用
                         if (!span.style.backgroundColor || span.style.backgroundColor === 'transparent') {
                             span.style.padding = '0';
                             span.style.borderRadius = '0';
@@ -303,7 +320,7 @@
             textSuperContainer.classList.add('is-active');
         } else {
             textSuperContainer.classList.remove('is-active');
-            isSuperActive = false; // フラグをリセット
+            isSuperActive = false;
         }
     });
 
