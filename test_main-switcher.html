@@ -80,26 +80,18 @@
             transform: translateY(20px);
         }
 
-        /* === ⑪ 新設：手動文字スーパー表示用ボックススタイル === */
+        /* === ⑪ 改良：手動文字スーパー表示用ボックススタイル === */
         #text-super-container {
             position: absolute;
             top: 40px;
             left: 50%;
             transform: translateX(-50%) translateY(-20px);
             width: 780px;
-            height: 140px;
-            z-index: 15; /* 他のテロップより最前面に配置 */
+            height: 150px;
+            z-index: 15; /* 最前面 */
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
-            
-            /* テキストレイアウト設定（縦並び・上揃え・左詰め） */
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start; /* 左揃え */
-            justify-content: flex-start; /* 上揃え */
-            padding: 10px 20px 0 20px;
-            box-sizing: border-box;
             
             /* 文字の基本プロパティ */
             font-family: 'FOT-UDKakugoLarge', sans-serif;
@@ -107,38 +99,38 @@
             font-weight: bold;
             color: #ffffff;
             text-align: left;
-            
-            /* 1行目と2行目の独立したボックス間の隙間 */
-            gap: 16px;
+            line-height: 1.4;
             
             /* 文字間隔を3% (0.03em) に設定 */
             letter-spacing: 0.03em;
             
             /* プロポーショナルメトリクス詰め */
             font-feature-settings: "palt" 1;
-
-            /* 【解決案】背景色ボックス（座布団）があっても絶対に隠れない強力な15px黒縁取りフィルター */
-            filter: drop-shadow(15px 0px 0px #000000) 
-                    drop-shadow(-15px 0px 0px #000000) 
-                    drop-shadow(0px 15px 0px #000000) 
-                    drop-shadow(0px -15px 0px #000000);
         }
 
-        /* 1つの行として構成される各行ボックスの個別スタイル */
-        .super-line-row {
-            display: block;
-            white-space: nowrap;
-            line-height: 1.0;
+        /* 【新設】文字が絶対に潰れない15px相当の均一な黒フチを背面レイヤーとして構築 */
+        #text-super-container::before {
+            content: attr(data-text);
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: -1;
+            color: #000000;
+            /* 15px相当の全方位影掛け */
+            text-shadow: 
+                -7px -7px 0 #000000,  7px -7px 0 #000000, -7px  7px 0 #000000,  7px  7px 0 #000000,
+                -15px    0 0 #000000, 15px    0 0 #000000,    0 -15px 0 #000000,    0  15px 0 #000000,
+                -11px -11px 0 #000000, 11px -11px 0 #000000, -11px 11px 0 #000000, 11px 11px 0 #000000;
+            pointer-events: none;
+            white-space: pre-wrap;
         }
 
-        /* 背景色が設定された個別スパン（座布団部分）の調整 */
-        .super-line-row span {
-            display: inline-block;
-            /* パディング：上下1px、左右11px */
-            padding: 1px 11px;
-            /* 角丸：0px */
+        /* 管理画面側から部分適用されるスパン（座布団など）のスタイル整合性を確保 */
+        #text-super-container span {
+            display: inline;
+            padding: 2px 11px;
             border-radius: 0px;
-            line-height: 1.0;
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
         }
 
         #text-super-container.is-active {
@@ -250,7 +242,7 @@
         }
     });
 
-    // --- ⑪ 手動文字スーパーリアルタイム同期反映 (DOM解析・改行分離・フィルター縁取り完全対応版) ---
+    // --- ⑪ 手動文字スーパーリアルタイム同期反映 (完全安全表示版) ---
     onValue(ref(db, 'broadcast/text_super'), (snapshot) => {
         const data = snapshot.val();
         if (data && data.visible && data.htmlContent) {
@@ -262,59 +254,14 @@
                 isSuperActive = true;
             }
 
-            // 安全なHTML解析用の一時コンテナを作成
-            const parserDiv = document.createElement('div');
-            parserDiv.innerHTML = data.htmlContent;
+            // HTMLの改行タグ構造をそのまま維持して挿入（これで100%管理画面通りの改行が再現される）
+            textSuperContainer.innerHTML = data.htmlContent;
 
-            // 各行のHTML文字列を格納する配列
-            let finalLinesHtml = [];
-
-            // 1. まず内部に明示的なブロック要素（pタグ、divタグ）があるか確認
-            const blockElements = parserDiv.querySelectorAll('p, div');
-
-            if (blockElements.length > 0) {
-                // ブロック要素単位でループ処理し、各行を独立して抽出
-                blockElements.forEach(el => {
-                    const innerHtml = el.innerHTML.trim();
-                    if (innerHtml) {
-                        // ブロックの中にさらに<br>が含まれているケースも考慮してスプリット
-                        const subParts = innerHtml.split(/<br\s*\/?>/gi);
-                        subParts.forEach(part => {
-                            if (part.trim() !== "") {
-                                finalLinesHtml.push(part.trim());
-                            }
-                        });
-                    }
-                });
-            } else {
-                // pやdivがない、純粋な<br>のみまたはフラットな構造の場合
-                const subParts = parserDiv.innerHTML.split(/<br\s*\/?>/gi);
-                subParts.forEach(part => {
-                    if (part.trim() !== "") {
-                        finalLinesHtml.push(part.trim());
-                    }
-                });
-            }
-
-            // メインコンテナの中身をクリア
-            textSuperContainer.innerHTML = "";
-
-            // 抽出された最大2行のデータを個別の行としてHTML生成
-            finalLinesHtml.forEach(lineHtml => {
-                const rowDiv = document.createElement('div');
-                rowDiv.className = 'super-line-row';
-                rowDiv.innerHTML = lineHtml;
-
-                // 行内の一部の文字（span）に背景色が当たっている・いない場合の個別パディング最適化
-                rowDiv.querySelectorAll('span').forEach(span => {
-                    if (!span.style.backgroundColor || span.style.backgroundColor === 'transparent') {
-                        span.style.padding = '0';
-                        span.style.borderRadius = '0';
-                    }
-                });
-
-                textSuperContainer.appendChild(rowDiv);
-            });
+            // 背面の黒フチ用疑似要素（::before）に読ませるためのプレーンテキストをセット
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = data.htmlContent;
+            const plainText = tempDiv.innerText;
+            textSuperContainer.setAttribute('data-text', plainText);
 
             textSuperContainer.classList.add('is-active');
         } else {
