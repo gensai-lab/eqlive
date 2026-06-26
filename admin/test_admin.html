@@ -58,24 +58,19 @@
         .card.alert { border-left: 5px solid var(--accent-red); }
         
         h2 { font-size: 18px; margin: 0 0 18px 0; display: flex; align-items: center; gap: 10px; color: var(--accent-blue); }
-        label { display: block; color: var(--text-sub); font-size: 12.5px; margin-bottom: 6px; font-weight: bold; letter-spacing: 0.5px; }
+        label { display: block; color: var(--text-sub); font-size: 12px; margin-bottom: 8px; font-weight: bold; }
         
         input, select, textarea {
-            width: 100%; padding: 12px; background: #000; border: 1px solid #444; 
-            color: white; border-radius: 8px; font-size: 15px; margin-bottom: 16px; font-family: inherit;
-            line-height: 1.5; transition: border-color 0.2s;
+            width: 100%; padding: 14px; background: #000; border: 1px solid #444; 
+            color: white; border-radius: 8px; font-size: 16px; margin-bottom: 15px; font-family: inherit;
         }
-        input:focus, select:focus, textarea:focus { border-color: var(--accent-blue); outline: none; }
-
-        /* レスポンシブ用グリッドレイアウト */
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
 
         .range-group { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
         .range-group input[type="range"] { margin: 0; flex: 1; }
         .range-group span { width: 60px; text-align: right; font-size: 14px; color: var(--text-sub); }
 
         .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-        button { font-family: inherit; cursor: pointer; border: none; border-radius: 8px; padding: 14px; font-weight: bold; transition: 0.2s; font-size: 14px; }
+        button { font-family: inherit; cursor: pointer; border: none; border-radius: 8px; padding: 14px; font-weight: bold; transition: 0.2s; }
         button.primary { background: var(--accent-blue); color: white; flex: 1; }
         button.secondary { background: #333; color: white; flex: 1; }
         button.danger { background: var(--accent-red); color: white; flex: 1; }
@@ -99,11 +94,9 @@
 
         /* 文字装飾用パレット */
         .decoration-badge {
-            display: inline-block; padding: 6px 12px; border-radius: 4px; font-size: 12.5px; 
-            font-weight: bold; cursor: pointer; margin-right: 6px; margin-bottom: 6px; border: 1px solid #444;
-            transition: opacity 0.2s;
+            display: inline-block; padding: 5px 10px; border-radius: 4px; font-size: 12px; 
+            font-weight: bold; cursor: pointer; margin-right: 5px; margin-bottom: 5px; border: 1px solid #444;
         }
-        .decoration-badge:hover { opacity: 0.8; }
 
         @media (max-width: 900px) {
             .menu-toggle { display: flex; }
@@ -114,7 +107,6 @@
             nav.open { transform: translateX(0); box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
             .nav-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1400; }
             .nav-overlay.active { display: block; }
-            .form-grid { grid-template-columns: 1fr; gap: 0; }
         }
     </style>
 </head>
@@ -195,7 +187,7 @@
                     <button id="btn-lay-emer" class="secondary" onclick="updateFB('current/layoutMode','emergency')">有事放送</button>
                 </div>
                 
-                <label style="margin-top: 10px;">L字表示切替 (current_mode)</label>
+                <label>L字表示切替 (current_mode)</label>
                 <div class="btn-group">
                     <button id="btn-m-sub" class="secondary" onclick="updateFB('current_mode','sub-switcher')">L字 OFF</button>
                     <button id="btn-m-l" class="secondary" onclick="updateFB('current_mode','l-screen')">L字 ON</button>
@@ -251,17 +243,11 @@
         <div id="tab-title" class="tab-content">
             <h2>タイトル編集</h2>
             <div class="card">
-                <div class="form-grid">
-                    <div>
-                        <label>メインタイトル</label>
-                        <input type="text" id="input-mainTitle" placeholder="メインタイトルを入力">
-                    </div>
-                    <div>
-                        <label>サブタイトル</label>
-                        <input type="text" id="input-subtitle" placeholder="サブタイトルを入力">
-                    </div>
-                </div>
-                <div class="btn-group" style="margin-top: 5px;">
+                <label>メインタイトル</label>
+                <input type="text" id="input-mainTitle">
+                <label>サブタイトル</label>
+                <input type="text" id="input-subtitle">
+                <div class="btn-group">
                     <button class="primary" onclick="saveTitle()">設定反映</button>
                     <button class="danger" onclick="clearTitle()">タイトルを削除</button>
                 </div>
@@ -274,9 +260,9 @@
                 <label>ジャンル</label>
                 <input type="text" id="input-tic-g" placeholder="例：地震速報">
                 <label>本文 1行目</label>
-                <input type="text" id="input-tic-1" placeholder="1行目の内容を入力（短め推奨）">
+                <input type="text" id="input-tic-1">
                 <label>本文 2行目</label>
-                <input type="text" id="input-tic-2" placeholder="2行目の内容を入力">
+                <input type="text" id="input-tic-2">
                 <button class="primary" style="width:100%" onclick="saveTicker()">Tickerを更新</button>
             </div>
         </div>
@@ -285,7 +271,7 @@
             <h2>L字放送・詳細設定</h2>
             <div class="card">
                 <label>左側縦書きテロップ (leftText)</label>
-                <textarea id="input-l-leftText" style="height:180px; font-size:16px;" placeholder="ここに記述したテキストが左側に縦書きでスクロールまたは固定表示されます。"></textarea>
+                <textarea id="input-l-leftText" style="height:80px;"></textarea>
             </div>
             <div id="l-items-container"></div>
             <button class="secondary" style="width:100%; margin-bottom:10px;" onclick="addLItem()"><i class="material-icons">add</i> カードを追加</button>
@@ -361,7 +347,7 @@
                 </div>
 
                 <label>テロップ内容（テキスト / HTML対応）</label>
-                <textarea id="input-super-content" style="height: 180px; font-family: monospace; font-size: 16px;" placeholder="例：津波警報 発表中。ただちに避難を！" oninput="previewSuperText()"></textarea>
+                <textarea id="input-super-content" style="height: 120px; font-family: monospace; font-size: 16px;" placeholder="例：津波警報 発表中。ただちに避難を！" oninput="previewSuperText()"></textarea>
 
                 <label>カラータグクイック挿入パレット (選択中の文字、または末尾に挿入されます)</label>
                 <div style="background: #111; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
@@ -721,16 +707,10 @@
                     <div style="font-size:12px; color:var(--accent-blue);">カード #${i}</div>
                     <button class="danger" style="padding:5px 10px;" onclick="removeLItem(${i})"><i class="material-icons" style="font-size:14px;">delete</i></button>
                 </div>
-                <div class="form-grid">
-                    <div>
-                        <label>ジャンル</label>
-                        <input type="text" value="${item.genre || ''}" oninput="updateLItem(${i}, 'genre', this.value)">
-                    </div>
-                    <div>
-                        <label>内容</label>
-                        <input type="text" value="${item.text || ''}" oninput="updateLItem(${i}, 'text', this.value)">
-                    </div>
-                </div>
+                <label>ジャンル</label>
+                <input type="text" value="${item.genre || ''}" oninput="updateLItem(${i}, 'genre', this.value)">
+                <label>内容</label>
+                <input type="text" value="${item.text || ''}" oninput="updateLItem(${i}, 'text', this.value)">
             `;
             container.appendChild(div);
         });
