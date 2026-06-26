@@ -192,6 +192,14 @@
         "url":  "https://www.youtube.com/embed/_8cZwk5WikY"
     },
     {
+        "id":  "tokyo_kita",
+        "name":  "東京 北区",
+        "area":  "関東",
+        "genre":  "河川",
+        "type":  "youtube",
+        "url":  "https://www.youtube.com/embed/wsfTTC7UA0M"
+    },
+    {
         "id":  "gunma",
         "name":  "群馬",
         "area":  "関東",
@@ -542,6 +550,14 @@
         "genre":  "海",
         "type":  "hls",
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/kanmon_martis-live.m3u8"
+    },
+    {
+        "id":  "yamakunigawa",
+        "name":  "山国川",
+        "area":  "九州",
+        "genre":  "河川",
+        "type":  "youtube",
+        "url":  "https://www.youtube.com/embed/5fnWD2cEVQU"
     },
     {
         "id":  "toimisaki_lt",
