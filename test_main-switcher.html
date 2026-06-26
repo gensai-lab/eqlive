@@ -1,1 +1,276 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>EQLive Sub-Switcher</title>
+    <style>
+        @font-face {
+            font-family: 'FOT-UDKakugoLarge';
+            src: url('assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
+            font-weight: bold;
+            font-style: normal;
+        }
 
+        body, html {
+            margin: 0; padding: 0;
+            width: 1920px; height: 1080px;
+            background-color: black;
+            overflow: hidden;
+        }
+
+        /* 背面のメインコンテンツエリア */
+        #bg-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px; height: 1080px;
+            z-index: 1;
+        }
+
+        /* === ウォーターマーク配置用レイヤー === */
+        #watermark-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px; height: 1080px;
+            z-index: 5; 
+            pointer-events: none;
+        }
+        #watermark-layer img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* === 自由配置画像用レイヤー === */
+        #free-image-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px; height: 1080px;
+            z-index: 8; 
+            pointer-events: none;
+        }
+        .custom-free-image {
+            position: absolute;
+            object-fit: contain;
+            pointer-events: none;
+        }
+
+        /* 前面の共通パーツ（オーバーレイ） */
+        .overlay-part {
+            position: absolute;
+            z-index: 10;
+            pointer-events: none;
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+        }
+
+        /* 各パーツの配置 */
+        .top-left { top: 6px; left: 20px; width: 700px; height: 150px; }
+        .top-right { top: 40px; right: 40px; width: 600px; height: 145px; }
+        .bottom-left { bottom: 40px; left: 40px; width: 1250px; height: 185px; }
+
+        /* 右下: 津波地図 */
+        .bottom-right { 
+            bottom: 60px; 
+            right: 40px; 
+            width: 600px; 
+            height: 350px; 
+            background-color: rgba(0, 0, 0, 0.9);
+            border-radius: 8px;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        /* === ⑪ 新設：手動文字スーパー表示用ボックススタイル === */
+        #text-super-container {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            width: 780px;
+            height: 110px;
+            z-index: 15; /* 他のテロップより最前面に配置 */
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+            
+            /* テキストレイアウト設定 */
+            display: flex;
+            align-items: center;
+            justify-content: flex-start; /* 左揃え */
+            padding: 0 20px;
+            box-sizing: border-box;
+            
+            /* 文字の基本プロパティ */
+            font-family: 'FOT-UDKakugoLarge', sans-serif;
+            font-size: 42px;
+            font-weight: bold;
+            color: #ffffff;
+            text-align: left;
+            white-space: pre-wrap;
+            overflow: hidden;
+            
+            /* プロポーショナルメトリクス詰め */
+            font-feature-settings: "palt" 1;
+            
+            /* 文字の外側丸縁取り 6px 設定 */
+            -webkit-text-stroke: 6px #000000;
+            paint-order: stroke fill;
+            stroke-linejoin: round;
+        }
+
+        /* 重ね掛けで中の文字色や背景色の表示破綻を防ぐリセット処理 */
+        #text-super-container * {
+            -webkit-text-stroke: 0px transparent !important;
+            font-feature-settings: "palt" 1;
+        }
+
+        /* 縁取りの影響で消える色付き装飾パーツ用に補正クラスを用意 */
+        #text-super-container span {
+            -webkit-text-stroke: 0px transparent;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+            line-height: 1.1;
+        }
+
+        #text-super-container.is-active {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .is-active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        iframe {
+            width: 100%; height: 100%;
+            border: none; display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="bg-layer">
+        <iframe id="switcher-iframe" src="main-screen.html"></iframe>
+    </div>
+
+    <div id="watermark-layer">
+        <img src="assets/cover/watermark.png" alt="Watermark">
+    </div>
+
+    <div id="free-image-layer"></div>
+
+    <div class="overlay-part top-left">
+        <iframe src="parts/time.html"></iframe>
+    </div>
+
+    <div class="overlay-part top-right">
+        <iframe src="parts/tsunami-yobikake.html"></iframe>
+    </div>
+
+    <div class="overlay-part bottom-left">
+        <iframe src="parts/title.html"></iframe>
+    </div>
+
+    <div id="tsunami-map-container" class="overlay-part bottom-right">
+        <iframe src="parts/tsunami-map.html"></iframe>
+    </div>
+
+    <div id="text-super-container"></div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // Firebase初期化
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const switcherIframe = document.getElementById('switcher-iframe');
+    const tsunamiContainer = document.getElementById('tsunami-map-container');
+    const imageLayer = document.getElementById('free-image-layer');
+    const textSuperContainer = document.getElementById('text-super-container');
+    let currentLayout = "";
+
+    // --- レイアウト切り替え (Firebase) ---
+    onValue(ref(db, 'broadcast/current/layoutMode'), (snapshot) => {
+        const mode = snapshot.val() || 'live'; 
+        let target = (mode === 'emergency') ? 'emergency.html' : 'main-screen.html';
+
+        if (currentLayout !== target) {
+            switcherIframe.src = target;
+            currentLayout = target;
+            console.log("Layout switched to:", target);
+        }
+    });
+
+    // --- 自由配置画像リストの同期反映 ---
+    const freeImagesRef = ref(db, 'broadcast/free_images');
+    onValue(freeImagesRef, (snapshot) => {
+        const imagesData = snapshot.val();
+        imageLayer.innerHTML = ""; 
+        if (imagesData) {
+            Object.keys(imagesData).forEach(id => {
+                const imgConf = imagesData[id];
+                if (imgConf && imgConf.visible && imgConf.url) {
+                    const img = document.createElement('img');
+                    img.id = `sub-img-node-${id}`;
+                    img.className = 'custom-free-image';
+                    img.src = imgConf.url;
+                    img.style.left = `${imgConf.x !== undefined ? imgConf.x : 0}px`;
+                    img.style.top = `${imgConf.y !== undefined ? imgConf.y : 0}px`;
+                    img.style.width = `${imgConf.width !== undefined ? imgConf.width : 300}px`;
+                    img.style.height = `${imgConf.height !== undefined ? imgConf.height : 'auto'}`;
+                    img.style.opacity = (imgConf.opacity !== undefined) ? imgConf.opacity : 1;
+                    imageLayer.appendChild(img);
+                }
+            });
+        }
+    });
+
+    // --- ⑪ 手動文字スーパーリアルタイム同期反映 ---
+    onValue(ref(db, 'broadcast/text_super'), (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.visible && data.htmlContent) {
+            textSuperContainer.innerHTML = data.htmlContent;
+            textSuperContainer.classList.add('is-active');
+        } else {
+            textSuperContainer.classList.remove('is-active');
+        }
+    });
+
+    // --- 津波情報監視 ---
+    async function checkTsunamiStatus() {
+        try {
+            const response = await fetch("https://api.p2pquake.net/v2/history?codes=552&limit=1");
+            const history = await response.json();
+            
+            if (history && history.length > 0) {
+                const latest = history[0];
+                if (latest.cancelled === false) {
+                    tsunamiContainer.classList.add('is-active');
+                } else {
+                    tsunamiContainer.classList.remove('is-active');
+                }
+            }
+        } catch (e) {
+            console.error("Tsunami status check failed:", e);
+        }
+    }
+
+    checkTsunamiStatus();
+    setInterval(checkTsunamiStatus, 10000);
+
+</script>
+</body>
+</html>
