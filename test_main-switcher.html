@@ -86,9 +86,9 @@
             top: 40px;
             left: 50%;
             transform: translateX(-50%) translateY(-20px);
-            width: 820px; /* パディング拡張に伴い幅を微調整 */
+            width: 820px;
             min-height: 140px;
-            z-index: 15; /* 他のテロップより最前面に配置 */
+            z-index: 15; /* 最前面配置 */
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
@@ -100,7 +100,7 @@
             color: #ffffff;
             text-align: left;
             
-            /* 行間の調整（座布団の縦パディングを考慮） */
+            /* 行間の調整（上下10pxずつのパディング領域を考慮） */
             line-height: 1.6;
             
             /* 文字間隔を3% (0.03em) に設定 */
@@ -110,7 +110,6 @@
             font-feature-settings: "palt" 1;
         }
 
-        /* 管理画面側のブロック要素（p、div、br）に対して適切な行送りとマージンを設定 */
         #text-super-container p, 
         #text-super-container div {
             margin: 0;
@@ -118,20 +117,28 @@
             min-height: 42px;
         }
 
-        /* 文字自体の濃い影（右下方向） */
+        /* 【新設】文字部分に対して 0px 0px 10px の黒い影を10個重ね掛け */
         #text-super-container,
         #text-super-container * {
-            text-shadow: 6px 6px 0px rgba(0, 0, 0, 1.0);
+            text-shadow: 
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0);
         }
 
         /* 背景色が設定された個別スパン（座布団部分）の調整 */
         #text-super-container span {
-            /* インライン要素として維持し、複数行に跨ってもデザインが破綻しないようにする */
             display: inline;
             
-            /* パディング：縦10px、横15px */
+            /* パディング指定：縦10px、横15px */
             padding: 10px 15px;
-            /* 角丸：0px */
             border-radius: 0px;
             
             /* 改行時のボックス装飾（パディングなど）の独立再現設定 */
@@ -139,9 +146,19 @@
             box-decoration-break: clone;
         }
 
-        /* 背景色が設定されているspanのみに「濃い影（右下方向）」を適用 */
+        /* 【新設】背景色が設定されている座布団spanに対してのみ 0px 0px 10px の影を10個重ね掛け */
         #text-super-container span[style*="background-color"] {
-            box-shadow: 6px 6px 0px rgba(0, 0, 0, 1.0);
+            box-shadow: 
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0),
+                0 0 10px rgba(0, 0, 0, 1.0);
         }
 
         #text-super-container.is-active {
@@ -253,7 +270,7 @@
         }
     });
 
-    // --- ⑪ 手動文字スーパーリアルタイム同期反映 (影掛け・デザイン崩れ完全修正版) ---
+    // --- ⑪ 手動文字スーパーリアルタイム同期反映 (10重シャドウ完全対応版) ---
     onValue(ref(db, 'broadcast/text_super'), (snapshot) => {
         const data = snapshot.val();
         if (data && data.visible && data.htmlContent) {
@@ -265,10 +282,10 @@
                 isSuperActive = true;
             }
 
-            // HTMLの改行・タグ構造を一切破壊せずそのまま挿入（管理画面の見た目を完璧に再現）
+            // HTMLの改行・タグ構造をそのまま流し込んで完璧に再現
             textSuperContainer.innerHTML = data.htmlContent;
 
-            // 背景色がない素のspanに対して余計なパディングがつかないよう動的に初期化
+            // 背景色を持たない通常のspan要素に対して、余計なパディングや影が付くのをリセット
             textSuperContainer.querySelectorAll('span').forEach(span => {
                 if (!span.style.backgroundColor || span.style.backgroundColor === 'transparent') {
                     span.style.padding = '0';
