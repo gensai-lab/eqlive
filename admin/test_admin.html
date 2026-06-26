@@ -7,9 +7,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     
     <title>Kactuif EQLive Admin</title>
-    <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap\" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons\" rel="stylesheet">
-    <link rel="apple-touch-icon" href="https://gensai-lab.github.io/eqlive/assets/logo/app-icon.png\">
+    <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="apple-touch-icon" href="https://gensai-lab.github.io/eqlive/assets/logo/app-icon.png">
     <style>
         :root {
             --bg-color: #0a0a0a; --sidebar-bg: #151515; --card-bg: #1e1e1e;
@@ -63,16 +63,14 @@
         .card h3 { margin-top: 0; margin-bottom: 20px; font-size: 15px; border-left: 4px solid var(--accent-blue); padding-left: 10px; }
         
         /* フォーム部品 */
-        .form-group { margin-bottom: 15px; }
+        .form-group { margin-bottom: 0px; flex: 1; }
         .form-group label { display: block; font-size: 13px; color: var(--text-sub); margin-bottom: 8px; }
         .form-control {
             width: 100%; background: #2d2d2d; border: 1px solid #3f3f3f;
             color: #fff; padding: 10px 12px; border-radius: 6px; font-size: 14px;
-            font-family: inherit;
+            font-family: inherit; height: 42px;
         }
         .form-control:focus { border-color: var(--accent-blue); outline: none; }
-        
-        .row-flex { display: flex; gap: 10px; align-items: center; }
         
         /* ボタン */
         .btn {
@@ -80,6 +78,7 @@
             padding: 10px 20px; border-radius: 6px; cursor: pointer;
             font-size: 14px; font-weight: 700; display: inline-flex;
             align-items: center; justify-content: center; gap: 8px; transition: 0.2s;
+            height: 42px;
         }
         .btn:hover { background: #353535; }
         .btn-primary { background: var(--accent-blue); border-color: var(--accent-blue); }
@@ -102,23 +101,24 @@
         .cam-btn {
             background: #252525; border: 1px solid #333; color: #fff;
             padding: 15px 10px; border-radius: 8px; cursor: pointer; text-align: left;
-            transition: 0.2s; display: flex; flex-direction: column; gap: 4px;
+            transition: 0.2s; display: flex; flex-direction: column; gap: 4px; height: auto;
         }
         .cam-btn:hover { background: #2d2d2d; border-color: #444; }
         .cam-btn .cam-id { font-size: 11px; color: var(--text-sub); }
         .cam-btn .cam-name { font-size: 14px; font-weight: 700; }
         .cam-btn.active { background: rgba(0, 90, 255, 0.15); border-color: var(--accent-blue); }
-        .cam-btn.active .cam-id { color: rgba(0, 90, 255, 0.7); }
 
-        /* ⑪ 新設：文字スーパー行用レイアウト */
+        /* 文字スーパー専用レイアウト（崩れを完全にリセット） */
+        .super-input-container {
+            display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px;
+        }
         .super-input-row {
-            display: flex; gap: 15px; align-items: center; background: #252525;
-            padding: 15px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #333;
+            display: flex; gap: 15px; align-items: flex-end; background: #252525;
+            padding: 20px; border-radius: 8px; border: 1px solid #333;
         }
-        .checkbox-container {
-            display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: var(--text-sub); user-select: none;
+        .super-select-group {
+            width: 180px;
         }
-        .checkbox-container input { cursor: pointer; width: 16px; height: 16px; }
 
         /* トースト通知 */
         #toast {
@@ -191,32 +191,44 @@
             <div class="card">
                 <h3>手動文字スーパー（速報テロップ）設定</h3>
                 <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 20px;">
-                    画面上部に割り込み表示させる座布団付き速報テロップを個別に設定します。オンにすると速報音が鳴ります。
+                    画面上部に表示させる座布団付き速報テロップを設定します。各行ごとに異なる座布団（色）を特定の文字に割り当てることができます。
                 </p>
                 
-                <div class="super-input-row">
-                    <div style="flex: 1;" class="form-group">
-                        <label>1行目のテキスト</label>
-                        <input type="text" id="input-super-line1" class="form-control" placeholder="（例）気象庁によると" oninput="buildSuperHtml()">
+                <div class="super-input-container">
+                    <div class="super-input-row">
+                        <div class="form-group">
+                            <label>1行目のテキスト</label>
+                            <input type="text" id="input-super-line1" class="form-control" placeholder="（例）気象庁によると" oninput="buildSuperHtml()">
+                        </div>
+                        <div class="super-select-group">
+                            <label>1行目の座布団設定</label>
+                            <select id="select-super-bg1" class="form-control" onchange="buildSuperHtml()">
+                                <option value="none">座布団なし（白文字のみ）</option>
+                                <option value="red">赤色座布団（緊急・速報）</option>
+                                <option value="blue">青色座布団（津波・通常情報）</option>
+                                <option value="yellow">黄色座布団（注意報・警戒）</option>
+                                <option value="gray">グレー座布団（情報・補足）</option>
+                                <option value="black">黒色座布団（視認性重視）</option>
+                            </select>
+                        </div>
                     </div>
-                    <div style="padding-top: 20px;">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="check-super-bg1" onchange="buildSuperHtml()">
-                            赤色背景（座布団）を敷く
-                        </label>
-                    </div>
-                </div>
 
-                <div class="super-input-row">
-                    <div style="flex: 1;" class="form-group">
-                        <label>2行目のテキスト</label>
-                        <input type="text" id="input-super-line2" class="form-control" placeholder="（例）午後５時１0分ごろ強い地震がありました。" oninput="buildSuperHtml()">
-                    </div>
-                    <div style="padding-top: 20px;">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="check-super-bg2" onchange="buildSuperHtml()">
-                            赤色背景（座布団）を敷く
-                        </label>
+                    <div class="super-input-row">
+                        <div class="form-group">
+                            <label>2行目のテキスト</label>
+                            <input type="text" id="input-super-line2" class="form-control" placeholder="（例）午後５時１0分ごろ強い地震がありました。" oninput="buildSuperHtml()">
+                        </div>
+                        <div class="super-select-group">
+                            <label>2行目の座布団設定</label>
+                            <select id="select-super-bg2" class="form-control" onchange="buildSuperHtml()">
+                                <option value="none">座布団なし（白文字のみ）</option>
+                                <option value="red">赤色座布団（緊急・速報）</option>
+                                <option value="blue">青色座布団（津波・通常情報）</option>
+                                <option value="yellow">黄色座布団（注意報・警戒）</option>
+                                <option value="gray">グレー座布団（情報・補足）</option>
+                                <option value="black">黒色座布団（視認性重視）</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
@@ -253,7 +265,7 @@
         <div id="tab-l-shape" class="tab-content">
             <div class="card">
                 <h3>L字型防災ニュース情報設定</h3>
-                <div class="form-group">
+                <div class="form-group" style="margin-bottom: 15px;">
                     <label>左側固定タイトルヘッダー</label>
                     <input type="text" id="input-l-leftText" class="form-control" placeholder="防災気象情報">
                 </div>
@@ -324,71 +336,75 @@
         setTimeout(() => { t.style.display = 'none'; }, 2000);
     }
 
-    // --- ⑪ 1行目・2行目からHTMLを自動ビルドする処理 ---
+    // --- 各行・マルチカラー座布団対応のHTML自動生成 ---
     window.buildSuperHtml = function() {
         const text1 = document.getElementById('input-super-line1').value.trim();
-        const bg1 = document.getElementById('check-super-bg1').checked;
+        const color1 = document.getElementById('select-super-bg1').value;
         const text2 = document.getElementById('input-super-line2').value.trim();
-        const bg2 = document.getElementById('check-super-bg2').checked;
+        const color2 = document.getElementById('select-super-bg2').value;
 
         let parts = [];
 
         if (text1) {
-            if (bg1) {
-                parts.push(`<p><span style="background-color: #d13438;">${text1}</span></p>`);
+            if (color1 !== 'none') {
+                parts.push(`<p><span class="has-bg-super bg-${color1}">${text1}</span></p>`);
             } else {
                 parts.push(`<p><span>${text1}</span></p>`);
             }
         }
         if (text2) {
-            if (bg2) {
-                parts.push(`<p><span style="background-color: #d13438;">${text2}</span></p>`);
+            if (color2 !== 'none') {
+                parts.push(`<p><span class="has-bg-super bg-${color2}">${text2}</span></p>`);
             } else {
                 parts.push(`<p><span>${text2}</span></p>`);
             }
         }
 
-        // 構築した結合HTMLを隠しテキストエリアに代入
         document.getElementById('input-super-content').value = parts.join('');
     };
 
-    // 分離されたデータをパースしてフォームを復元する逆変換
+    // Firebase側データからコントロール値を復元する逆パーサー
     function restoreSuperInputs(html) {
         if (!html) return;
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         const paragraphs = doc.querySelectorAll('p');
 
-        // 一旦初期化
         document.getElementById('input-super-line1').value = "";
-        document.getElementById('check-super-bg1').checked = false;
+        document.getElementById('select-super-bg1').value = "none";
         document.getElementById('input-super-line2').value = "";
-        document.getElementById('check-super-bg2').checked = false;
+        document.getElementById('select-super-bg2').value = "none";
 
         if (paragraphs.length >= 1) {
             const span = paragraphs[0].querySelector('span');
             if (span) {
                 document.getElementById('input-super-line1').value = span.textContent;
-                document.getElementById('check-super-bg1').checked = !!span.style.backgroundColor;
+                // クラス名から選択カラーを判定してセレクトボックスに同期
+                const colorClass = [...span.classList].find(c => c.startsWith('bg-'));
+                if (colorClass) {
+                    document.getElementById('select-super-bg1').value = colorClass.replace('bg-', '');
+                }
             }
         }
         if (paragraphs.length >= 2) {
             const span = paragraphs[1].querySelector('span');
             if (span) {
                 document.getElementById('input-super-line2').value = span.textContent;
-                document.getElementById('check-super-bg2').checked = !!span.style.backgroundColor;
+                const colorClass = [...span.classList].find(c => c.startsWith('bg-'));
+                if (colorClass) {
+                    document.getElementById('select-super-bg2').value = colorClass.replace('bg-', '');
+                }
             }
         }
     }
 
-    // --- 各配信系API制御ロジック ---
     window.setLayoutMode = function(mode) {
         set(ref(db, 'broadcast/current/layoutMode'), mode)
             .then(() => showToast(`レイアウトを ${mode} に切り替えました`));
     };
 
     window.setTextSuperVisible = function(visible) {
-        buildSuperHtml(); // 送信直前に最新データをビルド
+        buildSuperHtml();
         const html = document.getElementById('input-super-content').value;
         update(ref(db, 'broadcast/text_super'), { visible: visible, htmlContent: html })
             .then(() => showToast(visible ? "テロップを配信へ送出しました" : "テロップを非表示にしました"));
@@ -404,7 +420,6 @@
             .then(() => showToast(visible ? "津波地図を強制表示" : "津波地図を強制非表示"));
     };
 
-    // --- カメラシステム ---
     function initCameras() {
         const camList = [
             {id:"cam1", name:"メインカメラ(OBS)"}, {id:"cam2", name:"強震モニタ全画面"},
@@ -440,7 +455,6 @@
         showToast(`プリセットマクロ ${id} を実行しました`);
     };
 
-    // --- 自由配置画像反映管理システム ---
     window.renderFreeImagesControls = function(imagesObj) {
         const container = document.getElementById('free-images-list');
         container.innerHTML = "";
@@ -471,7 +485,6 @@
     window.toggleImageVisible = function(id, v) { update(ref(db, `broadcast/free_images/${id}`), { visible: v }); };
     window.updateImageProp = function(id, prop, val) { set(ref(db, `broadcast/free_images/${id}/${prop}`), val); };
 
-    // --- L字制御システム ---
     window.addLItemRow = function(genre="", text="") {
         localLItems.push({ genre, text }); renderLItems();
     };
@@ -494,8 +507,6 @@
                 <input type="text" class="form-control" style="flex:1;" placeholder="スクロールテロップ本文" value="${item.text}" oninput="updateLItemData(${idx}, 'text', this.value)">
                 <button class="btn btn-danger" style="padding:8px;" onclick="removeLItemRow(${idx})"><span class="material-icons" style="font-size:18px;">delete</span></button>
             `;
-            
-            // ドラッグ並び替えイベント添付
             div.addEventListener('dragstart', () => div.classList.add('dragging'));
             div.addEventListener('dragend', () => { div.classList.remove('dragging'); rebuildLItemsFromDOM(); });
             container.appendChild(div);
@@ -542,7 +553,6 @@
             .then(() => showToast("L字情報をシステムへ同期・送信しました"));
     };
 
-    // --- メインデータ同期反映一括処理 ---
     onValue(ref(db, 'broadcast'), (snapshot) => {
         const data = snapshot.val();
         if(!data) return;
@@ -550,35 +560,32 @@
 
         const activeEl = document.activeElement;
 
-        // 1. レイアウトモード
         const mode = data.current?.layoutMode || 'live';
         setBtn('btn-layout-live', mode === 'live');
         setBtn('btn-layout-emergency', mode === 'emergency');
 
-        // 2. カメラ選択
         const cam = data.current?.cameraSource || 'cam1';
         document.querySelectorAll('#camera-buttons-container .cam-btn').forEach(b => b.classList.remove('active'));
         const activeCamBtn = document.getElementById(`btn-cam-${cam}`);
         if(activeCamBtn) activeCamBtn.classList.add('active');
 
-        // 3. 津波情報表示
         const tsu = data.tsunami_map || { autoPage: true };
         setBtn('btn-tsu-show', tsu.manualVisible === true);
         setBtn('btn-tsu-hide', tsu.manualVisible === false);
 
-        // 4. ⑪ 文字スーパーの復元同期 (編集中は値を上書きしない)
         if(data.text_super) {
             const line1 = document.getElementById('input-super-line1');
             const line2 = document.getElementById('input-super-line2');
+            const bg1 = document.getElementById('select-super-bg1');
+            const bg2 = document.getElementById('select-super-bg2');
             
-            if (activeEl !== line1 && activeEl !== line2) {
+            if (activeEl !== line1 && activeEl !== line2 && activeEl !== bg1 && activeEl !== bg2) {
                 restoreSuperInputs(data.text_super.htmlContent);
             }
             setBtn('btn-super-on', data.text_super.visible === true);
             setBtn('btn-super-off', data.text_super.visible === false);
         }
 
-        // 5. L字データの同期
         const isEditingL = activeEl && (activeEl.id === 'input-l-leftText' || activeEl.closest('#l-items-container'));
         if(data.l_shape && !isEditingL) {
             document.getElementById('input-l-leftText').value = data.l_shape.leftText || "";
@@ -601,7 +608,6 @@
         const tsuCtrl = document.getElementById('tsu-manual-ctrl');
         if(tsuCtrl) tsuCtrl.style.display = tsu.autoPage === false ? 'block' : 'none';
 
-        // 6. 自由画像同期呼び出し
         renderFreeImagesControls(data.free_images || {});
 
         isInitialLoad = false;
