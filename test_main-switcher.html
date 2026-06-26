@@ -87,7 +87,7 @@
             left: 50%;
             transform: translateX(-50%) translateY(-20px);
             width: 780px;
-            height: 130px; /* 改行縦並びを考慮して高さを少しゆとりを持たせました */
+            height: 130px;
             z-index: 15; /* 他のテロップより最前面に配置 */
             pointer-events: none;
             opacity: 0;
@@ -108,8 +108,11 @@
             color: #ffffff;
             text-align: left;
             
-            /* 【変更】1行目と2行目の独立したボックス間の隙間（行間130%相当に調整） */
+            /* 1行目と2行目の独立したボックス間の隙間 */
             gap: 12px;
+            
+            /* 【修正】文字間隔を3% (0.03em) に設定 */
+            letter-spacing: 0.03em;
             
             /* プロポーショナルメトリクス詰め */
             font-feature-settings: "palt" 1;
@@ -249,39 +252,34 @@
         }
     });
 
-    // --- ⑪ 手動文字スーパーリアルタイム同期反映 (1行ずつ分解して描画するロジックに修正) ---
+    // --- ⑪ 手動文字スーパーリアルタイム同期反映 ---
     onValue(ref(db, 'broadcast/text_super'), (snapshot) => {
         const data = snapshot.val();
         if (data && data.visible && data.htmlContent) {
-            // HTML内のタグや改行コード、<br>タグをもとに「プレーンな各行のテキスト」を取り出すための仮プレイスホルダー
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = data.htmlContent.replace(/<br\s*\/?>/gi, '\n');
             
-            // 改行でテキストを2行に分割し、空白文字だけの行を除外
             const rawLines = tempDiv.innerText.split('\n');
             const lines = rawLines.map(l => l.trim()).filter(l => l !== "");
 
-            // コンテナの中身をクリア
             textSuperContainer.innerHTML = "";
 
-            // 1行ずつそれぞれ独立したスパンボックスとして生成・配置
             lines.forEach(lineText => {
                 if (lineText) {
                     const lineSpan = document.createElement('span');
                     lineSpan.className = 'super-line-box';
                     
-                    // 管理画面側で設定された文字色(color)や背景色(background-color)のスタイル属性があれば抽出し、そのまま新しい行ボックスに継承させる処理
                     const originSpan = tempDiv.querySelector('span');
-                    if (originSpan) {
-                        if (originSpan.style.backgroundColor) {
-                            lineSpan.style.backgroundColor = originSpan.style.backgroundColor;
-                        }
-                        if (originSpan.style.color) {
-                            lineSpan.style.color = originSpan.style.color;
-                        }
+                    if (originSpan && originSpan.style.backgroundColor) {
+                        // 管理画面側で背景色が明示的に指定されている場合のみ適用
+                        lineSpan.style.backgroundColor = originSpan.style.backgroundColor;
                     } else {
-                        // スタイルが指定されていない場合のデフォルトフォールバック
-                        lineSpan.style.backgroundColor = "red"; // 例：標準の文字スーパー座布団色
+                        // 【修正】背景色の指定がない場合は透明（背景なし）にする
+                        lineSpan.style.backgroundColor = "transparent";
+                    }
+
+                    if (originSpan && originSpan.style.color) {
+                        lineSpan.style.color = originSpan.style.color;
                     }
 
                     lineSpan.textContent = lineText;
