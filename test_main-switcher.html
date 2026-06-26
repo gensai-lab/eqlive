@@ -86,7 +86,7 @@
             top: 40px;
             left: 50%;
             transform: translateX(-50%) translateY(-20px);
-            width: 820px;
+            width: 900px; /* パディング・マージン拡張を考慮し余裕を確保 */
             min-height: 140px;
             z-index: 15; /* 最前面配置 */
             pointer-events: none;
@@ -101,7 +101,7 @@
             text-align: left;
             
             /* 行間の調整（上下10pxずつのパディング領域を考慮） */
-            line-height: 1.6;
+            line-height: 1.7;
             
             /* 文字間隔を3% (0.03em) に設定 */
             letter-spacing: 0.03em;
@@ -110,14 +110,16 @@
             font-feature-settings: "palt" 1;
         }
 
+        /* 管理画面から入る各行ブロックの初期化 */
         #text-super-container p, 
         #text-super-container div {
             margin: 0;
             padding: 0;
             min-height: 42px;
+            white-space: nowrap;
         }
 
-        /* 【新設】文字部分に対して 0px 0px 10px の黒い影を10個重ね掛け */
+        /* 【10重影】文字および子要素全体に 0 0 10px の影を10回重ね掛け */
         #text-super-container,
         #text-super-container * {
             text-shadow: 
@@ -133,21 +135,22 @@
                 0 0 10px rgba(0, 0, 0, 1.0);
         }
 
-        /* 背景色が設定された個別スパン（座布団部分）の調整 */
+        /* 通常・背景色付き共通spanのスタイル調整 */
         #text-super-container span {
-            display: inline;
-            
-            /* パディング指定：縦10px、横15px */
-            padding: 10px 15px;
+            display: inline-block;
             border-radius: 0px;
-            
-            /* 改行時のボックス装飾（パディングなど）の独立再現設定 */
-            -webkit-box-decoration-break: clone;
-            box-decoration-break: clone;
+            line-height: 1.1;
         }
 
-        /* 【新設】背景色が設定されている座布団spanに対してのみ 0px 0px 10px の影を10個重ね掛け */
-        #text-super-container span[style*="background-color"] {
+        /* 【新設】背景色（座布団）が設定されているspan要素限定の特殊スタイル */
+        #text-super-container span.has-bg-super {
+            /* パディング：縦10px、横15px */
+            padding: 10px 15px;
+            
+            /* 【ご要望】右マージンを-15pxして詰める調整 */
+            margin-right: -15px;
+            
+            /* 座布団のボックス自体にも10重のドロップシャドウを適用 */
             box-shadow: 
                 0 0 10px rgba(0, 0, 0, 1.0),
                 0 0 10px rgba(0, 0, 0, 1.0),
@@ -270,7 +273,7 @@
         }
     });
 
-    // --- ⑪ 手動文字スーパーリアルタイム同期反映 (10重シャドウ完全対応版) ---
+    // --- ⑪ 手動文字スーパーリアルタイム同期反映 (1行・2行分離＆10重影・右マージン最適化版) ---
     onValue(ref(db, 'broadcast/text_super'), (snapshot) => {
         const data = snapshot.val();
         if (data && data.visible && data.htmlContent) {
@@ -282,13 +285,18 @@
                 isSuperActive = true;
             }
 
-            // HTMLの改行・タグ構造をそのまま流し込んで完璧に再現
+            // HTMLを流し込む
             textSuperContainer.innerHTML = data.htmlContent;
 
-            // 背景色を持たない通常のspan要素に対して、余計なパディングや影が付くのをリセット
+            // クラスの割り振りと、背景色のない素の文字のパディング初期化
             textSuperContainer.querySelectorAll('span').forEach(span => {
-                if (!span.style.backgroundColor || span.style.backgroundColor === 'transparent') {
+                if (span.style.backgroundColor && span.style.backgroundColor !== 'transparent') {
+                    // 背景色付き（座布団）にはスタイル制御用クラスを付与
+                    span.classList.add('has-bg-super');
+                } else {
+                    // 背景色がない場合は、余計な余白・箱影をリセット
                     span.style.padding = '0';
+                    span.style.margin = '0';
                     span.style.boxShadow = 'none';
                 }
             });
