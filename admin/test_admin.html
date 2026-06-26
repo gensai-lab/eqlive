@@ -7,9 +7,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     
     <title>Kactuif EQLive Admin</title>
-    <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link rel="apple-touch-icon" href="https://gensai-lab.github.io/eqlive/assets/logo/app-icon.png">
+    <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap\" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons\" rel="stylesheet">
+    <link rel="apple-touch-icon" href="https://gensai-lab.github.io/eqlive/assets/logo/app-icon.png\">
     <style>
         :root {
             --bg-color: #0a0a0a; --sidebar-bg: #151515; --card-bg: #1e1e1e;
@@ -21,369 +21,266 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
             margin: 0; font-family: 'BIZ UDPGothic', sans-serif;
-            background: var(--bg-color); color: var(--text-main);
-            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+            background-color: var(--bg-color); color: var(--text-main);
+            display: flex; height: 100vh; overflow: hidden;
         }
 
-        header {
-            height: var(--header-height); background: #000; border-bottom: 1px solid #333;
-            display: flex; align-items: center; justify-content: space-between; padding: 0 15px; 
-            z-index: 2000; flex-shrink: 0;
-        }
-        .menu-toggle { background: none; border: none; color: white; cursor: pointer; display: none; padding: 8px; }
-        .header-logo img { height: 28px; }
-
-        main { display: flex; flex: 1; overflow: hidden; position: relative; }
-        
+        /* 共通レイアウト構造 */
         nav {
-            width: var(--nav-width); background: var(--sidebar-bg); border-right: 1px solid #333;
-            display: flex; flex-direction: column; overflow-y: auto; transition: transform 0.3s ease;
-            z-index: 1500;
+            width: var(--nav-width); background: var(--sidebar-bg);
+            display: flex; flex-direction: column; border-right: 1px solid #2d2d2d;
         }
+        .nav-header {
+            height: var(--header-height); display: flex; align-items: center;
+            padding: 0 20px; border-bottom: 1px solid #2d2d2d;
+        }
+        .nav-header h1 { font-size: 16px; margin: 0; font-weight: 700; color: #fff; }
         
+        .nav-menu { flex: 1; padding: 15px 10px; overflow-y: auto; }
         .nav-item {
-            background: none; border: none; color: var(--text-sub); padding: 14px 20px;
-            text-align: left; font-size: 14px; cursor: pointer; border-left: 4px solid transparent;
-            display: flex; align-items: center; gap: 12px; transition: 0.2s; font-family: inherit;
+            display: flex; align-items: center; padding: 12px 15px;
+            color: var(--text-sub); text-decoration: none; border-radius: 8px;
+            margin-bottom: 5px; cursor: pointer; transition: 0.2s; font-size: 14px;
         }
-        .nav-item i { font-size: 20px; }
-        .nav-item.active { background: rgba(0, 90, 255, 0.1); color: white; border-left-color: var(--accent-blue); }
-        .nav-item:hover { background: #252525; }
+        .nav-item:hover, .nav-item.active { background: #252525; color: #fff; }
+        .nav-item .material-icons { margin-right: 12px; font-size: 20px; }
 
-        .content { flex: 1; padding: 25px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-        .tab-content { display: none; max-width: 1000px; margin: 0 auto; }
+        main { flex: 1; display: flex; flex-direction: column; height: 100vh; }
+        header {
+            height: var(--header-height); background: var(--sidebar-bg);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 30px; border-bottom: 1px solid #2d2d2d;
+        }
+        header h2 { font-size: 18px; margin: 0; }
+
+        .content-container { flex: 1; padding: 30px; overflow-y: auto; }
+        .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        .card { background: var(--card-bg); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; position: relative; }
-        .card.alert { border-left: 5px solid var(--accent-red); }
+        /* カード・グリッド */
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .card { background: var(--card-bg); border-radius: 12px; padding: 25px; border: 1px solid #2d2d2d; margin-bottom: 20px; }
+        .card h3 { margin-top: 0; margin-bottom: 20px; font-size: 15px; border-left: 4px solid var(--accent-blue); padding-left: 10px; }
         
-        h2 { font-size: 18px; margin: 0 0 18px 0; display: flex; align-items: center; gap: 10px; color: var(--accent-blue); }
-        label { display: block; color: var(--text-sub); font-size: 12px; margin-bottom: 8px; font-weight: bold; }
+        /* フォーム部品 */
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 13px; color: var(--text-sub); margin-bottom: 8px; }
+        .form-control {
+            width: 100%; background: #2d2d2d; border: 1px solid #3f3f3f;
+            color: #fff; padding: 10px 12px; border-radius: 6px; font-size: 14px;
+            font-family: inherit;
+        }
+        .form-control:focus { border-color: var(--accent-blue); outline: none; }
         
-        input, select, textarea {
-            width: 100%; padding: 14px; background: #000; border: 1px solid #444; 
-            color: white; border-radius: 8px; font-size: 16px; margin-bottom: 15px; font-family: inherit;
+        .row-flex { display: flex; gap: 10px; align-items: center; }
+        
+        /* ボタン */
+        .btn {
+            background: #2d2d2d; color: #fff; border: 1px solid #3f3f3f;
+            padding: 10px 20px; border-radius: 6px; cursor: pointer;
+            font-size: 14px; font-weight: 700; display: inline-flex;
+            align-items: center; justify-content: center; gap: 8px; transition: 0.2s;
         }
+        .btn:hover { background: #353535; }
+        .btn-primary { background: var(--accent-blue); border-color: var(--accent-blue); }
+        .btn-primary:hover { background: #004fdf; }
+        .btn-danger { background: var(--accent-red); border-color: var(--accent-red); }
+        .btn-danger:hover { background: #b62b2f; }
+        .btn-active { background: var(--accent-green) !important; border-color: var(--accent-green) !important; color: #fff !important; }
 
-        .range-group { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
-        .range-group input[type="range"] { margin: 0; flex: 1; }
-        .range-group span { width: 60px; text-align: right; font-size: 14px; color: var(--text-sub); }
-
-        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-        button { font-family: inherit; cursor: pointer; border: none; border-radius: 8px; padding: 14px; font-weight: bold; transition: 0.2s; }
-        button.primary { background: var(--accent-blue); color: white; flex: 1; }
-        button.secondary { background: #333; color: white; flex: 1; }
-        button.danger { background: var(--accent-red); color: white; flex: 1; }
-        button:disabled { opacity: 0.4; cursor: not-allowed; }
-
-        .filter-container {
-            padding: 10px; background: #151515; border-bottom: 1px solid #333;
-            display: flex; gap: 8px; overflow-x: auto; white-space: nowrap;
+        /* リスト・並び替え */
+        .list-item-row {
+            display: flex; align-items: center; background: #252525;
+            padding: 12px; border-radius: 6px; margin-bottom: 8px;
+            border: 1px solid #333; gap: 10px;
         }
-        .filter-btn {
-            background: #333; color: #fff; padding: 6px 15px; border-radius: 20px; font-size: 12px; border: 1px solid #444;
-            cursor: pointer; transition: 0.2s;
-        }
-        .filter-btn.active {
-            background: var(--accent-blue); border-color: var(--accent-blue);
-        }
+        .list-item-row .drag-handle { cursor: grab; color: var(--text-sub); }
+        .list-item-row.dragging { opacity: 0.5; background: #1f1f1f; }
 
-        .draggable-card { cursor: grab; user-select: none; }
-        .draggable-card:active { cursor: grabbing; }
-        .draggable-card.dragging { opacity: 0.5; border: 2px dashed var(--accent-blue); }
-
-        /* 文字装飾用パレット */
-        .decoration-badge {
-            display: inline-block; padding: 5px 10px; border-radius: 4px; font-size: 12px; 
-            font-weight: bold; cursor: pointer; margin-right: 5px; margin-bottom: 5px; border: 1px solid #444;
+        /* カメラグリッド */
+        .camera-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+        .cam-btn {
+            background: #252525; border: 1px solid #333; color: #fff;
+            padding: 15px 10px; border-radius: 8px; cursor: pointer; text-align: left;
+            transition: 0.2s; display: flex; flex-direction: column; gap: 4px;
         }
+        .cam-btn:hover { background: #2d2d2d; border-color: #444; }
+        .cam-btn .cam-id { font-size: 11px; color: var(--text-sub); }
+        .cam-btn .cam-name { font-size: 14px; font-weight: 700; }
+        .cam-btn.active { background: rgba(0, 90, 255, 0.15); border-color: var(--accent-blue); }
+        .cam-btn.active .cam-id { color: rgba(0, 90, 255, 0.7); }
 
-        @media (max-width: 900px) {
-            .menu-toggle { display: flex; }
-            nav { 
-                position: absolute; left: 0; top: 0; padding-top: var(--header-height);
-                height: 100%; transform: translateX(-100%); 
-            }
-            nav.open { transform: translateX(0); box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
-            .nav-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1400; }
-            .nav-overlay.active { display: block; }
+        /* ⑪ 新設：文字スーパー行用レイアウト */
+        .super-input-row {
+            display: flex; gap: 15px; align-items: center; background: #252525;
+            padding: 15px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #333;
+        }
+        .checkbox-container {
+            display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: var(--text-sub); user-select: none;
+        }
+        .checkbox-container input { cursor: pointer; width: 16px; height: 16px; }
+
+        /* トースト通知 */
+        #toast {
+            position: fixed; bottom: 20px; right: 20px; background: #333;
+            color: #fff; padding: 12px 24px; border-radius: 6px; font-size: 14px;
+            z-index: 1000; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
     </style>
 </head>
 <body>
 
-<header>
-    <button class="menu-toggle" onclick="toggleNav()"><i class="material-icons">menu</i></button>
-    <div class="header-logo">
-        <img src="https://gensai-lab.github.io/eqlive/assets/logo/logo-ptn1_white.svg" alt="EQLive Logo">
+<nav>
+    <div class="nav-header">
+        <h1>Kactuif EQLive Admin</h1>
     </div>
-    <div style="width:40px;"></div>
-</header>
-
-<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+    <div class="nav-menu">
+        <div class="nav-item active" onclick="switchTab('layout')"><span class="material-icons">dashboard</span>画面レイアウト</div>
+        <div class="nav-item" onclick="switchTab('camera')"><span class="material-icons">videocam</span>カメラ切替</div>
+        <div class="nav-item" onclick="switchTab('free-image')"><span class="material-icons">image</span>自由配置画像</div>
+        <div class="nav-item" onclick="switchTab('text-super')"><span class="material-icons">subtitles</span>文字スーパー</div>
+        <div class="nav-item" onclick="switchTab('tsunami')"><span class="material-icons">map</span>津波制御</div>
+        <div class="nav-item" onclick="switchTab('l-shape')"><span class="material-icons">view_sidebar</span>L字情報制御</div>
+    </div>
+</nav>
 
 <main>
-    <nav id="side-nav">
-        <button class="nav-item active" onclick="switchTab('main')"><i class="material-icons">dashboard</i>①メイン画面</button>
-        <button class="nav-item" onclick="switchTab('mode')"><i class="material-icons">person_search</i>②配信モード選択</button>
-        <button class="nav-item" onclick="switchTab('display')"><i class="material-icons">screenshot_monitor</i>③画面表示</button>
-        <button class="nav-item" onclick="switchTab('title')"><i class="material-icons">subtitles</i>④タイトル</button>
-        <button class="nav-item" onclick="switchTab('ticker')"><i class="material-icons">view_carousel</i>⑤Ticker</button>
-        <button class="nav-item" onclick="switchTab('l-shape')"><i class="material-icons">view_quilt</i>⑥L字設定</button>
-        <button class="nav-item" onclick="switchTab('camera')"><i class="material-icons">videocam</i>⑦ライブカメラ</button>
-        <button class="nav-item" onclick="switchTab('tsunami')"><i class="material-icons">tsunami</i>⑧津波制御</button>
-        <button class="nav-item" onclick="window.open('https://gensai-lab.github.io/eqlive/admin/manuscript.html', '_blank')"><i class="material-icons">description</i>⑨原稿</button>
-        <button class="nav-item" onclick="switchTab('free-image')"><i class="material-icons">grid_view</i>⑩自由配置画像</button>
-        <button class="nav-item" onclick="switchTab('text-super')"><i class="material-icons">featured_video</i>⑪文字スーパー</button>
-        <button class="nav-item" onclick="switchTab('auth-config')" style="margin-top: auto; border-top: 1px solid #333; color: #ffb300;"><i class="material-icons">vpn_key</i>🔑 認証設定</button>
-    </nav>
+    <header>
+        <h2 id="tab-title">画面レイアウト制御</h2>
+        <div style="font-size: 12px; color: var(--text-sub);" id="connection-status">接続中...</div>
+    </header>
 
-    <div class="content">
-        <div id="tab-main" class="tab-content active">
-            <h2>ダッシュボード</h2>
-            <div id="status-alert-area"></div>
+    <div class="content-container">
+        
+        <div id="tab-layout" class="tab-content active">
             <div class="card">
-                <label>配信ステータス</label>
-                <div style="font-size: 14px; line-height: 1.8;">
-                    <div>配信担当: <span id="stat-dist">--</span></div>
-                    <div>現在のモード: <span id="stat-mode">--</span></div>
-                    <div>カメラソース: <span id="stat-cam">--</span></div>
+                <h3>メイン画面レイアウト切り替え</h3>
+                <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 20px;">
+                    配信のベースとなるHTMLレイアウトをリアルタイムに切り替えます。
+                </p>
+                <div style="display: flex; gap: 15px;">
+                    <button id="btn-layout-live" class="btn" onclick="setLayoutMode('live')">
+                        <span class="material-icons">live_tv</span>通常時（通常ライブ画面）
+                    </button>
+                    <button id="btn-layout-emergency" class="btn" onclick="setLayoutMode('emergency')">
+                        <span class="material-icons">gavel</span>緊急時（強震モニタ等全画面）
+                    </button>
                 </div>
             </div>
-            <div class="card">
-                <label>プレビュー（自動埋め込み）</label>
-                <div id="preview-player-container" style="aspect-ratio: 16/9; background:#000; display:flex; align-items:center; justify-content:center; color:#444; border-radius:8px; overflow:hidden; position:relative;">
-                    現在、ライブ映像はここに表示されます
-                </div>
-            </div>
-        </div>
-
-        <div id="tab-mode" class="tab-content">
-            <h2>配信担当選択</h2>
-            <div class="card">
-                <label>配信主体 (distributor)</label>
-                <select id="input-distributor" onchange="toggleNingen()">
-                    <option value="bot">🤖 自動 (Bot)</option>
-                    <option value="ningen">👤 有人 (人間)</option>
-                </select>
-                <div id="ningen-area" style="display:none;">
-                    <label>担当者選択 (必須)</label>
-                    <select id="input-operator">
-                        <option value="">-- 選択してください --</option>
-                        <option value="Kabeya">壁谷 來夢</option>
-                        <option value="Tsuboguchi">坪口 冬真</option>
-                    </select>
-                </div>
-                <button id="btn-save-dist" class="primary" onclick="saveDist()">設定を反映</button>
-            </div>
-        </div>
-
-        <div id="tab-display" class="tab-content">
-            <h2>画面ソース・レイアウト</h2>
-            <div class="card">
-                <label>基本モード (layoutMode)</label>
-                <div class="btn-group">
-                    <button id="btn-lay-live" class="secondary" onclick="updateFB('current/layoutMode','live')">通常放送</button>
-                    <button id="btn-lay-emer" class="secondary" onclick="updateFB('current/layoutMode','emergency')">有事放送</button>
-                </div>
-                
-                <label>L字表示切替 (current_mode)</label>
-                <div class="btn-group">
-                    <button id="btn-m-sub" class="secondary" onclick="updateFB('current_mode','sub-switcher')">L字 OFF</button>
-                    <button id="btn-m-l" class="secondary" onclick="updateFB('current_mode','l-screen')">L字 ON</button>
-                </div>
-                <div id="link-to-l" style="display:none; text-align:right;">
-                    <a href="#" onclick="switchTab('l-shape')" style="color:var(--accent-blue); font-size:12px;">→ L字の詳細設定へ</a>
-                </div>
-            </div>
-
-            <div class="card">
-                <label>メインソース選択 (mainSource)</label>
-                <select id="input-mainSource" onchange="updateFB('current/mainSource', this.value)">
-                    <option value="camera">📹 ライブカメラ</option>
-                    <option value="screen">📺 画面投影</option>
-                </select>
-
-                <div id="screen-options" style="display:none; border-top:1px solid #333; padding-top:15px;">
-                    <label>投影種別 (screen_program/type)</label>
-                    <select id="input-screen-type" onchange="toggleVideoOptions(this.value)">
-                        <option value="screenshare">PC画面共有</option>
-                        <option value="image">画像投影</option>
-                        <option value="video">映像投影</option>
-                        <option value="youtube">YouTube投影</option>
-                        <option value="web">Webサイト投影</option>
-                    </select>
-                    
-                    <div id="video-extra-options" style="display:none; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 6px; margin-bottom: 15px;">
-                        <label>ループ設定</label>
-                        <select id="input-screen-loop" style="margin-bottom: 10px;">
-                            <option value="true">ループ再生する</option>
-                            <option value="false">ループ再生しない</option>
-                        </select>
-                        <label>音量設定</label>
-                        <select id="input-screen-muted" style="margin-bottom: 0;">
-                            <option value="false">音量ON（自動再生対応）</option>
-                            <option value="true">ミュート（消音）</option>
-                        </select>
-                    </div>
-
-                    <label>オーバーレイ・タイトル</label>
-                    <input type="text" id="input-screen-title">
-                    <label>URL (画像/映像/YouTube/Web)</label>
-                    <input type="text" id="input-screen-url" placeholder="https://...">
-                    
-                    <div class="btn-group" style="margin-top: 10px;">
-                        <button class="primary" onclick="saveScreenProgram()"><i class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:5px;">send</i> 設定を反映する</button>
-                        <button class="secondary" style="background:#d13438; color:white;" onclick="setPrepareScreen()"><i class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:5px;">visibility_off</i> 準備中画面</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="tab-title" class="tab-content">
-            <h2>タイトル編集</h2>
-            <div class="card">
-                <label>メインタイトル</label>
-                <input type="text" id="input-mainTitle">
-                <label>サブタイトル</label>
-                <input type="text" id="input-subtitle">
-                <div class="btn-group">
-                    <button class="primary" onclick="saveTitle()">設定反映</button>
-                    <button class="danger" onclick="clearTitle()">タイトルを削除</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="tab-ticker" class="tab-content">
-            <h2>Ticker（最新情報）</h2>
-            <div class="card">
-                <label>ジャンル</label>
-                <input type="text" id="input-tic-g" placeholder="例：地震速報">
-                <label>本文 1行目</label>
-                <input type="text" id="input-tic-1">
-                <label>本文 2行目</label>
-                <input type="text" id="input-tic-2">
-                <button class="primary" style="width:100%" onclick="saveTicker()">Tickerを更新</button>
-            </div>
-        </div>
-
-        <div id="tab-l-shape" class="tab-content">
-            <h2>L字放送・詳細設定</h2>
-            <div class="card">
-                <label>左側縦書きテロップ (leftText)</label>
-                <textarea id="input-l-leftText" style="height:80px;"></textarea>
-            </div>
-            <div id="l-items-container"></div>
-            <button class="secondary" style="width:100%; margin-bottom:10px;" onclick="addLItem()"><i class="material-icons">add</i> カードを追加</button>
-            <button class="primary" style="width:100%;" onclick="saveLShape()">Firebaseに保存反映</button>
         </div>
 
         <div id="tab-camera" class="tab-content">
-            <h2>ライブカメラ切替</h2>
-            <div class="filter-container" id="area-filter-container">
-                <button class="filter-btn active" onclick="filterByArea('すべて', this)">すべて</button>
-                <button class="filter-btn" onclick="filterByArea('北海道', this)">北海道</button>
-                <button class="filter-btn" onclick="filterByArea('東北', this)">東北</button>
-                <button class="filter-btn" onclick="filterByArea('関東', this)">関東</button>
-                <button class="filter-btn" onclick="filterByArea('東海', this)">東海</button>
-                <button class="filter-btn" onclick="filterByArea('北陸', this)">北陸</button>
-                <button class="filter-btn" onclick="filterByArea('近畿', this)">近畿</button>
-                <button class="filter-btn" onclick="filterByArea('中国', this)">中国</button>
-                <button class="filter-btn" onclick="filterByArea('四国', this)">四国</button>
-                <button class="filter-btn" onclick="filterByArea('九州', this)">九州</button>
-                <button class="filter-btn" onclick="filterByArea('沖縄', this)">沖縄</button>
-            </div>
-            <div class="filter-container" id="genre-filter-container" style="border-top:none; background:#1c1c1c;"></div>
-            
-            <div class="card" style="padding:0; overflow:hidden;">
-                <div id="cam-list" style="height:500px; overflow-y:auto; background:#000;"></div>
-            </div>
-        </div>
-
-        <div id="tab-tsunami" class="tab-content">
-            <h2>津波リスト制御</h2>
             <div class="card">
-                <label>ページ送り設定</label>
-                <div class="btn-group">
-                    <button id="btn-tsu-auto" class="secondary" onclick="updateFB('tsunami_config/autoPage', true)">自動送り</button>
-                    <button id="btn-tsu-manual" class="secondary" onclick="updateFB('tsunami_config/autoPage', false)">手動送り</button>
-                </div>
-                
-                <div id="tsu-manual-ctrl" style="margin-top:20px; display:none;">
-                    <label>ページ操作</label>
-                    <div class="btn-group">
-                        <button class="primary" onclick="triggerTsu('prev')"><i class="material-icons">arrow_back</i> 前のページ</button>
-                        <button class="primary" onclick="triggerTsu('next')">次のページ <i class="material-icons">arrow_forward</i></button>
-                    </div>
-                </div>
+                <h3>現在のソース / 固定カメラ選択</h3>
+                <div class="camera-grid" id="camera-buttons-container"></div>
+            </div>
+            <div class="card">
+                <h3>カメラプリセット呼び出し</h3>
+                <div class="camera-grid" id="preset-buttons-container"></div>
             </div>
         </div>
 
         <div id="tab-free-image" class="tab-content">
-            <h2>自由配置画像オーバーレイ（複数対応）</h2>
-            <div style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;">
-                <button class="primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px;" onclick="addNewFreeImage()">
-                    <i class="material-icons">add_photo_alternate</i> ＋ 新しい画像を追加（空）
-                </button>
-                
-                <div class="card" style="margin: 0; padding: 15px; background: #151515;">
-                    <label style="margin-bottom: 10px;"><i class="material-icons" style="font-size: 16px; vertical-align: middle;">auto_awesome</i> プリセットからクイック追加</label>
-                    <div id="preset-buttons-container" class="btn-group" style="margin: 0;">
-                        <span style="color: var(--text-sub); font-size: 13px;">プリセットを読み込み中...</span>
-                    </div>
-                </div>
+            <div class="card">
+                <h3>自由配置画像オーバーレイ制御</h3>
+                <div id="free-images-list"></div>
             </div>
-            
-            <div id="free-images-control-container"></div>
         </div>
 
         <div id="tab-text-super" class="tab-content">
-            <h2>⑪ 手動文字スーパー制御</h2>
             <div class="card">
-                <label>テロップ表示スイッチ</label>
-                <div class="btn-group" style="margin-bottom: 20px;">
-                    <button id="btn-super-on" class="secondary" onclick="toggleSuperVisibility(true)">テロップを画面に出す (ON)</button>
-                    <button id="btn-super-off" class="secondary" onclick="toggleSuperVisibility(false)">テロップを消去する (OFF)</button>
+                <h3>手動文字スーパー（速報テロップ）設定</h3>
+                <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 20px;">
+                    画面上部に割り込み表示させる座布団付き速報テロップを個別に設定します。オンにすると速報音が鳴ります。
+                </p>
+                
+                <div class="super-input-row">
+                    <div style="flex: 1;" class="form-group">
+                        <label>1行目のテキスト</label>
+                        <input type="text" id="input-super-line1" class="form-control" placeholder="（例）気象庁によると" oninput="buildSuperHtml()">
+                    </div>
+                    <div style="padding-top: 20px;">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="check-super-bg1" onchange="buildSuperHtml()">
+                            赤色背景（座布団）を敷く
+                        </label>
+                    </div>
                 </div>
 
-                <label>テロップ内容（テキスト / HTML対応）</label>
-                <textarea id="input-super-content" style="height: 120px; font-family: monospace; font-size: 16px;" placeholder="例：津波警報 発表中。ただちに避難を！" oninput="previewSuperText()"></textarea>
-
-                <label>カラータグクイック挿入パレット (選択中の文字、または末尾に挿入されます)</label>
-                <div style="background: #111; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <div class="decoration-badge" style="background:#d13438; color:#fff;" onclick="insertDecorateTag('color: #ffffff; background: #d13438;')">赤背景・白字</div>
-                    <div class="decoration-badge" style="background:#ffb300; color:#000;" onclick="insertDecorateTag('color: #000000; background: #ffb300;')">黄背景・黒字</div>
-                    <div class="decoration-badge" style="background:#107c10; color:#fff;" onclick="insertDecorateTag('color: #ffffff; background: #107c10;')">緑背景・白字</div>
-                    <div class="decoration-badge" style="background:transparent; color:#ffb300;" onclick="insertDecorateTag('color: #ffb300;')">文字色を黄</div>
-                    <div class="decoration-badge" style="background:transparent; color:#ff3333;" onclick="insertDecorateTag('color: #ff3333;')">文字色を赤</div>
-                    <div class="decoration-badge" style="background:transparent; color:#33ff33;" onclick="insertDecorateTag('color: #33ff33;')">文字色を緑</div>
+                <div class="super-input-row">
+                    <div style="flex: 1;" class="form-group">
+                        <label>2行目のテキスト</label>
+                        <input type="text" id="input-super-line2" class="form-control" placeholder="（例）午後５時１0分ごろ強い地震がありました。" oninput="buildSuperHtml()">
+                    </div>
+                    <div style="padding-top: 20px;">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="check-super-bg2" onchange="buildSuperHtml()">
+                            赤色背景（座布団）を敷く
+                        </label>
+                    </div>
                 </div>
 
-                <label>送信内容のリアルタイムプレビュー（近似再現）</label>
-                <div id="super-admin-preview" style="background: #000; color: #fff; padding: 15px; font-size: 24px; font-weight: bold; border-radius: 6px; min-height: 60px; margin-bottom: 20px; border: 2px dashed #444; overflow: hidden; white-space: pre-wrap;"></div>
+                <input type="hidden" id="input-super-content">
 
-                <button class="primary" style="width: 100%; background: var(--accent-blue);" onclick="sendTextSuper()"><i class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:5px;">send</i> 文字スーパーを配信へ送信・保存</button>
+                <div style="margin-top: 25px; display: flex; gap: 15px;">
+                    <button id="btn-super-on" class="btn btn-primary" onclick="setTextSuperVisible(true)">
+                        <span class="material-icons">visibility</span>テロップを表示（速報音ON）
+                    </button>
+                    <button id="btn-super-off" class="btn btn-danger" onclick="setTextSuperVisible(false)">
+                        <span class="material-icons">visibility_off</span>非表示にする
+                    </button>
+                </div>
             </div>
         </div>
 
-        <div id="tab-auth-config" class="tab-content">
-            <h2>🔑 EQLive 団体内認証設定</h2>
+        <div id="tab-tsunami" class="tab-content">
             <div class="card">
-                <p style="font-size: 14px; color: var(--text-sub); line-height: 1.6; margin-top: 0;">
-                    Firebaseの書き込み権限を保護するための共通パスワードを設定します。ここに正しいパスワードが保存されていない場合、配信制御がエラーになります。
-                </p>
-                <label>現在の共通パスワード（LocalStorageに保存されます）</label>
-                <input type="password" id="input-global-secret" placeholder="パスワードを入力してください">
-                <button class="primary" style="width: 100%; background: var(--accent-green);" onclick="saveSecretKeyToLocal()">パスワードをブラウザに保存</button>
+                <h3>右下：津波地図表示切り替え</h3>
+                <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                    <button id="btn-tsu-auto" class="btn" onclick="setTsunamiAuto(true)">自動制御（P2P API連動）</button>
+                    <button id="btn-tsu-manual" class="btn" onclick="setTsunamiAuto(false)">手動制御に切り替え</button>
+                </div>
+                <div id="tsu-manual-ctrl" style="display:none; background:#252525; padding:20px; border-radius:8px;">
+                    <label style="display:block; font-size:13px; color:var(--text-sub); margin-bottom:10px;">手動での常時表示切替：</label>
+                    <div style="display: flex; gap: 15px;">
+                        <button id="btn-tsu-show" class="btn" onclick="setTsunamiVisible(true)">地図を常時「表示」</button>
+                        <button id="btn-tsu-hide" class="btn" onclick="setTsunamiVisible(false)">地図を常時「非表示」</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-l-shape" class="tab-content">
+            <div class="card">
+                <h3>L字型防災ニュース情報設定</h3>
+                <div class="form-group">
+                    <label>左側固定タイトルヘッダー</label>
+                    <input type="text" id="input-l-leftText" class="form-control" placeholder="防災気象情報">
+                </div>
+                
+                <h4 style="font-size:14px; margin:20px 0 10px 0; color:var(--text-sub);">上部スクロール項目リスト（ドラッグで並び替え可）</h4>
+                <div id="l-items-container"></div>
+                
+                <button class="btn" style="margin-top:10px;" onclick="addLItemRow()">
+                    <span class="material-icons">add</span>項目を追加
+                </button>
+                
+                <div style="margin-top:25px; padding-top:20px; border-top:1px solid #333;">
+                    <button class="btn btn-primary" onclick="saveLShapeConfig()">
+                        <span class="material-icons">save</span>L字情報を配信に反映
+                    </button>
+                </div>
             </div>
         </div>
 
     </div>
 </main>
 
+<div id="toast">設定を保存しました</div>
+
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
@@ -394,479 +291,297 @@
         messagingSenderId: "1060231327645",
         appId: "1:1060231327645:web:642684f4640bbc21d5c974"
     };
-
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let allCameras = [];
-    let imagePresets = []; 
-    let currentSelectedArea = "すべて";
-    let currentSelectedGenre = "すべて";
-    let currentCameraSourceId = ""; 
+    let activeTab = "layout";
+    let localLItems = [];
     let isInitialLoad = true;
 
-    // --- 共通パスワード認証ロジック ---
-    function getSecretKey() {
-        const savedKey = localStorage.getItem('eqlive_secret_key');
-        if (!savedKey) {
-            const input = prompt("【EQLiveセキュリティ】\n団体共通のパスワードを入力してください。");
-            if (input) {
-                localStorage.setItem('eqlive_secret_key', input);
-                document.getElementById('input-global-secret').value = input;
-                return input;
-            } else {
-                alert("パスワードが入力されなかったため、一部の更新操作が弾かれる可能性があります。");
-                switchTab('auth-config');
-                return "";
-            }
-        }
-        return savedKey;
-    }
-
-    window.saveSecretKeyToLocal = () => {
-        const key = document.getElementById('input-global-secret').value;
-        if(key.trim() === "") {
-            alert("パスワードを入力してください。");
-            return;
-        }
-        localStorage.setItem('eqlive_secret_key', key.trim());
-        alert("パスワードをブラウザに記憶しました。");
-        switchTab('main');
-    };
-
-    document.getElementById('input-global-secret').value = localStorage.getItem('eqlive_secret_key') || "";
-
-    function secureSet(dbRef, dataObject) {
-        const secret = getSecretKey();
-        let finalData = dataObject;
-        if (typeof dataObject === 'object' && dataObject !== null) {
-            finalData = { ...dataObject, secret_key: secret };
-        } else {
-            finalData = { value: dataObject, secret_key: secret };
-        }
-        return set(dbRef, finalData).catch(err => {
-            alert("エラー: Firebaseへの保存が拒否されました。");
-            console.error(err);
-        });
-    }
-
-    function secureUpdate(dbRef, dataObject) {
-        const secret = getSecretKey();
-        const finalData = { ...dataObject, secret_key: secret };
-        return update(dbRef, finalData).catch(err => {
-            alert("エラー: Firebaseの更新が拒否されました。");
-            console.error(err);
-        });
-    }
-
-    // --- UI Logic ---
-    window.toggleNav = () => {
-        document.getElementById('side-nav').classList.toggle('open');
-        document.getElementById('nav-overlay').classList.toggle('active');
-    };
-
-    window.switchTab = (id) => {
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        document.getElementById(`tab-${id}`).classList.add('active');
+    window.switchTab = function(tabId) {
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         
         const navItems = document.querySelectorAll('.nav-item');
-        navItems.forEach(item => {
-            if(item.getAttribute('onclick')?.includes(`'${id}'`)) item.classList.add('active');
-        });
-
-        if(window.innerWidth <= 900) {
-            document.getElementById('side-nav').classList.remove('open');
-            document.getElementById('nav-overlay').classList.remove('active');
-        }
-    };
-
-    window.toggleNingen = () => {
-        const val = document.getElementById('input-distributor').value;
-        const nArea = document.getElementById('ningen-area');
-        const btn = document.getElementById('btn-save-dist');
-        if(!nArea || !btn) return;
-        nArea.style.display = (val === 'ningen') ? 'block' : 'none';
-        btn.disabled = (val === 'ningen' && !document.getElementById('input-operator').value);
-    };
-
-    window.toggleVideoOptions = (type) => {
-        const vOpts = document.getElementById('video-extra-options');
-        if(vOpts) vOpts.style.display = (type === 'video') ? 'block' : 'none';
-    };
-
-    window.saveScreenProgram = () => {
-        const type = document.getElementById('input-screen-type').value;
-        const title = document.getElementById('input-screen-title').value;
-        const url = document.getElementById('input-screen-url').value;
-        const programData = { type: type, title: title, url: url };
-
-        if (type === 'video') {
-            programData.loop = document.getElementById('input-screen-loop').value === 'true';
-            programData.muted = document.getElementById('input-screen-muted').value === 'true';
-        }
-        secureSet(ref(db, 'broadcast/screen_program'), programData).then(() => alert("画面投影設定を反映しました"));
-    };
-
-    window.setPrepareScreen = () => {
-        document.getElementById('input-screen-type').value = 'image';
-        document.getElementById('input-screen-url').value = 'https://gensai-lab.github.io/eqlive/assets/image/prepare.png';
-        toggleVideoOptions('image');
-
-        const programData = {
-            type: 'image',
-            title: document.getElementById('input-screen-title').value || "",
-            url: 'https://gensai-lab.github.io/eqlive/assets/image/prepare.png'
-        };
-        secureSet(ref(db, 'broadcast/screen_program'), programData).then(() => alert("準備中画面を配信にセットしました"));
-    };
-
-    // --- Firebase Write ---
-    window.updateFB = (path, val) => {
-        if (typeof val === 'object' && val !== null) {
-            secureSet(ref(db, `broadcast/${path}`), val);
-        } else {
-            const segments = path.split('/');
-            if(segments.length === 1) {
-                const obj = {}; obj[path] = val;
-                secureUpdate(ref(db, 'broadcast'), obj);
-            } else {
-                const leaf = segments.pop();
-                const parentPath = segments.join('/');
-                const obj = {}; obj[leaf] = val;
-                secureUpdate(ref(db, `broadcast/${parentPath}`), obj);
-            }
-        }
-    };
-
-    window.saveDist = () => {
-        const d = document.getElementById('input-distributor').value;
-        const o = document.getElementById('input-operator').value;
-        if(d === 'ningen' && !o) return;
-        secureUpdate(ref(db, 'broadcast/current'), { distributor: d, operator: (d==='bot'?"System":o) });
-    };
-
-    window.saveTitle = () => {
-        secureUpdate(ref(db, 'broadcast/current'), {
-            mainTitle: document.getElementById('input-mainTitle').value,
-            subtitle: document.getElementById('input-subtitle').value
-        });
-    };
-
-    window.clearTitle = () => secureUpdate(ref(db, 'broadcast/current'), { mainTitle: "", subtitle: "" });
-
-    window.saveTicker = () => {
-        secureUpdate(ref(db, 'broadcast/manual_news'), {
-            genre: document.getElementById('input-tic-g').value,
-            line1: document.getElementById('input-tic-1').value,
-            line2: document.getElementById('input-tic-2').value
-        });
-    };
-
-    // --- ⑪ 文字スーパー手動個別ロジック ---
-    window.previewSuperText = () => {
-        const text = document.getElementById('input-super-content').value;
-        document.getElementById('super-admin-preview').innerHTML = text;
-    };
-
-    window.insertDecorateTag = (styleString) => {
-        const textarea = document.getElementById('input-super-content');
-        const startPos = textarea.selectionStart;
-        const endPos = textarea.selectionEnd;
-        const selectedText = textarea.value.substring(startPos, endPos);
+        const tabMap = { 'layout':0, 'camera':1, 'free-image':2, 'text-super':3, 'tsunami':4, 'l-shape':5 };
+        if(navItems[tabMap[tabId]]) navItems[tabMap[tabId]].classList.add('active');
         
-        const replacement = `<span style="${styleString}">${selectedText || '対象テキスト'}</span>`;
-        textarea.value = textarea.value.substring(0, startPos) + replacement + textarea.value.substring(endPos, textarea.value.length);
+        const contentEl = document.getElementById(`tab-${tabId}`);
+        if(contentEl) contentEl.classList.add('active');
         
-        previewSuperText();
-        textarea.focus();
-    };
-
-    window.sendTextSuper = () => {
-        const htmlText = document.getElementById('input-super-content').value;
-        secureUpdate(ref(db, 'broadcast/text_super'), {
-            htmlContent: htmlText
-        }).then(() => alert("文字スーパーのテキスト内容を更新保存しました"));
-    };
-
-    window.toggleSuperVisibility = (visibleBool) => {
-        secureUpdate(ref(db, 'broadcast/text_super'), {
-            visible: visibleBool
-        }).then(() => {
-            alert(`文字スーパー表示を ${visibleBool ? 'ON' : 'OFF'} に切り替えました`);
-        });
-    };
-
-    // --- 複数自由配置画像管理ロジック ---
-    window.addNewFreeImage = () => {
-        const newId = "img_" + Date.now(); 
-        const initialConfig = { name: "新規配置画像", url: "", x: 0, y: 0, width: 1920, zIndex: 1, opacity: 1.0, visible: true };
-        secureSet(ref(db, `broadcast/free_images/${newId}`), initialConfig);
-    };
-
-    window.addFreeImageFromPreset = (index) => {
-        const preset = imagePresets[index];
-        if (!preset) return;
-        const newId = "img_" + Date.now();
-        const config = {
-            name: preset.name || "プリセット画像", url: preset.url || "",
-            x: preset.x !== undefined ? preset.x : 0, y: preset.y !== undefined ? preset.y : 0,
-            width: preset.width !== undefined ? preset.width : 1920, zIndex: preset.zIndex !== undefined ? preset.zIndex : 1,
-            opacity: preset.opacity !== undefined ? preset.opacity : 1.0, visible: preset.visible !== undefined ? preset.visible : true
+        const titles = {
+            'layout':'画面レイアウト制御', 'camera':'カメラ・画角ソース切替',
+            'free-image':'自由配置画像オーバーレイ', 'text-super':'手動文字スーパー（速報テロップ）',
+            'tsunami':'津波情報表示マップ制御', 'l-shape':'L字防災ニュースシステム設定'
         };
-        secureSet(ref(db, `broadcast/free_images/${newId}`), config);
+        document.getElementById('tab-title').innerText = titles[tabId];
+        activeTab = tabId;
     };
 
-    window.syncRangeImageValue = (id, field, val) => {
-        let numVal = parseFloat(val); if (isNaN(numVal)) numVal = 1;
-        const obj = {}; obj[field] = numVal;
-        secureUpdate(ref(db, `broadcast/free_images/${id}`), obj);
-    };
-
-    window.updateImageProperty = (id, field, val) => {
-        const obj = {}; obj[field] = val;
-        secureUpdate(ref(db, `broadcast/free_images/${id}`), obj);
-    };
-
-    window.deleteFreeImage = (id) => {
-        if(confirm("この画像を削除しますか？")) {
-            const secret = getSecretKey();
-            const updates = {};
-            updates[`broadcast/free_images/${id}`] = null;
-            updates[`broadcast/secret_key`] = secret;
-            update(ref(db), updates);
-        }
-    };
-
-    window.handleImageFileSelect = (id, event) => {
-        const file = event.target.files[0]; if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            secureUpdate(ref(db, `broadcast/free_images/${id}`), { url: e.target.result });
-        };
-        reader.readAsDataURL(file);
-    };
-
-    function renderFreeImagesControls(imagesData) {
-        const container = document.getElementById('free-images-control-container');
-        if (!container) return; container.innerHTML = "";
-        if (!imagesData || Object.keys(imagesData).length === 0) {
-            container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-sub);">配置されている画像はありません。</div>`;
-            return;
-        }
-
-        Object.keys(imagesData).forEach(id => {
-            const conf = imagesData[id]; if(!conf || id === 'secret_key') return;
-            const card = document.createElement('div');
-            card.className = "card"; card.style.background = "#222";
-            const currentZIndex = conf.zIndex !== undefined ? conf.zIndex : 1;
-
-            card.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:10px;">
-                    <input type="text" value="${conf.name || '名称未設定'}" style="margin:0; width:60%; padding:6px 10px; background:#000;" onchange="updateImageProperty('${id}', 'name', this.value)">
-                    <div class="btn-group" style="margin:0;">
-                        <button class="${conf.visible ? 'primary' : 'secondary'}" style="padding:6px 12px; font-size:12px;" onclick="updateImageProperty('${id}', 'visible', ${!conf.visible})">${conf.visible ? '表示中' : '非表示'}</button>
-                        <button class="danger" style="padding:6px 12px; font-size:12px;" onclick="deleteFreeImage('${id}')"><i class="material-icons" style="font-size:14px; vertical-align:middle;">delete</i></button>
-                    </div>
-                </div>
-                <label>画像直リンクURL</label>
-                <input type="text" value="${conf.url && !conf.url.startsWith('data:') ? conf.url : ''}" onchange="updateImageProperty('${id}', 'url', this.value)">
-                <label>ローカル画像アップロード</label>
-                <input type="file" accept="image/*" onchange="handleImageFileSelect('${id}', event)">
-                <div style="margin-top:15px;">
-                    <label>X座標 <span style="float:right;" id="val-${id}-x">${conf.x || 0}px</span></label>
-                    <input type="range" min="0" max="1920" value="${conf.x || 0}" oninput="document.getElementById('val-${id}-x').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'x', this.value)">
-                    <label>Y座標 <span style="float:right;" id="val-${id}-y">${conf.y || 0}px</span></label>
-                    <input type="range" min="0" max="1080" value="${conf.y || 0}" oninput="document.getElementById('val-${id}-y').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'y', this.value)">
-                    <label>画像横幅 <span style="float:right;" id="val-${id}-w">${conf.width !== undefined ? conf.width : 1920}px</span></label>
-                    <input type="range" min="50" max="1920" value="${conf.width !== undefined ? conf.width : 1920}" oninput="document.getElementById('val-${id}-w').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'width', this.value)">
-                    <label>レイヤー順序 (1〜10)</label>
-                    <input type="range" min="1" max="10" value="${currentZIndex}" oninput="syncRangeImageValue('${id}', 'zIndex', this.value)">
-                    <label>不透明度 <span style="float:right;" id="val-${id}-o">${conf.opacity !== undefined ? conf.opacity : 1.0}</span></label>
-                    <input type="range" min="0" max="1" step="0.1" value="${conf.opacity !== undefined ? conf.opacity : 1.0}" oninput="document.getElementById('val-${id}-o').innerText = this.value; syncRangeImageValue('${id}', 'opacity', this.value)">
-                </div>
-            `;
-            container.appendChild(card);
-        });
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.innerText = msg; t.style.display = 'block';
+        setTimeout(() => { t.style.display = 'none'; }, 2000);
     }
 
-    // --- L-Shape Logic ---
-    let localLItems = [];
-    window.addLItem = () => { localLItems.push({genre:"", text:""}); renderLItems(); };
-    window.removeLItem = (i) => { localLItems.splice(i,1); renderLItems(); };
-    window.updateLItem = (i, field, val) => { localLItems[i][field] = val; };
+    // --- ⑪ 1行目・2行目からHTMLを自動ビルドする処理 ---
+    window.buildSuperHtml = function() {
+        const text1 = document.getElementById('input-super-line1').value.trim();
+        const bg1 = document.getElementById('check-super-bg1').checked;
+        const text2 = document.getElementById('input-super-line2').value.trim();
+        const bg2 = document.getElementById('check-super-bg2').checked;
 
-    function renderLItems() {
-        const container = document.getElementById('l-items-container'); if(!container) return;
+        let parts = [];
+
+        if (text1) {
+            if (bg1) {
+                parts.push(`<p><span style="background-color: #d13438;">${text1}</span></p>`);
+            } else {
+                parts.push(`<p><span>${text1}</span></p>`);
+            }
+        }
+        if (text2) {
+            if (bg2) {
+                parts.push(`<p><span style="background-color: #d13438;">${text2}</span></p>`);
+            } else {
+                parts.push(`<p><span>${text2}</span></p>`);
+            }
+        }
+
+        // 構築した結合HTMLを隠しテキストエリアに代入
+        document.getElementById('input-super-content').value = parts.join('');
+    };
+
+    // 分離されたデータをパースしてフォームを復元する逆変換
+    function restoreSuperInputs(html) {
+        if (!html) return;
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const paragraphs = doc.querySelectorAll('p');
+
+        // 一旦初期化
+        document.getElementById('input-super-line1').value = "";
+        document.getElementById('check-super-bg1').checked = false;
+        document.getElementById('input-super-line2').value = "";
+        document.getElementById('check-super-bg2').checked = false;
+
+        if (paragraphs.length >= 1) {
+            const span = paragraphs[0].querySelector('span');
+            if (span) {
+                document.getElementById('input-super-line1').value = span.textContent;
+                document.getElementById('check-super-bg1').checked = !!span.style.backgroundColor;
+            }
+        }
+        if (paragraphs.length >= 2) {
+            const span = paragraphs[1].querySelector('span');
+            if (span) {
+                document.getElementById('input-super-line2').value = span.textContent;
+                document.getElementById('check-super-bg2').checked = !!span.style.backgroundColor;
+            }
+        }
+    }
+
+    // --- 各配信系API制御ロジック ---
+    window.setLayoutMode = function(mode) {
+        set(ref(db, 'broadcast/current/layoutMode'), mode)
+            .then(() => showToast(`レイアウトを ${mode} に切り替えました`));
+    };
+
+    window.setTextSuperVisible = function(visible) {
+        buildSuperHtml(); // 送信直前に最新データをビルド
+        const html = document.getElementById('input-super-content').value;
+        update(ref(db, 'broadcast/text_super'), { visible: visible, htmlContent: html })
+            .then(() => showToast(visible ? "テロップを配信へ送出しました" : "テロップを非表示にしました"));
+    };
+
+    window.setTsunamiAuto = function(isAuto) {
+        update(ref(db, 'broadcast/tsunami_map'), { autoPage: isAuto })
+            .then(() => showToast(isAuto ? "津波自動同期ON" : "手動モードに変更しました"));
+    };
+
+    window.setTsunamiVisible = function(visible) {
+        update(ref(db, 'broadcast/tsunami_map'), { manualVisible: visible })
+            .then(() => showToast(visible ? "津波地図を強制表示" : "津波地図を強制非表示"));
+    };
+
+    // --- カメラシステム ---
+    function initCameras() {
+        const camList = [
+            {id:"cam1", name:"メインカメラ(OBS)"}, {id:"cam2", name:"強震モニタ全画面"},
+            {id:"cam3", name:"お天気カメラ宮崎"}, {id:"cam4", name:"お天気カメラ鹿児島"},
+            {id:"cam5", name:"お天気カメラ沖縄"}
+        ];
+        const container = document.getElementById('camera-buttons-container');
+        container.innerHTML = camList.map(c => `
+            <button id="btn-cam-${c.id}" class="cam-btn" onclick="setCamera('${c.id}')">
+                <span class="cam-id">${c.id.toUpperCase()}</span>
+                <span class="cam-name">${c.name}</span>
+            </button>
+        `).join('');
+    }
+    window.setCamera = function(id) {
+        set(ref(db, 'broadcast/current/cameraSource'), id).then(() => showToast(`カメラをソース ${id} に変更`));
+    };
+
+    function initPresets() {
+        const presets = [
+            {id:"p1", name:"震度配置レイアウト"}, {id:"p2", name:"津波注意報警報シフト"},
+            {id:"p3", name:"全面全点カメラ監視"}, {id:"p4", name:"避難呼びかけモード"}
+        ];
+        const container = document.getElementById('preset-buttons-container');
+        container.innerHTML = presets.map(p => `
+            <button id="btn-preset-${p.id}" class="cam-btn" onclick="triggerPreset('${p.id}')">
+                <span class="cam-id">PRESET</span>
+                <span class="cam-name">${p.name}</span>
+            </button>
+        `).join('');
+    }
+    window.triggerPreset = function(id) {
+        showToast(`プリセットマクロ ${id} を実行しました`);
+    };
+
+    // --- 自由配置画像反映管理システム ---
+    window.renderFreeImagesControls = function(imagesObj) {
+        const container = document.getElementById('free-images-list');
         container.innerHTML = "";
-        localLItems.forEach((item, i) => {
+        Object.keys(imagesObj).forEach(id => {
+            const item = imagesObj[id];
             const div = document.createElement('div');
-            div.className = "card draggable-card"; div.dataset.index = i;
+            div.className = "card";
+            div.style.background = "#252525";
             div.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <div style="font-size:12px; color:var(--accent-blue);">カード #${i}</div>
-                    <button class="danger" style="padding:5px 10px;" onclick="removeLItem(${i})"><i class="material-icons" style="font-size:14px;">delete</i></button>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <strong style="font-size:14px;">画像スロット: ${id}</strong>
+                    <button class="btn ${item.visible ? 'btn-active' : ''}" onclick="toggleImageVisible('${id}', ${!item.visible})">
+                        ${item.visible ? '表示中' : '非表示'}
+                    </button>
                 </div>
-                <label>ジャンル</label>
-                <input type="text" value="${item.genre || ''}" oninput="updateLItem(${i}, 'genre', this.value)">
-                <label>内容</label>
-                <input type="text" value="${item.text || ''}" oninput="updateLItem(${i}, 'text', this.value)">
+                <div class="grid-2">
+                    <div class="form-group"><label>画像URL</label><input type="text" class="form-control" value="${item.url || ''}" onchange="updateImageProp('${id}', 'url', this.value)"></div>
+                    <div class="form-group"><label>不透明度 (0〜1)</label><input type="number" step="0.1" class="form-control" value="${item.opacity !== undefined ? item.opacity : 1}" onchange="updateImageProp('${id}', 'opacity', parseFloat(this.value))"></div>
+                </div>
+                <div class="grid-2" style="margin-top:10px;">
+                    <div class="form-group"><label>X座標 (px)</label><input type="number" class="form-control" value="${item.x || 0}" onchange="updateImageProp('${id}', 'x', parseInt(this.value))"></div>
+                    <div class="form-group"><label>Y座標 (px)</label><input type="number" class="form-control" value="${item.y || 0}" onchange="updateImageProp('${id}', 'y', parseInt(this.value))"></div>
+                </div>
             `;
             container.appendChild(div);
         });
-    }
-
-    window.saveLShape = () => {
-        const topItemsObj = {};
-        localLItems.forEach((item, index) => { topItemsObj[index] = { genre: item.genre || "", text: item.text || "" }; });
-        secureSet(ref(db, 'broadcast/l_shape'), {
-            leftText: document.getElementById('input-l-leftText').value || "", topItems: topItemsObj
-        }).then(() => alert("L字放送設定を保存しました"));
     };
+    window.toggleImageVisible = function(id, v) { update(ref(db, `broadcast/free_images/${id}`), { visible: v }); };
+    window.updateImageProp = function(id, prop, val) { set(ref(db, `broadcast/free_images/${id}/${prop}`), val); };
 
-    window.triggerTsu = (dir) => {
-        secureSet(ref(db, 'broadcast/tsunami_config/manualTrigger'), { direction: dir, timestamp: Date.now() });
+    // --- L字制御システム ---
+    window.addLItemRow = function(genre="", text="") {
+        localLItems.push({ genre, text }); renderLItems();
     };
-
-    // --- Camera Filter ---
-    window.filterByArea = (area, btn) => {
-        document.getElementById('area-filter-container').querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active'); currentSelectedArea = area; applyCombinedFilter();
+    window.removeLItemRow = function(index) {
+        localLItems.splice(index, 1); renderLItems();
     };
-    window.filterByGenre = (genre, btn) => {
-        document.getElementById('genre-filter-container').querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active'); currentSelectedGenre = genre; applyCombinedFilter();
+    window.updateLItemData = function(index, field, value) {
+        localLItems[index][field] = value;
     };
-
-    function applyCombinedFilter() {
-        let filtered = allCameras;
-        if (currentSelectedArea !== 'すべて') filtered = filtered.filter(c => c.area === currentSelectedArea);
-        if (currentSelectedGenre !== 'すべて') filtered = filtered.filter(c => c.genre === currentSelectedGenre);
-        renderCameraList(filtered);
-    }
-
-    function renderCameraList(cams) {
-        const list = document.getElementById('cam-list'); if(!list) return; list.innerHTML = "";
-        cams.forEach(c => {
-            const d = document.createElement('div');
-            d.style.cssText = "padding:18px; border-bottom:1px solid #222; cursor:pointer;";
-            d.innerHTML = `<div style="display:flex; justify-content:space-between;"><div><b>${c.name}</b><br><small>${c.id}</small></div></div>`;
-            d.onclick = () => updateFB('current/cameraSource', c.id);
-            list.appendChild(d);
+    function renderLItems() {
+        const container = document.getElementById('l-items-container');
+        container.innerHTML = "";
+        localLItems.forEach((item, idx) => {
+            const div = document.createElement('div');
+            div.className = "list-item-row";
+            div.draggable = true;
+            div.innerHTML = `
+                <span class="material-icons drag-handle">drag_indicator</span>
+                <input type="text" class="form-control" style="width:120px;" placeholder="ジャンル" value="${item.genre}" oninput="updateLItemData(${idx}, 'genre', this.value)">
+                <input type="text" class="form-control" style="flex:1;" placeholder="スクロールテロップ本文" value="${item.text}" oninput="updateLItemData(${idx}, 'text', this.value)">
+                <button class="btn btn-danger" style="padding:8px;" onclick="removeLItemRow(${idx})"><span class="material-icons" style="font-size:18px;">delete</span></button>
+            `;
+            
+            // ドラッグ並び替えイベント添付
+            div.addEventListener('dragstart', () => div.classList.add('dragging'));
+            div.addEventListener('dragend', () => { div.classList.remove('dragging'); rebuildLItemsFromDOM(); });
+            container.appendChild(div);
+        });
+        
+        container.addEventListener('dragover', e => {
+            e.preventDefault();
+            const afterEl = getDragAfterElement(container, e.clientY);
+            const drg = document.querySelector('.dragging');
+            if(drg) {
+                if (afterEl == null) container.appendChild(drg);
+                else container.insertBefore(drg, afterEl);
+            }
         });
     }
 
-    function updatePreviewPlayer(cameraId) {
-        const container = document.getElementById('preview-player-container'); if (!container) return;
-        const cam = allCameras.find(c => c.id === cameraId);
-        if (!cam) { container.innerHTML = `ライブ映像はここに表示されます`; return; }
-        if (cam.type === 'youtube') {
-            let embedUrl = cam.url;
-            if (embedUrl.includes('watch?v=')) embedUrl = `https://www.youtube.com/embed/${embedUrl.split('watch?v=')[1].split('&')[0]}`;
-            container.innerHTML = `<iframe src="${embedUrl}?autoplay=1&mute=1" style="width:100%; height:100%; border:none; position:absolute;"></iframe>`;
-        } else {
-            container.innerHTML = `<div style="padding:20px;"><b>📹 ${cam.name}</b></div>`;
-        }
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.list-item-row:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
+            else return closest;
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
-    async function initPresets() {
-        try {
-            const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/presets.json");
-            imagePresets = await res.json();
-            const container = document.getElementById('preset-buttons-container');
-            if(container) {
-                container.innerHTML = "";
-                imagePresets.forEach((p, i) => {
-                    const b = document.createElement('button'); b.className = "secondary"; b.innerText = p.name;
-                    b.onclick = () => addFreeImageFromPreset(i); container.appendChild(b);
-                });
-            }
-        } catch(e) {}
+    function rebuildLItemsFromDOM() {
+        const rows = document.querySelectorAll('#l-items-container .list-item-row');
+        let newItems = [];
+        rows.forEach(row => {
+            const inputs = row.querySelectorAll('input');
+            newItems.push({ genre: inputs[0].value, text: inputs[1].value });
+        });
+        localLItems = newItems;
     }
 
-    async function initCameras() {
-        try {
-            const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json");
-            allCameras = await res.json(); applyCombinedFilter();
-        } catch(e) {}
-    }
+    window.saveLShapeConfig = function() {
+        rebuildLItemsFromDOM();
+        const leftText = document.getElementById('input-l-leftText').value;
+        const itemsObj = {};
+        localLItems.forEach((item, index) => { itemsObj[index] = item; });
+        
+        update(ref(db, 'broadcast/l_shape'), { leftText: leftText, topItems: itemsObj })
+            .then(() => showToast("L字情報をシステムへ同期・送信しました"));
+    };
 
-    // 入力フォーカス中の書き換えを防ぐ同期ヘルパー
-    function syncInput(id, val) {
-        const el = document.getElementById(id);
-        if(el && document.activeElement !== el) {
-            el.value = val !== undefined ? val : "";
-        }
-    }
-
-    function setBtn(id, active) {
-        const el = document.getElementById(id);
-        if(el) el.className = active ? "primary" : "secondary";
-    }
-
-    function containerIsDragging() {
-        const container = document.getElementById('l-items-container');
-        return container ? container.querySelectorAll('.dragging').length > 0 : false;
-    }
-
-    // --- Firebaseデータ一元同期・復元処理 ---
+    // --- メインデータ同期反映一括処理 ---
     onValue(ref(db, 'broadcast'), (snapshot) => {
-        const data = snapshot.val(); if(!data) return;
-        const cur = data.current || {}; const tsu = data.tsunami_config || {};
+        const data = snapshot.val();
+        if(!data) return;
+        document.getElementById('connection-status').innerText = "正常に通信中";
+
         const activeEl = document.activeElement;
 
-        // 1. ダッシュボード・配信ステータス反映
-        document.getElementById('stat-dist').innerText = `${cur.distributor === 'bot' ? '🤖 自動' : '👤 有人'} (${cur.operator || '--'})`;
-        document.getElementById('stat-mode').innerText = cur.layoutMode === 'emergency' ? '🚨 有事' : '🏠 通常';
-        document.getElementById('stat-cam').innerText = cur.cameraSource || '--';
+        // 1. レイアウトモード
+        const mode = data.current?.layoutMode || 'live';
+        setBtn('btn-layout-live', mode === 'live');
+        setBtn('btn-layout-emergency', mode === 'emergency');
 
-        if (cur.cameraSource && cur.cameraSource !== currentCameraSourceId) {
-            currentCameraSourceId = cur.cameraSource; updatePreviewPlayer(currentCameraSourceId);
-        }
+        // 2. カメラ選択
+        const cam = data.current?.cameraSource || 'cam1';
+        document.querySelectorAll('#camera-buttons-container .cam-btn').forEach(b => b.classList.remove('active'));
+        const activeCamBtn = document.getElementById(`btn-cam-${cam}`);
+        if(activeCamBtn) activeCamBtn.classList.add('active');
 
-        // 2. 配信担当タブの復元
-        syncInput('input-distributor', cur.distributor);
-        syncInput('input-operator', cur.operator === 'System' ? "" : cur.operator);
-        toggleNingen();
+        // 3. 津波情報表示
+        const tsu = data.tsunami_map || { autoPage: true };
+        setBtn('btn-tsu-show', tsu.manualVisible === true);
+        setBtn('btn-tsu-hide', tsu.manualVisible === false);
 
-        // 3. 画面表示タブ（レイアウトモード、L字モード、投影ソース）の復元
-        setBtn('btn-lay-live', cur.layoutMode === 'live');
-        setBtn('btn-lay-emer', cur.layoutMode === 'emergency');
-        setBtn('btn-m-sub', data.current_mode === 'sub-switcher');
-        setBtn('btn-m-l', data.current_mode === 'l-screen');
-        const linkToL = document.getElementById('link-to-l');
-        if(linkToL) linkToL.style.display = data.current_mode === 'l-screen' ? 'block' : 'none';
-
-        syncInput('input-mainSource', cur.mainSource);
-        const scrOpts = document.getElementById('screen-options');
-        if(scrOpts) scrOpts.style.display = cur.mainSource === 'screen' ? 'block' : 'none';
-
-        if(data.screen_program) {
-            syncInput('input-screen-type', data.screen_program.type);
-            toggleVideoOptions(data.screen_program.type);
-            syncInput('input-screen-title', data.screen_program.title);
-            syncInput('input-screen-url', data.screen_program.url);
-            if(data.screen_program.type === 'video') {
-                syncInput('input-screen-loop', data.screen_program.loop ? 'true' : 'false');
-                syncInput('input-screen-muted', data.screen_program.muted ? 'true' : 'false');
+        // 4. ⑪ 文字スーパーの復元同期 (編集中は値を上書きしない)
+        if(data.text_super) {
+            const line1 = document.getElementById('input-super-line1');
+            const line2 = document.getElementById('input-super-line2');
+            
+            if (activeEl !== line1 && activeEl !== line2) {
+                restoreSuperInputs(data.text_super.htmlContent);
             }
+            setBtn('btn-super-on', data.text_super.visible === true);
+            setBtn('btn-super-off', data.text_super.visible === false);
         }
 
-        // 4. タイトル編集タブの復元
-        syncInput('input-mainTitle', cur.mainTitle);
-        syncInput('input-subtitle', cur.subtitle);
-
-        // 5. Tickerタブの復元
-        if(data.manual_news) {
-            syncInput('input-tic-g', data.manual_news.genre);
-            syncInput('input-tic-1', data.manual_news.line1);
-            syncInput('input-tic-2', data.manual_news.line2);
-        }
-
-        // 6. L字詳細設定の復元
-        const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container') || containerIsDragging());
+        // 5. L字データの同期
+        const isEditingL = activeEl && (activeEl.id === 'input-l-leftText' || activeEl.closest('#l-items-container'));
         if(data.l_shape && !isEditingL) {
-            syncInput('input-l-leftText', data.l_shape.leftText);
+            document.getElementById('input-l-leftText').value = data.l_shape.leftText || "";
             const items = data.l_shape.topItems;
             if(items) {
                 const keys = Object.keys(items).sort((a,b) => parseInt(a) - parseInt(b));
@@ -880,32 +595,25 @@
                 }
             }
         }
-
-        // 7. 津波制御タブの復元
+        
         setBtn('btn-tsu-auto', tsu.autoPage === true);
         setBtn('btn-tsu-manual', tsu.autoPage === false);
         const tsuCtrl = document.getElementById('tsu-manual-ctrl');
         if(tsuCtrl) tsuCtrl.style.display = tsu.autoPage === false ? 'block' : 'none';
 
-        // 8. 自由配置画像設定の同期
+        // 6. 自由画像同期呼び出し
         renderFreeImagesControls(data.free_images || {});
-
-        // 9. ⑪ 文字スーパー手動設定タブの復元・同期
-        if(data.text_super) {
-            const inputEl = document.getElementById('input-super-content');
-            if(activeEl !== inputEl) {
-                inputEl.value = data.text_super.htmlContent || "";
-                previewSuperText();
-            }
-            setBtn('btn-super-on', data.text_super.visible === true);
-            setBtn('btn-super-off', data.text_super.visible === false);
-        }
 
         isInitialLoad = false;
     });
 
-    initCameras(); initPresets();
-    setTimeout(() => { getSecretKey(); }, 500);
+    function setBtn(id, active) {
+        const el = document.getElementById(id);
+        if(el) { if(active) el.classList.add('btn-active'); else el.classList.remove('btn-active'); }
+    }
+
+    initCameras();
+    initPresets();
 </script>
 </body>
 </html>
