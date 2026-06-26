@@ -379,7 +379,7 @@
         </div>
 
     </div>
- main>
+</main>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -403,6 +403,7 @@
     let currentSelectedArea = "すべて";
     let currentSelectedGenre = "すべて";
     let currentCameraSourceId = ""; 
+    let isInitialLoad = true;
 
     // --- 共通パスワード認証ロジック ---
     function getSecretKey() {
@@ -790,26 +791,31 @@
         } catch(e) {}
     }
 
+    // 入力フォーカス中の書き換えを防ぐ同期ヘルパー
+    function syncInput(id, val) {
+        const el = document.getElementById(id);
+        if(el && document.activeElement !== el) {
+            el.value = val !== undefined ? val : "";
+        }
+    }
+
+    function setBtn(id, active) {
+        const el = document.getElementById(id);
+        if(el) el.className = active ? "primary" : "secondary";
+    }
+
+    function containerIsDragging() {
+        const container = document.getElementById('l-items-container');
+        return container ? container.querySelectorAll('.dragging').length > 0 : false;
+    }
+
+    // --- Firebaseデータ一元同期・復元処理 ---
     onValue(ref(db, 'broadcast'), (snapshot) => {
         const data = snapshot.val(); if(!data) return;
         const cur = data.current || {}; const tsu = data.tsunami_config || {};
-        
-        // 文字スーパー同期
-        if(data.text_super) {
-            const inputEl = document.getElementById('input-super-content');
-            if(document.activeElement !== inputEl) {
-                inputEl.value = data.text_super.htmlContent || "";
-                previewSuperText();
-            }
-            const btnOn = document.getElementById('btn-super-on');
-            const btnOff = document.getElementById('btn-super-off');
-            if(btnOn && btnOff) {
-                btnOn.className = data.text_super.visible ? "primary" : "secondary";
-                btnOff.className = !data.text_super.visible ? "primary" : "secondary";
-            }
-        }
+        const activeEl = document.activeElement;
 
-        renderFreeImagesControls(data.free_images || {});
+        // 1. ダッシュボード・配信ステータス反映
         document.getElementById('stat-dist').innerText = `${cur.distributor === 'bot' ? '🤖 自動' : '👤 有人'} (${cur.operator || '--'})`;
         document.getElementById('stat-mode').innerText = cur.layoutMode === 'emergency' ? '🚨 有事' : '🏠 通常';
         document.getElementById('stat-cam').innerText = cur.cameraSource || '--';
@@ -817,6 +823,85 @@
         if (cur.cameraSource && cur.cameraSource !== currentCameraSourceId) {
             currentCameraSourceId = cur.cameraSource; updatePreviewPlayer(currentCameraSourceId);
         }
+
+        // 2. 配信担当タブの復元
+        syncInput('input-distributor', cur.distributor);
+        syncInput('input-operator', cur.operator === 'System' ? "" : cur.operator);
+        toggleNingen();
+
+        // 3. 画面表示タブ（レイアウトモード、L字モード、投影ソース）の復元
+        setBtn('btn-lay-live', cur.layoutMode === 'live');
+        setBtn('btn-lay-emer', cur.layoutMode === 'emergency');
+        setBtn('btn-m-sub', data.current_mode === 'sub-switcher');
+        setBtn('btn-m-l', data.current_mode === 'l-screen');
+        const linkToL = document.getElementById('link-to-l');
+        if(linkToL) linkToL.style.display = data.current_mode === 'l-screen' ? 'block' : 'none';
+
+        syncInput('input-mainSource', cur.mainSource);
+        const scrOpts = document.getElementById('screen-options');
+        if(scrOpts) scrOpts.style.display = cur.mainSource === 'screen' ? 'block' : 'none';
+
+        if(data.screen_program) {
+            syncInput('input-screen-type', data.screen_program.type);
+            toggleVideoOptions(data.screen_program.type);
+            syncInput('input-screen-title', data.screen_program.title);
+            syncInput('input-screen-url', data.screen_program.url);
+            if(data.screen_program.type === 'video') {
+                syncInput('input-screen-loop', data.screen_program.loop ? 'true' : 'false');
+                syncInput('input-screen-muted', data.screen_program.muted ? 'true' : 'false');
+            }
+        }
+
+        // 4. タイトル編集タブの復元
+        syncInput('input-mainTitle', cur.mainTitle);
+        syncInput('input-subtitle', cur.subtitle);
+
+        // 5. Tickerタブの復元
+        if(data.manual_news) {
+            syncInput('input-tic-g', data.manual_news.genre);
+            syncInput('input-tic-1', data.manual_news.line1);
+            syncInput('input-tic-2', data.manual_news.line2);
+        }
+
+        // 6. L字詳細設定の復元
+        const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container') || containerIsDragging());
+        if(data.l_shape && !isEditingL) {
+            syncInput('input-l-leftText', data.l_shape.leftText);
+            const items = data.l_shape.topItems;
+            if(items) {
+                const keys = Object.keys(items).sort((a,b) => parseInt(a) - parseInt(b));
+                const newItems = keys.map(key => ({
+                    genre: items[key].genre || "",
+                    text: items[key].text || ""
+                }));
+                if(isInitialLoad || localLItems.length !== newItems.length) {
+                    localLItems = newItems;
+                    renderLItems();
+                }
+            }
+        }
+
+        // 7. 津波制御タブの復元
+        setBtn('btn-tsu-auto', tsu.autoPage === true);
+        setBtn('btn-tsu-manual', tsu.autoPage === false);
+        const tsuCtrl = document.getElementById('tsu-manual-ctrl');
+        if(tsuCtrl) tsuCtrl.style.display = tsu.autoPage === false ? 'block' : 'none';
+
+        // 8. 自由配置画像設定の同期
+        renderFreeImagesControls(data.free_images || {});
+
+        // 9. ⑪ 文字スーパー手動設定タブの復元・同期
+        if(data.text_super) {
+            const inputEl = document.getElementById('input-super-content');
+            if(activeEl !== inputEl) {
+                inputEl.value = data.text_super.htmlContent || "";
+                previewSuperText();
+            }
+            setBtn('btn-super-on', data.text_super.visible === true);
+            setBtn('btn-super-off', data.text_super.visible === false);
+        }
+
+        isInitialLoad = false;
     });
 
     initCameras(); initPresets();
