@@ -87,18 +87,18 @@
             left: 50%;
             transform: translateX(-50%) translateY(-20px);
             width: 780px;
-            height: 110px;
+            height: 130px; /* 改行縦並びを考慮して高さを少しゆとりを持たせました */
             z-index: 15; /* 他のテロップより最前面に配置 */
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
             
-            /* テキストレイアウト設定 */
+            /* テキストレイアウト設定（縦並び・上揃え・左詰め） */
             display: flex;
-            align-items: flex-start; /* 上揃え */
-            justify-content: flex-start; /* 左揃え */
-            /* 【改善】複数行時の上部位置を安定させるためパディングを調整 */
-            padding: 4px 20px 0 20px;
+            flex-direction: column;
+            align-items: flex-start; /* 左揃え */
+            justify-content: flex-start; /* 上揃え */
+            padding: 10px 20px 0 20px;
             box-sizing: border-box;
             
             /* 文字の基本プロパティ */
@@ -107,47 +107,41 @@
             font-weight: bold;
             color: #ffffff;
             text-align: left;
-            white-space: pre-wrap;
-            /* 【改善】15pxの太い枠線が上下の行で衝突して潰れるのを防ぐため、行間を1.5（150%）に拡張 */
-            line-height: 1.5;
+            
+            /* 【変更】1行目と2行目の独立したボックス間の隙間（行間130%相当に調整） */
+            gap: 12px;
             
             /* プロポーショナルメトリクス詰め */
             font-feature-settings: "palt" 1;
-            
-            /* 文字の外側丸縁取りを 15px に設定 */
-            -webkit-text-stroke: 15px #000000;
-            paint-order: stroke fill;
-            stroke-linejoin: round;
         }
 
-        /* 重ね掛けで中の文字色や背景色の表示破綻を防ぐリセット・および個別スタイル処理 */
-        #text-super-container * {
-            font-feature-settings: "palt" 1;
-        }
-
-        /* カラーボックス（span）が存在する場合の縁取り・形状設定 */
-        #text-super-container span {
-            /* 【改善】inline-blockからinlineに変更し、改行時のボックスの挙動を正常化 */
-            display: inline;
+        /* 1つの行、1つの行として生成される各行ボックスの個別スタイル */
+        .super-line-box {
+            display: inline-block;
+            white-space: nowrap;
             
-            /* 【改善】上下1px、左右11pxのパディングを改行後の各行の端にも適用させる設定 */
+            /* パディング：上下1px、左右11px */
             padding: 1px 11px;
-            -webkit-box-decoration-break: clone;
-            box-decoration-break: clone;
             
-            /* ボックスの角丸を 0px に設定 */
+            /* 角丸：0px */
             border-radius: 0px;
             
-            /* 行間情報を確実に継承 */
-            line-height: 1.5;
+            /* 1行ごとの高さを維持 */
+            line-height: 1.0;
             
-            /* ボックスの中の文字枠線も一律 15px に統一 */
+            /* 文字の外側丸縁取りを一律 15px に設定 */
             -webkit-text-stroke: 15px #000000;
             paint-order: stroke fill;
             stroke-linejoin: round;
-
+            
             /* ボックス枠線はなし */
             box-shadow: none;
+        }
+
+        /* 管理画面等から元々適用されている可能性のある内包要素の文字破綻リセット */
+        .super-line-box * {
+            -webkit-text-stroke: 0px transparent !important;
+            font-feature-settings: "palt" 1;
         }
 
         #text-super-container.is-active {
@@ -255,11 +249,46 @@
         }
     });
 
-    // --- ⑪ 手動文字スーパーリアルタイム同期反映 ---
+    // --- ⑪ 手動文字スーパーリアルタイム同期反映 (1行ずつ分解して描画するロジックに修正) ---
     onValue(ref(db, 'broadcast/text_super'), (snapshot) => {
         const data = snapshot.val();
         if (data && data.visible && data.htmlContent) {
-            textSuperContainer.innerHTML = data.htmlContent;
+            // HTML内のタグや改行コード、<br>タグをもとに「プレーンな各行のテキスト」を取り出すための仮プレイスホルダー
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = data.htmlContent.replace(/<br\s*\/?>/gi, '\n');
+            
+            // 改行でテキストを2行に分割し、空白文字だけの行を除外
+            const rawLines = tempDiv.innerText.split('\n');
+            const lines = rawLines.map(l => l.trim()).filter(l => l !== "");
+
+            // コンテナの中身をクリア
+            textSuperContainer.innerHTML = "";
+
+            // 1行ずつそれぞれ独立したスパンボックスとして生成・配置
+            lines.forEach(lineText => {
+                if (lineText) {
+                    const lineSpan = document.createElement('span');
+                    lineSpan.className = 'super-line-box';
+                    
+                    // 管理画面側で設定された文字色(color)や背景色(background-color)のスタイル属性があれば抽出し、そのまま新しい行ボックスに継承させる処理
+                    const originSpan = tempDiv.querySelector('span');
+                    if (originSpan) {
+                        if (originSpan.style.backgroundColor) {
+                            lineSpan.style.backgroundColor = originSpan.style.backgroundColor;
+                        }
+                        if (originSpan.style.color) {
+                            lineSpan.style.color = originSpan.style.color;
+                        }
+                    } else {
+                        // スタイルが指定されていない場合のデフォルトフォールバック
+                        lineSpan.style.backgroundColor = "red"; // 例：標準の文字スーパー座布団色
+                    }
+
+                    lineSpan.textContent = lineText;
+                    textSuperContainer.appendChild(lineSpan);
+                }
+            });
+
             textSuperContainer.classList.add('is-active');
         } else {
             textSuperContainer.classList.remove('is-active');
