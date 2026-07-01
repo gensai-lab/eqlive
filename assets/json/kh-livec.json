@@ -576,6 +576,14 @@
         "url":  "https://www.youtube.com/embed/AQtEgfeEB8A"
     },
     {
+        "id":  "omarugawa",
+        "name":  "宮崎 都城市",
+        "area":  "九州",
+        "genre":  "河川",
+        "type":  "youtube",
+        "url":  "https://www.youtube.com/embed/li2FtqA4jJw"
+    },
+    {
         "id":  "satamisaki_lt",
         "name":  "鹿児島 大隈町",
         "area":  "九州",
