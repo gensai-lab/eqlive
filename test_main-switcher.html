@@ -4,13 +4,6 @@
     <meta charset="UTF-8">
     <title>EQLive Sub-Switcher</title>
     <style>
-        @font-face {
-            font-family: 'FOT-UDKakugoLarge';
-            src: url('assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');
-            font-weight: bold;
-            font-style: normal;
-        }
-
         body, html {
             margin: 0; padding: 0;
             width: 1920px; height: 1080px;
@@ -31,7 +24,7 @@
             position: absolute;
             top: 0; left: 0;
             width: 1920px; height: 1080px;
-            z-index: 5; 
+            z-index: 5; /* メイン画面(1)より上で、各テロップ(10)より下の階層 */
             pointer-events: none;
         }
         #watermark-layer img {
@@ -43,9 +36,11 @@
         /* === 自由配置画像用レイヤー === */
         #free-image-layer {
             position: absolute;
-            top: 0; left: 0;
-            width: 1920px; height: 1080px;
-            z-index: 8; 
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 1080px;
+            z-index: 8; /* ウォーターマーク(5)より上で、時間やタイトルなどのテロップ(10)より手前、または背後に配置されるように調整 */
             pointer-events: none;
         }
         .custom-free-image {
@@ -80,96 +75,6 @@
             transform: translateY(20px);
         }
 
-        /* === ⑪ 改良：手動文字スーパー表示用ボックススタイル === */
-        #text-super-container {
-            position: absolute;
-            top: 40px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-20px);
-            width: 1000px; /* 多色座布団のパディングや右詰めマージンを考慮 */
-            min-height: 140px;
-            z-index: 15;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
-            
-            /* 文字の基本プロパティ */
-            font-family: 'FOT-UDKakugoLarge', sans-serif;
-            font-size: 42px;
-            font-weight: bold;
-            color: #ffffff;
-            text-align: left;
-            line-height: 1.7;
-            letter-spacing: 0.03em;
-            font-feature-settings: "palt" 1;
-        }
-
-        #text-super-container p, 
-        #text-super-container div {
-            margin: 0;
-            padding: 0;
-            min-height: 42px;
-            white-space: nowrap;
-        }
-
-        /* 【10重影】すべての文字スーパーエレメントの視認性を劇的に高める多重ぼかし影 */
-        #text-super-container,
-        #text-super-container * {
-            text-shadow: 
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0);
-        }
-
-        #text-super-container span {
-            display: inline-block;
-            border-radius: 0px;
-            line-height: 1.1;
-        }
-
-        /* 座布団（背景色あり）全カラー共通共通設定 */
-        #text-super-container span.has-bg-super {
-            padding: 10px 15px; /* 縦10px 横15px 固定 */
-            margin-right: -15px; /* 右側マージンを-15pxして綺麗に整列 */
-            
-            /* ボックス自体の影も10重にして超重厚にする */
-            box-shadow: 
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0),
-                0 0 10px rgba(0, 0, 0, 1.0);
-        }
-
-        /* 各種カラーの割り当て定義 */
-        #text-super-container span.bg-red { background-color: #d13438 !important; color: #ffffff !important; }
-        #text-super-container span.bg-blue { background-color: #005AFF !important; color: #ffffff !important; }
-        #text-super-container span.bg-yellow { background-color: #fce100 !important; color: #000000 !important; } /* 黄色の場合は文字影を突き抜けて読みやすい黒文字 */
-        #text-super-container span.bg-gray { background-color: #555555 !important; color: #ffffff !important; }
-        #text-super-container span.bg-black { background-color: #000000 !important; color: #ffffff !important; }
-
-        /* 黄色座布団の場合のみ、見やすさのためテキストシャドウをクリア */
-        #text-super-container span.bg-yellow {
-            text-shadow: none !important;
-        }
-
-        #text-super-container.is-active {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-
         .is-active {
             opacity: 1;
             transform: translateY(0);
@@ -193,7 +98,7 @@
 
     <div id="free-image-layer"></div>
 
-    <div class="overlay-part top-left">
+    <div class="overlay-part top-left" id="area-top-left">
         <iframe src="parts/time.html"></iframe>
     </div>
 
@@ -208,8 +113,6 @@
     <div id="tsunami-map-container" class="overlay-part bottom-right">
         <iframe src="parts/tsunami-map.html"></iframe>
     </div>
-
-    <div id="text-super-container"></div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -231,11 +134,11 @@
     const switcherIframe = document.getElementById('switcher-iframe');
     const tsunamiContainer = document.getElementById('tsunami-map-container');
     const imageLayer = document.getElementById('free-image-layer');
-    const textSuperContainer = document.getElementById('text-super-container');
+    const topLeftArea = document.getElementById('area-top-left');
+    
     let currentLayout = "";
-
-    const newsSound = new Audio('assets/news.wav');
-    let isSuperActive = false;
+    let apiTsunamiActive = false;
+    let manualTsunamiActive = false;
 
     // --- レイアウト切り替え (Firebase) ---
     onValue(ref(db, 'broadcast/current/layoutMode'), (snapshot) => {
@@ -249,11 +152,24 @@
         }
     });
 
+    // --- 左上エリア（座布団・時計等）の表示/非表示同期 ---
+    onValue(ref(db, 'broadcast/current/timeVisible'), (snapshot) => {
+        const isVisible = snapshot.val();
+        // 明示的に false の場合のみ非表示にし、nullや未設定、trueのときは表示させる
+        if (isVisible === false) {
+            topLeftArea.style.opacity = "0";
+            topLeftArea.style.pointerEvents = "none";
+        } else {
+            topLeftArea.style.opacity = "1";
+            topLeftArea.style.pointerEvents = "none";
+        }
+    });
+
     // --- 自由配置画像リストの同期反映 ---
     const freeImagesRef = ref(db, 'broadcast/free_images');
     onValue(freeImagesRef, (snapshot) => {
         const imagesData = snapshot.val();
-        imageLayer.innerHTML = ""; 
+        imageLayer.innerHTML = ""; // 一旦初期化して再描画
         if (imagesData) {
             Object.keys(imagesData).forEach(id => {
                 const imgConf = imagesData[id];
@@ -273,36 +189,25 @@
         }
     });
 
-    // --- 手動文字スーパー同期（マルチカラー＆マージン同期処理） ---
-    onValue(ref(db, 'broadcast/text_super'), (snapshot) => {
-        const data = snapshot.val();
-        if (data && data.visible && data.htmlContent) {
-            
-            if (!isSuperActive) {
-                newsSound.currentTime = 0;
-                newsSound.play().catch(err => console.log("Audio play blocked by browser:", err));
-                isSuperActive = true;
+    // --- 津波情報監視 (Firebase制御) ---
+    onValue(ref(db, 'broadcast/tsunami_config'), (snapshot) => {
+        const config = snapshot.val();
+        if (config) {
+            // 管理画面の「手動/自動」切替ボタン設定や手動トリガーの有無を確認
+            if (config.autoPage === false) {
+                // 手動モード時の判定ロジック（必要に応じて拡張可能）
+                // 例として、手動トリガーが特定の方向を向いている、もしくは明示的な表示フラグがある場合
+                manualTsunamiActive = (config.manualTrigger && config.manualTrigger.direction) ? true : false;
+            } else {
+                manualTsunamiActive = false;
             }
-
-            textSuperContainer.innerHTML = data.htmlContent;
-
-            // クラス有無の精査と、座布団なしspanのパディングの初期化
-            textSuperContainer.querySelectorAll('span').forEach(span => {
-                if (!span.classList.contains('has-bg-super')) {
-                    span.style.padding = '0';
-                    span.style.margin = '0';
-                    span.style.boxShadow = 'none';
-                }
-            });
-
-            textSuperContainer.classList.add('is-active');
         } else {
-            textSuperContainer.classList.remove('is-active');
-            isSuperActive = false;
+            manualTsunamiActive = false;
         }
+        updateTsunamiVisibility();
     });
 
-    // --- 津波情報監視 ---
+    // --- 津波情報監視 (P2P地震情報 API) ---
     async function checkTsunamiStatus() {
         try {
             const response = await fetch("https://api.p2pquake.net/v2/history?codes=552&limit=1");
@@ -310,14 +215,23 @@
             
             if (history && history.length > 0) {
                 const latest = history[0];
-                if (latest.cancelled === false) {
-                    tsunamiContainer.classList.add('is-active');
-                } else {
-                    tsunamiContainer.classList.remove('is-active');
-                }
+                apiTsunamiActive = (latest.cancelled === false);
+            } else {
+                apiTsunamiActive = false;
             }
         } catch (e) {
             console.error("Tsunami status check failed:", e);
+            apiTsunamiActive = false;
+        }
+        updateTsunamiVisibility();
+    }
+
+    // APIまたはFirebase手動制御のどちらかが有効であれば津波地図を表示する
+    function updateTsunamiVisibility() {
+        if (apiTsunamiActive || manualTsunamiActive) {
+            tsunamiContainer.classList.add('is-active');
+        } else {
+            tsunamiContainer.classList.remove('is-active');
         }
     }
 
