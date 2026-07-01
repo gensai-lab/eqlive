@@ -194,7 +194,7 @@
                     <button id="btn-m-l" class="secondary" onclick="updateFB('current_mode','l-screen')">L字 ON</button>
                 </div>
 
-                <label>時刻表示切替 (timeVisible)</label>
+                <label>左上座布団・時刻表示切替 (overlay-part top-left)</label>
                 <div class="btn-group">
                     <button id="btn-time-on" class="secondary" onclick="updateFB('current/timeVisible', true)">表示</button>
                     <button id="btn-time-off" class="secondary" onclick="updateFB('current/timeVisible', false)">非表示</button>
@@ -327,7 +327,6 @@
             <div id="free-images-control-container"></div>
         </div>
 
-        <!-- 認証設定用の新タブ -->
         <div id="tab-auth-config" class="tab-content">
             <h2>🔑 EQLive 団体内認証設定</h2>
             <div class="card">
@@ -361,16 +360,15 @@
     const db = getDatabase(app);
 
     let allCameras = [];
-    let imagePresets = []; // 読み込んだプリセット情報を保持する配列
+    let imagePresets = []; 
     let currentSelectedArea = "すべて";
     let currentSelectedGenre = "すべて";
-    let currentCameraSourceId = ""; // 現在のアクティブカメラIDを保持
+    let currentCameraSourceId = ""; 
 
     // --- 共通パスワード認証ロジック ---
     function getSecretKey() {
         const savedKey = localStorage.getItem('eqlive_secret_key');
         if (!savedKey) {
-            // パスワードが未保存の場合はプロンプトを出し、タブを切り替える
             const input = prompt("【EQLiveセキュリティ】\n団体共通のパスワードを入力してください。");
             if (input) {
                 localStorage.setItem('eqlive_secret_key', input);
@@ -396,22 +394,18 @@
         switchTab('main');
     };
 
-    // 起動時にインプット欄へ初期同期
     document.getElementById('input-global-secret').value = localStorage.getItem('eqlive_secret_key') || "";
 
-    // データ送信の際にシークレットキーを自動マージする補助関数
     function secureSet(dbRef, dataObject) {
         const secret = getSecretKey();
         let finalData = dataObject;
         if (typeof dataObject === 'object' && dataObject !== null) {
             if (Array.isArray(dataObject)) {
-                // 配列（ほぼないが念のため）
                 finalData = { ...dataObject, secret_key: secret };
             } else {
                 finalData = { ...dataObject, secret_key: secret };
             }
         } else {
-            // プリミティブ値（文字列や真偽値）が直接渡された場合はオブジェクト化して処理
             finalData = { value: dataObject, secret_key: secret };
         }
         return set(dbRef, finalData).catch(err => {
@@ -460,7 +454,6 @@
         btn.disabled = (val === 'ningen' && !document.getElementById('input-operator').value);
     };
 
-    // 映像投影時のみ詳細オプションを表示する制御
     window.toggleVideoOptions = (type) => {
         const vOpts = document.getElementById('video-extra-options');
         if(vOpts) {
@@ -468,7 +461,6 @@
         }
     };
 
-    // 画面投影設定を一括反映させる関数
     window.saveScreenProgram = () => {
         const type = document.getElementById('input-screen-type').value;
         const title = document.getElementById('input-screen-title').value;
@@ -480,7 +472,6 @@
             url: url
         };
 
-        // 映像投影の場合はループ・ミュート設定もマージする
         if (type === 'video') {
             programData.loop = document.getElementById('input-screen-loop').value === 'true';
             programData.muted = document.getElementById('input-screen-muted').value === 'true';
@@ -491,11 +482,10 @@
         });
     };
 
-    // 準備中画面の瞬間セット・即反映
     window.setPrepareScreen = () => {
         document.getElementById('input-screen-type').value = 'image';
         document.getElementById('input-screen-url').value = 'https://gensai-lab.github.io/eqlive/assets/image/prepare.png';
-        toggleVideoOptions('image'); // 映像オプションを隠す
+        toggleVideoOptions('image'); 
 
         const programData = {
             type: 'image',
@@ -513,14 +503,12 @@
         if (typeof val === 'object' && val !== null) {
             secureSet(ref(db, `broadcast/${path}`), val);
         } else {
-            // パス単発の更新の際もセキュリティキーをマージするためのオブジェクト構築
             const segments = path.split('/');
             if(segments.length === 1) {
                 const obj = {};
                 obj[path] = val;
                 secureUpdate(ref(db, 'broadcast'), obj);
             } else {
-                // 入れ子パスの場合は親ノードに対してupdate
                 const leaf = segments.pop();
                 const parentPath = segments.join('/');
                 const obj = {};
@@ -570,7 +558,6 @@
         secureSet(ref(db, `broadcast/free_images/${newId}`), initialConfig);
     };
 
-    // プリセット情報をベースにFirebaseへ新規追加する関数
     window.addFreeImageFromPreset = (index) => {
         const preset = imagePresets[index];
         if (!preset) return;
@@ -606,7 +593,6 @@
 
     window.deleteFreeImage = (id) => {
         if(confirm("この画像を配信レイヤーから完全に削除しますか？")) {
-            // 削除の際もセキュリティルールを通過するため、親の階層からキーを付与して削除を実行
             const secret = getSecretKey();
             const updates = {};
             updates[`broadcast/free_images/${id}`] = null;
@@ -638,7 +624,7 @@
 
         Object.keys(imagesData).forEach(id => {
             const conf = imagesData[id];
-            if(!conf || id === 'secret_key') return; // 認証キー自体はスキップ
+            if(!conf || id === 'secret_key') return; 
 
             const card = document.createElement('div');
             card.className = "card";
@@ -928,24 +914,19 @@
         });
     }
 
-    // --- プレビュープレイヤー更新処理（YouTube対応） ---
     function updatePreviewPlayer(cameraId) {
         const container = document.getElementById('preview-player-container');
         if (!container) return;
 
-        // 対象 of カメラオブジェクトを検索
         const cam = allCameras.find(c => c.id === cameraId);
         if (!cam) {
             container.innerHTML = `現在、ライブ映像はここに表示されます`;
             return;
         }
 
-        // typeがyoutubeの場合
         if (cam.type === 'youtube') {
-            // URLから埋め込み用のアドレスを補正して構築
             let embedUrl = cam.url;
             
-            // 通常のURL（watch?v=...）で登録された場合の簡易判定・置換
             if (embedUrl.includes('watch?v=')) {
                 const vid = embedUrl.split('watch?v=')[1].split('&')[0];
                 embedUrl = `https://www.youtube.com/embed/${vid}`;
@@ -954,7 +935,6 @@
                 embedUrl = `https://www.youtube.com/embed/${vid}`;
             }
 
-            // 指定オプションをクエリパラメータとして結合 (?autoplay=1&mute=1&controls=0&rel=0)
             const queryParams = "autoplay=1&mute=1&controls=0&rel=0";
             const finalUrl = embedUrl.includes('?') ? `${embedUrl}&${queryParams}` : `${embedUrl}?${queryParams}`;
 
@@ -965,7 +945,6 @@
                         allowfullscreen>
                 </iframe>`;
         } else {
-            // 通常のHLSストリーミングや静止画などの場合は、現状通りモックテキスト（または既存のプレイヤー処理）
             container.innerHTML = `
                 <div style="text-align:center; padding:20px;">
                     <div style="font-weight:bold; color:var(--accent-blue); margin-bottom:5px;">📹 ${cam.name} (HLSストリーム)</div>
@@ -974,13 +953,11 @@
         }
     }
 
-    // --- 外部プリセットJSONの読み込みとUI反映 ---
     async function initPresets() {
         const container = document.getElementById('preset-buttons-container');
         if (!container) return;
 
         try {
-            // GitHub Pages等にアップロードした独自のプリセット用JSONファイルのURLを指定
             const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/presets.json");
             imagePresets = await res.json();
             
@@ -989,7 +966,7 @@
                 return;
             }
 
-            container.innerHTML = ""; // 読み込み中テキストをクリア
+            container.innerHTML = ""; 
             imagePresets.forEach((preset, index) => {
                 const btn = document.createElement('button');
                 btn.className = "secondary";
@@ -1013,7 +990,6 @@
             buildGenreFilterButtons(allCameras);
             applyCombinedFilter();
 
-            // Firebaseから読み込み済みだった場合はここでプレイヤーを更新
             if (currentCameraSourceId) {
                 updatePreviewPlayer(currentCameraSourceId);
             }
@@ -1046,7 +1022,6 @@
         if(statMode) statMode.innerText = cur.layoutMode === 'emergency' ? '🚨 有事放送' : '🏠 通常放送';
         if(statCam) statCam.innerText = cur.cameraSource || '--';
 
-        // カメラソースIDに変更があれば、ダッシュボードのプレイヤープレビューを更新
         if (cur.cameraSource && cur.cameraSource !== currentCameraSourceId) {
             currentCameraSourceId = cur.cameraSource;
             if (allCameras.length > 0) {
@@ -1074,7 +1049,6 @@
         setBtn('btn-m-sub', data.current_mode === 'sub-switcher');
         setBtn('btn-m-l', data.current_mode === 'l-screen');
         
-        // 時刻表示ボタンのアクティブ状態を反映
         setBtn('btn-time-on', cur.timeVisible === true);
         setBtn('btn-time-off', cur.timeVisible === false);
         
@@ -1085,7 +1059,6 @@
         const screenOpts = document.getElementById('screen-options');
         if(screenOpts) screenOpts.style.display = cur.mainSource === 'screen' ? 'block' : 'none';
         
-        // 入力フォーカスが外れている時のみ、Firebaseの最新状態をインプット欄へ同期
         if(data.screen_program) {
             syncSelect('input-screen-type', data.screen_program.type);
             toggleVideoOptions(data.screen_program.type);
@@ -1143,9 +1116,8 @@
     }
 
     initCameras();
-    initPresets(); // プリセット読み込み処理の実行
+    initPresets(); 
     
-    // 初回読み込み時のパスワードチェック
     setTimeout(() => { getSecretKey(); }, 500);
 </script>
 </body>
