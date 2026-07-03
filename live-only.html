@@ -30,8 +30,8 @@
             align-items: center;
         }
 
-        /* 映像表示エリア（video, iframe, ライブ画像）の基本共通設定 */
-        video, iframe, #player-target img {
+        /* 映像表示エリアの共通設定（ここからimgを完全に除外しました） */
+        video, iframe {
             position: absolute;
             top: 0;
             left: 0;
@@ -44,13 +44,15 @@
             object-fit: cover;
         }
 
-        /* 静止画ライブカメラの表示スタイル（縦100%・左右中央寄せ） */
+        /* ① ライブカメラ画像専用のスタイル（縦100%・左右中央寄せ・画面全体に絶対配置） */
         #player-target img {
-            width: auto !important;
-            height: 100% !important;
-            left: 50% !important;
-            top: 0 !important;
-            transform: translateX(-50%) !important;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: auto;
+            height: 100%;
+            border: none;
             object-fit: contain;
         }
 
@@ -66,14 +68,14 @@
             cursor: none;
         }
 
-        /* 中継テロップ全体のレイアウト設定 */
+        /* 中継テロップ全体の配置（左上に固定してフレックス横並び） */
         #live-location-overlay {
             position: absolute;
             top: 200px;
             left: 60px;
-            display: flex !important;
-            flex-direction: row !important; /* 横並びを強制 */
-            align-items: center !important; /* 画像と文字の縦方向の中心を揃える */
+            display: flex;
+            flex-direction: row;
+            align-items: center; /* 画像と文字の縦方向の中心を揃える */
             color: white;
             z-index: 100;
             transition: opacity 0.3s;
@@ -86,14 +88,13 @@
             opacity: 1;
         }
 
-        /* テロップ内の「中継」アイコン画像（上の共通設定 absolute の影響を完全に打ち消す） */
+        /* ② テロップ内の「中継」アイコン専用のスタイル（全画面画像に化けないよう完全独立） */
         .live-icon {
-            position: static !important; /* 絶対配置を解除して横並びフローに参加 */
-            width: 115px !important;
-            height: auto !important;
-            margin-right: 24px !important; /* 「中継」画像と文字の間の余白 */
-            flex-shrink: 0 !important;
-            transform: none !important;
+            display: block;
+            width: 115px;
+            height: auto;
+            margin-right: 24px; /* 「中継」画像と文字の間の余白 */
+            flex-shrink: 0;
         }
 
         .location-text-group {
