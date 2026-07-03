@@ -632,6 +632,54 @@
         "url":  "https://images.weserv.nl/?url=210.237.44.104:8080/images/akuseki.jpg"
     },
     {
+        "id":  "kuchino",
+        "name":  "鹿児島 口之島",
+        "area":  "九州",
+        "genre":  "海",
+        "type":  "web",
+        "url":  "https://images.weserv.nl/?url=210.237.44.104:8080/images/kuchino.jpg"
+    },
+    {
+        "id":  "nakano",
+        "name":  "鹿児島 中之島",
+        "area":  "九州",
+        "genre":  "海",
+        "type":  "web",
+        "url":  "https://images.weserv.nl/?url=210.237.44.104:8080/images/naka.jpg"
+    },
+    {
+        "id":  "suwanose",
+        "name":  "鹿児島 諏訪之瀬島",
+        "area":  "九州",
+        "genre":  "海",
+        "type":  "web",
+        "url":  "https://images.weserv.nl/?url=210.237.44.104:8080/images/moto.jpg"
+    },
+    {
+        "id":  "nakanoshima",
+        "name":  "鹿児島 平島",
+        "area":  "九州",
+        "genre":  "海",
+        "type":  "web",
+        "url":  "https://images.weserv.nl/?url=210.237.44.104:8080/images/mina.jpg"
+    },
+    {
+        "id":  "nakanoshima",
+        "name":  "鹿児島 小宝島",
+        "area":  "九州",
+        "genre":  "海",
+        "type":  "web",
+        "url":  "https://images.weserv.nl/?url=210.237.44.104:8080/images/kotakara.jpg"
+    },
+    {
+        "id":  "nakanoshima",
+        "name":  "鹿児島 宝島",
+        "area":  "九州",
+        "genre":  "海",
+        "type":  "web",
+        "url":  "https://images.weserv.nl/?url=210.237.44.104:8080/images/takara.jpg"
+    },
+    {
         "id":  "11th_rcgh",
         "name":  "那覇",
         "area":  "沖縄",
