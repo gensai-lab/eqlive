@@ -44,7 +44,6 @@
             object-fit: cover;
         }
 
-        /* 静止画ライブカメラの表示スタイル（画面に合わせて綺麗に収める） */
         img {
             object-fit: contain;
         }
@@ -67,7 +66,7 @@
             top: 200px;
             left: 60px;
             display: flex;
-            align-items: flex-start;
+            align-items: center; /* 画像と文字の縦方向の中心を揃える */
             color: white;
             z-index: 100;
             transition: opacity 0.3s;
@@ -83,23 +82,21 @@
         .live-icon {
             width: 115px;
             height: auto;
-            margin-right: 24px;
-            margin-top: -2px;
+            margin-right: 24px; /* 「中継」画像と文字の間の余白 */
+            flex-shrink: 0;
         }
 
         .location-text-group {
-            position: relative;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
-            margin-top: 0; 
+            justify-content: center;
         }
 
         .location-name {
             font-size: 48px;
             font-weight: bold;
             letter-spacing: 0.08em;
-            line-height: 1.0;
+            line-height: 1.2;
             text-shadow: 
                 2px 2px 0 #000, -2px -2px 0 #000,
                 -2px 2px 0 #000, 2px -2px 0 #000,
@@ -108,14 +105,12 @@
         }
 
         .location-note {
-            position: absolute;
-            top: 56px;
-            left: 0;
             white-space: nowrap;
             font-size: 24px;
             font-weight: bold;
             color: #dddddd;
-            line-height: 1.6;
+            line-height: 1.2;
+            margin-top: 4px; /* 地名と注記の間の隙間 */
             letter-spacing: 0.04em;
             display: none;
             text-shadow: 
@@ -268,20 +263,17 @@
                     });
                 }
             
-            // ③ 静止画カメラ（外部セキュアプロキシを利用して安全に読み込み・自動更新を行う）
+            // ③ 静止画カメラ（外部セキュアプロキシを利用）
             } else if (cam.type === 'web' || lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || lowerUrl.includes('.png')) {
                 noteElement.classList.remove('show');
 
                 const img = document.createElement('img');
                 
-                // 初回読み込み（末尾にタイムスタンプを付与して画像プロキシ自体のキャッシュとブラウザキャッシュを同時に回避）
-                // URLにすでに ? が含まれているか（weservの指定等）を判定して繋ぎこみを最適化
                 const connector = cam.url.includes('?') ? '&' : '?';
                 img.src = `${cam.url}${connector}_t=${Date.now()}`;
                 img.alt = cam.name;
                 container.appendChild(img);
 
-                // 5秒ごとにタイムスタンプを更新して画像を常に最新状態にする
                 imageRefreshInterval = setInterval(() => {
                     const currentConnector = cam.url.includes('?') ? '&' : '?';
                     img.src = `${cam.url}${currentConnector}_t=${Date.now()}`;
