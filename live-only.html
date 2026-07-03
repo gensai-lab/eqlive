@@ -30,8 +30,8 @@
             align-items: center;
         }
 
-        /* 映像表示エリア */
-        video, iframe, img {
+        /* 映像表示エリアの基本設定 */
+        video, iframe, #player-target img {
             position: absolute;
             top: 0;
             left: 0;
@@ -44,8 +44,8 @@
             object-fit: cover;
         }
 
-        /* 静止画ライブカメラの表示スタイル（縦100%・左右中央寄せ） */
-        img {
+        /* 静止画ライブカメラの映像画像スタイル（縦100%・左右中央寄せ） */
+        #player-target img {
             width: auto;
             height: 100%;
             left: 50%;
@@ -65,7 +65,7 @@
             cursor: none;
         }
 
-        /* 中継テロップ */
+        /* 中継テロップ全体の配置 */
         #live-location-overlay {
             position: absolute;
             top: 200px;
@@ -84,18 +84,21 @@
             opacity: 1;
         }
 
+        /* テロップ内の「中継」アイコン画像（中央寄せの影響を受けないよう完全に分離） */
         .live-icon {
+            position: relative; /* absoluteから通常フローに変更 */
             width: 115px;
             height: auto;
             margin-right: 24px; /* 「中継」画像と文字の間の余白 */
             flex-shrink: 0;
+            left: auto;
+            transform: none;
         }
 
         .location-text-group {
             display: flex;
             flex-direction: column;
             justify-content: center;
-            margin-left: 133px;
         }
 
         .location-name {
