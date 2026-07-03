@@ -281,20 +281,20 @@
             
             // ③ 静止画カメラ（URLが .jpg / .jpeg で終わる、またはtypeがwebでURLが画像配信の場合）
             } else if (cam.type === 'web' && (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || lowerUrl.includes('.png'))) {
-                
+    
                 noteElement.classList.remove('show');
 
                 const img = document.createElement('img');
-                // キャッシュ回避用のパラメータを追加して初期読み込み
-                img.src = `${cam.url}?_t=${Date.now()}`;
+                // プロキシの後ろにパラメータを安全に繋ぐため、? ではなく & を使用
+                img.src = `${cam.url}&_t=${Date.now()}`;
                 img.alt = cam.name;
                 container.appendChild(img);
 
                 // 5秒（5000ミリ秒）ごとにURLのタイムスタンプを書き換えて再読み込み
-                imageRefreshInterval = setInterval(() => {
-                    img.src = `${cam.url}?_t=${Date.now()}`;
+                 imageRefreshInterval = setInterval(() => {
+                 img.src = `${cam.url}&_t=${Date.now()}`;
                 }, 5000);
-
+                
             // ④ その他のWebソース埋め込み
             } else {
                 // 注記を非表示に
