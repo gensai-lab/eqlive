@@ -268,26 +268,26 @@
                     });
                 }
             
-            // ③ 静止画カメラ（★Mixed Content ＆ Workersの1003エラーを完全に回避する処理）
-            } else if (cam.type === 'web' && (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || lowerUrl.includes('.png'))) {
+            // ③ 静止画カメラ（外部セキュアプロキシを利用して安全に読み込み・自動更新を行う）
+            } else if (cam.type === 'web' || lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || lowerUrl.includes('.png')) {
                 noteElement.classList.remove('show');
 
                 const img = document.createElement('img');
                 
-                // リファラを完全に送らない設定にすることで、HTTPS内からの直接のHTTP画像取得を許可させます
-                img.referrerPolicy = "no-referrer";
-                
-                // 初回読み込み（末尾にタイムスタンプを付与してブラウザキャッシュを回避）
-                img.src = `${cam.url}?_t=${Date.now()}`;
+                // 初回読み込み（末尾にタイムスタンプを付与して画像プロキシ自体のキャッシュとブラウザキャッシュを同時に回避）
+                // URLにすでに ? が含まれているか（weservの指定等）を判定して繋ぎこみを最適化
+                const connector = cam.url.includes('?') ? '&' : '?';
+                img.src = `${cam.url}${connector}_t=${Date.now()}`;
                 img.alt = cam.name;
                 container.appendChild(img);
 
-                // 5秒ごとにタイムスタンプを更新して画像をリロード
+                // 5秒ごとにタイムスタンプを更新して画像を常に最新状態にする
                 imageRefreshInterval = setInterval(() => {
-                    img.src = `${cam.url}?_t=${Date.now()}`;
+                    const currentConnector = cam.url.includes('?') ? '&' : '?';
+                    img.src = `${cam.url}${currentConnector}_t=${Date.now()}`;
                 }, 5000);
 
-            // ④ その他のWebソース埋め込み
+            // ④ その他の通常のWebソース埋め込み
             } else {
                 noteElement.classList.remove('show');
                 container.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
