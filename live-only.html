@@ -30,7 +30,7 @@
             align-items: center;
         }
 
-        /* 映像表示エリアの基本設定 */
+        /* 映像表示エリア（video, iframe, ライブ画像）の基本共通設定 */
         video, iframe, #player-target img {
             position: absolute;
             top: 0;
@@ -44,12 +44,13 @@
             object-fit: cover;
         }
 
-        /* 静止画ライブカメラの映像画像スタイル（縦100%・左右中央寄せ） */
+        /* 静止画ライブカメラの表示スタイル（縦100%・左右中央寄せ） */
         #player-target img {
-            width: auto;
-            height: 100%;
-            left: 50%;
-            transform: translateX(-50%);
+            width: auto !important;
+            height: 100% !important;
+            left: 50% !important;
+            top: 0 !important;
+            transform: translateX(-50%) !important;
             object-fit: contain;
         }
 
@@ -65,13 +66,14 @@
             cursor: none;
         }
 
-        /* 中継テロップ全体の配置 */
+        /* 中継テロップ全体のレイアウト設定 */
         #live-location-overlay {
             position: absolute;
             top: 200px;
             left: 60px;
-            display: flex;
-            align-items: center; /* 画像と文字の縦方向の中心を揃える */
+            display: flex !important;
+            flex-direction: row !important; /* 横並びを強制 */
+            align-items: center !important; /* 画像と文字の縦方向の中心を揃える */
             color: white;
             z-index: 100;
             transition: opacity 0.3s;
@@ -84,15 +86,14 @@
             opacity: 1;
         }
 
-        /* テロップ内の「中継」アイコン画像（中央寄せの影響を受けないよう完全に分離） */
+        /* テロップ内の「中継」アイコン画像（上の共通設定 absolute の影響を完全に打ち消す） */
         .live-icon {
-            position: relative; /* absoluteから通常フローに変更 */
-            width: 115px;
-            height: auto;
-            margin-right: 24px; /* 「中継」画像と文字の間の余白 */
-            flex-shrink: 0;
-            left: auto;
-            transform: none;
+            position: static !important; /* 絶対配置を解除して横並びフローに参加 */
+            width: 115px !important;
+            height: auto !important;
+            margin-right: 24px !important; /* 「中継」画像と文字の間の余白 */
+            flex-shrink: 0 !important;
+            transform: none !important;
         }
 
         .location-text-group {
