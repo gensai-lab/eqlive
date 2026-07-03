@@ -46,7 +46,7 @@
 
         /* 静止画ライブカメラの表示スタイル（画面に合わせて綺麗に収める） */
         img {
-            object-fit: contain; /* 必要に応じて画面全体を埋める場合は cover に変更してください */
+            object-fit: contain;
         }
 
         /* YouTubeのコントロールバー・ロゴ表示を完全にブロックするマスク */
@@ -58,7 +58,7 @@
             height: 100%;
             z-index: 50;
             background: transparent;
-            cursor: none; /* 配信画面にマウスカーソルが乗っても矢印を消す */
+            cursor: none;
         }
 
         /* 中継テロップ */
@@ -67,7 +67,7 @@
             top: 200px;
             left: 60px;
             display: flex;
-            align-items: flex-start; /* アイコンの上端とテキストグループの上端を合わせる */
+            align-items: flex-start;
             color: white;
             z-index: 100;
             transition: opacity 0.3s;
@@ -84,10 +84,9 @@
             width: 115px;
             height: auto;
             margin-right: 24px;
-            margin-top: -2px; /* アイコンと地名の文字（1行目）の中心を合わせる微調整 */
+            margin-top: -2px;
         }
 
-        /* テキストグループの配置調整（上揃えにして高さを固定） */
         .location-text-group {
             position: relative;
             display: flex;
@@ -96,12 +95,11 @@
             margin-top: 0; 
         }
 
-        /* 地名のスタイル設定 */
         .location-name {
             font-size: 48px;
             font-weight: bold;
             letter-spacing: 0.08em;
-            line-height: 1.0; /* 行高を1.0に固定して無駄な上下の余白をカット */
+            line-height: 1.0;
             text-shadow: 
                 2px 2px 0 #000, -2px -2px 0 #000,
                 -2px 2px 0 #000, 2px -2px 0 #000,
@@ -109,10 +107,9 @@
                 -2px 0px 0 #000, 2px 0px 0 #000;
         }
 
-        /* 注釈テキスト（絶対配置にして、地名の表示領域や親要素の高さに影響させない） */
         .location-note {
             position: absolute;
-            top: 56px; /* ★地名のフォントサイズ(48px)＋隙間(8px)の位置に固定 */
+            top: 56px;
             left: 0;
             white-space: nowrap;
             font-size: 24px;
@@ -120,7 +117,7 @@
             color: #dddddd;
             line-height: 1.6;
             letter-spacing: 0.04em;
-            display: none; /* 初期状態は非表示 */
+            display: none;
             text-shadow: 
                 2px 2px 0 #000, -2px -2px 0 #000,
                 -2px 2px 0 #000, 2px -2px 0 #000,
@@ -128,7 +125,6 @@
                 -2px 0px 0 #000, 2px 0px 0 #000;
         }
 
-        /* YouTubeの時だけ注記を表示 */
         .location-note.show {
             display: block;
         }
@@ -177,7 +173,7 @@
     let cameraList = [];
     let currentCameraId = "";
     let hls = null;
-    let imageRefreshInterval = null; // 静止画更新用のタイマー管理変数
+    let imageRefreshInterval = null;
 
     async function loadConfig() {
         try {
@@ -193,7 +189,6 @@
         onValue(ref(db, 'broadcast/current'), (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
-            // IDが変わった瞬間のみ更新
             if (data.cameraSource !== currentCameraId) {
                 updateCamera(data.cameraSource);
             }
@@ -208,13 +203,11 @@
         const noteElement = document.getElementById('target-location-note');
         const container = document.getElementById('player-target');
 
-        // 前のHLSインスタンスがあれば破棄
         if (hls) {
             hls.destroy();
             hls = null;
         }
 
-        // 前の静止画定期更新タイマーがあればクリア
         if (imageRefreshInterval) {
             clearInterval(imageRefreshInterval);
             imageRefreshInterval = null;
@@ -228,10 +221,8 @@
 
             const lowerUrl = cam.url.toLowerCase();
 
-            // ① YouTubeの場合（typeがyoutube、またはURLで判定）
+            // ① YouTubeの場合
             if (cam.type === 'youtube' || lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) {
-                
-                // YouTube配信なので注記を追加
                 noteElement.classList.add('show');
 
                 let vidId = "";
@@ -255,8 +246,6 @@
 
             // ② HLSストリーミング配信の場合
             } else if (cam.type === 'hls' || lowerUrl.includes('.m3u8')) {
-                
-                // YouTubeではないので注記を非表示に
                 noteElement.classList.remove('show');
 
                 const video = document.createElement('video');
@@ -279,25 +268,27 @@
                     });
                 }
             
-            // ③ 静止画カメラ（URLが .jpg / .jpeg で終わる、またはtypeがwebでURLが画像配信の場合）
+            // ③ 静止画カメラ（★Mixed Content ＆ Workersの1003エラーを完全に回避する処理）
             } else if (cam.type === 'web' && (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || lowerUrl.includes('.png'))) {
-    
                 noteElement.classList.remove('show');
 
                 const img = document.createElement('img');
-                // プロキシの後ろにパラメータを安全に繋ぐため、? ではなく & を使用
-                img.src = `${cam.url}&_t=${Date.now()}`;
+                
+                // リファラを完全に送らない設定にすることで、HTTPS内からの直接のHTTP画像取得を許可させます
+                img.referrerPolicy = "no-referrer";
+                
+                // 初回読み込み（末尾にタイムスタンプを付与してブラウザキャッシュを回避）
+                img.src = `${cam.url}?_t=${Date.now()}`;
                 img.alt = cam.name;
                 container.appendChild(img);
 
-                // 5秒（5000ミリ秒）ごとにURLのタイムスタンプを書き換えて再読み込み
-                 imageRefreshInterval = setInterval(() => {
-                 img.src = `${cam.url}&_t=${Date.now()}`;
+                // 5秒ごとにタイムスタンプを更新して画像をリロード
+                imageRefreshInterval = setInterval(() => {
+                    img.src = `${cam.url}?_t=${Date.now()}`;
                 }, 5000);
-                
+
             // ④ その他のWebソース埋め込み
             } else {
-                // 注記を非表示に
                 noteElement.classList.remove('show');
                 container.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
             }
