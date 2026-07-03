@@ -31,7 +31,7 @@
         }
 
         /* 映像表示エリア */
-        video, iframe {
+        video, iframe, img {
             position: absolute;
             top: 0;
             left: 0;
@@ -44,6 +44,10 @@
             object-fit: cover;
         }
 
+        img {
+            object-fit: contain;
+        }
+
         /* YouTubeのコントロールバー・ロゴ表示を完全にブロックするマスク */
         #player-guard-mask {
             position: absolute;
@@ -53,7 +57,7 @@
             height: 100%;
             z-index: 50;
             background: transparent;
-            cursor: none; /* 配信画面にマウスカーソルが乗っても矢印を消す */
+            cursor: none;
         }
 
         /* 中継テロップ */
@@ -62,7 +66,7 @@
             top: 200px;
             left: 60px;
             display: flex;
-            align-items: flex-start; /* アイコンの上端とテキストグループの上端を合わせる */
+            align-items: center; /* 画像と文字の縦方向の中心を揃える */
             color: white;
             z-index: 100;
             transition: opacity 0.3s;
@@ -78,25 +82,22 @@
         .live-icon {
             width: 115px;
             height: auto;
-            margin-right: 24px;
-            margin-top: -2px; /* アイコンと地名の文字（1行目）の中心を合わせる微調整 */
+            margin-right: 24px; /* 「中継」画像と文字の間の余白 */
+            flex-shrink: 0;
         }
 
-        /* テキストグループの配置調整（上揃えにして高さを固定） */
         .location-text-group {
-            position: relative;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
-            margin-top: 0; 
+            justify-content: center;
+            margin-left: 133px;
         }
 
-        /* 地名のスタイル設定 */
         .location-name {
             font-size: 48px;
             font-weight: bold;
             letter-spacing: 0.08em;
-            line-height: 1.0; /* 行高を1.0に固定して無駄な上下の余白をカット */
+            line-height: 1.2;
             text-shadow: 
                 2px 2px 0 #000, -2px -2px 0 #000,
                 -2px 2px 0 #000, 2px -2px 0 #000,
@@ -104,18 +105,15 @@
                 -2px 0px 0 #000, 2px 0px 0 #000;
         }
 
-        /* 注釈テキスト（絶対配置にして、地名の表示領域や親要素の高さに影響させない） */
         .location-note {
-            position: absolute;
-            top: 56px; /* ★地名のフォントサイズ(48px)＋隙間(8px)の位置に固定 */
-            left: 0;
             white-space: nowrap;
             font-size: 24px;
             font-weight: bold;
             color: #dddddd;
-            line-height: 1.6;
+            line-height: 1.2;
+            margin-top: 4px; /* 地名と注記の間の隙間 */
             letter-spacing: 0.04em;
-            display: none; /* 初期状態は非表示 */
+            display: none;
             text-shadow: 
                 2px 2px 0 #000, -2px -2px 0 #000,
                 -2px 2px 0 #000, 2px -2px 0 #000,
@@ -123,7 +121,6 @@
                 -2px 0px 0 #000, 2px 0px 0 #000;
         }
 
-        /* YouTubeの時だけ注記を表示 */
         .location-note.show {
             display: block;
         }
@@ -172,6 +169,7 @@
     let cameraList = [];
     let currentCameraId = "";
     let hls = null;
+    let imageRefreshInterval = null;
 
     async function loadConfig() {
         try {
@@ -187,7 +185,6 @@
         onValue(ref(db, 'broadcast/current'), (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
-            // IDが変わった瞬間のみ更新
             if (data.cameraSource !== currentCameraId) {
                 updateCamera(data.cameraSource);
             }
@@ -202,10 +199,14 @@
         const noteElement = document.getElementById('target-location-note');
         const container = document.getElementById('player-target');
 
-        // 前のHLSインスタンスがあれば破棄
         if (hls) {
             hls.destroy();
             hls = null;
+        }
+
+        if (imageRefreshInterval) {
+            clearInterval(imageRefreshInterval);
+            imageRefreshInterval = null;
         }
 
         container.innerHTML = "";
@@ -216,10 +217,8 @@
 
             const lowerUrl = cam.url.toLowerCase();
 
-            // ① YouTubeの場合（typeがyoutube、またはURLで判定）
+            // ① YouTubeの場合
             if (cam.type === 'youtube' || lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) {
-                
-                // YouTube配信なので注記を追加
                 noteElement.classList.add('show');
 
                 let vidId = "";
@@ -243,8 +242,6 @@
 
             // ② HLSストリーミング配信の場合
             } else if (cam.type === 'hls' || lowerUrl.includes('.m3u8')) {
-                
-                // YouTubeではないので注記を非表示に
                 noteElement.classList.remove('show');
 
                 const video = document.createElement('video');
@@ -267,9 +264,24 @@
                     });
                 }
             
-            // ③ その他のWebソース埋め込み
+            // ③ 静止画カメラ（外部セキュアプロキシを利用）
+            } else if (cam.type === 'web' || lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || lowerUrl.includes('.png')) {
+                noteElement.classList.remove('show');
+
+                const img = document.createElement('img');
+                
+                const connector = cam.url.includes('?') ? '&' : '?';
+                img.src = `${cam.url}${connector}_t=${Date.now()}`;
+                img.alt = cam.name;
+                container.appendChild(img);
+
+                imageRefreshInterval = setInterval(() => {
+                    const currentConnector = cam.url.includes('?') ? '&' : '?';
+                    img.src = `${cam.url}${currentConnector}_t=${Date.now()}`;
+                }, 5000);
+
+            // ④ その他の通常のWebソース埋め込み
             } else {
-                // 注記を非表示に
                 noteElement.classList.remove('show');
                 container.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
             }
