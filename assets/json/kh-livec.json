@@ -624,6 +624,14 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/kasarisaki_lt-live.m3u8"
     },
     {
+        "id":  "akuseki",
+        "name":  "鹿児島 悪石島",
+        "area":  "九州",
+        "genre":  "海",
+        "type":  "web",
+        "url":  "http://210.237.44.104:8080/images/akuseki.jpg"
+    },
+    {
         "id":  "11th_rcgh",
         "name":  "那覇",
         "area":  "沖縄",
