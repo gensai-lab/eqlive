@@ -629,7 +629,7 @@
         "area":  "九州",
         "genre":  "海",
         "type":  "web",
-        "url":  "http://210.237.44.104:8080/images/akuseki.jpg"
+        "url":  "https://kactuif-proxy.jridpm.workers.dev/http://210.237.44.104:8080/images/akuseki.jpg"
     },
     {
         "id":  "11th_rcgh",
