@@ -88,18 +88,18 @@
             background: var(--accent-blue); border-color: var(--accent-blue);
         }
 
+        /* 巡回設定用スタイル */
+        .tour-cam-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px; border-bottom: 1px solid #333; font-size: 14px;
+        }
+        .tour-cam-item label { display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; color: white; font-weight: normal; font-size: 14px; }
+        .tour-cam-item input[type="checkbox"] { width: auto; margin: 0; }
+
         /* ドラッグ用のスタイル設定 */
-        .draggable-card {
-            cursor: grab;
-            user-select: none;
-        }
-        .draggable-card:active {
-            cursor: grabbing;
-        }
-        .draggable-card.dragging {
-            opacity: 0.5;
-            border: 2px dashed var(--accent-blue);
-        }
+        .draggable-card { cursor: grab; user-select: none; }
+        .draggable-card:active { cursor: grabbing; }
+        .draggable-card.dragging { opacity: 0.5; border: 2px dashed var(--accent-blue); }
 
         @media (max-width: 900px) {
             .menu-toggle { display: flex; }
@@ -134,7 +134,7 @@
         <button class="nav-item" onclick="switchTab('ticker')"><i class="material-icons">view_carousel</i>⑤Ticker</button>
         <button class="nav-item" onclick="switchTab('l-shape')"><i class="material-icons">view_quilt</i>⑥L字設定</button>
         <button class="nav-item" onclick="switchTab('camera')"><i class="material-icons">videocam</i>⑦ライブカメラ</button>
-        <button class="nav-item" onclick="switchTab('tsunami')"><i class="material-icons">tsunami</i>⑧津波制御</button>
+        <button class="nav-item" onclick="switchTab('tsunami')"><i class="material-icons">waves</i>⑧津波制御</button>
         <button class="nav-item" onclick="window.open('https://gensai-lab.github.io/eqlive/admin/manuscript.html', '_blank')"><i class="material-icons">description</i>⑨原稿</button>
         <button class="nav-item" onclick="switchTab('free-image')"><i class="material-icons">grid_view</i>⑩自由配置画像</button>
         <button class="nav-item" onclick="switchTab('auth-config')" style="margin-top: auto; border-top: 1px solid #333; color: #ffb300;"><i class="material-icons">vpn_key</i>🔑 認証設定</button>
@@ -196,6 +196,12 @@
                 </div>
                 <div id="link-to-l" style="display:none; text-align:right;">
                     <a href="#" onclick="switchTab('l-shape')" style="color:var(--accent-blue); font-size:12px;">→ L字の詳細設定へ</a>
+                </div>
+
+                <label>時計・時刻表示 (timeVisible)</label>
+                <div class="btn-group">
+                    <button id="btn-time-show" class="secondary" onclick="updateFB('current/timeVisible', true)">表示</button>
+                    <button id="btn-time-hide" class="secondary" onclick="updateFB('current/timeVisible', false)">非表示</button>
                 </div>
             </div>
 
@@ -281,7 +287,37 @@
         </div>
 
         <div id="tab-camera" class="tab-content">
-            <h2>ライブカメラ切替</h2>
+            <h2>ライブカメラ制御・自動巡回</h2>
+            
+            <div class="card" style="border-left: 5px solid var(--accent-blue);">
+                <label>自動巡回モード</label>
+                <div class="btn-group">
+                    <button id="btn-tour-on" class="secondary" onclick="toggleTourMode(true)">巡回モード ON</button>
+                    <button id="btn-tour-off" class="primary" onclick="toggleTourMode(false)">巡回モード OFF</button>
+                </div>
+
+                <div id="tour-details-area" style="display: none; margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;">
+                    <label>巡回切り替え間隔</label>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+                        <input type="number" id="input-tour-interval" min="5" value="30" style="margin: 0; flex: 1;">
+                        <select id="select-tour-unit" style="margin: 0; width: 100px;">
+                            <option value="1">秒おき</option>
+                            <option value="60" selected>分おき</option>
+                        </select>
+                    </div>
+
+                    <label>巡回対象カメラの選択 (<span id="tour-selected-count">0</span>台選択中)</label>
+                    <div id="tour-camera-selector" style="max-height: 200px; overflow-y: auto; background: #000; border: 1px solid #444; border-radius: 8px; margin-bottom: 15px; padding: 5px;">
+                        </div>
+
+                    <div class="btn-group">
+                        <button id="btn-tour-start" class="primary" style="background: var(--accent-green);" onclick="startCameraTour()">▶ 巡回を開始する</button>
+                        <button id="btn-tour-stop" class="danger" style="display: none;" onclick="stopCameraTour()">■ 巡回を停止</button>
+                    </div>
+                    <div id="tour-status-text" style="font-size: 13px; color: #ffb300; margin-top: 10px; display: none;"></div>
+                </div>
+            </div>
+
             <div class="filter-container" id="area-filter-container">
                 <button class="filter-btn active" onclick="filterByArea('すべて', this)">すべて</button>
                 <button class="filter-btn" onclick="filterByArea('北海道', this)">北海道</button>
@@ -295,8 +331,7 @@
                 <button class="filter-btn" onclick="filterByArea('九州', this)">九州</button>
                 <button class="filter-btn" onclick="filterByArea('沖縄', this)">沖縄</button>
             </div>
-            <div class="filter-container" id="genre-filter-container" style="border-top:none; background:#1c1c1c;">
-                </div>
+            <div class="filter-container" id="genre-filter-container" style="border-top:none; background:#1c1c1c;"></div>
             
             <div class="card" style="padding:0; overflow:hidden;">
                 <div id="cam-list" style="height:500px; overflow-y:auto; background:#000;"></div>
@@ -340,7 +375,6 @@
             <div id="free-images-control-container"></div>
         </div>
 
-        <!-- 認証設定用の新タブ -->
         <div id="tab-auth-config" class="tab-content">
             <h2>🔑 EQLive 団体内認証設定</h2>
             <div class="card">
@@ -374,16 +408,21 @@
     const db = getDatabase(app);
 
     let allCameras = [];
-    let imagePresets = []; // 読み込んだプリセット情報を保持する配列
+    let imagePresets = []; 
     let currentSelectedArea = "すべて";
     let currentSelectedGenre = "すべて";
-    let currentCameraSourceId = ""; // 現在のアクティブカメラIDを保持
+    let currentCameraSourceId = ""; 
+
+    // 巡回モード用変数
+    let tourActive = false;
+    let tourTimer = null;
+    let tourIndex = 0;
+    let selectedTourIds = [];
 
     // --- 共通パスワード認証ロジック ---
     function getSecretKey() {
         const savedKey = localStorage.getItem('eqlive_secret_key');
         if (!savedKey) {
-            // パスワードが未保存の場合はプロンプトを出し、タブを切り替える
             const input = prompt("【EQLiveセキュリティ】\n団体共通のパスワードを入力してください。");
             if (input) {
                 localStorage.setItem('eqlive_secret_key', input);
@@ -409,26 +448,22 @@
         switchTab('main');
     };
 
-    // 起動時にインプット欄へ初期同期
     document.getElementById('input-global-secret').value = localStorage.getItem('eqlive_secret_key') || "";
 
-    // データ送信の際にシークレットキーを自動マージする補助関数
     function secureSet(dbRef, dataObject) {
         const secret = getSecretKey();
         let finalData = dataObject;
         if (typeof dataObject === 'object' && dataObject !== null) {
             if (Array.isArray(dataObject)) {
-                // 配列（ほぼないが念のため）
                 finalData = { ...dataObject, secret_key: secret };
             } else {
                 finalData = { ...dataObject, secret_key: secret };
             }
         } else {
-            // プリミティブ値（文字列や真偽値）が直接渡された場合はオブジェクト化して処理
             finalData = { value: dataObject, secret_key: secret };
         }
         return set(dbRef, finalData).catch(err => {
-            alert("エラー: Firebaseへの保存が拒否されました。\nパスワードが間違っているか、未入力の可能性があります。サイド最下部の「認証設定」を確認してください。");
+            alert("エラー: Firebaseへの保存が拒否されました。\nパスワードが間違っているか、未入力の可能性があります。");
             console.error(err);
         });
     }
@@ -437,7 +472,7 @@
         const secret = getSecretKey();
         const finalData = { ...dataObject, secret_key: secret };
         return update(dbRef, finalData).catch(err => {
-            alert("エラー: Firebaseの更新が拒否されました。\nパスワード設定を確認してください。");
+            alert("エラー: Firebaseの更新が拒否されました。");
             console.error(err);
         });
     }
@@ -473,7 +508,6 @@
         btn.disabled = (val === 'ningen' && !document.getElementById('input-operator').value);
     };
 
-    // 映像投影時のみ詳細オプションを表示する制御
     window.toggleVideoOptions = (type) => {
         const vOpts = document.getElementById('video-extra-options');
         if(vOpts) {
@@ -481,19 +515,13 @@
         }
     };
 
-    // 画面投影設定を一括反映させる関数
     window.saveScreenProgram = () => {
         const type = document.getElementById('input-screen-type').value;
         const title = document.getElementById('input-screen-title').value;
         const url = document.getElementById('input-screen-url').value;
 
-        const programData = {
-            type: type,
-            title: title,
-            url: url
-        };
+        const programData = { type: type, title: title, url: url };
 
-        // 映像投影の場合はループ・ミュート設定もマージする
         if (type === 'video') {
             programData.loop = document.getElementById('input-screen-loop').value === 'true';
             programData.muted = document.getElementById('input-screen-muted').value === 'true';
@@ -504,11 +532,10 @@
         });
     };
 
-    // 準備中画面の瞬間セット・即反映
     window.setPrepareScreen = () => {
         document.getElementById('input-screen-type').value = 'image';
         document.getElementById('input-screen-url').value = 'https://gensai-lab.github.io/eqlive/assets/image/prepare.png';
-        toggleVideoOptions('image'); // 映像オプションを隠す
+        toggleVideoOptions('image');
 
         const programData = {
             type: 'image',
@@ -526,14 +553,12 @@
         if (typeof val === 'object' && val !== null) {
             secureSet(ref(db, `broadcast/${path}`), val);
         } else {
-            // パス単発の更新の際もセキュリティキーをマージするためのオブジェクト構築
             const segments = path.split('/');
             if(segments.length === 1) {
                 const obj = {};
                 obj[path] = val;
                 secureUpdate(ref(db, 'broadcast'), obj);
             } else {
-                // 入れ子パスの場合は親ノードに対してupdate
                 const leaf = segments.pop();
                 const parentPath = segments.join('/');
                 const obj = {};
@@ -571,19 +596,11 @@
     window.addNewFreeImage = () => {
         const newId = "img_" + Date.now(); 
         const initialConfig = {
-            name: "新規配置画像",
-            url: "",
-            x: 0,
-            y: 0,
-            width: 1920, 
-            zIndex: 1, 
-            opacity: 1.0,
-            visible: true
+            name: "新規配置画像", url: "", x: 0, y: 0, width: 1920, zIndex: 1, opacity: 1.0, visible: true
         };
         secureSet(ref(db, `broadcast/free_images/${newId}`), initialConfig);
     };
 
-    // プリセット情報をベースにFirebaseへ新規追加する関数
     window.addFreeImageFromPreset = (index) => {
         const preset = imagePresets[index];
         if (!preset) return;
@@ -605,7 +622,6 @@
     window.syncRangeImageValue = (id, field, val) => {
         let numVal = parseFloat(val);
         if (isNaN(numVal)) numVal = 1;
-        
         const obj = {};
         obj[field] = numVal;
         secureUpdate(ref(db, `broadcast/free_images/${id}`), obj);
@@ -619,12 +635,11 @@
 
     window.deleteFreeImage = (id) => {
         if(confirm("この画像を配信レイヤーから完全に削除しますか？")) {
-            // 削除の際もセキュリティルールを通過するため、親の階層からキーを付与して削除を実行
             const secret = getSecretKey();
             const updates = {};
             updates[`broadcast/free_images/${id}`] = null;
             updates[`broadcast/secret_key`] = secret;
-            update(ref(db), updates).catch(err => alert("削除に失敗しました。認証キーを確認してください。"));
+            update(ref(db), updates).catch(err => alert("削除に失敗しました。"));
         }
     };
 
@@ -645,13 +660,13 @@
         container.innerHTML = "";
 
         if (!imagesData || Object.keys(imagesData).length === 0) {
-            container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-sub); font-size:14px;">配置されている画像はありません。「新しい画像を追加」から作成してください。</div>`;
+            container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-sub); font-size:14px;">配置されている画像はありません。</div>`;
             return;
         }
 
         Object.keys(imagesData).forEach(id => {
             const conf = imagesData[id];
-            if(!conf || id === 'secret_key') return; // 認証キー自体はスキップ
+            if(!conf || id === 'secret_key') return;
 
             const card = document.createElement('div');
             card.className = "card";
@@ -678,44 +693,36 @@
 
                 <label>画像直リンクURL</label>
                 <input type="text" id="url-${id}" value="${conf.url && !conf.url.startsWith('data:') ? conf.url : ''}" 
-                       placeholder="https://... (または下からファイルをアップロード)" 
-                       onchange="updateImageProperty('${id}', 'url', this.value)">
+                       placeholder="https://..." onchange="updateImageProperty('${id}', 'url', this.value)">
                 
                 <label>ローカル画像ファイルをアップロード</label>
                 <input type="file" accept="image/*" style="padding:6px; font-size:12px;" onchange="handleImageFileSelect('${id}', event)">
 
                 <div style="margin-top:15px;">
-                    <label>X座標 (左からの距離: px) <span style="float:right; color:var(--text-sub);" id="val-${id}-x">${conf.x || 0}px</span></label>
+                    <label>X座標 (px) <span style="float:right; color:var(--text-sub);" id="val-${id}-x">${conf.x || 0}px</span></label>
                     <div class="range-group">
-                        <input type="range" min="0" max="1920" value="${conf.x || 0}" 
-                               id="range-${id}-x" oninput="document.getElementById('val-${id}-x').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'x', this.value)">
+                        <input type="range" min="0" max="1920" value="${conf.x || 0}" id="range-${id}-x" oninput="document.getElementById('val-${id}-x').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'x', this.value)">
                     </div>
 
-                    <label>Y座標 (上からの距離: px) <span style="float:right; color:var(--text-sub);" id="val-${id}-y">${conf.y || 0}px</span></label>
+                    <label>Y座標 (px) <span style="float:right; color:var(--text-sub);" id="val-${id}-y">${conf.y || 0}px</span></label>
                     <div class="range-group">
-                        <input type="range" min="0" max="1080" value="${conf.y || 0}" 
-                               id="range-${id}-y" oninput="document.getElementById('val-${id}-y').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'y', this.value)">
+                        <input type="range" min="0" max="1080" value="${conf.y || 0}" id="range-${id}-y" oninput="document.getElementById('val-${id}-y').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'y', this.value)">
                     </div>
 
-                    <label>画像横幅尺寸 (width: px) <span style="float:right; color:var(--text-sub);" id="val-${id}-w">${conf.width !== undefined ? conf.width : 1920}px</span></label>
+                    <label>画像横幅尺寸 (px) <span style="float:right; color:var(--text-sub);" id="val-${id}-w">${conf.width !== undefined ? conf.width : 1920}px</span></label>
                     <div class="range-group">
-                        <input type="range" min="50" max="1920" value="${conf.width !== undefined ? conf.width : 1920}" 
-                               id="range-${id}-w" oninput="document.getElementById('val-${id}-w').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'width', this.value)">
+                        <input type="range" min="50" max="1920" value="${conf.width !== undefined ? conf.width : 1920}" id="range-${id}-w" oninput="document.getElementById('val-${id}-w').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'width', this.value)">
                     </div>
 
-                    <label>レイヤー順序 (重ね順: z-index 1〜10)</label>
+                    <label>レイヤー順序 (z-index 1〜10)</label>
                     <div class="range-group">
-                        <input type="range" min="1" max="10" value="${currentZIndex}" 
-                               id="range-${id}-z" oninput="document.getElementById('num-${id}-z').value = this.value; syncRangeImageValue('${id}', 'zIndex', this.value)">
-                        <input type="number" min="1" max="999" value="${currentZIndex}" id="num-${id}-z"
-                               style="width: 65px; padding: 6px; font-size: 14px; margin: 0; text-align: center; background: #000; border: 1px solid #444; border-radius: 6px;"
-                               onchange="document.getElementById('range-${id}-z').value = this.value; syncRangeImageValue('${id}', 'zIndex', this.value)">
+                        <input type="range" min="1" max="10" value="${currentZIndex}" id="range-${id}-z" oninput="document.getElementById('num-${id}-z').value = this.value; syncRangeImageValue('${id}', 'zIndex', this.value)">
+                        <input type="number" min="1" max="999" value="${currentZIndex}" id="num-${id}-z" style="width: 65px; padding: 6px; font-size: 14px; margin: 0; text-align: center; background: #000; border: 1px solid #444; border-radius: 6px;" onchange="document.getElementById('range-${id}-z').value = this.value; syncRangeImageValue('${id}', 'zIndex', this.value)">
                     </div>
 
                     <label>不透明度 (opacity) <span style="float:right; color:var(--text-sub);" id="val-${id}-o">${conf.opacity !== undefined ? conf.opacity : 1.0}</span></label>
                     <div class="range-group">
-                        <input type="range" min="0" max="1" step="0.1" value="${conf.opacity !== undefined ? conf.opacity : 1.0}" 
-                               id="range-${id}-o" oninput="document.getElementById('val-${id}-o').innerText = this.value; syncRangeImageValue('${id}', 'opacity', this.value)">
+                        <input type="range" min="0" max="1" step="0.1" value="${conf.opacity !== undefined ? conf.opacity : 1.0}" id="range-${id}-o" oninput="document.getElementById('val-${id}-o').innerText = this.value; syncRangeImageValue('${id}', 'opacity', this.value)">
                     </div>
                 </div>
             `;
@@ -725,60 +732,31 @@
 
     // --- L-Shape Logic ---
     let localLItems = [];
-    
-    window.addLItem = () => { 
-        localLItems.push({genre:"", text:""}); 
-        renderLItems(); 
-    };
-    
-    window.removeLItem = (i) => { 
-        localLItems.splice(i,1); 
-        renderLItems(); 
-    };
-
-    window.updateLItem = (i, field, val) => {
-        localLItems[i][field] = val;
-    };
+    window.addLItem = () => { localLItems.push({genre:"", text:""}); renderLItems(); };
+    window.removeLItem = (i) => { localLItems.splice(i,1); renderLItems(); };
+    window.updateLItem = (i, field, val) => { localLItems[i][field] = val; };
 
     function setupDragAndDrop() {
         const container = document.getElementById('l-items-container');
         const cards = container.querySelectorAll('.draggable-card');
-        
         cards.forEach(card => {
-            card.addEventListener('dragstart', (e) => {
-                card.classList.add('dragging');
-                e.dataTransfer.setData('text/plain', card.dataset.index);
-            });
-
-            card.addEventListener('dragend', () => {
-                card.classList.remove('dragging');
-                reorderLocalLItems();
-            });
-
+            card.addEventListener('dragstart', (e) => { card.classList.add('dragging'); e.dataTransfer.setData('text/plain', card.dataset.index); });
+            card.addEventListener('dragend', () => { card.classList.remove('dragging'); reorderLocalLItems(); });
             card.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 const draggingCard = container.querySelector('.dragging');
                 const afterElement = getDragAfterElement(container, e.clientY);
-                if (afterElement == null) {
-                    container.appendChild(draggingCard);
-                } else {
-                    container.insertBefore(draggingCard, afterElement);
-                }
+                if (afterElement == null) { container.appendChild(draggingCard); } else { container.insertBefore(draggingCard, afterElement); }
             });
         });
     }
 
     function getDragAfterElement(container, y) {
         const draggableElements = [...container.querySelectorAll('.draggable-card:not(.dragging)')];
-
         return draggableElements.reduce((closest, child) => {
             const box = child.getBoundingClientRect();
             const offset = y - box.top - box.height / 2;
-            if (offset < 0 && offset > closest.offset) {
-                return { offset: offset, element: child };
-            } else {
-                return closest;
-            }
+            if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } else { return closest; }
         }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
@@ -786,12 +764,10 @@
         const container = document.getElementById('l-items-container');
         const cards = [...container.querySelectorAll('.draggable-card')];
         const newOrderedList = [];
-        
         cards.forEach(card => {
             const oldIndex = parseInt(card.dataset.index);
             newOrderedList.push(localLItems[oldIndex]);
         });
-        
         localLItems = newOrderedList;
         renderLItems(); 
     }
@@ -803,13 +779,12 @@
         localLItems.forEach((item, i) => {
             const div = document.createElement('div');
             div.className = "card draggable-card";
-            div.draggable = true; 
-            div.dataset.index = i;
+            div.draggable = true; div.dataset.index = i;
             div.style.background = "#252525";
             div.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <div style="font-size:12px; font-weight:bold; color:var(--accent-blue); display:flex; align-items:center; gap:5px;">
-                        <i class="material-icons" style="font-size:16px; cursor:move;">drag_indicator</i> カード #${i} (つまんで移動可)
+                        <i class="material-icons" style="font-size:16px; cursor:move;">drag_indicator</i> カード #${i}
                     </div>
                     <div class="btn-group" style="margin:0;">
                         <button class="danger" style="padding:5px 10px;" onclick="removeLItem(${i})"><i class="material-icons" style="font-size:14px;">delete</i></button>
@@ -822,30 +797,141 @@
             `;
             container.appendChild(div);
         });
-
         setupDragAndDrop();
     }
 
     window.saveLShape = () => {
         const topItemsObj = {};
         localLItems.forEach((item, index) => {
-            topItemsObj[index] = { 
-                genre: item.genre || "", 
-                text: item.text || "" 
-            };
+            topItemsObj[index] = { genre: item.genre || "", text: item.text || "" };
         });
-
         secureSet(ref(db, 'broadcast/l_shape'), {
-            leftText: document.getElementById('input-l-leftText').value || "",
-            topItems: topItemsObj
-        }).then(() => {
-            alert("L字放送設定をFirebaseに保存しました");
-        });
+            leftText: document.getElementById('input-l-leftText').value || "", topItems: topItemsObj
+        }).then(() => { alert("L字放送設定をFirebaseに保存しました"); });
     };
 
     window.triggerTsu = (dir) => {
         secureSet(ref(db, 'broadcast/tsunami_config/manualTrigger'), { direction: dir, timestamp: Date.now() });
     };
+
+    // --- 巡回モード（Tour Mode）制御処理 ---
+    window.toggleTourMode = (isOn) => {
+        const btnOn = document.getElementById('btn-tour-on');
+        const btnOff = document.getElementById('btn-tour-off');
+        const detailsArea = document.getElementById('tour-details-area');
+        
+        if (isOn) {
+            btnOn.className = "primary";
+            btnOff.className = "secondary";
+            detailsArea.style.display = "block";
+        } else {
+            btnOn.className = "secondary";
+            btnOff.className = "primary";
+            detailsArea.style.display = "none";
+            stopCameraTour(); // OFFにしたら巡回を強制停止
+        }
+    };
+
+    // カメラ選択チェックボックスリストの生成
+    function buildTourCameraSelector() {
+        const container = document.getElementById('tour-camera-selector');
+        if (!container) return;
+        container.innerHTML = "";
+
+        allCameras.forEach(cam => {
+            const item = document.createElement('div');
+            item.className = "tour-cam-item";
+            item.innerHTML = `
+                <label for="chk-tour-${cam.id}">
+                    <input type="checkbox" id="chk-tour-${cam.id}" value="${cam.id}" onchange="updateTourSelectedCount()">
+                    <span>${cam.name} (${cam.area || '未設定'})</span>
+                </label>
+            `;
+            container.appendChild(item);
+        });
+        updateTourSelectedCount();
+    }
+
+    window.updateTourSelectedCount = () => {
+        const container = document.getElementById('tour-camera-selector');
+        const checked = container.querySelectorAll('input[type="checkbox"]:checked');
+        selectedTourIds = Array.from(checked).map(chk => chk.value);
+        document.getElementById('tour-selected-count').innerText = selectedTourIds.length;
+    };
+
+    window.startCameraTour = () => {
+        if (selectedTourIds.length < 2) {
+            alert("自動巡回を行うには、カメラを2台以上選択してください。");
+            return;
+        }
+
+        const intervalInput = document.getElementById('input-tour-interval').value;
+        const unitMultiplier = document.getElementById('select-tour-unit').value;
+        let totalSeconds = parseInt(intervalInput) * parseInt(unitMultiplier);
+
+        if (isNaN(totalSeconds) || totalSeconds < 5) {
+            alert("切り替え間隔は5秒以上に設定してください。");
+            return;
+        }
+
+        // UI切り替え
+        tourActive = true;
+        document.getElementById('btn-tour-start').style.display = "none";
+        document.getElementById('btn-tour-stop').style.display = "block";
+        
+        const statusText = document.getElementById('tour-status-text');
+        statusText.style.display = "block";
+        statusText.innerText = "🚨 巡回モード実行中...";
+
+        tourIndex = 0;
+        executeTourStep(totalSeconds);
+    };
+
+    function executeTourStep(seconds) {
+        if (!tourActive) return;
+
+        if (tourIndex >= selectedTourIds.length) {
+            tourIndex = 0; // ループ
+        }
+
+        const targetCamId = selectedTourIds[tourIndex];
+        const camObj = allCameras.find(c => c.id === targetCamId);
+        
+        if (camObj) {
+            // Firebaseを直接更新してカメラを切り替える
+            updateFB('current/cameraSource', camObj.id);
+            
+            const statusText = document.getElementById('tour-status-text');
+            statusText.innerText = `🔄 自動巡回中 [${tourIndex + 1}/${selectedTourIds.length}]: 「${camObj.name}」を配信中 (${seconds}秒後に次へ)`;
+        }
+
+        tourIndex++;
+
+        // タイマー再帰呼び出し
+        tourTimer = setTimeout(() => {
+            executeTourStep(seconds);
+        }, seconds * 1000);
+    }
+
+    window.stopCameraTour = () => {
+        tourActive = false;
+        if (tourTimer) {
+            clearTimeout(tourTimer);
+            tourTimer = null;
+        }
+        
+        const btnStart = document.getElementById('btn-tour-start');
+        const btnStop = document.getElementById('btn-tour-stop');
+        const statusText = document.getElementById('tour-status-text');
+        
+        if (btnStart) btnStart.style.display = "block";
+        if (btnStop) btnStop.style.display = "none";
+        if (statusText) {
+            statusText.style.display = "none";
+            statusText.innerText = "";
+        }
+    };
+
 
     // --- Camera Dynamic Multi-Filter Logic ---
     function buildGenreFilterButtons(cams) {
@@ -853,12 +939,7 @@
         if (!container) return;
         
         const genres = new Set();
-        cams.forEach(c => {
-            if (c.genre && c.genre.trim() !== "") {
-                genres.add(c.genre.trim());
-            }
-        });
-
+        cams.forEach(c => { if (c.genre && c.genre.trim() !== "") genres.add(c.genre.trim()); });
         container.innerHTML = `<button class="filter-btn active" id="genre-btn-all" onclick="filterByGenre('すべて', this)">全ジャンル</button>`;
 
         genres.forEach(genreName => {
@@ -880,7 +961,6 @@
         const container = document.getElementById('area-filter-container');
         container.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        
         currentSelectedArea = area;
         applyCombinedFilter();
     };
@@ -889,22 +969,14 @@
         const container = document.getElementById('genre-filter-container');
         container.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        
         currentSelectedGenre = genre;
         applyCombinedFilter();
     };
 
     function applyCombinedFilter() {
         let filtered = allCameras;
-
-        if (currentSelectedArea !== 'すべて') {
-            filtered = filtered.filter(c => c.area === currentSelectedArea);
-        }
-
-        if (currentSelectedGenre !== 'すべて') {
-            filtered = filtered.filter(c => c.genre === currentSelectedGenre);
-        }
-
+        if (currentSelectedArea !== 'すべて') filtered = filtered.filter(c => c.area === currentSelectedArea);
+        if (currentSelectedGenre !== 'すべて') filtered = filtered.filter(c => c.genre === currentSelectedGenre);
         renderCameraList(filtered);
     }
 
@@ -921,7 +993,6 @@
         cams.forEach(c => {
             const d = document.createElement('div');
             d.style.cssText = "padding:18px; border-bottom:1px solid #222; cursor:pointer;";
-            
             const genreTag = c.genre ? c.genre : '未分類';
             
             d.innerHTML = `
@@ -936,29 +1007,33 @@
                     </div>
                 </div>
             `;
-            d.onclick = () => updateFB('current/cameraSource', c.id);
+            d.onclick = () => {
+                // 手動選択時は巡回を一度止めるように設計
+                if(tourActive) {
+                    if(confirm("現在自動巡回モードが動作中です。手動切り替えを行いますか？（巡回は停止します）")) {
+                        stopCameraTour();
+                    } else {
+                        return;
+                    }
+                }
+                updateFB('current/cameraSource', c.id);
+            };
             list.appendChild(d);
         });
     }
 
-    // --- プレビュープレイヤー更新処理（YouTube対応） ---
     function updatePreviewPlayer(cameraId) {
         const container = document.getElementById('preview-player-container');
         if (!container) return;
 
-        // 対象 of カメラオブジェクトを検索
         const cam = allCameras.find(c => c.id === cameraId);
         if (!cam) {
             container.innerHTML = `現在、ライブ映像はここに表示されます`;
             return;
         }
 
-        // typeがyoutubeの場合
         if (cam.type === 'youtube') {
-            // URLから埋め込み用のアドレスを補正して構築
             let embedUrl = cam.url;
-            
-            // 通常のURL（watch?v=...）で登録された場合の簡易判定・置換
             if (embedUrl.includes('watch?v=')) {
                 const vid = embedUrl.split('watch?v=')[1].split('&')[0];
                 embedUrl = `https://www.youtube.com/embed/${vid}`;
@@ -966,19 +1041,12 @@
                 const vid = embedUrl.split('youtu.be/')[1].split('?')[0];
                 embedUrl = `https://www.youtube.com/embed/${vid}`;
             }
-
-            // 指定オプションをクエリパラメータとして結合 (?autoplay=1&mute=1&controls=0&rel=0)
             const queryParams = "autoplay=1&mute=1&controls=0&rel=0";
             const finalUrl = embedUrl.includes('?') ? `${embedUrl}&${queryParams}` : `${embedUrl}?${queryParams}`;
 
             container.innerHTML = `
-                <iframe src="${finalUrl}" 
-                        style="width:100%; height:100%; border:none; position:absolute; top:0; left:0;" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                        allowfullscreen>
-                </iframe>`;
+                <iframe src="${finalUrl}" style="width:100%; height:100%; border:none; position:absolute; top:0; left:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
         } else {
-            // 通常のHLSストリーミングや静止画などの場合は、現状通りモックテキスト（または既存のプレイヤー処理）
             container.innerHTML = `
                 <div style="text-align:center; padding:20px;">
                     <div style="font-weight:bold; color:var(--accent-blue); margin-bottom:5px;">📹 ${cam.name} (HLSストリーム)</div>
@@ -987,22 +1055,14 @@
         }
     }
 
-    // --- 外部プリセットJSONの読み込みとUI反映 ---
     async function initPresets() {
         const container = document.getElementById('preset-buttons-container');
         if (!container) return;
-
         try {
-            // GitHub Pages等にアップロードした独自のプリセット用JSONファイルのURLを指定
             const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/presets.json");
             imagePresets = await res.json();
-            
-            if (imagePresets.length === 0) {
-                container.innerHTML = `<span style="color: var(--text-sub); font-size: 13px;">登録されているプリセットはありません。</span>`;
-                return;
-            }
-
-            container.innerHTML = ""; // 読み込み中テキストをクリア
+            if (imagePresets.length === 0) return;
+            container.innerHTML = "";
             imagePresets.forEach((preset, index) => {
                 const btn = document.createElement('button');
                 btn.className = "secondary";
@@ -1011,11 +1071,7 @@
                 btn.onclick = () => addFreeImageFromPreset(index);
                 container.appendChild(btn);
             });
-
-        } catch(e) {
-            console.error("Preset Init Error:", e);
-            container.innerHTML = `<span style="color: var(--accent-red); font-size: 13px;">プリセットの読み込みに失敗しました。</span>`;
-        }
+        } catch(e) { console.error(e); }
     }
 
     async function initCameras() {
@@ -1025,14 +1081,12 @@
             
             buildGenreFilterButtons(allCameras);
             applyCombinedFilter();
+            buildTourCameraSelector(); // 巡回用リストのセットアップ
 
-            // Firebaseから読み込み済みだった場合はここでプレイヤーを更新
             if (currentCameraSourceId) {
                 updatePreviewPlayer(currentCameraSourceId);
             }
-        } catch(e) {
-            console.error("Camera Init Error:", e);
-        }
+        } catch(e) { console.error(e); }
     }
 
     // --- Data Sync ---
@@ -1048,9 +1102,7 @@
         const freeImagesData = data.free_images || {};
         const activeEl = document.activeElement;
         const isEditingFreeImage = activeEl && (activeEl.id.startsWith('range-') || activeEl.id.startsWith('num-') || activeEl.id.startsWith('url-') || activeEl.type === 'file');
-        if(!isEditingFreeImage){
-            renderFreeImagesControls(freeImagesData);
-        }
+        if(!isEditingFreeImage){ renderFreeImagesControls(freeImagesData); }
 
         const statDist = document.getElementById('stat-dist');
         const statMode = document.getElementById('stat-mode');
@@ -1059,12 +1111,9 @@
         if(statMode) statMode.innerText = cur.layoutMode === 'emergency' ? '🚨 有事放送' : '🏠 通常放送';
         if(statCam) statCam.innerText = cur.cameraSource || '--';
 
-        // カメラソースIDに変更があれば、ダッシュボードのプレイヤープレビューを更新
         if (cur.cameraSource && cur.cameraSource !== currentCameraSourceId) {
             currentCameraSourceId = cur.cameraSource;
-            if (allCameras.length > 0) {
-                updatePreviewPlayer(currentCameraSourceId);
-            }
+            if (allCameras.length > 0) { updatePreviewPlayer(currentCameraSourceId); }
         }
 
         const alertArea = document.getElementById('status-alert-area');
@@ -1086,6 +1135,8 @@
         setBtn('btn-lay-emer', cur.layoutMode === 'emergency');
         setBtn('btn-m-sub', data.current_mode === 'sub-switcher');
         setBtn('btn-m-l', data.current_mode === 'l-screen');
+        setBtn('btn-time-show', cur.timeVisible !== false);
+        setBtn('btn-time-hide', cur.timeVisible === false);
         
         const linkToL = document.getElementById('link-to-l');
         if(linkToL) linkToL.style.display = data.current_mode === 'l-screen' ? 'block' : 'none';
@@ -1094,7 +1145,6 @@
         const screenOpts = document.getElementById('screen-options');
         if(screenOpts) screenOpts.style.display = cur.mainSource === 'screen' ? 'block' : 'none';
         
-        // 入力フォーカスが外れている時のみ、Firebaseの最新状態をインプット欄へ同期
         if(data.screen_program) {
             syncSelect('input-screen-type', data.screen_program.type);
             toggleVideoOptions(data.screen_program.type);
@@ -1127,10 +1177,7 @@
             const items = data.l_shape.topItems;
             if(items) {
                 const keys = Object.keys(items).sort((a,b) => parseInt(a) - parseInt(b));
-                const newItems = keys.map(key => ({
-                    genre: items[key].genre || "",
-                    text: items[key].text || ""
-                }));
+                const newItems = keys.map(key => ({ genre: items[key].genre || "", text: items[key].text || "" }));
                 if(isInitialLoad || localLItems.length !== newItems.length) {
                     localLItems = newItems;
                     renderLItems();
@@ -1152,9 +1199,8 @@
     }
 
     initCameras();
-    initPresets(); // プリセット読み込み処理の実行
+    initPresets();
     
-    // 初回読み込み時のパスワードチェック
     setTimeout(() => { getSecretKey(); }, 500);
 </script>
 </body>
