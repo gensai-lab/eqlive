@@ -137,11 +137,8 @@
         <div id="login-error-msg" style="color:var(--accent-red); font-size:13px; margin-bottom:15px; text-align:left; display:none;"></div>
         
         <label style="text-align:left;">ユーザーID</label>
-        <div style="display:flex; align-items:center; background:#000; border:1px solid #444; border-radius:8px; margin-bottom:15px; padding-right:14px;">
-            <!-- @以前のみを入力してもらう形に調整 -->
-            <input type="text" id="login-userid" placeholder="admin" style="margin-bottom:0; border:none; flex:1;">
-            <span style="color:var(--text-sub); font-size:16px; user-select:none;">@kactuif.internal</span>
-        </div>
+        <!-- 右側のドメイン表示コンポーネントを完全に削除 -->
+        <input type="text" id="login-userid" placeholder="ユーザーIDを入力">
         
         <label style="text-align:left;">パスワード</label>
         <input type="password" id="login-password" placeholder="••••••••">
@@ -465,7 +462,7 @@
         }
     });
 
-    // ログイン処理の実行（IDに自動でドメインを補完）
+    // ログイン処理の実行（末尾に自動で内部管理用のドメインを注入）
     document.getElementById('btn-execute-login').onclick = () => {
         const userId = document.getElementById('login-userid').value.trim();
         const password = document.getElementById('login-password').value;
@@ -477,7 +474,7 @@
             return;
         }
 
-        // 入力されたIDの末尾に内部用ドメインを自動的にガッチャンコする
+        // 入力値に関わらずバックエンド用に内部ドメインを自動的にガッチャンコする
         const fullEmail = `${userId}@kactuif.internal`;
 
         signInWithEmailAndPassword(auth, fullEmail, password)
@@ -1001,7 +998,7 @@
     function applyCombinedFilter() {
         let filtered = allCameras;
         if (currentSelectedArea !== 'すべて') filtered = filtered.filter(c => c.area === currentSelectedArea);
-        if (currentSelectedGenre !== '統べて') filtered = filtered.filter(c => c.genre === currentSelectedGenre);
+        if (currentSelectedGenre !== 'すべて') filtered = filtered.filter(c => c.genre === currentSelectedGenre);
         renderCameraList(filtered);
     }
 
