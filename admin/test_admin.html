@@ -136,8 +136,12 @@
         <h3 style="margin-top:0; margin-bottom:25px; font-size:16px; color:var(--text-sub);">EQLive 団体内管理システム</h3>
         <div id="login-error-msg" style="color:var(--accent-red); font-size:13px; margin-bottom:15px; text-align:left; display:none;"></div>
         
-        <label style="text-align:left;">メールアドレス / ID</label>
-        <input type="email" id="login-email" placeholder="example@gensai.com">
+        <label style="text-align:left;">ユーザーID</label>
+        <div style="display:flex; align-items:center; background:#000; border:1px solid #444; border-radius:8px; margin-bottom:15px; padding-right:14px;">
+            <!-- @以前のみを入力してもらう形に調整 -->
+            <input type="text" id="login-userid" placeholder="admin" style="margin-bottom:0; border:none; flex:1;">
+            <span style="color:var(--text-sub); font-size:16px; user-select:none;">@kactuif.internal</span>
+        </div>
         
         <label style="text-align:left;">パスワード</label>
         <input type="password" id="login-password" placeholder="••••••••">
@@ -414,7 +418,6 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue, update, set, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-    // 🔐 Firebase Authentication のインポートを追加
     import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
     const firebaseConfig = {
@@ -429,7 +432,7 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const auth = getAuth(app); // 認証用インスタンス取得
+    const auth = getAuth(app); 
 
     let allCameras = [];
     let imagePresets = []; 
@@ -437,7 +440,6 @@
     let currentSelectedGenre = "すべて";
     let currentCameraSourceId = ""; 
 
-    // 巡回モード用変数
     let tourActive = false;
     let tourTimer = null;
     let tourIndex = 0;
@@ -445,59 +447,57 @@
 
     // --- 🔐 Firebase Authentication ログイン制御ロジック ---
 
-    // ログイン監視（ローカルに保存されたセッションから自動復帰される）
     onAuthStateChanged(auth, (user) => {
         const loginScreen = document.getElementById('login-screen');
         const adminApp = document.getElementById('admin-app');
         
         if (user) {
-            // ログイン成功時：ログイン画面を隠してメインアプリを表示
             loginScreen.style.display = 'none';
             adminApp.style.display = 'flex';
             
-            // 各種データの初期化処理を起動
             initCameras();
             initPresets();
             startFirebaseSync();
         } else {
-            // 未ログイン時：メインアプリを隠してログイン画面を表示
             loginScreen.style.display = 'flex';
             adminApp.style.display = 'none';
-            stopCameraTour(); // 巡回が動いていれば停止
+            stopCameraTour(); 
         }
     });
 
-    // ログイン処理の実行
+    // ログイン処理の実行（IDに自動でドメインを補完）
     document.getElementById('btn-execute-login').onclick = () => {
-        const email = document.getElementById('login-email').value.trim();
+        const userId = document.getElementById('login-userid').value.trim();
         const password = document.getElementById('login-password').value;
         const errorMsg = document.getElementById('login-error-msg');
 
-        if (!email || !password) {
-            errorMsg.innerText = "メールアドレスとパスワードを入力してください。";
+        if (!userId || !password) {
+            errorMsg.innerText = "ユーザーIDとパスワードを入力してください。";
             errorMsg.style.display = 'block';
             return;
         }
 
-        signInWithEmailAndPassword(auth, email, password)
+        // 入力されたIDの末尾に内部用ドメインを自動的にガッチャンコする
+        const fullEmail = `${userId}@kactuif.internal`;
+
+        signInWithEmailAndPassword(auth, fullEmail, password)
             .then(() => {
                 errorMsg.style.display = 'none';
             })
             .catch((error) => {
                 console.error(error);
-                errorMsg.innerText = "ログインに失敗しました。アカウント情報を確認してください。";
+                errorMsg.innerText = "ログインに失敗しました。ユーザーIDまたはパスワードが正しくありません。";
                 errorMsg.style.display = 'block';
             });
     };
 
-    // ログアウト処理の実行
     document.getElementById('btn-logout').onclick = () => {
         if(confirm("ログアウトしますか？")) {
             signOut(auth).catch(err => console.error(err));
         }
     };
 
-    // --- 🖋️ Firebase 書き込み関数（secret_keyの埋め込み処理を撤廃） ---
+    // --- 🖋️ Firebase 書き込み関数 ---
     function secureSet(dbRef, dataObject) {
         return set(dbRef, dataObject).catch(err => {
             alert("エラー: Firebaseへの保存が拒否されました。\n権限がないか、セッションが切れた可能性があります。");
@@ -891,7 +891,7 @@
 
     window.startCameraTour = () => {
         if (selectedTourIds.length < 2) {
-            alert("自動巡回を行うするには、カメラを2台以上選択してください。");
+            alert("自動巡回を行うには、カメラを2台以上選択してください。");
             return;
         }
 
@@ -1001,7 +1001,7 @@
     function applyCombinedFilter() {
         let filtered = allCameras;
         if (currentSelectedArea !== 'すべて') filtered = filtered.filter(c => c.area === currentSelectedArea);
-        if (currentSelectedGenre !== 'すべて') filtered = filtered.filter(c => c.genre === currentSelectedGenre);
+        if (currentSelectedGenre !== '統べて') filtered = filtered.filter(c => c.genre === currentSelectedGenre);
         renderCameraList(filtered);
     }
 
