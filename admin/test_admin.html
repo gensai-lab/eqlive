@@ -168,8 +168,8 @@
             <button class="nav-item" onclick="switchTab('l-shape')"><i class="material-icons">view_quilt</i>⑥L字設定</button>
             <button class="nav-item" onclick="switchTab('camera')"><i class="material-icons">videocam</i>⑦ライブカメラ</button>
             <button class="nav-item" onclick="switchTab('tsunami')"><i class="material-icons">waves</i>⑧津波制御</button>
-            <button class="nav-item" onclick="window.open('https://gensai-lab.github.io/eqlive/admin/manuscript.html', '_blank')"><i class="material-icons">description</i>⑨原稿</button>
-            <button class="nav-item" onclick="switchTab('free-image')"><i class="material-icons">grid_view</i>⑩自由配置画像</button>
+            <!-- ⑨原稿メニューを完全に消去、自由配置画像を⑨に繰り上げ -->
+            <button class="nav-item" onclick="switchTab('free-image')"><i class="material-icons">grid_view</i>⑨自由配置画像</button>
             <button class="nav-item" id="btn-logout" style="margin-top: auto; border-top: 1px solid #333; color: #d13438;"><i class="material-icons">logout</i>🚪 ログアウト</button>
         </nav>
 
@@ -201,7 +201,6 @@
                         <option value="bot">🤖 自動 (Bot)</option>
                         <option value="ningen">👤 有人 (人間)</option>
                     </select>
-                    <!-- 担当者選択（ningen-area）の要素を完全に消去 -->
                     <button id="btn-save-dist" class="primary" onclick="saveDist()">設定を反映</button>
                 </div>
             </div>
@@ -383,6 +382,7 @@
                 </div>
             </div>
 
+            <!-- タブエリアの自由配置画像の表記・見出しも「⑨自由配置画像」に統一 -->
             <div id="tab-free-image" class="tab-content">
                 <h2>自由配置画像オーバーレイ（複数対応）</h2>
                 <div style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;">
@@ -521,7 +521,6 @@
         }
     };
 
-    // 担当者セレクトエリアを削ったため、トグル連動の判定・無効化処理をクリーンアップ
     window.toggleNingen = () => {
         const val = document.getElementById('input-distributor').value;
         const btn = document.getElementById('btn-save-dist');
@@ -589,7 +588,6 @@
         }
     };
 
-    // operatorは、Bot判定時は固定で"System"、有人の場合は「有人担当」として単純に送信するように統合
     window.saveDist = () => {
         const d = document.getElementById('input-distributor').value;
         secureUpdate(ref(db, 'broadcast/current'), { distributor: d, operator: (d==='bot'?"System":"有人担当") });
@@ -1134,7 +1132,6 @@
                 if(el && document.activeElement.id !== id) el.value = val || ""; 
             };
             syncSelect('input-distributor', cur.distributor);
-            // オペレーター同期部分のセレクトボックス依存ロジックを排除
             toggleNingen();
 
             const setBtn = (id, cond) => { 
