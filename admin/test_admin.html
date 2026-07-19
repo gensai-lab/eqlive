@@ -186,7 +186,6 @@
                 </div>
                 <div class="card">
                     <label>プレビュー（EQLive YouTubeライブ自動判定）</label>
-                    <!-- 📺 自チャネルのLIVE状況に応じて自動切り替えを行うコンテナ -->
                     <div id="preview-player-container" style="aspect-ratio: 16/9; background:#000; display:flex; align-items:center; justify-content:center; color:#fff; border-radius:8px; overflow:hidden; position:relative;">
                         YouTube Liveの配信ステータスを確認中...
                     </div>
@@ -403,7 +402,6 @@
     </main>
 </div>
 
-<!-- <iframe>の再生可否をフックするためにYouTube Iframe Player APIのスクリプトをロード -->
 <script src="https://www.youtube.com/iframe_api"></script>
 
 <script type="module">
@@ -670,6 +668,7 @@
         reader.readAsDataURL(file);
     };
 
+    // 自由配置画像設定管理カード内に、入力ソース元に応じたインライン画像プレビューコンポーネントを実装
     function renderFreeImagesControls(imagesData) {
         const container = document.getElementById('free-images-control-container');
         if (!container) return;
@@ -690,6 +689,22 @@
             card.style.borderLeft = conf.visible ? "5px solid var(--accent-blue)" : "5px solid #555";
 
             const currentZIndex = conf.zIndex !== undefined ? conf.zIndex : 1;
+            
+            // プレビュー表示用のマークアップアセンブリ判定（URLまたはDataURLが存在する場合）
+            let previewHtml = "";
+            if(conf.url && conf.url.trim() !== "") {
+                previewHtml = `
+                    <div style="margin: 5px 0 15px 0; background: #000; padding: 10px; border-radius: 6px; border: 1px solid #444; display: flex; justify-content: center; align-items: center;">
+                        <img src="${conf.url}" alt="画像プレビュー" style="max-height: 120px; max-width: 100%; object-fit: contain; border-radius: 4px;">
+                    </div>
+                `;
+            } else {
+                previewHtml = `
+                    <div style="margin: 5px 0 15px 0; background: #000; padding: 15px; border-radius: 6px; border: 1px solid #333; text-align: center; color: var(--text-sub); font-size: 12px;">
+                        <i class="material-icons" style="font-size: 18px; vertical-align: middle; margin-right: 4px; color: #555;">broken_image</i>画像データ未登録（プレビューを利用できません）
+                    </div>
+                `;
+            }
 
             card.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:10px;">
@@ -706,6 +721,9 @@
                         </button>
                     </div>
                 </div>
+
+                <label>画像サムネイル・プレビュー</label>
+                ${previewHtml}
 
                 <label>画像直リンクURL</label>
                 <input type="text" id="url-${id}" value="${conf.url && !conf.url.startsWith('data:') ? conf.url : ''}" 
@@ -1031,15 +1049,11 @@
         });
     }
 
-    // --- 📺 ライブ配信ステータス自動チェック機能付き プレビューアップデートロジック ---
     function updatePreviewPlayer(cameraId) {
         const container = document.getElementById('preview-player-container');
         if (!container) return;
 
-        // 初期ロード時や明示的な指定用のIDフックではなく、常時自局の配信を監視するようにします。
-        // YouTubeの仕様で、チャンネルのライブ配信用共有URLを埋め込みプレイヤー形式でコールします。
-        // @gensai_lab のハンドルIDから直接ライブストリームを呼び出すためのURL
-        const targetLiveEmbedUrl = "https://www.youtube.com/embed/live_stream?channel=UC8nCen_24bQ-Vsp-f1F080w"; // ※チャンネルID形式で指定すると最も安定します。みんなの減災ラボのチャンネルIDを設定してあります。
+        const targetLiveEmbedUrl = "https://www.youtube.com/embed/live_stream?channel=UC8nCen_24bQ-Vsp-f1F080w"; 
 
         container.innerHTML = `
             <div id="yt-live-check-player" style="width:100%; height:100%; position:absolute; top:0; left:0; visibility:hidden;"></div>
@@ -1053,14 +1067,13 @@
             </div>
         `;
 
-        // YouTube Iframe Player APIのオブジェクトを作成し、ロードエラー（=配信していない）を検知します
         new YT.Player('yt-live-check-player', {
             width: '100%',
             height: '100%',
-            videoId: '', // live_stream形式のため空で指定
+            videoId: '', 
             playerVars: {
                 'listType': 'live_stream',
-                'list': 'UC8nCen_24bQ-Vsp-f1F080w', // みんなの減災ラボ チャンネルID
+                'list': 'UC8nCen_24bQ-Vsp-f1F080w', 
                 'autoplay': 1,
                 'mute': 1,
                 'controls': 1,
@@ -1071,12 +1084,10 @@
                     const loadingLayer = document.getElementById('loading-message-layer');
                     if (loadingLayer) loadingLayer.style.display = 'none';
 
-                    // プレイヤーが正常に読み込めた場合はiframeを可視化
                     const playerIframe = document.getElementById('yt-live-check-player');
                     if (playerIframe) playerIframe.style.visibility = 'visible';
                 },
                 'onError': (event) => {
-                    // 2: 識別子の形式エラー、100: 見つからない、101/150: 埋め込み拒否またはライブ非稼働時
                     const loadingLayer = document.getElementById('loading-message-layer');
                     const offlineLayer = document.getElementById('offline-message-layer');
                     const playerIframe = document.getElementById('yt-live-check-player');
@@ -1117,7 +1128,6 @@
             applyCombinedFilter();
             buildTourCameraSelector(); 
 
-            // 初回描画時にライブ配信状況をチェックして反映
             updatePreviewPlayer();
         } catch(e) { console.error(e); }
     }
@@ -1147,7 +1157,6 @@
 
             if (cur.cameraSource && cur.cameraSource !== currentCameraSourceId) {
                 currentCameraSourceId = cur.cameraSource;
-                // メメイン画面のプレビューは自局配信チェックに専念させるため、個別カメラの切り替え追従はここではスキップします。
             }
 
             const alertArea = document.getElementById('status-alert-area');
