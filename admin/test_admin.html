@@ -168,7 +168,6 @@
             <button class="nav-item" onclick="switchTab('l-shape')"><i class="material-icons">view_quilt</i>⑥L字設定</button>
             <button class="nav-item" onclick="switchTab('camera')"><i class="material-icons">videocam</i>⑦ライブカメラ</button>
             <button class="nav-item" onclick="switchTab('tsunami')"><i class="material-icons">waves</i>⑧津波制御</button>
-            <!-- ⑨原稿メニューを完全に消去、自由配置画像を⑨に繰り上げ -->
             <button class="nav-item" onclick="switchTab('free-image')"><i class="material-icons">grid_view</i>⑨自由配置画像</button>
             <button class="nav-item" id="btn-logout" style="margin-top: auto; border-top: 1px solid #333; color: #d13438;"><i class="material-icons">logout</i>🚪 ログアウト</button>
         </nav>
@@ -186,9 +185,10 @@
                     </div>
                 </div>
                 <div class="card">
-                    <label>プレビュー（自動埋め込み）</label>
-                    <div id="preview-player-container" style="aspect-ratio: 16/9; background:#000; display:flex; align-items:center; justify-content:center; color:#444; border-radius:8px; overflow:hidden; position:relative;">
-                        現在、ライブ映像はここに表示されます
+                    <label>プレビュー（EQLive YouTubeライブ自動判定）</label>
+                    <!-- 📺 自チャネルのLIVE状況に応じて自動切り替えを行うコンテナ -->
+                    <div id="preview-player-container" style="aspect-ratio: 16/9; background:#000; display:flex; align-items:center; justify-content:center; color:#fff; border-radius:8px; overflow:hidden; position:relative;">
+                        YouTube Liveの配信ステータスを確認中...
                     </div>
                 </div>
             </div>
@@ -382,7 +382,6 @@
                 </div>
             </div>
 
-            <!-- タブエリアの自由配置画像の表記・見出しも「⑨自由配置画像」に統一 -->
             <div id="tab-free-image" class="tab-content">
                 <h2>自由配置画像オーバーレイ（複数対応）</h2>
                 <div style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;">
@@ -403,6 +402,9 @@
         </div>
     </main>
 </div>
+
+<!-- <iframe>の再生可否をフックするためにYouTube Iframe Player APIのスクリプトをロード -->
+<script src="https://www.youtube.com/iframe_api"></script>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -1029,37 +1031,62 @@
         });
     }
 
+    // --- 📺 ライブ配信ステータス自動チェック機能付き プレビューアップデートロジック ---
     function updatePreviewPlayer(cameraId) {
         const container = document.getElementById('preview-player-container');
         if (!container) return;
 
-        const cam = allCameras.find(c => c.id === cameraId);
-        if (!cam) {
-            container.innerHTML = `現在、ライブ映像はここに表示されます`;
-            return;
-        }
+        // 初期ロード時や明示的な指定用のIDフックではなく、常時自局の配信を監視するようにします。
+        // YouTubeの仕様で、チャンネルのライブ配信用共有URLを埋め込みプレイヤー形式でコールします。
+        // @gensai_lab のハンドルIDから直接ライブストリームを呼び出すためのURL
+        const targetLiveEmbedUrl = "https://www.youtube.com/embed/live_stream?channel=UC8nCen_24bQ-Vsp-f1F080w"; // ※チャンネルID形式で指定すると最も安定します。みんなの減災ラボのチャンネルIDを設定してあります。
 
-        if (cam.type === 'youtube') {
-            let embedUrl = cam.url;
-            if (embedUrl.includes('watch?v=')) {
-                const vid = embedUrl.split('watch?v=')[1].split('&')[0];
-                embedUrl = `https://www.youtube.com/embed/${vid}`;
-            } else if (embedUrl.includes('youtu.be/')) {
-                const vid = embedUrl.split('youtu.be/')[1].split('?')[0];
-                embedUrl = `https://www.youtube.com/embed/${vid}`;
+        container.innerHTML = `
+            <div id="yt-live-check-player" style="width:100%; height:100%; position:absolute; top:0; left:0; visibility:hidden;"></div>
+            <div id="offline-message-layer" style="text-align:center; z-index:10; padding:20px; display:none;">
+                <i class="material-icons" style="font-size:48px; color:var(--text-sub); margin-bottom:10px;">videocam_off</i>
+                <div style="font-weight:bold; font-size:15px; margin-bottom:4px;">現在、YouTubeライブ配信は行われていません</div>
+                <div style="font-size:12px; color:var(--text-sub);">EQLiveプロジェクトが稼働するとここに自動で映像が投影されます</div>
+            </div>
+            <div id="loading-message-layer" style="text-align:center; z-index:5;">
+                <div style="font-size:13px; color:var(--text-sub);">配信ステータスを取得しています...</div>
+            </div>
+        `;
+
+        // YouTube Iframe Player APIのオブジェクトを作成し、ロードエラー（=配信していない）を検知します
+        new YT.Player('yt-live-check-player', {
+            width: '100%',
+            height: '100%',
+            videoId: '', // live_stream形式のため空で指定
+            playerVars: {
+                'listType': 'live_stream',
+                'list': 'UC8nCen_24bQ-Vsp-f1F080w', // みんなの減災ラボ チャンネルID
+                'autoplay': 1,
+                'mute': 1,
+                'controls': 1,
+                'rel': 0
+            },
+            events: {
+                'onReady': (event) => {
+                    const loadingLayer = document.getElementById('loading-message-layer');
+                    if (loadingLayer) loadingLayer.style.display = 'none';
+
+                    // プレイヤーが正常に読み込めた場合はiframeを可視化
+                    const playerIframe = document.getElementById('yt-live-check-player');
+                    if (playerIframe) playerIframe.style.visibility = 'visible';
+                },
+                'onError': (event) => {
+                    // 2: 識別子の形式エラー、100: 見つからない、101/150: 埋め込み拒否またはライブ非稼働時
+                    const loadingLayer = document.getElementById('loading-message-layer');
+                    const offlineLayer = document.getElementById('offline-message-layer');
+                    const playerIframe = document.getElementById('yt-live-check-player');
+                    
+                    if (loadingLayer) loadingLayer.style.display = 'none';
+                    if (playerIframe) playerIframe.style.display = 'none';
+                    if (offlineLayer) offlineLayer.style.display = 'block';
+                }
             }
-            const queryParams = "autoplay=1&mute=1&controls=0&rel=0";
-            const finalUrl = embedUrl.includes('?') ? `${embedUrl}&${queryParams}` : `${embedUrl}?${queryParams}`;
-
-            container.innerHTML = `
-                <iframe src="${finalUrl}" style="width:100%; height:100%; border:none; position:absolute; top:0; left:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
-        } else {
-            container.innerHTML = `
-                <div style="text-align:center; padding:20px;">
-                    <div style="font-weight:bold; color:var(--accent-blue); margin-bottom:5px;">📹 ${cam.name} (HLSストリーム)</div>
-                    <div style="font-size:12px; color:var(--text-sub); word-break:break-all;">${cam.url}</div>
-                </div>`;
-        }
+        });
     }
 
     async function initPresets() {
@@ -1090,9 +1117,8 @@
             applyCombinedFilter();
             buildTourCameraSelector(); 
 
-            if (currentCameraSourceId) {
-                updatePreviewPlayer(currentCameraSourceId);
-            }
+            // 初回描画時にライブ配信状況をチェックして反映
+            updatePreviewPlayer();
         } catch(e) { console.error(e); }
     }
 
@@ -1121,7 +1147,7 @@
 
             if (cur.cameraSource && cur.cameraSource !== currentCameraSourceId) {
                 currentCameraSourceId = cur.cameraSource;
-                if (allCameras.length > 0) { updatePreviewPlayer(currentCameraSourceId); }
+                // メメイン画面のプレビューは自局配信チェックに専念させるため、個別カメラの切り替え追従はここではスキップします。
             }
 
             const alertArea = document.getElementById('status-alert-area');
