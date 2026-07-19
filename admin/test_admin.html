@@ -137,7 +137,6 @@
         <div id="login-error-msg" style="color:var(--accent-red); font-size:13px; margin-bottom:15px; text-align:left; display:none;"></div>
         
         <label style="text-align:left;">ユーザーID</label>
-        <!-- 右側のドメイン表示コンポーネントを完全に削除 -->
         <input type="text" id="login-userid" placeholder="ユーザーIDを入力">
         
         <label style="text-align:left;">パスワード</label>
@@ -198,18 +197,11 @@
                 <h2>配信担当選択</h2>
                 <div class="card">
                     <label>配信主体 (distributor)</label>
-                    <select id="input-distributor" onchange="toggleNingen()">
+                    <select id="input-distributor">
                         <option value="bot">🤖 自動 (Bot)</option>
                         <option value="ningen">👤 有人 (人間)</option>
                     </select>
-                    <div id="ningen-area" style="display:none;">
-                        <label>担当者選択 (必須)</label>
-                        <select id="input-operator">
-                            <option value="">-- 選択してください --</option>
-                            <option value="Kabeya">壁谷 來夢</option>
-                            <option value="Tsuboguchi">坪口 冬真</option>
-                        </select>
-                    </div>
+                    <!-- 担当者選択（ningen-area）の要素を完全に消去 -->
                     <button id="btn-save-dist" class="primary" onclick="saveDist()">設定を反映</button>
                 </div>
             </div>
@@ -462,7 +454,6 @@
         }
     });
 
-    // ログイン処理の実行（末尾に自動で内部管理用のドメインを注入）
     document.getElementById('btn-execute-login').onclick = () => {
         const userId = document.getElementById('login-userid').value.trim();
         const password = document.getElementById('login-password').value;
@@ -474,7 +465,6 @@
             return;
         }
 
-        // 入力値に関わらずバックエンド用に内部ドメインを自動的にガッチャンコする
         const fullEmail = `${userId}@kactuif.internal`;
 
         signInWithEmailAndPassword(auth, fullEmail, password)
@@ -531,13 +521,12 @@
         }
     };
 
+    // 担当者セレクトエリアを削ったため、トグル連動の判定・無効化処理をクリーンアップ
     window.toggleNingen = () => {
         const val = document.getElementById('input-distributor').value;
-        const nArea = document.getElementById('ningen-area');
         const btn = document.getElementById('btn-save-dist');
-        if(!nArea || !btn) return;
-        nArea.style.display = (val === 'ningen') ? 'block' : 'none';
-        btn.disabled = (val === 'ningen' && !document.getElementById('input-operator').value);
+        if(!btn) return;
+        btn.disabled = false;
     };
 
     window.toggleVideoOptions = (type) => {
@@ -600,11 +589,10 @@
         }
     };
 
+    // operatorは、Bot判定時は固定で"System"、有人の場合は「有人担当」として単純に送信するように統合
     window.saveDist = () => {
         const d = document.getElementById('input-distributor').value;
-        const o = document.getElementById('input-operator').value;
-        if(d === 'ningen' && !o) return;
-        secureUpdate(ref(db, 'broadcast/current'), { distributor: d, operator: (d==='bot'?"System":o) });
+        secureUpdate(ref(db, 'broadcast/current'), { distributor: d, operator: (d==='bot'?"System":"有人担当") });
     };
 
     window.saveTitle = () => {
@@ -1146,7 +1134,7 @@
                 if(el && document.activeElement.id !== id) el.value = val || ""; 
             };
             syncSelect('input-distributor', cur.distributor);
-            syncSelect('input-operator', cur.operator === "System" ? "" : cur.operator);
+            // オペレーター同期部分のセレクトボックス依存ロジックを排除
             toggleNingen();
 
             const setBtn = (id, cond) => { 
