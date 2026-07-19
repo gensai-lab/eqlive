@@ -24,7 +24,7 @@
             position: absolute;
             top: 0; left: 0;
             width: 1920px; height: 1080px;
-            z-index: 5; /* メイン画面(1)より上で、各テロップ(10)より下の階層 */
+            z-index: 20; /* テロップ等のオーバーレイ（z-index: 10）よりも手前の最前面に配置 */
             pointer-events: none;
         }
         #watermark-layer img {
@@ -40,7 +40,7 @@
             left: 0;
             width: 1920px;
             height: 1080px;
-            z-index: 8; /* ウォーターマーク(5)より上で、時間やタイトルなどのテロップ(10)より手前、または背後に配置されるように調整 */
+            z-index: 8; /* 時間やタイトルなどのテロップ(10)より手前、または背後に配置されるように調整 */
             pointer-events: none;
         }
         .custom-free-image {
@@ -92,6 +92,7 @@
         <iframe id="switcher-iframe" src="main-screen.html"></iframe>
     </div>
 
+    <!-- z-indexを20にしたことで、ここが最前面のレイヤーになります -->
     <div id="watermark-layer">
         <img src="assets/cover/watermark.png" alt="Watermark">
     </div>
@@ -155,7 +156,6 @@
     // --- 左上エリア（座布団・時計等）の表示/非表示同期 ---
     onValue(ref(db, 'broadcast/current/timeVisible'), (snapshot) => {
         const isVisible = snapshot.val();
-        // 明示的に false の場合のみ非表示にし、nullや未設定、trueのときは表示させる
         if (isVisible === false) {
             topLeftArea.style.opacity = "0";
             topLeftArea.style.pointerEvents = "none";
@@ -169,7 +169,7 @@
     const freeImagesRef = ref(db, 'broadcast/free_images');
     onValue(freeImagesRef, (snapshot) => {
         const imagesData = snapshot.val();
-        imageLayer.innerHTML = ""; // 一旦初期化して再描画
+        imageLayer.innerHTML = ""; 
         if (imagesData) {
             Object.keys(imagesData).forEach(id => {
                 const imgConf = imagesData[id];
@@ -193,10 +193,7 @@
     onValue(ref(db, 'broadcast/tsunami_config'), (snapshot) => {
         const config = snapshot.val();
         if (config) {
-            // 管理画面の「手動/自動」切替ボタン設定や手動トリガーの有無を確認
             if (config.autoPage === false) {
-                // 手動モード時の判定ロジック（必要に応じて拡張可能）
-                // 例として、手動トリガーが特定の方向を向いている、もしくは明示的な表示フラグがある場合
                 manualTsunamiActive = (config.manualTrigger && config.manualTrigger.direction) ? true : false;
             } else {
                 manualTsunamiActive = false;
@@ -226,7 +223,6 @@
         updateTsunamiVisibility();
     }
 
-    // APIまたはFirebase手動制御のどちらかが有効であれば津波地図を表示する
     function updateTsunamiVisibility() {
         if (apiTsunamiActive || manualTsunamiActive) {
             tsunamiContainer.classList.add('is-active');
