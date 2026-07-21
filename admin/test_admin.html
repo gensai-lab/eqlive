@@ -192,10 +192,13 @@
             <button class="nav-item" onclick="switchTab('camera')"><i class="material-icons">videocam</i>⑦ライブカメラ</button>
             <button class="nav-item" onclick="switchTab('tsunami')"><i class="material-icons">waves</i>⑧津波制御</button>
             <button class="nav-item" onclick="switchTab('free-image')"><i class="material-icons">grid_view</i>⑨自由配置画像</button>
+            <!-- ⑩音声タブを追加 -->
+            <button class="nav-item" onclick="switchTab('audio')"><i class="material-icons">mic</i>⑩音声・BGM制御</button>
             <button class="nav-item" id="btn-logout" style="margin-top: auto; border-top: 1px solid #333; color: #d13438;"><i class="material-icons">logout</i>🚪 ログアウト</button>
         </nav>
 
         <div class="content">
+            <!-- 既存のタブコンテンツ -->
             <div id="tab-main" class="tab-content active">
                 <h2>ダッシュボード</h2>
                 <div id="status-alert-area"></div>
@@ -421,6 +424,51 @@
                 
                 <div id="free-images-control-container"></div>
             </div>
+
+            <!-- 新規追加：⑩音声・BGM制御タブ -->
+            <div id="tab-audio" class="tab-content">
+                <h2>音声・BGM制御</h2>
+                
+                <!-- 1. AI音声読み上げ -->
+                <div class="card">
+                    <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">record_voice_over</i> AI音声読み上げ（TTS）</label>
+                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">入力したテキストをメイン画面でAI音声として読み上げさせます。</p>
+                    <textarea id="input-tts-text" style="height:80px;" placeholder="読み上げるテキストを入力..."></textarea>
+                    <button class="primary" style="width:100%; display:flex; justify-content:center; align-items:center; gap:8px;" onclick="sendTTS()">
+                        <i class="material-icons">campaign</i> 読み上げを実行
+                    </button>
+                </div>
+
+                <!-- 2. BGM再生制御 -->
+                <div class="card">
+                    <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">music_note</i> BGM再生</label>
+                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">メイン画面でBGMを再生・停止します。</p>
+                    <label>BGMファイルのURL (Github等)</label>
+                    <input type="text" id="input-bgm-url" placeholder="例: assets/audio/bgm.mp3" value="assets/audio/bgm.mp3">
+                    
+                    <label>BGM音量 <span style="float:right; color:var(--text-sub);" id="val-bgm-vol">50%</span></label>
+                    <div class="range-group">
+                        <input type="range" min="0" max="1" step="0.05" value="0.5" id="range-bgm-vol" oninput="document.getElementById('val-bgm-vol').innerText = Math.round(this.value * 100) + '%'; changeBGMVolume(this.value)">
+                    </div>
+
+                    <div class="btn-group">
+                        <button id="btn-bgm-play" class="primary" style="background:var(--accent-green);" onclick="toggleBGM(true)">▶ BGM再生</button>
+                        <button id="btn-bgm-stop" class="danger" onclick="toggleBGM(false)">■ BGM停止</button>
+                    </div>
+                </div>
+
+                <!-- 3. マイクリアルタイム配信 -->
+                <div class="card" style="border-left: 5px solid var(--accent-blue);">
+                    <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">mic</i> 管理者マイクのリアルタイム配信</label>
+                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">あなたのマイク音声をメイン画面に直接ストリーミングします。（※要マイク許可）</p>
+                    <div id="mic-status" style="font-size:13px; color:#ffb300; margin-bottom:15px; display:none;">🎤 マイク配信中...</div>
+                    <div class="btn-group">
+                        <button id="btn-mic-start" class="primary" onclick="startMicStreaming()">マイク配信を開始</button>
+                        <button id="btn-mic-stop" class="danger" style="display:none;" onclick="stopMicStreaming()">マイク配信を停止</button>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 </div>
@@ -484,6 +532,7 @@
             loginScreen.style.display = 'flex';
             adminApp.style.display = 'none';
             stopLocalTourTimer(); 
+            stopMicStreaming(); // ログアウト時にマイクも停止
         }
     });
 
@@ -701,7 +750,6 @@
         reader.readAsDataURL(file);
     };
 
-    // 🖼️ モーダル展開用のグローバルハンドラ
     window.openImagePreviewModal = (title, url) => {
         const modal = document.getElementById('image-preview-modal');
         const modalTitle = document.getElementById('preview-modal-title');
@@ -717,7 +765,6 @@
 
     window.closeImagePreviewModal = (event) => {
         if(event && event.target !== document.getElementById('image-preview-modal')) return;
-        
         const modal = document.getElementById('image-preview-modal');
         if (modal) modal.classList.remove('open');
     };
@@ -892,25 +939,16 @@
         secureSet(ref(db, 'broadcast/tsunami_config/manualTrigger'), { direction: dir, timestamp: Date.now() });
     };
 
-    // --- 巡回モード（Tour Mode）制御処理（Firebase連動対応版） ---
-    
-    // UI表示の切替のみを行う関数
+    // --- 巡回モード（Tour Mode） ---
     window.toggleTourModeUI = (isOn) => {
         const btnOn = document.getElementById('btn-tour-on');
         const btnOff = document.getElementById('btn-tour-off');
         const detailsArea = document.getElementById('tour-details-area');
-        
         if (isOn) {
-            btnOn.className = "primary";
-            btnOff.className = "secondary";
-            detailsArea.style.display = "block";
+            btnOn.className = "primary"; btnOff.className = "secondary"; detailsArea.style.display = "block";
         } else {
-            btnOn.className = "secondary";
-            btnOff.className = "primary";
-            detailsArea.style.display = "none";
-            stopCameraTourFB();
+            btnOn.className = "secondary"; btnOff.className = "primary"; detailsArea.style.display = "none"; stopCameraTourFB();
         }
-        
         saveTourConfigToFB(isOn);
     };
 
@@ -918,7 +956,6 @@
         const container = document.getElementById('tour-camera-selector');
         if (!container) return;
         container.innerHTML = "";
-
         allCameras.forEach(cam => {
             const isChecked = selectedTourIds.includes(cam.id);
             const item = document.createElement('div');
@@ -934,10 +971,7 @@
         updateTourSelectedCountUI();
     }
 
-    window.updateTourSelectedCount = () => {
-        updateTourSelectedCountUI();
-        saveTourConfigToFB();
-    };
+    window.updateTourSelectedCount = () => { updateTourSelectedCountUI(); saveTourConfigToFB(); };
 
     function updateTourSelectedCountUI() {
         const container = document.getElementById('tour-camera-selector');
@@ -948,135 +982,80 @@
         if(countSpan) countSpan.innerText = selectedTourIds.length;
     }
 
-    // 巡回設定をFirebaseに保存する
     window.saveTourConfigToFB = (customEnabled) => {
         const intervalInput = document.getElementById('input-tour-interval')?.value || "30";
         const unitMultiplier = document.getElementById('select-tour-unit')?.value || "60";
         let isEnabled = customEnabled !== undefined ? customEnabled : (currentTourConfig ? !!currentTourConfig.enabled : false);
-
         const tourConfigData = {
-            enabled: isEnabled,
-            running: currentTourConfig ? !!currentTourConfig.running : false,
-            interval: parseInt(intervalInput) || 30,
-            unit: parseInt(unitMultiplier) || 60,
-            selectedIds: selectedTourIds || []
+            enabled: isEnabled, running: currentTourConfig ? !!currentTourConfig.running : false,
+            interval: parseInt(intervalInput) || 30, unit: parseInt(unitMultiplier) || 60, selectedIds: selectedTourIds || []
         };
-
         secureSet(ref(db, 'broadcast/tour_config'), tourConfigData);
     };
 
     window.startCameraTourFB = () => {
-        if (selectedTourIds.length < 2) {
-            alert("自動巡回を行うには、カメラを2台以上選択してください。");
-            return;
-        }
-
+        if (selectedTourIds.length < 2) { alert("自動巡回を行うには、カメラを2台以上選択してください。"); return; }
         const intervalInput = document.getElementById('input-tour-interval').value;
         const unitMultiplier = document.getElementById('select-tour-unit').value;
         let totalSeconds = parseInt(intervalInput) * parseInt(unitMultiplier);
-
-        if (isNaN(totalSeconds) || totalSeconds < 5) {
-            alert("切り替え間隔は5秒以上に設定してください。");
-            return;
-        }
-
-        const tourConfigData = {
-            enabled: true,
-            running: true,
-            interval: parseInt(intervalInput) || 30,
-            unit: parseInt(unitMultiplier) || 60,
-            selectedIds: selectedTourIds || []
-        };
-
-        secureSet(ref(db, 'broadcast/tour_config'), tourConfigData);
+        if (isNaN(totalSeconds) || totalSeconds < 5) { alert("切り替え間隔は5秒以上に設定してください。"); return; }
+        secureSet(ref(db, 'broadcast/tour_config'), {
+            enabled: true, running: true, interval: parseInt(intervalInput) || 30, unit: parseInt(unitMultiplier) || 60, selectedIds: selectedTourIds || []
+        });
     };
 
     window.stopCameraTourFB = () => {
         const intervalInput = document.getElementById('input-tour-interval')?.value || "30";
         const unitMultiplier = document.getElementById('select-tour-unit')?.value || "60";
-
-        const tourConfigData = {
-            enabled: document.getElementById('btn-tour-on').classList.contains('primary'),
-            running: false,
-            interval: parseInt(intervalInput) || 30,
-            unit: parseInt(unitMultiplier) || 60,
-            selectedIds: selectedTourIds || []
-        };
-
-        secureSet(ref(db, 'broadcast/tour_config'), tourConfigData);
+        secureSet(ref(db, 'broadcast/tour_config'), {
+            enabled: document.getElementById('btn-tour-on').classList.contains('primary'), running: false,
+            interval: parseInt(intervalInput) || 30, unit: parseInt(unitMultiplier) || 60, selectedIds: selectedTourIds || []
+        });
     };
 
     function startLocalTourLoop(totalSeconds) {
         stopLocalTourTimer();
         tourActiveLocal = true;
-
         const btnStart = document.getElementById('btn-tour-start');
         const btnStop = document.getElementById('btn-tour-stop');
         const statusText = document.getElementById('tour-status-text');
-
         if (btnStart) btnStart.style.display = "none";
         if (btnStop) btnStop.style.display = "block";
-        if (statusText) {
-            statusText.style.display = "block";
-            statusText.innerText = "🚨 巡回モード実行中...";
-        }
-
+        if (statusText) { statusText.style.display = "block"; statusText.innerText = "🚨 巡回モード実行中..."; }
         executeTourStep(totalSeconds);
     }
 
     function executeTourStep(seconds) {
         if (!tourActiveLocal) return;
-
-        if (tourIndex >= selectedTourIds.length) {
-            tourIndex = 0; 
-        }
-
+        if (tourIndex >= selectedTourIds.length) { tourIndex = 0; }
         const targetCamId = selectedTourIds[tourIndex];
         const camObj = allCameras.find(c => c.id === targetCamId);
-        
         if (camObj) {
             updateFB('current/cameraSource', camObj.id);
             const statusText = document.getElementById('tour-status-text');
-            if (statusText) {
-                statusText.innerText = `🔄 自動巡回中 [${tourIndex + 1}/${selectedTourIds.length}]: 「${camObj.name}」を配信中 (${seconds}秒後に次へ)`;
-            }
+            if (statusText) statusText.innerText = `🔄 自動巡回中 [${tourIndex + 1}/${selectedTourIds.length}]: 「${camObj.name}」を配信中 (${seconds}秒後に次へ)`;
         }
-
         tourIndex++;
-
-        tourTimer = setTimeout(() => {
-            executeTourStep(seconds);
-        }, seconds * 1000);
+        tourTimer = setTimeout(() => { executeTourStep(seconds); }, seconds * 1000);
     }
 
     function stopLocalTourTimer() {
         tourActiveLocal = false;
-        if (tourTimer) {
-            clearTimeout(tourTimer);
-            tourTimer = null;
-        }
-        
+        if (tourTimer) { clearTimeout(tourTimer); tourTimer = null; }
         const btnStart = document.getElementById('btn-tour-start');
         const btnStop = document.getElementById('btn-tour-stop');
         const statusText = document.getElementById('tour-status-text');
-        
         if (btnStart) btnStart.style.display = "block";
         if (btnStop) btnStop.style.display = "none";
-        if (statusText) {
-            statusText.style.display = "none";
-            statusText.innerText = "";
-        }
+        if (statusText) { statusText.style.display = "none"; statusText.innerText = ""; }
     }
 
-    // --- Camera Filter ---
     function buildGenreFilterButtons(cams) {
         const container = document.getElementById('genre-filter-container');
         if (!container) return;
-        
         const genres = new Set();
         cams.forEach(c => { if (c.genre && c.genre.trim() !== "") genres.add(c.genre.trim()); });
         container.innerHTML = `<button class="filter-btn active" id="genre-btn-all" onclick="filterByGenre('すべて', this)">全ジャンル</button>`;
-
         genres.forEach(genreName => {
             const btn = document.createElement('button');
             btn.className = "filter-btn";
@@ -1085,7 +1064,6 @@
             else if(genreName === "河川") icon = "🏞️ ";
             else if(genreName === "道路") icon = "🛣️ ";
             else if(genreName === "都市") icon = "🏙️ ";
-
             btn.innerText = `${icon}${genreName}`;
             btn.onclick = () => filterByGenre(genreName, btn);
             container.appendChild(btn);
@@ -1119,23 +1097,17 @@
         const list = document.getElementById('cam-list');
         if(!list) return;
         list.innerHTML = "";
-        
         if(cams.length === 0) {
             list.innerHTML = `<div style="text-align:center; padding:40px; color:#555; font-size:14px;">該当するカメラがありません</div>`;
             return;
         }
-
         cams.forEach(c => {
             const d = document.createElement('div');
             d.style.cssText = "padding:18px; border-bottom:1px solid #222; cursor:pointer;";
             const genreTag = c.genre ? c.genre : '未分類';
-            
             d.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <div style="font-weight:bold;">${c.name}</div>
-                        <small style="color:#777;">ID: ${c.id}</small>
-                    </div>
+                    <div><div style="font-weight:bold;">${c.name}</div><small style="color:#777;">ID: ${c.id}</small></div>
                     <div style="display:flex; gap:6px;">
                         <span style="font-size:10px; background:#1A365D; color:#90CDF4; padding:2px 8px; border-radius:4px;">${genreTag}</span>
                         <span style="font-size:10px; background:#333; padding:2px 8px; border-radius:4px;">${c.area || '未設定'}</span>
@@ -1144,11 +1116,7 @@
             `;
             d.onclick = () => {
                 if(tourActiveLocal) {
-                    if(confirm("現在自動巡回モードが動作中です。手動切り替えを行いますか？（巡回は停止します）")) {
-                        stopCameraTourFB();
-                    } else {
-                        return;
-                    }
+                    if(confirm("現在自動巡回モードが動作中です。手動切り替えを行いますか？（巡回は停止します）")) stopCameraTourFB(); else return;
                 }
                 updateFB('current/cameraSource', c.id);
             };
@@ -1156,10 +1124,9 @@
         });
     }
 
-    function updatePreviewPlayer(cameraId) {
+    function updatePreviewPlayer() {
         const container = document.getElementById('preview-player-container');
         if (!container) return;
-
         container.innerHTML = `
             <div id="yt-live-check-player" style="width:100%; height:100%; position:absolute; top:0; left:0; visibility:hidden;"></div>
             <div id="offline-message-layer" style="text-align:center; z-index:10; padding:20px; display:none;">
@@ -1171,35 +1138,18 @@
                 <div style="font-size:13px; color:var(--text-sub);">配信ステータスを取得しています...</div>
             </div>
         `;
-
         new YT.Player('yt-live-check-player', {
-            width: '100%',
-            height: '100%',
-            videoId: '', 
-            playerVars: {
-                'listType': 'live_stream',
-                'list': 'UC8nCen_24bQ-Vsp-f1F080w', 
-                'autoplay': 1,
-                'mute': 1,
-                'controls': 1,
-                'rel': 0
-            },
+            width: '100%', height: '100%', videoId: '', 
+            playerVars: { 'listType': 'live_stream', 'list': 'UC8nCen_24bQ-Vsp-f1F080w', 'autoplay': 1, 'mute': 1, 'controls': 1, 'rel': 0 },
             events: {
-                'onReady': (event) => {
-                    const loadingLayer = document.getElementById('loading-message-layer');
-                    if (loadingLayer) loadingLayer.style.display = 'none';
-
-                    const playerIframe = document.getElementById('yt-live-check-player');
-                    if (playerIframe) playerIframe.style.visibility = 'visible';
+                'onReady': () => {
+                    document.getElementById('loading-message-layer').style.display = 'none';
+                    document.getElementById('yt-live-check-player').style.visibility = 'visible';
                 },
-                'onError': (event) => {
-                    const loadingLayer = document.getElementById('loading-message-layer');
-                    const offlineLayer = document.getElementById('offline-message-layer');
-                    const playerIframe = document.getElementById('yt-live-check-player');
-                    
-                    if (loadingLayer) loadingLayer.style.display = 'none';
-                    if (playerIframe) playerIframe.style.display = 'none';
-                    if (offlineLayer) offlineLayer.style.display = 'block';
+                'onError': () => {
+                    document.getElementById('loading-message-layer').style.display = 'none';
+                    document.getElementById('yt-live-check-player').style.display = 'none';
+                    document.getElementById('offline-message-layer').style.display = 'block';
                 }
             }
         });
@@ -1215,8 +1165,7 @@
             container.innerHTML = "";
             imagePresets.forEach((preset, index) => {
                 const btn = document.createElement('button');
-                btn.className = "secondary";
-                btn.style.cssText = "padding: 8px 14px; font-size: 13px; font-weight: normal; flex: none;";
+                btn.className = "secondary"; btn.style.cssText = "padding: 8px 14px; font-size: 13px; font-weight: normal; flex: none;";
                 btn.innerText = preset.name || `プリセット ${index + 1}`;
                 btn.onclick = () => addFreeImageFromPreset(index);
                 container.appendChild(btn);
@@ -1228,16 +1177,13 @@
         try {
             const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json");
             allCameras = await res.json();
-            
             buildGenreFilterButtons(allCameras);
             applyCombinedFilter();
             buildTourCameraSelector(); 
-
             updatePreviewPlayer();
         } catch(e) { console.error(e); }
     }
 
-    // --- Data Sync（認証後に起動） ---
     let isInitialLoad = true;
 
     function startFirebaseSync() {
@@ -1248,6 +1194,7 @@
             const cur = data.current || {};
             const tsu = data.tsunami_config || {};
             const tourConf = data.tour_config || {};
+            const audioConf = data.audio || {};
             currentTourConfig = tourConf;
             
             const freeImagesData = data.free_images || {};
@@ -1262,24 +1209,16 @@
             if(statMode) statMode.innerText = cur.layoutMode === 'emergency' ? '🚨 有事放送' : '🏠 通常放送';
             if(statCam) statCam.innerText = cur.cameraSource || '--';
 
-            if (cur.cameraSource && cur.cameraSource !== currentCameraSourceId) {
-                currentCameraSourceId = cur.cameraSource;
-            }
+            if (cur.cameraSource && cur.cameraSource !== currentCameraSourceId) currentCameraSourceId = cur.cameraSource;
 
             const alertArea = document.getElementById('status-alert-area');
             if(alertArea) alertArea.innerHTML = data.current_mode === 'l-screen' ? '<div class="card alert"><i class="material-icons" style="vertical-align:bottom; color:var(--accent-red)">warning</i> L字放送が実行中です</div>' : '';
 
-            const syncSelect = (id, val) => { 
-                const el = document.getElementById(id);
-                if(el && document.activeElement.id !== id) el.value = val || ""; 
-            };
+            const syncSelect = (id, val) => { const el = document.getElementById(id); if(el && document.activeElement.id !== id) el.value = val || ""; };
             syncSelect('input-distributor', cur.distributor);
             toggleNingen();
 
-            const setBtn = (id, cond) => { 
-                const el = document.getElementById(id);
-                if(el) el.className = cond ? "primary" : "secondary"; 
-            };
+            const setBtn = (id, cond) => { const el = document.getElementById(id); if(el) el.className = cond ? "primary" : "secondary"; };
             setBtn('btn-lay-live', cur.layoutMode === 'live');
             setBtn('btn-lay-emer', cur.layoutMode === 'emergency');
             setBtn('btn-m-sub', data.current_mode === 'sub-switcher');
@@ -1297,28 +1236,17 @@
             if(data.screen_program) {
                 syncSelect('input-screen-type', data.screen_program.type);
                 toggleVideoOptions(data.screen_program.type);
-                
-                const syncInputOrValue = (id, val) => {
-                    const el = document.getElementById(id);
-                    if(el && document.activeElement.id !== id) el.value = String(val !== undefined ? val : "");
-                };
+                const syncInputOrValue = (id, val) => { const el = document.getElementById(id); if(el && document.activeElement.id !== id) el.value = String(val !== undefined ? val : ""); };
                 syncInputOrValue('input-screen-title', data.screen_program.title);
                 syncInputOrValue('input-screen-url', data.screen_program.url);
                 syncSelect('input-screen-loop', data.screen_program.loop !== undefined ? String(data.screen_program.loop) : 'true');
                 syncSelect('input-screen-muted', data.screen_program.muted !== undefined ? String(data.screen_program.muted) : 'false');
             }
 
-            const syncInput = (id, val) => { 
-                const el = document.getElementById(id);
-                if(el && document.activeElement.id !== id) el.value = val || ""; 
-            };
+            const syncInput = (id, val) => { const el = document.getElementById(id); if(el && document.activeElement.id !== id) el.value = val || ""; };
             syncInput('input-mainTitle', cur.mainTitle);
             syncInput('input-subtitle', cur.subtitle);
-            if(data.manual_news) {
-                syncInput('input-tic-g', data.manual_news.genre);
-                syncInput('input-tic-1', data.manual_news.line1);
-                syncInput('input-tic-2', data.manual_news.line2);
-            }
+            if(data.manual_news) { syncInput('input-tic-g', data.manual_news.genre); syncInput('input-tic-1', data.manual_news.line1); syncInput('input-tic-2', data.manual_news.line2); }
 
             const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container') || containerIsDragging());
             if(data.l_shape && !isEditingL) {
@@ -1327,10 +1255,7 @@
                 if(items) {
                     const keys = Object.keys(items).sort((a,b) => parseInt(a) - parseInt(b));
                     const newItems = keys.map(key => ({ genre: items[key].genre || "", text: items[key].text || "" }));
-                    if(isInitialLoad || localLItems.length !== newItems.length) {
-                        localLItems = newItems;
-                        renderLItems();
-                    }
+                    if(isInitialLoad || localLItems.length !== newItems.length) { localLItems = newItems; renderLItems(); }
                 }
             }
             
@@ -1339,7 +1264,7 @@
             const tsuCtrl = document.getElementById('tsu-manual-ctrl');
             if(tsuCtrl) tsuCtrl.style.display = tsu.autoPage === false ? 'block' : 'none';
 
-            // --- 🔄 巡回モード（tour_config）の同期同期ロジック ---
+            // --- Tour Sync ---
             const btnTourOn = document.getElementById('btn-tour-on');
             const btnTourOff = document.getElementById('btn-tour-off');
             const tourDetailsArea = document.getElementById('tour-details-area');
@@ -1347,36 +1272,36 @@
             const unitEl = document.getElementById('select-tour-unit');
 
             if (tourConf.enabled) {
-                btnTourOn.className = "primary";
-                btnTourOff.className = "secondary";
-                if(tourDetailsArea) tourDetailsArea.style.display = "block";
+                btnTourOn.className = "primary"; btnTourOff.className = "secondary"; if(tourDetailsArea) tourDetailsArea.style.display = "block";
             } else {
-                btnTourOn.className = "secondary";
-                btnTourOff.className = "primary";
-                if(tourDetailsArea) tourDetailsArea.style.display = "none";
+                btnTourOn.className = "secondary"; btnTourOff.className = "primary"; if(tourDetailsArea) tourDetailsArea.style.display = "none";
             }
 
-            if (intervalEl && document.activeElement.id !== 'input-tour-interval') {
-                intervalEl.value = tourConf.interval || 30;
-            }
-            if (unitEl && document.activeElement.id !== 'select-tour-unit') {
-                unitEl.value = tourConf.unit || 60;
-            }
-
-            if (tourConf.selectedIds && Array.isArray(tourConf.selectedIds)) {
-                selectedTourIds = tourConf.selectedIds;
-                buildTourCameraSelector();
-            }
+            if (intervalEl && document.activeElement.id !== 'input-tour-interval') intervalEl.value = tourConf.interval || 30;
+            if (unitEl && document.activeElement.id !== 'select-tour-unit') unitEl.value = tourConf.unit || 60;
+            if (tourConf.selectedIds && Array.isArray(tourConf.selectedIds)) { selectedTourIds = tourConf.selectedIds; buildTourCameraSelector(); }
 
             if (tourConf.running && tourConf.enabled) {
                 const totalSec = (tourConf.interval || 30) * (tourConf.unit || 60);
-                if (!tourActiveLocal) {
-                    startLocalTourLoop(totalSec);
-                }
+                if (!tourActiveLocal) startLocalTourLoop(totalSec);
             } else {
-                if (tourActiveLocal) {
-                    stopLocalTourTimer();
+                if (tourActiveLocal) stopLocalTourTimer();
+            }
+
+            // --- Audio BGM Sync ---
+            const btnBgmPlay = document.getElementById('btn-bgm-play');
+            const btnBgmStop = document.getElementById('btn-bgm-stop');
+            const bgmUrl = document.getElementById('input-bgm-url');
+            
+            if (audioConf.bgm) {
+                if (audioConf.bgm.isPlaying) {
+                    btnBgmPlay.className = "secondary"; btnBgmPlay.style.background = "#333";
+                    btnBgmStop.className = "primary"; btnBgmStop.style.background = "var(--accent-red)";
+                } else {
+                    btnBgmPlay.className = "primary"; btnBgmPlay.style.background = "var(--accent-green)";
+                    btnBgmStop.className = "danger";
                 }
+                if(bgmUrl && document.activeElement.id !== 'input-bgm-url') bgmUrl.value = audioConf.bgm.url || "";
             }
 
             isInitialLoad = false;
@@ -1387,6 +1312,119 @@
         const container = document.getElementById('l-items-container');
         return container ? container.querySelectorAll('.dragging').length > 0 : false;
     }
+
+    // --- 🔊 新規機能ロジック：音声・BGM・マイク制御 ---
+
+    // 1. AI音声読み上げ（TTS）
+    window.sendTTS = () => {
+        const text = document.getElementById('input-tts-text').value.trim();
+        if(!text) { alert("テキストを入力してください。"); return; }
+        
+        // Main画面でトリガーさせるため、タイムスタンプを付与してFirebaseへ送信
+        secureSet(ref(db, 'broadcast/audio/tts'), {
+            text: text,
+            timestamp: Date.now()
+        }).then(() => {
+            document.getElementById('input-tts-text').value = ""; // 送信後クリア
+        });
+    };
+
+    // 2. BGM再生制御
+    window.toggleBGM = (play) => {
+        const url = document.getElementById('input-bgm-url').value.trim();
+        const vol = parseFloat(document.getElementById('range-bgm-vol').value) || 0.5;
+        
+        secureUpdate(ref(db, 'broadcast/audio/bgm'), {
+            url: url,
+            isPlaying: play,
+            volume: vol
+        });
+    };
+
+    window.changeBGMVolume = (val) => {
+        secureUpdate(ref(db, 'broadcast/audio/bgm'), { volume: parseFloat(val) });
+    };
+
+    // 3. マイクリアルタイム配信 (WebRTC)
+    let localStream = null;
+    let peerConnection = null;
+    const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+    window.startMicStreaming = async () => {
+        try {
+            // マイクへのアクセス要求
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            
+            document.getElementById('btn-mic-start').style.display = 'none';
+            document.getElementById('btn-mic-stop').style.display = 'block';
+            document.getElementById('mic-status').style.display = 'block';
+
+            // WebRTC初期化
+            peerConnection = new RTCPeerConnection(servers);
+            
+            // トラックの追加
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            // ICE Candidateの処理（Main画面へ送信）
+            peerConnection.onicecandidate = event => {
+                if(event.candidate) {
+                    const newRef = set(ref(db, `broadcast/audio/webrtc/candidates/admin/${Date.now()}`), event.candidate.toJSON());
+                }
+            };
+
+            // MainからのICE Candidateを受信
+            onValue(ref(db, 'broadcast/audio/webrtc/candidates/main'), (snapshot) => {
+                snapshot.forEach((childSnapshot) => {
+                    const candidate = new RTCIceCandidate(childSnapshot.val());
+                    peerConnection.addIceCandidate(candidate);
+                });
+            });
+
+            // Offer作成
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+
+            // シグナリングデータをリセットしてから送信
+            await remove(ref(db, 'broadcast/audio/webrtc'));
+            await secureSet(ref(db, 'broadcast/audio/webrtc/offer'), {
+                type: offer.type,
+                sdp: offer.sdp,
+                timestamp: Date.now() // Mainに強制リロードさせるトリガー
+            });
+
+            // MainからのAnswerを待機
+            onValue(ref(db, 'broadcast/audio/webrtc/answer'), (snapshot) => {
+                const data = snapshot.val();
+                if(data && !peerConnection.currentRemoteDescription) {
+                    const answerDescription = new RTCSessionDescription(data);
+                    peerConnection.setRemoteDescription(answerDescription);
+                }
+            });
+
+        } catch (error) {
+            console.error("マイクの起動に失敗しました: ", error);
+            alert("マイクのアクセスが許可されていないか、利用できません。");
+        }
+    };
+
+    window.stopMicStreaming = () => {
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
+        }
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+
+        // Firebase上の接続情報を削除し、Main側の音声も止める
+        remove(ref(db, 'broadcast/audio/webrtc'));
+
+        document.getElementById('btn-mic-start').style.display = 'block';
+        document.getElementById('btn-mic-stop').style.display = 'none';
+        document.getElementById('mic-status').style.display = 'none';
+    };
+
 </script>
 </body>
 </html>
