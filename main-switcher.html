@@ -90,31 +90,37 @@
             background: rgba(0,0,0,0.5);
             color: white;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 10000;
             cursor: pointer;
             font-family: sans-serif;
+            font-size: 24px;
         }
     </style>
 </head>
 <body>
 
-    <div id="audio-unlock">音声再生を有効にするにはここをクリック（OBSの場合は「対話」から）</div>
+    <div id="audio-unlock">
+        <div style="margin-bottom: 20px;">音声再生・マイク接続・読み上げ機能を有効にするにはここをクリック</div>
+        <div style="font-size: 16px; color: #ccc;">（OBSの場合は「対話」からクリックしてください）</div>
+    </div>
 
     <div id="view-container">
         <iframe id="frame-l-bg" src="l-screen.html"></iframe>
-        
         <iframe id="frame-sub-switcher" src="sub-switcher.html"></iframe>
-        
         <iframe id="frame-eew" src="parts/eew.html"></iframe>
     </div>
 
+    <!-- 音声ソース要素 -->
     <audio id="eew-audio" src="assets/eew-audio.mp3" preload="auto"></audio>
+    <audio id="bgm-audio" loop preload="auto"></audio>
+    <audio id="mic-audio" autoplay></audio> <!-- WebRTCマイク出力用 -->
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
@@ -131,34 +137,40 @@
     const frameLBg = document.getElementById('frame-l-bg');
     const frameSub = document.getElementById('frame-sub-switcher');
     const eewAudio = document.getElementById('eew-audio');
+    const bgmAudio = document.getElementById('bgm-audio');
+    const micAudio = document.getElementById('mic-audio');
     const unlockOverlay = document.getElementById('audio-unlock');
 
     // タイマー管理用変数
     let offTimer = null;
+    let ttsLastTimestamp = null;
+    
+    // WebRTC用変数
+    let peerConnection = null;
+    const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-    // 音声アンロック処理
+    // 音声アンロック・初期化処理 (クリック時)
     unlockOverlay.addEventListener('click', () => {
-        eewAudio.play().then(() => {
-            eewAudio.pause();
-            eewAudio.currentTime = 0;
-            unlockOverlay.style.display = 'none';
-            console.log("Audio Unlocked!");
-        }).catch(err => console.error("Unlock failed:", err));
+        // 全オーディオ要素をアンロック
+        eewAudio.play().then(() => { eewAudio.pause(); eewAudio.currentTime = 0; }).catch(()=>{});
+        bgmAudio.play().then(() => { bgmAudio.pause(); }).catch(()=>{});
+        
+        // Web Speech API の初期化ロック解除 (無音を発声)
+        const initUtterance = new SpeechSynthesisUtterance('');
+        window.speechSynthesis.speak(initUtterance);
+        
+        unlockOverlay.style.display = 'none';
+        console.log("Audio Systems Unlocked!");
     });
 
-    // === モード切り替えロジック（タイマー制御付き） ===
+    // === モード切り替えロジック ===
     function applyLayoutMode(viewType) {
-        if (offTimer) {
-            clearTimeout(offTimer);
-            offTimer = null;
-        }
-
+        if (offTimer) { clearTimeout(offTimer); offTimer = null; }
         if (viewType === 'l-screen') {
             frameLBg.classList.add('active');   
             frameSub.classList.add('l-mode');   
         } else {
             frameSub.classList.remove('l-mode'); 
-            
             offTimer = setTimeout(() => {
                 frameLBg.classList.remove('active');
                 offTimer = null;
@@ -173,14 +185,102 @@
         else applyLayoutMode('sub-switcher');
     });
 
+    // 内部iFrameからのEEW音声発火指示
     window.addEventListener('message', (event) => {
         if (event.data === 'playEEWAudio') {
             eewAudio.currentTime = 0; 
-            eewAudio.play().catch(e => {
-                console.warn("再生に失敗しました。");
-            });
+            eewAudio.play().catch(e => console.warn("EEW音声の再生に失敗しました。"));
         }
     });
+
+    // === 🎵 追加: BGM再生制御 ===
+    onValue(ref(db, 'broadcast/audio/bgm'), (snapshot) => {
+        const bgmConfig = snapshot.val();
+        if(!bgmConfig) return;
+
+        // URLが変更された場合は読み込み直す
+        if (bgmConfig.url && !bgmAudio.src.includes(bgmConfig.url)) {
+            bgmAudio.src = bgmConfig.url;
+        }
+
+        // 音量設定
+        bgmAudio.volume = bgmConfig.volume !== undefined ? bgmConfig.volume : 0.5;
+
+        // 再生・停止制御
+        if (bgmConfig.isPlaying) {
+            bgmAudio.play().catch(e => console.warn("BGM再生ブロック(クリック前): ", e));
+        } else {
+            bgmAudio.pause();
+        }
+    });
+
+    // === 🗣️ 追加: AI音声読み上げ制御 (Web Speech API) ===
+    onValue(ref(db, 'broadcast/audio/tts'), (snapshot) => {
+        const ttsData = snapshot.val();
+        if (ttsData && ttsData.text && ttsData.timestamp !== ttsLastTimestamp) {
+            ttsLastTimestamp = ttsData.timestamp;
+            
+            // 読み上げの実行
+            const utterance = new SpeechSynthesisUtterance(ttsData.text);
+            utterance.lang = 'ja-JP'; // 日本語
+            // ※声色などを変えりたい場合は window.speechSynthesis.getVoices() を取得してセットします
+            window.speechSynthesis.speak(utterance);
+        }
+    });
+
+    // === 🎤 追加: WebRTC マイク受信制御 ===
+    onValue(ref(db, 'broadcast/audio/webrtc/offer'), async (snapshot) => {
+        const offerData = snapshot.val();
+        if (!offerData) {
+            // Admin側で停止された場合、切断して終了
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            micAudio.srcObject = null;
+            return;
+        }
+
+        // 新しいオファーを受信したら接続構築
+        peerConnection = new RTCPeerConnection(servers);
+
+        // トラック受信時にAudio要素にセット
+        peerConnection.ontrack = (event) => {
+            micAudio.srcObject = event.streams[0];
+        };
+
+        // ICE Candidateの処理（Adminへ送信）
+        peerConnection.onicecandidate = event => {
+            if(event.candidate) {
+                set(ref(db, `broadcast/audio/webrtc/candidates/main/${Date.now()}`), event.candidate.toJSON());
+            }
+        };
+
+        // AdminからのICE Candidateを受信
+        onValue(ref(db, 'broadcast/audio/webrtc/candidates/admin'), (iceSnapshot) => {
+            iceSnapshot.forEach((childSnapshot) => {
+                const candidate = new RTCIceCandidate(childSnapshot.val());
+                if(peerConnection.remoteDescription) {
+                    peerConnection.addIceCandidate(candidate).catch(e => console.error(e));
+                }
+            });
+        });
+
+        // 相手(Admin)の情報をセット
+        const offerDescription = new RTCSessionDescription(offerData);
+        await peerConnection.setRemoteDescription(offerDescription);
+
+        // 返答(Answer)を作成してFirebase経由で送り返す
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        const answerData = {
+            type: answer.type,
+            sdp: answer.sdp
+        };
+        await set(ref(db, 'broadcast/audio/webrtc/answer'), answerData);
+    });
+
 </script>
 </body>
 </html>
