@@ -339,15 +339,15 @@
                 <div class="card" style="border-left: 5px solid var(--accent-blue);">
                     <label>自動巡回モード</label>
                     <div class="btn-group">
-                        <button id="btn-tour-on" class="secondary" onclick="toggleTourMode(true)">巡回モード ON</button>
-                        <button id="btn-tour-off" class="primary" onclick="toggleTourMode(false)">巡回モード OFF</button>
+                        <button id="btn-tour-on" class="secondary" onclick="toggleTourModeUI(true)">巡回モード ON</button>
+                        <button id="btn-tour-off" class="primary" onclick="toggleTourModeUI(false)">巡回モード OFF</button>
                     </div>
 
                     <div id="tour-details-area" style="display: none; margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;">
                         <label>巡回切り替え間隔</label>
                         <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
-                            <input type="number" id="input-tour-interval" min="5" value="30" style="margin: 0; flex: 1;">
-                            <select id="select-tour-unit" style="margin: 0; width: 100px;">
+                            <input type="number" id="input-tour-interval" min="5" value="30" style="margin: 0; flex: 1;" onchange="saveTourConfigToFB()">
+                            <select id="select-tour-unit" style="margin: 0; width: 100px;" onchange="saveTourConfigToFB()">
                                 <option value="1">秒おき</option>
                                 <option value="60" selected>分おき</option>
                             </select>
@@ -355,11 +355,11 @@
 
                         <label>巡回対象カメラの選択 (<span id="tour-selected-count">0</span>台選択中)</label>
                         <div id="tour-camera-selector" style="max-height: 200px; overflow-y: auto; background: #000; border: 1px solid #444; border-radius: 8px; margin-bottom: 15px; padding: 5px;">
-                            </div>
+                        </div>
 
                         <div class="btn-group">
-                            <button id="btn-tour-start" class="primary" style="background: var(--accent-green);" onclick="startCameraTour()">▶ 巡回を開始する</button>
-                            <button id="btn-tour-stop" class="danger" style="display: none;" onclick="stopCameraTour()">■ 巡回を停止</button>
+                            <button id="btn-tour-start" class="primary" style="background: var(--accent-green);" onclick="startCameraTourFB()">▶ 巡回を開始する</button>
+                            <button id="btn-tour-stop" class="danger" style="display: none;" onclick="stopCameraTourFB()">■ 巡回を停止</button>
                         </div>
                         <div id="tour-status-text" style="font-size: 13px; color: #ffb300; margin-top: 10px; display: none;"></div>
                     </div>
@@ -461,10 +461,11 @@
     let currentSelectedGenre = "すべて";
     let currentCameraSourceId = ""; 
 
-    let tourActive = false;
+    let tourActiveLocal = false;
     let tourTimer = null;
     let tourIndex = 0;
     let selectedTourIds = [];
+    let currentTourConfig = null;
 
     // --- 🔐 Firebase Authentication ログイン制御ロジック ---
 
@@ -482,7 +483,7 @@
         } else {
             loginScreen.style.display = 'flex';
             adminApp.style.display = 'none';
-            stopCameraTour(); 
+            stopLocalTourTimer(); 
         }
     });
 
@@ -715,14 +716,12 @@
     };
 
     window.closeImagePreviewModal = (event) => {
-        // 引数eventがある場合は、外側クリック判定を行う
         if(event && event.target !== document.getElementById('image-preview-modal')) return;
         
         const modal = document.getElementById('image-preview-modal');
         if (modal) modal.classList.remove('open');
     };
 
-    // 自由配置画像設定管理カード内に、「プレビューを表示」モーダル起動用トリガーボタンを構成
     function renderFreeImagesControls(imagesData) {
         const container = document.getElementById('free-images-control-container');
         if (!container) return;
@@ -744,7 +743,6 @@
 
             const currentZIndex = conf.zIndex !== undefined ? conf.zIndex : 1;
             
-            // 画像データが入っているかどうかに応じてプレビューボタンを制御
             const hasUrl = conf.url && conf.url.trim() !== "";
             const escapedName = (conf.name || '名称未設定').replace(/'/g, "\\'");
             const escapedUrl = hasUrl ? conf.url.replace(/'/g, "\\'") : '';
@@ -769,7 +767,6 @@
                     </div>
                 </div>
 
-                <!-- 🔘 ポップアップ・モーダル起動用のプレビューボタンコンポーネント -->
                 ${previewBtnHtml}
 
                 <label>画像直リンクURL</label>
@@ -895,8 +892,10 @@
         secureSet(ref(db, 'broadcast/tsunami_config/manualTrigger'), { direction: dir, timestamp: Date.now() });
     };
 
-    // --- 巡回モード（Tour Mode）制御処理 ---
-    window.toggleTourMode = (isOn) => {
+    // --- 巡回モード（Tour Mode）制御処理（Firebase連動対応版） ---
+    
+    // UI表示の切替のみを行う関数
+    window.toggleTourModeUI = (isOn) => {
         const btnOn = document.getElementById('btn-tour-on');
         const btnOff = document.getElementById('btn-tour-off');
         const detailsArea = document.getElementById('tour-details-area');
@@ -909,8 +908,10 @@
             btnOn.className = "secondary";
             btnOff.className = "primary";
             detailsArea.style.display = "none";
-            stopCameraTour(); 
+            stopCameraTourFB();
         }
+        
+        saveTourConfigToFB(isOn);
     };
 
     function buildTourCameraSelector() {
@@ -919,27 +920,52 @@
         container.innerHTML = "";
 
         allCameras.forEach(cam => {
+            const isChecked = selectedTourIds.includes(cam.id);
             const item = document.createElement('div');
             item.className = "tour-cam-item";
             item.innerHTML = `
                 <label for="chk-tour-${cam.id}">
-                    <input type="checkbox" id="chk-tour-${cam.id}" value="${cam.id}" onchange="updateTourSelectedCount()">
+                    <input type="checkbox" id="chk-tour-${cam.id}" value="${cam.id}" ${isChecked ? 'checked' : ''} onchange="updateTourSelectedCount()">
                     <span>${cam.name} (${cam.area || '未設定'})</span>
                 </label>
             `;
             container.appendChild(item);
         });
-        updateTourSelectedCount();
+        updateTourSelectedCountUI();
     }
 
     window.updateTourSelectedCount = () => {
-        const container = document.getElementById('tour-camera-selector');
-        const checked = container.querySelectorAll('input[type="checkbox"]:checked');
-        selectedTourIds = Array.from(checked).map(chk => chk.value);
-        document.getElementById('tour-selected-count').innerText = selectedTourIds.length;
+        updateTourSelectedCountUI();
+        saveTourConfigToFB();
     };
 
-    window.startCameraTour = () => {
+    function updateTourSelectedCountUI() {
+        const container = document.getElementById('tour-camera-selector');
+        if (!container) return;
+        const checked = container.querySelectorAll('input[type="checkbox"]:checked');
+        selectedTourIds = Array.from(checked).map(chk => chk.value);
+        const countSpan = document.getElementById('tour-selected-count');
+        if(countSpan) countSpan.innerText = selectedTourIds.length;
+    }
+
+    // 巡回設定をFirebaseに保存する
+    window.saveTourConfigToFB = (customEnabled) => {
+        const intervalInput = document.getElementById('input-tour-interval')?.value || "30";
+        const unitMultiplier = document.getElementById('select-tour-unit')?.value || "60";
+        let isEnabled = customEnabled !== undefined ? customEnabled : (currentTourConfig ? !!currentTourConfig.enabled : false);
+
+        const tourConfigData = {
+            enabled: isEnabled,
+            running: currentTourConfig ? !!currentTourConfig.running : false,
+            interval: parseInt(intervalInput) || 30,
+            unit: parseInt(unitMultiplier) || 60,
+            selectedIds: selectedTourIds || []
+        };
+
+        secureSet(ref(db, 'broadcast/tour_config'), tourConfigData);
+    };
+
+    window.startCameraTourFB = () => {
         if (selectedTourIds.length < 2) {
             alert("自動巡回を行うには、カメラを2台以上選択してください。");
             return;
@@ -954,20 +980,52 @@
             return;
         }
 
-        tourActive = true;
-        document.getElementById('btn-tour-start').style.display = "none";
-        document.getElementById('btn-tour-stop').style.display = "block";
-        
-        const statusText = document.getElementById('tour-status-text');
-        statusText.style.display = "block";
-        statusText.innerText = "🚨 巡回モード実行中...";
+        const tourConfigData = {
+            enabled: true,
+            running: true,
+            interval: parseInt(intervalInput) || 30,
+            unit: parseInt(unitMultiplier) || 60,
+            selectedIds: selectedTourIds || []
+        };
 
-        tourIndex = 0;
-        executeTourStep(totalSeconds);
+        secureSet(ref(db, 'broadcast/tour_config'), tourConfigData);
     };
 
+    window.stopCameraTourFB = () => {
+        const intervalInput = document.getElementById('input-tour-interval')?.value || "30";
+        const unitMultiplier = document.getElementById('select-tour-unit')?.value || "60";
+
+        const tourConfigData = {
+            enabled: document.getElementById('btn-tour-on').classList.contains('primary'),
+            running: false,
+            interval: parseInt(intervalInput) || 30,
+            unit: parseInt(unitMultiplier) || 60,
+            selectedIds: selectedTourIds || []
+        };
+
+        secureSet(ref(db, 'broadcast/tour_config'), tourConfigData);
+    };
+
+    function startLocalTourLoop(totalSeconds) {
+        stopLocalTourTimer();
+        tourActiveLocal = true;
+
+        const btnStart = document.getElementById('btn-tour-start');
+        const btnStop = document.getElementById('btn-tour-stop');
+        const statusText = document.getElementById('tour-status-text');
+
+        if (btnStart) btnStart.style.display = "none";
+        if (btnStop) btnStop.style.display = "block";
+        if (statusText) {
+            statusText.style.display = "block";
+            statusText.innerText = "🚨 巡回モード実行中...";
+        }
+
+        executeTourStep(totalSeconds);
+    }
+
     function executeTourStep(seconds) {
-        if (!tourActive) return;
+        if (!tourActiveLocal) return;
 
         if (tourIndex >= selectedTourIds.length) {
             tourIndex = 0; 
@@ -979,7 +1037,9 @@
         if (camObj) {
             updateFB('current/cameraSource', camObj.id);
             const statusText = document.getElementById('tour-status-text');
-            statusText.innerText = `🔄 自動巡回中 [${tourIndex + 1}/${selectedTourIds.length}]: 「${camObj.name}」を配信中 (${seconds}秒後に次へ)`;
+            if (statusText) {
+                statusText.innerText = `🔄 自動巡回中 [${tourIndex + 1}/${selectedTourIds.length}]: 「${camObj.name}」を配信中 (${seconds}秒後に次へ)`;
+            }
         }
 
         tourIndex++;
@@ -989,8 +1049,8 @@
         }, seconds * 1000);
     }
 
-    window.stopCameraTour = () => {
-        tourActive = false;
+    function stopLocalTourTimer() {
+        tourActiveLocal = false;
         if (tourTimer) {
             clearTimeout(tourTimer);
             tourTimer = null;
@@ -1006,7 +1066,7 @@
             statusText.style.display = "none";
             statusText.innerText = "";
         }
-    };
+    }
 
     // --- Camera Filter ---
     function buildGenreFilterButtons(cams) {
@@ -1083,9 +1143,9 @@
                 </div>
             `;
             d.onclick = () => {
-                if(tourActive) {
+                if(tourActiveLocal) {
                     if(confirm("現在自動巡回モードが動作中です。手動切り替えを行いますか？（巡回は停止します）")) {
-                        stopCameraTour();
+                        stopCameraTourFB();
                     } else {
                         return;
                     }
@@ -1187,6 +1247,8 @@
 
             const cur = data.current || {};
             const tsu = data.tsunami_config || {};
+            const tourConf = data.tour_config || {};
+            currentTourConfig = tourConf;
             
             const freeImagesData = data.free_images || {};
             const activeEl = document.activeElement;
@@ -1276,6 +1338,46 @@
             setBtn('btn-tsu-manual', tsu.autoPage === false);
             const tsuCtrl = document.getElementById('tsu-manual-ctrl');
             if(tsuCtrl) tsuCtrl.style.display = tsu.autoPage === false ? 'block' : 'none';
+
+            // --- 🔄 巡回モード（tour_config）の同期同期ロジック ---
+            const btnTourOn = document.getElementById('btn-tour-on');
+            const btnTourOff = document.getElementById('btn-tour-off');
+            const tourDetailsArea = document.getElementById('tour-details-area');
+            const intervalEl = document.getElementById('input-tour-interval');
+            const unitEl = document.getElementById('select-tour-unit');
+
+            if (tourConf.enabled) {
+                btnTourOn.className = "primary";
+                btnTourOff.className = "secondary";
+                if(tourDetailsArea) tourDetailsArea.style.display = "block";
+            } else {
+                btnTourOn.className = "secondary";
+                btnTourOff.className = "primary";
+                if(tourDetailsArea) tourDetailsArea.style.display = "none";
+            }
+
+            if (intervalEl && document.activeElement.id !== 'input-tour-interval') {
+                intervalEl.value = tourConf.interval || 30;
+            }
+            if (unitEl && document.activeElement.id !== 'select-tour-unit') {
+                unitEl.value = tourConf.unit || 60;
+            }
+
+            if (tourConf.selectedIds && Array.isArray(tourConf.selectedIds)) {
+                selectedTourIds = tourConf.selectedIds;
+                buildTourCameraSelector();
+            }
+
+            if (tourConf.running && tourConf.enabled) {
+                const totalSec = (tourConf.interval || 30) * (tourConf.unit || 60);
+                if (!tourActiveLocal) {
+                    startLocalTourLoop(totalSec);
+                }
+            } else {
+                if (tourActiveLocal) {
+                    stopLocalTourTimer();
+                }
+            }
 
             isInitialLoad = false;
         });
