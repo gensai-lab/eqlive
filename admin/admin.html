@@ -77,6 +77,7 @@
         input, select, textarea {
             width: 100%; padding: 14px; background: #000; border: 1px solid #444; 
             color: white; border-radius: 8px; font-size: 16px; margin-bottom: 15px; font-family: inherit;
+            user-select: text;
         }
 
         .range-group { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
@@ -110,11 +111,6 @@
         .tour-cam-item label { display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; color: white; font-weight: normal; font-size: 14px; }
         .tour-cam-item input[type="checkbox"] { width: auto; margin: 0; }
 
-        /* ドラッグ用のスタイル設定 */
-        .draggable-card { cursor: grab; user-select: none; }
-        .draggable-card:active { cursor: grabbing; }
-        .draggable-card.dragging { opacity: 0.5; border: 2px dashed var(--accent-blue); }
-
         /* 🖼️ プレビュー用モーダルスタイル */
         .preview-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -137,6 +133,12 @@
             max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 6px;
             background: #000; border: 1px solid #222; margin-top: 15px;
         }
+
+        /* 文字スーパー パレット用スタイル */
+        .color-palette-btn {
+            width: 32px; height: 32px; border-radius: 50%; border: 2px solid #555; cursor: pointer; transition: transform 0.1s;
+        }
+        .color-palette-btn:hover { transform: scale(1.15); }
 
         @media (max-width: 900px) {
             .menu-toggle { display: flex; }
@@ -193,6 +195,7 @@
             <button class="nav-item" onclick="switchTab('tsunami')"><i class="material-icons">waves</i>⑧津波制御</button>
             <button class="nav-item" onclick="switchTab('free-image')"><i class="material-icons">grid_view</i>⑨自由配置</button>
             <button class="nav-item" onclick="switchTab('audio')"><i class="material-icons">mic</i>⑩音声・BGM制御</button>
+            <button class="nav-item" onclick="switchTab('text-super')"><i class="material-icons">text_fields</i>⑪文字スーパー</button>
             <button class="nav-item" id="btn-logout" style="margin-top: auto; border-top: 1px solid #333; color: #d13438;"><i class="material-icons">logout</i>🚪 ログアウト</button>
         </nav>
 
@@ -323,6 +326,7 @@
                 </div>
             </div>
 
+            <!-- ⑥ L字設定 タブ (ボタン移動・スムーズアニメーション対応) -->
             <div id="tab-l-shape" class="tab-content">
                 <h2>L字放送・詳細設定</h2>
                 <div class="card">
@@ -432,7 +436,7 @@
                     <p style="font-size:12px; color:var(--text-sub); margin-top:0;">入力したテキストをメイン画面でAI音声として読み上げさせます。</p>
                     <textarea id="input-tts-text" style="height:80px;" placeholder="読み上げるテキストを入力..."></textarea>
                     
-                    <!-- 実行ボタン & 新規追加：クリア・停止ボタン -->
+                    <!-- 実行ボタン & クリア・停止ボタン -->
                     <div class="btn-group" style="margin-bottom: 15px;">
                         <button class="primary" style="display:flex; justify-content:center; align-items:center; gap:8px;" onclick="sendTTS()">
                             <i class="material-icons">campaign</i> 読み上げを実行
@@ -488,6 +492,64 @@
                 </div>
             </div>
 
+            <!-- ✨ ⑪文字スーパー タブ (複数カード＆順次自動送出・アニメーション対応) -->
+            <div id="tab-text-super" class="tab-content">
+                <h2>文字スーパー送出・順次放送</h2>
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                        <label style="margin:0; font-size:14px;">字幕カード一覧（順に自動切り替え送出されます）</label>
+                        <button class="primary" style="padding:8px 16px; font-size:13px; width:auto; flex:none; display:flex; align-items:center; gap:5px;" onclick="addTextSuperCard()">
+                            <i class="material-icons" style="font-size:16px;">add</i> 字幕カードを追加
+                        </button>
+                    </div>
+
+                    <!-- 🎴 複数字幕カード一覧コンテナ -->
+                    <div id="text-super-cards-container"></div>
+
+                    <!-- 🎨 カラーパレット（アクティブなカードに対して適用） -->
+                    <div style="background:#151515; padding:15px; border-radius:8px; border:1px solid #333; margin-top:15px; margin-bottom:15px;">
+                        <label style="margin-top:0;">文字色カラー装飾パレット (原色系)</label>
+                        <p style="font-size:12px; color:var(--text-sub); margin-top:0; margin-bottom:10px;">編集中のカードのテキストを選択した状態で色ボタンを押すと、装飾が適用されます。</p>
+                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                            <button type="button" class="color-palette-btn" style="background:#ffffff;" title="白 (255,255,255)" onclick="insertColorTagToActive('#ffffff')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#ff0000;" title="赤 (255,0,0)" onclick="insertColorTagToActive('#ff0000')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#00ff00;" title="緑 (0,255,0)" onclick="insertColorTagToActive('#00ff00')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#0000ff;" title="青 (0,0,255)" onclick="insertColorTagToActive('#0000ff')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#ffff00;" title="黄 (255,255,0)" onclick="insertColorTagToActive('#ffff00')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#ff00ff;" title="マゼンタ (255,0,255)" onclick="insertColorTagToActive('#ff00ff')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#00ffff;" title="シアン (0,255,255)" onclick="insertColorTagToActive('#00ffff')"></button>
+                            <div style="display:flex; align-items:center; gap:5px; margin-left:10px;">
+                                <span style="font-size:12px; color:var(--text-sub);">任意色:</span>
+                                <input type="color" id="text-super-custom-color" value="#ffff00" style="width:40px; height:32px; padding:2px; margin:0; cursor:pointer;" onchange="insertColorTagToActive(this.value)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ⚙️ 送出切り替え設定 (固定設定表示) -->
+                    <div class="card" style="background:#111; border:1px solid #333; padding:15px; margin-bottom:15px;">
+                        <label style="margin-bottom:8px;">送出切り替え設定 (固定)</label>
+                        <div style="display:flex; gap:20px; flex-wrap:wrap; align-items:center; font-size:13px; color:var(--text-sub);">
+                            <div>1枚あたりの表示時間: <b style="color:white; font-size:14px;">10 秒</b></div>
+                            <div>再生モード: <b style="color:white; font-size:14px;">1周で終了（全カード表示後に自動消去）</b></div>
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button id="btn-text-super-start" class="primary" style="background:var(--accent-green); display:flex; justify-content:center; align-items:center; gap:8px;" onclick="startTextSuperSequence()">
+                            <i class="material-icons">play_arrow</i> ▶ 順次送出を開始
+                        </button>
+                        <button id="btn-text-super-stop" class="danger" style="display:flex; justify-content:center; align-items:center; gap:8px;" onclick="stopTextSuperSequence()">
+                            <i class="material-icons" style="font-size:18px;">stop</i> ■ 送出停止・即時消去
+                        </button>
+                    </div>
+
+                    <!-- 📊 送出ステータス表示 -->
+                    <div id="text-super-status" style="margin-top:15px; font-size:13px; color:#ffb300; display:none; background:#151515; padding:12px; border-radius:6px; border:1px solid #333;">
+                        📺 連続送出中... [カード <span id="text-super-current-card-num">1</span> / <span id="text-super-total-cards">1</span>] (切り替えまで残り <span id="text-super-countdown">10</span> 秒)
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 </div>
@@ -534,6 +596,17 @@
     let selectedTourIds = [];
     let currentTourConfig = null;
 
+    // --- 文字スーパー（複数カード＆固定条件送出用定数・変数） ---
+    const TEXT_SUPER_INTERVAL_SEC = 10; // 固定: 10秒
+    let localTextSuperCards = [
+        { id: "card_" + Date.now(), text: "" }
+    ];
+    let activeCardInputId = null; 
+    let textSuperActiveSequenceIndex = -1;
+    let textSuperStepTimer = null;
+    let textSuperCountdownTimer = null;
+    let isTextSuperSending = false;
+
     // --- 🔐 Firebase Authentication ログイン制御ロジック ---
     onAuthStateChanged(auth, (user) => {
         const loginScreen = document.getElementById('login-screen');
@@ -544,12 +617,14 @@
             adminApp.style.display = 'flex';
             initCameras();
             initPresets();
+            renderTextSuperCards();
             startFirebaseSync();
         } else {
             loginScreen.style.display = 'flex';
             adminApp.style.display = 'none';
             stopLocalTourTimer(); 
             stopMicStreaming();
+            stopTextSuperTimers();
         }
     });
 
@@ -857,74 +932,116 @@
         });
     }
 
+    // --- ✨ カード順序入れ替え時「シュンっ」と滑らかに動くアニメーション共通関数 ---
+    function animateCardSwap(container, index1, index2, array, renderFn) {
+        if (!container) {
+            const temp = array[index1];
+            array[index1] = array[index2];
+            array[index2] = temp;
+            renderFn();
+            return;
+        }
+
+        const cards = container.children;
+        const card1 = cards[index1];
+        const card2 = cards[index2];
+
+        if (!card1 || !card2) {
+            const temp = array[index1];
+            array[index1] = array[index2];
+            array[index2] = temp;
+            renderFn();
+            return;
+        }
+
+        // 変化前の位置を取得
+        const rect1 = card1.getBoundingClientRect();
+        const rect2 = card2.getBoundingClientRect();
+
+        // 配列要素を入れ替え
+        const temp = array[index1];
+        array[index1] = array[index2];
+        array[index2] = temp;
+
+        // UIを再描画
+        renderFn();
+
+        // 再描画後の新しいカード要素を取得
+        const newCards = container.children;
+        const newCard1 = newCards[index1]; 
+        const newCard2 = newCards[index2]; 
+
+        if (newCard1 && newCard2) {
+            // 元の位置から現在の位置までの移動距離（Y軸）
+            const dy1 = rect2.top - rect1.top;
+            const dy2 = rect1.top - rect2.top;
+
+            // 「シュンっ」と動くイージングアニメーションを適用
+            newCard1.animate([
+                { transform: `translateY(${dy1}px)` },
+                { transform: 'translateY(0)' }
+            ], {
+                duration: 250,
+                easing: 'cubic-bezier(0.16, 1, 0.3, 1)'
+            });
+
+            newCard2.animate([
+                { transform: `translateY(${dy2}px)` },
+                { transform: 'translateY(0)' }
+            ], {
+                duration: 250,
+                easing: 'cubic-bezier(0.16, 1, 0.3, 1)'
+            });
+        }
+    }
+
     // --- L-Shape Logic ---
     let localLItems = [];
     window.addLItem = () => { localLItems.push({genre:"", text:""}); renderLItems(); };
     window.removeLItem = (i) => { localLItems.splice(i,1); renderLItems(); };
     window.updateLItem = (i, field, val) => { localLItems[i][field] = val; };
 
-    function setupDragAndDrop() {
+    // L字カード上下移動（ボタン操作＆アニメーション）
+    window.moveLItem = (index, direction) => {
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= localLItems.length) return;
         const container = document.getElementById('l-items-container');
-        const cards = container.querySelectorAll('.draggable-card');
-        cards.forEach(card => {
-            card.addEventListener('dragstart', (e) => { card.classList.add('dragging'); e.dataTransfer.setData('text/plain', card.dataset.index); });
-            card.addEventListener('dragend', () => { card.classList.remove('dragging'); reorderLocalLItems(); });
-            card.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                const draggingCard = container.querySelector('.dragging');
-                const afterElement = getDragAfterElement(container, e.clientY);
-                if (afterElement == null) { container.appendChild(draggingCard); } else { container.insertBefore(draggingCard, afterElement); }
-            });
-        });
-    }
-
-    function getDragAfterElement(container, y) {
-        const draggableElements = [...container.querySelectorAll('.draggable-card:not(.dragging)')];
-        return draggableElements.reduce((closest, child) => {
-            const box = child.getBoundingClientRect();
-            const offset = y - box.top - box.height / 2;
-            if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } else { return closest; }
-        }, { offset: Number.NEGATIVE_INFINITY }).element;
-    }
-
-    function reorderLocalLItems() {
-        const container = document.getElementById('l-items-container');
-        const cards = [...container.querySelectorAll('.draggable-card')];
-        const newOrderedList = [];
-        cards.forEach(card => {
-            const oldIndex = parseInt(card.dataset.index);
-            newOrderedList.push(localLItems[oldIndex]);
-        });
-        localLItems = newOrderedList;
-        renderLItems(); 
-    }
+        animateCardSwap(container, index, targetIndex, localLItems, renderLItems);
+    };
 
     function renderLItems() {
         const container = document.getElementById('l-items-container');
         if(!container) return;
+
+        const activeIdBefore = document.activeElement ? document.activeElement.id : null;
         container.innerHTML = "";
+
         localLItems.forEach((item, i) => {
             const div = document.createElement('div');
-            div.className = "card draggable-card";
-            div.draggable = true; div.dataset.index = i;
+            div.className = "card";
             div.style.background = "#252525";
             div.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue); display:flex; align-items:center; gap:5px;">
-                        <i class="material-icons" style="font-size:16px; cursor:move;">drag_indicator</i> カード #${i}
+                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue);">
+                        カード #${i + 1}
                     </div>
-                    <div class="btn-group" style="margin:0;">
-                        <button class="danger" style="padding:5px 10px;" onclick="removeLItem(${i})"><i class="material-icons" style="font-size:14px;">delete</i></button>
+                    <div class="btn-group" style="margin:0; gap:5px;">
+                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveLItem(${i}, -1)" ${i === 0 ? 'disabled' : ''}>▲ 上へ</button>
+                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveLItem(${i}, 1)" ${i === localLItems.length - 1 ? 'disabled' : ''}>▼ 下へ</button>
+                        <button class="danger" style="padding:4px 8px; font-size:12px;" onclick="removeLItem(${i})"><i class="material-icons" style="font-size:14px; vertical-align:middle;">delete</i> 削除</button>
                     </div>
                 </div>
                 <label>ジャンル</label>
-                <input type="text" value="${item.genre || ''}" oninput="updateLItem(${i}, 'genre', this.value)">
+                <input type="text" id="input-l-genre-${i}" value="${item.genre || ''}" oninput="updateLItem(${i}, 'genre', this.value)">
                 <label>内容</label>
-                <input type="text" value="${item.text || ''}" oninput="updateLItem(${i}, 'text', this.value)">
+                <input type="text" id="input-l-text-${i}" value="${item.text || ''}" oninput="updateLItem(${i}, 'text', this.value)">
             `;
             container.appendChild(div);
         });
-        setupDragAndDrop();
+
+        if (activeIdBefore && document.getElementById(activeIdBefore)) {
+            document.getElementById(activeIdBefore).focus();
+        }
     }
 
     window.saveLShape = () => {
@@ -1197,6 +1314,7 @@
             const tsu = data.tsunami_config || {};
             const tourConf = data.tour_config || {};
             const audioConf = data.audio || {};
+            const textSuperSeq = data.text_super_sequence || {};
             currentTourConfig = tourConf;
             
             const freeImagesData = data.free_images || {};
@@ -1250,7 +1368,7 @@
             syncInput('input-subtitle', cur.subtitle);
             if(data.manual_news) { syncInput('input-tic-g', data.manual_news.genre); syncInput('input-tic-1', data.manual_news.line1); syncInput('input-tic-2', data.manual_news.line2); }
 
-            const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container') || containerIsDragging());
+            const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container'));
             if(data.l_shape && !isEditingL) {
                 syncInput('input-l-leftText', data.l_shape.leftText);
                 const items = data.l_shape.topItems;
@@ -1343,13 +1461,11 @@
                 currentReadingEl.innerText = "...";
             }
 
+            // --- 文字スーパー バックエンド同期 ---
+            handleTextSuperSequenceSync(textSuperSeq);
+
             isInitialLoad = false;
         });
-    }
-
-    function containerIsDragging() {
-        const container = document.getElementById('l-items-container');
-        return container ? container.querySelectorAll('.dragging').length > 0 : false;
     }
 
     // --- 🔊 音声・BGM・マイク制御 ---
@@ -1366,18 +1482,16 @@
         });
     };
 
-    // ✨ 新規追加: AI音声読み上げ（TTS）クリア・停止
+    // AI音声読み上げ（TTS）クリア・停止
     window.clearTTS = () => {
         document.getElementById('input-tts-text').value = "";
         
-        // メイン画面側にキャンセル命令を送信
         secureSet(ref(db, 'broadcast/audio/tts'), {
             text: "",
             action: "cancel",
             timestamp: Date.now()
         });
         
-        // ステータスを待機中にリセット
         secureSet(ref(db, 'broadcast/audio/tts_status'), {
             status: 'idle',
             progress: 0,
@@ -1469,6 +1583,323 @@
         document.getElementById('btn-mic-start').style.display = 'block';
         document.getElementById('btn-mic-stop').style.display = 'none';
         document.getElementById('mic-status').style.display = 'none';
+    };
+
+    // --- ✨ ⑪文字スーパー 複数カード＆Firebaseバックエンド同期ロジック ---
+
+    // 全角＝1、半角＝0.5換算の文字数計算関数（HTMLタグ除去）
+    function getZenKakuCount(str) {
+        if(!str) return 0;
+        const temp = document.createElement('div');
+        temp.innerHTML = str;
+        const cleanText = temp.textContent || temp.innerText || '';
+        let count = 0;
+        for (let i = 0; i < cleanText.length; i++) {
+            const c = cleanText.charCodeAt(i);
+            if ((c >= 0x0000 && c <= 0x007e) || (c >= 0xff61 && c <= 0xff9f)) {
+                count += 0.5;
+            } else {
+                count += 1.0;
+            }
+        }
+        return Math.ceil(count);
+    }
+
+    // カード追加
+    window.addTextSuperCard = () => {
+        localTextSuperCards.push({ id: "card_" + Date.now(), text: "" });
+        renderTextSuperCards();
+    };
+
+    // カード削除
+    window.removeTextSuperCard = (id) => {
+        if(localTextSuperCards.length <= 1) {
+            alert("最低1枚の字幕カードが必要です。");
+            return;
+        }
+        localTextSuperCards = localTextSuperCards.filter(c => c.id !== id);
+        renderTextSuperCards();
+    };
+
+    // 順序変更（上へ / 下へ - アニメーション付き）
+    window.moveTextSuperCard = (index, direction) => {
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= localTextSuperCards.length) return;
+        const container = document.getElementById('text-super-cards-container');
+        animateCardSwap(container, index, targetIndex, localTextSuperCards, renderTextSuperCards);
+    };
+
+    // テキスト変更時の保存 & カウント/プレビュー更新
+    window.updateTextSuperCardText = (id, val) => {
+        const card = localTextSuperCards.find(c => c.id === id);
+        if (card) {
+            card.text = val;
+            updateTextSuperCardUI(id);
+        }
+    };
+
+    // テキストエリアのフォーカス保持（カラーパレット適用対象判定用）
+    window.handleTextSuperFocus = (id) => {
+        activeCardInputId = id;
+    };
+
+    // 2行を超えて改行できないようにブロック
+    window.handleTextSuperKeyDown = (e, id) => {
+        const textarea = document.getElementById(`textarea-${id}`);
+        if (!textarea) return;
+        
+        if (e.key === 'Enter') {
+            const lines = textarea.value.split(/\r\n|\r|\n/);
+            if (lines.length >= 2) {
+                e.preventDefault(); // 3行目の作成を阻止
+            }
+        }
+    };
+
+    // UI個別更新（文字数カウント & プレビュー）
+    function updateTextSuperCardUI(id) {
+        const card = localTextSuperCards.find(c => c.id === id);
+        if(!card) return;
+
+        const textarea = document.getElementById(`textarea-${id}`);
+        const previewBox = document.getElementById(`preview-${id}`);
+        if(!textarea || !previewBox) return;
+
+        let lines = textarea.value.split(/\r\n|\r|\n/);
+        if (lines.length > 2) {
+            textarea.value = lines.slice(0, 2).join('\n');
+            lines = textarea.value.split(/\r\n|\r|\n/);
+            card.text = textarea.value;
+        }
+
+        const count1 = getZenKakuCount(lines[0] || '');
+        const count2 = getZenKakuCount(lines[1] || '');
+
+        const el1 = document.getElementById(`line1-count-${id}`);
+        const el2 = document.getElementById(`line2-count-${id}`);
+        const warnEl = document.getElementById(`warn-${id}`);
+
+        if (el1) {
+            el1.innerText = count1;
+            el1.style.color = count1 > 23 ? 'var(--accent-red)' : 'white';
+        }
+        if (el2) {
+            el2.innerText = count2;
+            el2.style.color = count2 > 23 ? 'var(--accent-red)' : 'white';
+        }
+        if (warnEl) {
+            warnEl.style.display = (count1 > 23 || count2 > 23) ? 'block' : 'none';
+        }
+
+        let raw = textarea.value;
+        if(!raw || raw.trim() === '') {
+            previewBox.innerHTML = '（ここにプレビューが表示されます）';
+            previewBox.style.opacity = '0.5';
+        } else {
+            previewBox.style.opacity = '1.0';
+            previewBox.innerHTML = raw.replace(/\r\n|\r|\n/g, '<br>');
+        }
+    }
+
+    // 全字幕カードを描画
+    function renderTextSuperCards() {
+        const container = document.getElementById('text-super-cards-container');
+        if(!container) return;
+
+        const activeIdBefore = document.activeElement ? document.activeElement.id : null;
+        container.innerHTML = "";
+
+        localTextSuperCards.forEach((card, index) => {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = "card";
+            cardDiv.style.background = "#222";
+            cardDiv.style.borderLeft = (isTextSuperSending && textSuperActiveSequenceIndex === index) ? "5px solid var(--accent-green)" : "5px solid var(--accent-blue)";
+            cardDiv.style.marginBottom = "15px";
+
+            cardDiv.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <span style="font-size:14px; font-weight:bold; color:var(--accent-blue);">字幕カード #${index + 1} ${ (isTextSuperSending && textSuperActiveSequenceIndex === index) ? '<span style="color:var(--accent-green); margin-left:10px;">[送出中]</span>' : '' }</span>
+                    <div class="btn-group" style="margin:0; gap:5px;">
+                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveTextSuperCard(${index}, -1)" ${index === 0 ? 'disabled' : ''}>▲ 上へ</button>
+                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveTextSuperCard(${index}, 1)" ${index === localTextSuperCards.length - 1 ? 'disabled' : ''}>▼ 下へ</button>
+                        <button class="danger" style="padding:4px 8px; font-size:12px;" onclick="removeTextSuperCard('${card.id}')"><i class="material-icons" style="font-size:14px; vertical-align:middle;">delete</i> 削除</button>
+                    </div>
+                </div>
+
+                <label>表示テキスト (最大2行)</label>
+                <textarea id="textarea-${card.id}" style="height:70px; margin-bottom:10px;" placeholder="字幕テキストを入力..." onfocus="handleTextSuperFocus('${card.id}')" oninput="updateTextSuperCardText('${card.id}', this.value)" onkeydown="handleTextSuperKeyDown(event, '${card.id}')">${card.text || ''}</textarea>
+
+                <div style="font-size:12px; color:var(--text-sub); margin-bottom:10px; display:flex; gap:15px; align-items:center; background:#151515; padding:8px 12px; border-radius:6px; border:1px solid #333;">
+                    <div>1行目: <b id="line1-count-${card.id}" style="color:white;">0</b> / 23文字</div>
+                    <div>2行目: <b id="line2-count-${card.id}" style="color:white;">0</b> / 23文字</div>
+                    <div id="warn-${card.id}" style="color:var(--accent-red); font-weight:bold; display:none; margin-left:auto;">⚠️ 23文字オーバー</div>
+                </div>
+
+                <label style="margin-bottom:4px;">プレビュー</label>
+                <div id="preview-${card.id}" style="background:#000; border:1px solid #444; padding:10px; border-radius:6px; min-height:50px; font-size:20px; line-height:120%; color:#fff; -webkit-text-stroke: 1px #000; paint-order: stroke fill; word-break:break-all;">
+                    （ここにプレビューが表示されます）
+                </div>
+            `;
+            container.appendChild(cardDiv);
+            updateTextSuperCardUI(card.id);
+        });
+
+        if (activeIdBefore && document.getElementById(activeIdBefore)) {
+            document.getElementById(activeIdBefore).focus();
+        }
+    }
+
+    // 現在アクティブなテキストエリアへのカラータグ挿入
+    window.insertColorTagToActive = (color) => {
+        if (!activeCardInputId) {
+            if(localTextSuperCards.length > 0) activeCardInputId = localTextSuperCards[0].id;
+            else return;
+        }
+
+        const textarea = document.getElementById(`textarea-${activeCardInputId}`);
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+
+        const selectedText = text.substring(start, end);
+        const tagText = `<span style="color:${color};">${selectedText || '文字'}</span>`;
+
+        textarea.value = text.substring(0, start) + tagText + text.substring(end);
+        updateTextSuperCardText(activeCardInputId, textarea.value);
+        
+        textarea.focus();
+        textarea.setSelectionRange(start + `<span style="color:${color};">`.length, start + tagText.length - 7);
+    };
+
+    // 🚀 連続自動送出の開始（Firebaseへ状態保存）
+    window.startTextSuperSequence = () => {
+        const validCards = localTextSuperCards
+            .filter(c => c.text && c.text.trim() !== "")
+            .map(c => ({
+                id: c.id,
+                text: c.text,
+                htmlContent: c.text.trim().replace(/\r\n|\r|\n/g, '<br>')
+            }));
+
+        if (validCards.length === 0) {
+            alert("送出する字幕テキストを入力してください。");
+            return;
+        }
+
+        stopTextSuperTimers();
+
+        const seqData = {
+            running: true,
+            currentIndex: 0,
+            cards: validCards,
+            startTime: Date.now()
+        };
+
+        // Firebaseへシーケンス開始情報と表示用テキストを送信
+        secureSet(ref(db, 'broadcast/text_super_sequence'), seqData);
+        secureSet(ref(db, 'broadcast/text_super'), {
+            htmlContent: validCards[0].htmlContent,
+            timestamp: Date.now()
+        });
+    };
+
+    // Firebaseのシーケンス状態同期＆タイマー進行処理（リロード時にも完璧に同期）
+    function handleTextSuperSequenceSync(seq) {
+        stopTextSuperTimers();
+
+        const statusBox = document.getElementById('text-super-status');
+        const currentNumEl = document.getElementById('text-super-current-card-num');
+        const totalNumEl = document.getElementById('text-super-total-cards');
+        const countdownEl = document.getElementById('text-super-countdown');
+
+        if (!seq || !seq.running || !seq.cards || seq.cards.length === 0) {
+            isTextSuperSending = false;
+            textSuperActiveSequenceIndex = -1;
+            if (statusBox) statusBox.style.display = 'none';
+            renderTextSuperCards();
+            return;
+        }
+
+        isTextSuperSending = true;
+        
+        // 元のカード配列内のどのカードが現在送出中かを特定
+        const activeCard = seq.cards[seq.currentIndex];
+        if (activeCard) {
+            textSuperActiveSequenceIndex = localTextSuperCards.findIndex(c => c.id === activeCard.id);
+        } else {
+            textSuperActiveSequenceIndex = -1;
+        }
+
+        if (statusBox) statusBox.style.display = 'block';
+        if (currentNumEl) currentNumEl.innerText = seq.currentIndex + 1;
+        if (totalNumEl) totalNumEl.innerText = seq.cards.length;
+
+        renderTextSuperCards();
+
+        // 経過時間の計算とカウントダウン復元
+        const now = Date.now();
+        const elapsedSec = (now - seq.startTime) / 1000;
+        const remainingSec = Math.max(0, Math.ceil(TEXT_SUPER_INTERVAL_SEC - elapsedSec));
+
+        if (countdownEl) countdownEl.innerText = remainingSec;
+
+        // UI表示用のカウントダウンタイマー
+        let currentCount = remainingSec;
+        textSuperCountdownTimer = setInterval(() => {
+            currentCount--;
+            if (countdownEl) countdownEl.innerText = Math.max(0, currentCount);
+            if (currentCount <= 0) {
+                clearInterval(textSuperCountdownTimer);
+            }
+        }, 1000);
+
+        // 切り替え用タイマー（Firebaseに依存した確定時間で切り替え）
+        const msToNext = Math.max(0, (TEXT_SUPER_INTERVAL_SEC - elapsedSec) * 1000);
+
+        textSuperStepTimer = setTimeout(() => {
+            const nextIndex = seq.currentIndex + 1;
+            if (nextIndex >= seq.cards.length) {
+                // 1周終了したら自動停止・消去
+                stopTextSuperSequence();
+            } else {
+                // 次のカードへ進めてFirebaseを更新
+                secureSet(ref(db, 'broadcast/text_super_sequence'), {
+                    running: true,
+                    currentIndex: nextIndex,
+                    cards: seq.cards,
+                    startTime: Date.now()
+                });
+                secureSet(ref(db, 'broadcast/text_super'), {
+                    htmlContent: seq.cards[nextIndex].htmlContent,
+                    timestamp: Date.now()
+                });
+            }
+        }, msToNext);
+    }
+
+    function stopTextSuperTimers() {
+        if (textSuperStepTimer) { clearTimeout(textSuperStepTimer); textSuperStepTimer = null; }
+        if (textSuperCountdownTimer) { clearInterval(textSuperCountdownTimer); textSuperCountdownTimer = null; }
+    }
+
+    // 🛑 完全停止 & 即時消去
+    window.stopTextSuperSequence = () => {
+        isTextSuperSending = false;
+        stopTextSuperTimers();
+
+        secureSet(ref(db, 'broadcast/text_super_sequence'), {
+            running: false,
+            currentIndex: 0,
+            cards: [],
+            startTime: 0
+        });
+
+        secureSet(ref(db, 'broadcast/text_super'), {
+            htmlContent: "",
+            timestamp: Date.now()
+        });
     };
 </script>
 </body>
