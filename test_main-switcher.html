@@ -71,7 +71,7 @@
             border-bottom-left-radius: 8px;
         }
 
-        /* === 緊急地震速報（最前面） === */
+        /* === 緊急地震速報 === */
         #frame-eew {
             position: absolute;
             bottom: 50px;
@@ -84,6 +84,20 @@
             background: transparent;
             pointer-events: none;
         }
+
+        /* === 文字スーパー（最前面・透過埋め込み） === */
+        #frame-text-super {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 1080px;
+            z-index: 1000; /* 最前面 */
+            border: none;
+            background: transparent;
+            pointer-events: none;
+        }
+
         #audio-unlock {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -111,6 +125,7 @@
         <iframe id="frame-l-bg" src="l-screen.html"></iframe>
         <iframe id="frame-sub-switcher" src="sub-switcher.html"></iframe>
         <iframe id="frame-eew" src="parts/eew.html"></iframe>
+        <iframe id="frame-text-super" src="parts/text-super.html"></iframe>
     </div>
 
     <!-- 音声ソース要素 -->
@@ -193,7 +208,7 @@
         }
     });
 
-    // === 🎵 BGM再生制御 ===
+    // === 🎵 追加: BGM再生制御 ===
     onValue(ref(db, 'broadcast/audio/bgm'), (snapshot) => {
         const bgmConfig = snapshot.val();
         if(!bgmConfig) return;
@@ -214,90 +229,25 @@
         }
     });
 
-    // === 🗣️ AI音声読み上げ制御と進捗レポーティング ===
-    const ttsStatusRef = ref(db, 'broadcast/audio/tts_status');
-
+    // === 🗣️ 追加: AI音声読み上げ制御 (Web Speech API) ===
     onValue(ref(db, 'broadcast/audio/tts'), (snapshot) => {
         const ttsData = snapshot.val();
         if (ttsData && ttsData.text && ttsData.timestamp !== ttsLastTimestamp) {
             ttsLastTimestamp = ttsData.timestamp;
             
-            const fullText = ttsData.text;
-            const totalLength = fullText.length;
-            // ざっくりとした読み上げ速度（1秒あたり約7文字と仮定）
-            const charsPerSecond = 7;
-            const initialEta = Math.ceil(totalLength / charsPerSecond);
-
-            // 生成開始のステータスをFirebaseへ送信
-            set(ttsStatusRef, {
-                status: 'generating',
-                progress: 0,
-                eta: initialEta,
-                currentText: "音声データを準備中..."
-            });
-
-            const utterance = new SpeechSynthesisUtterance(fullText);
-            utterance.lang = 'ja-JP';
-
-            // 読み上げ開始時
-            utterance.onstart = () => {
-                set(ttsStatusRef, {
-                    status: 'playing',
-                    progress: 0,
-                    eta: initialEta,
-                    currentText: fullText.substring(0, 20) + (totalLength > 20 ? "..." : "")
-                });
-            };
-
-            // 単語・文の区切り到達時（進捗計算）
-            utterance.onboundary = (event) => {
-                // charIndex は現在読み上げている箇所の先頭インデックス
-                const charIndex = event.charIndex;
-                const progressPercent = Math.min(100, Math.floor((charIndex / totalLength) * 100));
-                
-                const remainingChars = totalLength - charIndex;
-                const currentEta = Math.ceil(remainingChars / charsPerSecond);
-
-                // 現在読み上げている箇所から20文字程度を抽出
-                const readingStr = fullText.substring(charIndex, charIndex + 25) + (remainingChars > 25 ? "..." : "");
-
-                set(ttsStatusRef, {
-                    status: 'playing',
-                    progress: progressPercent,
-                    eta: currentEta,
-                    currentText: readingStr
-                });
-            };
-
-            // 読み上げ完了時
-            utterance.onend = () => {
-                set(ttsStatusRef, {
-                    status: 'idle',
-                    progress: 100,
-                    eta: 0,
-                    currentText: "待機中"
-                });
-            };
-
-            // 読み上げエラー時
-            utterance.onerror = (e) => {
-                console.error("TTS Error:", e);
-                set(ttsStatusRef, {
-                    status: 'idle',
-                    progress: 0,
-                    eta: 0,
-                    currentText: "読み上げエラーが発生しました"
-                });
-            };
-
+            // 読み上げの実行
+            const utterance = new SpeechSynthesisUtterance(ttsData.text);
+            utterance.lang = 'ja-JP'; // 日本語
+            // ※声色などを変えりたい場合は window.speechSynthesis.getVoices() を取得してセットします
             window.speechSynthesis.speak(utterance);
         }
     });
 
-    // === 🎤 WebRTC マイク受信制御 ===
+    // === 🎤 追加: WebRTC マイク受信制御 ===
     onValue(ref(db, 'broadcast/audio/webrtc/offer'), async (snapshot) => {
         const offerData = snapshot.val();
         if (!offerData) {
+            // Admin側で停止された場合、切断して終了
             if (peerConnection) {
                 peerConnection.close();
                 peerConnection = null;
@@ -306,18 +256,22 @@
             return;
         }
 
+        // 新しいオファーを受信したら接続構築
         peerConnection = new RTCPeerConnection(servers);
 
+        // トラック受信時にAudio要素にセット
         peerConnection.ontrack = (event) => {
             micAudio.srcObject = event.streams[0];
         };
 
+        // ICE Candidateの処理（Adminへ送信）
         peerConnection.onicecandidate = event => {
             if(event.candidate) {
                 set(ref(db, `broadcast/audio/webrtc/candidates/main/${Date.now()}`), event.candidate.toJSON());
             }
         };
 
+        // AdminからのICE Candidateを受信
         onValue(ref(db, 'broadcast/audio/webrtc/candidates/admin'), (iceSnapshot) => {
             iceSnapshot.forEach((childSnapshot) => {
                 const candidate = new RTCIceCandidate(childSnapshot.val());
@@ -327,9 +281,11 @@
             });
         });
 
+        // 相手(Admin)の情報をセット
         const offerDescription = new RTCSessionDescription(offerData);
         await peerConnection.setRemoteDescription(offerDescription);
 
+        // 返答(Answer)を作成してFirebase経由で送り返す
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
 
