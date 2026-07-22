@@ -431,9 +431,28 @@
                     <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">record_voice_over</i> AI音声読み上げ（TTS）</label>
                     <p style="font-size:12px; color:var(--text-sub); margin-top:0;">入力したテキストをメイン画面でAI音声として読み上げさせます。</p>
                     <textarea id="input-tts-text" style="height:80px;" placeholder="読み上げるテキストを入力..."></textarea>
-                    <button class="primary" style="width:100%; display:flex; justify-content:center; align-items:center; gap:8px;" onclick="sendTTS()">
+                    
+                    <!-- 送信ボタン -->
+                    <button class="primary" style="width:100%; display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom: 15px;" onclick="sendTTS()">
                         <i class="material-icons">campaign</i> 読み上げを実行
                     </button>
+
+                    <!-- ✨ 新規追加: TTSステータス・進捗・読み上げ箇所 表示エリア -->
+                    <div id="tts-status-container" style="background: #151515; padding: 15px; border-radius: 8px; border: 1px solid #333;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px;">
+                            <span id="tts-status-text" style="color:var(--text-sub); font-weight:bold;">待機中</span>
+                            <span id="tts-eta-text" style="color:var(--text-sub);">--</span>
+                        </div>
+                        
+                        <!-- プログレスバー -->
+                        <div style="width:100%; background:#222; border-radius:4px; height:8px; margin-bottom:10px; overflow:hidden;">
+                            <div id="tts-progress-bar" style="width:0%; height:100%; background:var(--accent-blue); transition:width 0.3s ease;"></div>
+                        </div>
+
+                        <!-- 現在読み上げ中のテキスト -->
+                        <div style="font-size:12px; color:#888; margin-bottom:4px;">現在読み上げ中の箇所:</div>
+                        <div id="tts-current-reading" style="font-size:14px; color:#fff; min-height:20px; word-break:break-all; background:#000; padding:8px; border-radius:6px; border:1px solid #222;">...</div>
+                    </div>
                 </div>
 
                 <div class="card">
@@ -1282,6 +1301,43 @@
                 if(bgmUrl && document.activeElement.id !== 'input-bgm-url') bgmUrl.value = audioConf.bgm.url || "";
             }
 
+            // --- ✨ 新規追加: TTSステータス Sync ---
+            if (audioConf.tts && audioConf.tts.text) {
+                const ttsInput = document.getElementById('input-tts-text');
+                if (ttsInput && document.activeElement.id !== 'input-tts-text') {
+                    ttsInput.value = audioConf.tts.text;
+                }
+            }
+
+            const ttsStatus = audioConf.tts_status || {};
+            const statusTextEl = document.getElementById('tts-status-text');
+            const etaTextEl = document.getElementById('tts-eta-text');
+            const progressBarEl = document.getElementById('tts-progress-bar');
+            const currentReadingEl = document.getElementById('tts-current-reading');
+
+            if (ttsStatus.status === 'generating') {
+                statusTextEl.innerText = "⏳ 音声生成中...";
+                statusTextEl.style.color = "#ffb300";
+                etaTextEl.innerText = ttsStatus.eta ? `残り約${ttsStatus.eta}秒 (${ttsStatus.progress || 0}%)` : `${ttsStatus.progress || 0}%`;
+                progressBarEl.style.width = `${ttsStatus.progress || 0}%`;
+                progressBarEl.style.background = "#ffb300";
+                currentReadingEl.innerText = "生成中のため待機中...";
+            } else if (ttsStatus.status === 'playing') {
+                statusTextEl.innerText = "🔊 読み上げ中...";
+                statusTextEl.style.color = "var(--accent-green)";
+                etaTextEl.innerText = "再生中";
+                progressBarEl.style.width = "100%";
+                progressBarEl.style.background = "var(--accent-green)";
+                currentReadingEl.innerText = ttsStatus.currentText || "読み上げ中...";
+            } else {
+                statusTextEl.innerText = "待機中";
+                statusTextEl.style.color = "var(--text-sub)";
+                etaTextEl.innerText = "--";
+                progressBarEl.style.width = "0%";
+                progressBarEl.style.background = "var(--accent-blue)";
+                currentReadingEl.innerText = "...";
+            }
+
             isInitialLoad = false;
         });
     }
@@ -1302,7 +1358,9 @@
             text: text,
             timestamp: Date.now()
         }).then(() => {
-            document.getElementById('input-tts-text').value = ""; 
+            // ※送信後もテキストを残すようにクリア処理を削除しました
+            // 処理が完了したことを知らせるためにボタンを一瞬色変更する等のUIフィードバックでも良いですが、
+            // 今回はアラートを出さずにそのまま進捗バーの変化で視覚的に伝えます
         });
     };
 
