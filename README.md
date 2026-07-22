@@ -17,6 +17,7 @@
 <br>Tsunami Yobikake : https://gensai-lab.github.io/eqlive/parts/tsunami-yobikake.html</br>
 <br>EEW : https://gensai-lab.github.io/eqlive/parts/eew.html</br>
 <br>EEW Map : https://gensai-lab.github.io/eqlive/parts/eew-map.html</br>
+<br>Text Super : https://gensai-lab.github.io/eqlive/parts/text-super.html</br>
 
 <br>**Admin**</br>
 <br>Admin : https://gensai-lab.github.io/eqlive/admin/admin.html</br>
