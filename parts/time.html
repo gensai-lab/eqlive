@@ -62,6 +62,13 @@
             display: flex;
             align-items: center;
             z-index: 3;
+            transition: opacity 0.3s ease, transform 0.3s ease; /* スムーズな表示・非表示アニメーション */
+        }
+
+        .distributor-badge.is-hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.95);
         }
 
         .distributor-badge img {
@@ -79,7 +86,7 @@
         <div id="clock-main" class="clock-base clock-main">00：00</div>
     </div>
 
-    <div class="distributor-badge">
+    <div class="distributor-badge" id="distributor-badge">
         <img id="dist-img" src="../assets/banner/distributor/bot.png" alt="distributor">
     </div>
 </div>
@@ -115,9 +122,24 @@
     updateClock();
 
     const distImg = document.getElementById('dist-img');
+    const distBadge = document.getElementById('distributor-badge');
+
+    // 配信主体の監視
     onValue(ref(db, 'broadcast/current/distributor'), (snapshot) => {
         const val = snapshot.val() || 'bot';
         distImg.src = `../assets/banner/distributor/${val}.png`;
+    });
+
+    // 文字スーパー送出状態の監視（文字スーパーが表示されている時はバッジを隠す）
+    onValue(ref(db, 'broadcast/text_super'), (snapshot) => {
+        const data = snapshot.val();
+        const isTextSuperActive = data && data.htmlContent && data.htmlContent.trim() !== '';
+        
+        if (isTextSuperActive) {
+            distBadge.classList.add('is-hidden');
+        } else {
+            distBadge.classList.remove('is-hidden');
+        }
     });
 </script>
 </body>
