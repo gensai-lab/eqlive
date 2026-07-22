@@ -495,7 +495,7 @@
                 </div>
             </div>
 
-            <!-- ✨ ⑪文字スーパー タブ (改善版) -->
+            <!-- ✨ ⑪文字スーパー タブ (原色カラーパレット版) -->
             <div id="tab-text-super" class="tab-content">
                 <h2>文字スーパー送出・装飾</h2>
                 <div class="card">
@@ -512,16 +512,16 @@
                         <div id="line-overflow-warn" style="color:var(--accent-red); font-weight:bold; display:none; margin-left:auto;">⚠️ 全角23文字を超えています</div>
                     </div>
 
-                    <label style="margin-top:10px;">文字色カラー装飾パレット</label>
+                    <label style="margin-top:10px;">文字色カラー装飾パレット (原色系)</label>
                     <p style="font-size:12px; color:var(--text-sub); margin-top:0;">テキストを選択した状態で色ボタンを押すと、選択箇所に装飾が適用されます。</p>
                     <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px; flex-wrap:wrap;">
-                        <button type="button" class="color-palette-btn" style="background:#ffffff;" title="白" onclick="insertColorTag('#ffffff')"></button>
-                        <button type="button" class="color-palette-btn" style="background:#ff3333;" title="赤" onclick="insertColorTag('#ff3333')"></button>
-                        <button type="button" class="color-palette-btn" style="background:#ffff00;" title="黄" onclick="insertColorTag('#ffff00')"></button>
-                        <button type="button" class="color-palette-btn" style="background:#33ffff;" title="水色" onclick="insertColorTag('#33ffff')"></button>
-                        <button type="button" class="color-palette-btn" style="background:#33ff33;" title="緑" onclick="insertColorTag('#33ff33')"></button>
-                        <button type="button" class="color-palette-btn" style="background:#ff9900;" title="オレンジ" onclick="insertColorTag('#ff9900')"></button>
-                        <button type="button" class="color-palette-btn" style="background:#ff66cc;" title="ピンク" onclick="insertColorTag('#ff66cc')"></button>
+                        <button type="button" class="color-palette-btn" style="background:#ffffff;" title="白 (255,255,255)" onclick="insertColorTag('#ffffff')"></button>
+                        <button type="button" class="color-palette-btn" style="background:#ff0000;" title="赤 (255,0,0)" onclick="insertColorTag('#ff0000')"></button>
+                        <button type="button" class="color-palette-btn" style="background:#00ff00;" title="緑 (0,255,0)" onclick="insertColorTag('#00ff00')"></button>
+                        <button type="button" class="color-palette-btn" style="background:#0000ff;" title="青 (0,0,255)" onclick="insertColorTag('#0000ff')"></button>
+                        <button type="button" class="color-palette-btn" style="background:#ffff00;" title="黄 (255,255,0)" onclick="insertColorTag('#ffff00')"></button>
+                        <button type="button" class="color-palette-btn" style="background:#ff00ff;" title="マゼンタ (255,0,255)" onclick="insertColorTag('#ff00ff')"></button>
+                        <button type="button" class="color-palette-btn" style="background:#00ffff;" title="シアン (0,255,255)" onclick="insertColorTag('#00ffff')"></button>
                         <div style="display:flex; align-items:center; gap:5px; margin-left:10px;">
                             <span style="font-size:12px; color:var(--text-sub);">任意色:</span>
                             <input type="color" id="text-super-custom-color" value="#ffff00" style="width:40px; height:32px; padding:2px; margin:0; cursor:pointer;" onchange="insertColorTag(this.value)">
