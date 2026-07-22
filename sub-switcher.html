@@ -24,7 +24,7 @@
             position: absolute;
             top: 0; left: 0;
             width: 1920px; height: 1080px;
-            z-index: 20; /* テロップ等のオーバーレイ（z-index: 10）よりも手前の最前面に配置 */
+            z-index: 20; /* テロップ等のオーバーレイ（z-index: 10）よりも手前 */
             pointer-events: none;
         }
         #watermark-layer img {
@@ -46,6 +46,15 @@
         .custom-free-image {
             position: absolute;
             object-fit: contain;
+            pointer-events: none;
+        }
+
+        /* === 文字スーパー用レイヤー（最前面） === */
+        #text-super-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px; height: 1080px;
+            z-index: 30; /* ウォーターマークよりも手前の最前面 */
             pointer-events: none;
         }
 
@@ -83,6 +92,7 @@
         iframe {
             width: 100%; height: 100%;
             border: none; display: block;
+            background: transparent;
         }
     </style>
 </head>
@@ -92,7 +102,7 @@
         <iframe id="switcher-iframe" src="main-screen.html"></iframe>
     </div>
 
-    <!-- z-indexを20にしたことで、ここが最前面のレイヤーになります -->
+    <!-- ウォーターマークレイヤー (z-index: 20) -->
     <div id="watermark-layer">
         <img src="assets/cover/watermark.png" alt="Watermark">
     </div>
@@ -113,6 +123,11 @@
 
     <div id="tsunami-map-container" class="overlay-part bottom-right">
         <iframe src="parts/tsunami-map.html"></iframe>
+    </div>
+
+    <!-- 文字スーパー用レイヤー (z-index: 30) -->
+    <div id="text-super-layer">
+        <iframe src="parts/text-super.html"></iframe>
     </div>
 
 <script type="module">
@@ -203,6 +218,15 @@
             });
         }
     });
+
+    // --- 津波表示制御 ---
+    function updateTsunamiVisibility() {
+        if (apiTsunamiActive || manualTsunamiActive) {
+            tsunamiContainer.classList.add('is-active');
+        } else {
+            tsunamiContainer.classList.remove('is-active');
+        }
+    }
 
     // --- 津波情報監視 (Firebase制御) ---
     onValue(ref(db, 'broadcast/tsunami_config'), (snapshot) => {
