@@ -1,1 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>EQLive Sub-Switcher</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0;
+            width: 1920px; height: 1080px;
+            background-color: black;
+            overflow: hidden;
+        }
 
+        /* 背面のメインコンテンツエリア */
+        #bg-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px; height: 1080px;
+            z-index: 1;
+        }
+
+        /* === ウォーターマーク配置用レイヤー === */
+        #watermark-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px; height: 1080px;
+            z-index: 20; /* テロップ等のオーバーレイ（z-index: 10）よりも手前の最前面に配置 */
+            pointer-events: none;
+        }
+        #watermark-layer img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* === 自由配置画像用レイヤー === */
+        #free-image-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 1080px;
+            z-index: 8; /* 時間やタイトルなどのテロップ(10)より手前、または背後に配置されるように調整 */
+            pointer-events: none;
+        }
+        .custom-free-image {
+            position: absolute;
+            object-fit: contain;
+            pointer-events: none;
+        }
+
+        /* 前面の共通パーツ（オーバーレイ） */
+        .overlay-part {
+            position: absolute;
+            z-index: 10;
+            pointer-events: none;
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+        }
+
+        /* 各パーツの配置 */
+        .top-left { top: 6px; left: 20px; width: 700px; height: 150px; }
+        .top-right { top: 40px; right: 40px; width: 600px; height: 145px; }
+        .bottom-left { bottom: 40px; left: 40px; width: 1250px; height: 185px; }
+
+        /* 右下: 津波地図 */
+        .bottom-right { 
+            bottom: 40px; 
+            right: 40px; 
+            width: 600px; 
+            height: 350px; 
+            background-color: rgba(0, 0, 0, 0.9);
+            border-radius: 8px;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .is-active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        iframe {
+            width: 100%; height: 100%;
+            border: none; display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="bg-layer">
+        <iframe id="switcher-iframe" src="main-screen.html"></iframe>
+    </div>
+
+    <!-- z-indexを20にしたことで、ここが最前面のレイヤーになります -->
+    <div id="watermark-layer">
+        <img src="assets/cover/watermark.png" alt="Watermark">
+    </div>
+
+    <div id="free-image-layer"></div>
+
+    <div class="overlay-part top-left" id="area-top-left">
+        <iframe src="parts/time.html"></iframe>
+    </div>
+
+    <div class="overlay-part top-right">
+        <iframe src="parts/tsunami-yobikake.html"></iframe>
+    </div>
+
+    <div class="overlay-part bottom-left">
+        <iframe src="parts/title.html"></iframe>
+    </div>
+
+    <div id="tsunami-map-container" class="overlay-part bottom-right">
+        <iframe src="parts/tsunami-map.html"></iframe>
+    </div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // Firebase初期化
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const switcherIframe = document.getElementById('switcher-iframe');
+    const tsunamiContainer = document.getElementById('tsunami-map-container');
+    const imageLayer = document.getElementById('free-image-layer');
+    const topLeftArea = document.getElementById('area-top-left');
+    
+    let currentLayout = "";
+    let apiTsunamiActive = false;
+    let manualTsunamiActive = false;
+
+    // --- レイアウト切り替え (Firebase) ---
+    onValue(ref(db, 'broadcast/current/layoutMode'), (snapshot) => {
+        const mode = snapshot.val() || 'live'; 
+        let target = (mode === 'emergency') ? 'emergency.html' : 'main-screen.html';
+
+        if (currentLayout !== target) {
+            switcherIframe.src = target;
+            currentLayout = target;
+            console.log("Layout switched to:", target);
+        }
+    });
+
+    // --- 左上エリア（座布団・時計等）の表示/非表示同期 ---
+    onValue(ref(db, 'broadcast/current/timeVisible'), (snapshot) => {
+        const isVisible = snapshot.val();
+        if (isVisible === false) {
+            topLeftArea.style.opacity = "0";
+            topLeftArea.style.pointerEvents = "none";
+        } else {
+            topLeftArea.style.opacity = "1";
+            topLeftArea.style.pointerEvents = "none";
+        }
+    });
+
+    // --- 自由配置リストの同期反映 ---
+    const freeImagesRef = ref(db, 'broadcast/free_images');
+    onValue(freeImagesRef, (snapshot) => {
+        const imagesData = snapshot.val();
+        imageLayer.innerHTML = ""; 
+        if (imagesData) {
+            Object.keys(imagesData).forEach(id => {
+                const imgConf = imagesData[id];
+                if (imgConf && imgConf.visible && imgConf.url) {
+                    
+                    let mediaEl;
+                    // mediaTypeがvideoなら自動再生・ミュートのvideoタグを生成、それ以外はimgタグを生成
+                    if (imgConf.mediaType === 'video') {
+                        mediaEl = document.createElement('video');
+                        mediaEl.src = imgConf.url;
+                        mediaEl.autoplay = true;
+                        mediaEl.muted = true; // ブラウザの自動再生ポリシー対策
+                        mediaEl.playsInline = true;
+                        mediaEl.loop = (imgConf.loop !== undefined) ? imgConf.loop : true;
+                    } else {
+                        mediaEl = document.createElement('img');
+                        mediaEl.src = imgConf.url;
+                    }
+
+                    mediaEl.id = `sub-img-node-${id}`;
+                    mediaEl.className = 'custom-free-image';
+                    mediaEl.style.left = `${imgConf.x !== undefined ? imgConf.x : 0}px`;
+                    mediaEl.style.top = `${imgConf.y !== undefined ? imgConf.y : 0}px`;
+                    mediaEl.style.width = `${imgConf.width !== undefined ? imgConf.width : 300}px`;
+                    mediaEl.style.height = `${imgConf.height !== undefined ? imgConf.height : 'auto'}`;
+                    mediaEl.style.opacity = (imgConf.opacity !== undefined) ? imgConf.opacity : 1;
+                    mediaEl.style.zIndex = (imgConf.zIndex !== undefined) ? imgConf.zIndex : 1;
+
+                    imageLayer.appendChild(mediaEl);
+                }
+            });
+        }
+    });
+
+    // --- 津波情報監視 (Firebase制御) ---
+    onValue(ref(db, 'broadcast/tsunami_config'), (snapshot) => {
+        const config = snapshot.val();
+        if (config) {
+            if (config.autoPage === false) {
+                manualTsunamiActive = (config.manualTrigger && config.manualTrigger.direction) ? true : false;
+            } else {
+                manualTsunamiActive = false;
+            }
+        } else {
+            manualTsunamiActive = false;
+        }
+        updateTsunamiVisibility();
+    });
+
+    // --- 津波情報監視 (P2P地震情報 API) ---
+    async function checkTsunamiStatus() {
+        try {
+            const response = await fetch("https://api.p2pquake.net/v2/history?codes=552&limit=1");
+            const history = await response.json();
+            
+            if (history && history.length > 0) {
+                const latest = history[0];
+                apiTsunamiActive = (latest.cancelled === false);
+            } else {
+                apiTsunamiActive = false;
+            }
+        } catch (e) {
+            console.error("Tsunami status check failed:", e);
+            apiTsunamiActive = false;
+        }
+        updateTsunamiVisibility();
+    }
+
+    checkTsunamiStatus();
+    setInterval(checkTsunamiStatus, 10000);
+
+</script>
+</body>
+</html>
