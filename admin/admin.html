@@ -432,12 +432,17 @@
                     <p style="font-size:12px; color:var(--text-sub); margin-top:0;">入力したテキストをメイン画面でAI音声として読み上げさせます。</p>
                     <textarea id="input-tts-text" style="height:80px;" placeholder="読み上げるテキストを入力..."></textarea>
                     
-                    <!-- 送信ボタン -->
-                    <button class="primary" style="width:100%; display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom: 15px;" onclick="sendTTS()">
-                        <i class="material-icons">campaign</i> 読み上げを実行
-                    </button>
+                    <!-- 実行ボタン & 新規追加：クリア・停止ボタン -->
+                    <div class="btn-group" style="margin-bottom: 15px;">
+                        <button class="primary" style="display:flex; justify-content:center; align-items:center; gap:8px;" onclick="sendTTS()">
+                            <i class="material-icons">campaign</i> 読み上げを実行
+                        </button>
+                        <button class="danger" style="display:flex; justify-content:center; align-items:center; gap:8px;" onclick="clearTTS()">
+                            <i class="material-icons">clear</i> クリア・停止
+                        </button>
+                    </div>
 
-                    <!-- ✨ 新規追加: TTSステータス・進捗・読み上げ箇所 表示エリア -->
+                    <!-- TTSステータス・進捗・読み上げ箇所 表示エリア -->
                     <div id="tts-status-container" style="background: #151515; padding: 15px; border-radius: 8px; border: 1px solid #333;">
                         <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px;">
                             <span id="tts-status-text" style="color:var(--text-sub); font-weight:bold;">待機中</span>
@@ -1301,8 +1306,8 @@
                 if(bgmUrl && document.activeElement.id !== 'input-bgm-url') bgmUrl.value = audioConf.bgm.url || "";
             }
 
-            // --- ✨ 新規追加: TTSステータス Sync ---
-            if (audioConf.tts && audioConf.tts.text) {
+            // --- TTSステータス Sync ---
+            if (audioConf.tts && audioConf.tts.text && audioConf.tts.action !== 'cancel') {
                 const ttsInput = document.getElementById('input-tts-text');
                 if (ttsInput && document.activeElement.id !== 'input-tts-text') {
                     ttsInput.value = audioConf.tts.text;
@@ -1325,8 +1330,8 @@
             } else if (ttsStatus.status === 'playing') {
                 statusTextEl.innerText = "🔊 読み上げ中...";
                 statusTextEl.style.color = "var(--accent-green)";
-                etaTextEl.innerText = "再生中";
-                progressBarEl.style.width = "100%";
+                etaTextEl.innerText = ttsStatus.eta ? `残り約${ttsStatus.eta}秒 (${ttsStatus.progress || 0}%)` : `${ttsStatus.progress || 0}%`;
+                progressBarEl.style.width = `${ttsStatus.progress || 0}%`;
                 progressBarEl.style.background = "var(--accent-green)";
                 currentReadingEl.innerText = ttsStatus.currentText || "読み上げ中...";
             } else {
@@ -1347,20 +1352,37 @@
         return container ? container.querySelectorAll('.dragging').length > 0 : false;
     }
 
-    // --- 🔊 新規機能ロジック：音声・BGM・マイク制御 ---
+    // --- 🔊 音声・BGM・マイク制御 ---
 
-    // 1. AI音声読み上げ（TTS）
+    // 1. AI音声読み上げ（TTS）送信
     window.sendTTS = () => {
         const text = document.getElementById('input-tts-text').value.trim();
         if(!text) { alert("テキストを入力してください。"); return; }
         
         secureSet(ref(db, 'broadcast/audio/tts'), {
             text: text,
+            action: 'speak',
             timestamp: Date.now()
-        }).then(() => {
-            // ※送信後もテキストを残すようにクリア処理を削除しました
-            // 処理が完了したことを知らせるためにボタンを一瞬色変更する等のUIフィードバックでも良いですが、
-            // 今回はアラートを出さずにそのまま進捗バーの変化で視覚的に伝えます
+        });
+    };
+
+    // ✨ 新規追加: AI音声読み上げ（TTS）クリア・停止
+    window.clearTTS = () => {
+        document.getElementById('input-tts-text').value = "";
+        
+        // メイン画面側にキャンセル命令を送信
+        secureSet(ref(db, 'broadcast/audio/tts'), {
+            text: "",
+            action: "cancel",
+            timestamp: Date.now()
+        });
+        
+        // ステータスを待機中にリセット
+        secureSet(ref(db, 'broadcast/audio/tts_status'), {
+            status: 'idle',
+            progress: 0,
+            eta: 0,
+            currentText: '待機中'
         });
     };
 
