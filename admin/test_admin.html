@@ -495,12 +495,22 @@
                 </div>
             </div>
 
-            <!-- ✨ 新規追加: ⑪文字スーパー タブ -->
+            <!-- ✨ ⑪文字スーパー タブ (改善版) -->
             <div id="tab-text-super" class="tab-content">
                 <h2>文字スーパー送出・装飾</h2>
                 <div class="card">
-                    <label>表示テキスト入力 (改行対応)</label>
-                    <textarea id="input-text-super" style="height:100px;" placeholder="画面上に表示するテキストを入力..." oninput="updateTextSuperPreview()"></textarea>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <label style="margin:0;">表示テキスト入力 (※最大2行まで)</label>
+                        <span style="font-size:12px; color:var(--text-sub);">※全角23文字を超えると自動改行されます</span>
+                    </div>
+                    <textarea id="input-text-super" style="height:80px;" placeholder="画面上に表示するテキストを入力（最大2行）..." oninput="updateTextSuperPreview()" onkeydown="handleTextSuperKeyDown(event)"></textarea>
+
+                    <!-- 各行の文字数カウンター & 23文字オーバー警告表示 -->
+                    <div id="text-super-line-count" style="font-size:13px; color:var(--text-sub); margin-bottom:15px; display:flex; gap:20px; flex-wrap:wrap; align-items:center; background:#151515; padding:10px 14px; border-radius:6px; border:1px solid #333;">
+                        <div>1行目: <b id="line1-count" style="color:white; font-size:15px;">0</b> / 23文字</div>
+                        <div>2行目: <b id="line2-count" style="color:white; font-size:15px;">0</b> / 23文字</div>
+                        <div id="line-overflow-warn" style="color:var(--accent-red); font-weight:bold; display:none; margin-left:auto;">⚠️ 全角23文字を超えています</div>
+                    </div>
 
                     <label style="margin-top:10px;">文字色カラー装飾パレット</label>
                     <p style="font-size:12px; color:var(--text-sub); margin-top:0;">テキストを選択した状態で色ボタンを押すと、選択箇所に装飾が適用されます。</p>
@@ -1397,7 +1407,7 @@
                 currentReadingEl.innerText = "...";
             }
 
-            // --- ✨ 新規追加: 文字スーパー 状態同期 ---
+            // --- 文字スーパー 状態同期 ---
             const statusBox = document.getElementById('text-super-status');
             if (textSuperConf.htmlContent && textSuperConf.htmlContent.trim() !== '') {
                 if(statusBox) statusBox.style.display = 'block';
@@ -1531,13 +1541,72 @@
         document.getElementById('mic-status').style.display = 'none';
     };
 
-    // --- ✨ 新規機能: ⑪文字スーパー 送出・装飾ロジック ---
+    // --- ✨ ⑪文字スーパー 送出・制限・文字数計算ロジック ---
 
-    // プレビューの更新
+    // 全角＝1、半角＝0.5換算の文字数計算関数（HTMLタグはカウントから除外）
+    function getZenKakuCount(str) {
+        if(!str) return 0;
+        const temp = document.createElement('div');
+        temp.innerHTML = str;
+        const cleanText = temp.textContent || temp.innerText || '';
+        let count = 0;
+        for (let i = 0; i < cleanText.length; i++) {
+            const c = cleanText.charCodeAt(i);
+            // ASCII半角記号・英数 または 半角カナ
+            if ((c >= 0x0000 && c <= 0x007e) || (c >= 0xff61 && c <= 0xff9f)) {
+                count += 0.5;
+            } else {
+                count += 1.0;
+            }
+        }
+        return Math.ceil(count);
+    }
+
+    // 2行を超えて改行できないようにブロック
+    window.handleTextSuperKeyDown = (e) => {
+        const textarea = document.getElementById('input-text-super');
+        if (!textarea) return;
+        
+        if (e.key === 'Enter') {
+            const lines = textarea.value.split(/\r\n|\r|\n/);
+            if (lines.length >= 2) {
+                e.preventDefault(); // 3行目の作成を阻止
+            }
+        }
+    };
+
+    // プレビュー表示および行数・文字数制御
     window.updateTextSuperPreview = () => {
         const textarea = document.getElementById('input-text-super');
         const previewBox = document.getElementById('text-super-preview-box');
         if(!textarea || !previewBox) return;
+
+        // ペースト等で3行以上になった場合に強制的に最大2行にカット
+        let lines = textarea.value.split(/\r\n|\r|\n/);
+        if (lines.length > 2) {
+            textarea.value = lines.slice(0, 2).join('\n');
+            lines = textarea.value.split(/\r\n|\r|\n/);
+        }
+
+        // 行ごとの文字数計算
+        const count1 = getZenKakuCount(lines[0] || '');
+        const count2 = getZenKakuCount(lines[1] || '');
+
+        const el1 = document.getElementById('line1-count');
+        const el2 = document.getElementById('line2-count');
+        const warnEl = document.getElementById('line-overflow-warn');
+
+        if (el1) {
+            el1.innerText = count1;
+            el1.style.color = count1 > 23 ? 'var(--accent-red)' : 'white';
+        }
+        if (el2) {
+            el2.innerText = count2;
+            el2.style.color = count2 > 23 ? 'var(--accent-red)' : 'white';
+        }
+        if (warnEl) {
+            warnEl.style.display = (count1 > 23 || count2 > 23) ? 'block' : 'none';
+        }
 
         let raw = textarea.value;
         if(!raw || raw.trim() === '') {
