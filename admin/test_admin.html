@@ -525,21 +525,12 @@
                         </div>
                     </div>
 
-                    <!-- ⚙️ 送出切り替え設定 -->
+                    <!-- ⚙️ 送出切り替え設定 (固定設定表示) -->
                     <div class="card" style="background:#111; border:1px solid #333; padding:15px; margin-bottom:15px;">
-                        <label>送出切り替え設定</label>
-                        <div style="display:flex; gap:15px; flex-wrap:wrap; align-items:center;">
-                            <div style="flex:1; min-width:200px;">
-                                <label style="font-weight:normal;">1枚あたりの表示時間 (秒)</label>
-                                <input type="number" id="text-super-interval-sec" value="10" min="3" max="60" style="margin-bottom:0;">
-                            </div>
-                            <div style="flex:1; min-width:200px;">
-                                <label style="font-weight:normal;">ループ再生設定</label>
-                                <select id="text-super-loop-select" style="margin-bottom:0;">
-                                    <option value="true" selected>ループ（全カード表示後、最初に戻る）</option>
-                                    <option value="false">1周で終了（最後のカード表示後に自動消去）</option>
-                                </select>
-                            </div>
+                        <label style="margin-bottom:8px;">送出切り替え設定 (固定)</label>
+                        <div style="display:flex; gap:20px; flex-wrap:wrap; align-items:center; font-size:13px; color:var(--text-sub);">
+                            <div>1枚あたりの表示時間: <b style="color:white; font-size:14px;">10 秒</b></div>
+                            <div>再生モード: <b style="color:white; font-size:14px;">1周で終了（全カード表示後に自動消去）</b></div>
                         </div>
                     </div>
 
@@ -605,13 +596,14 @@
     let selectedTourIds = [];
     let currentTourConfig = null;
 
-    // --- 文字スーパー（複数カード＆順次自動送出用変数） ---
+    // --- 文字スーパー（複数カード＆固定条件送出用定数・変数） ---
+    const TEXT_SUPER_INTERVAL_SEC = 10; // 固定: 10秒
     let localTextSuperCards = [
         { id: "card_" + Date.now(), text: "" }
     ];
     let activeCardInputId = null; 
-    let textSuperActiveSequenceIndex = 0;
-    let textSuperSequenceTimer = null;
+    let textSuperActiveSequenceIndex = -1;
+    let textSuperStepTimer = null;
     let textSuperCountdownTimer = null;
     let isTextSuperSending = false;
 
@@ -632,7 +624,7 @@
             adminApp.style.display = 'none';
             stopLocalTourTimer(); 
             stopMicStreaming();
-            stopTextSuperSequence();
+            stopTextSuperTimers();
         }
     });
 
@@ -1322,7 +1314,7 @@
             const tsu = data.tsunami_config || {};
             const tourConf = data.tour_config || {};
             const audioConf = data.audio || {};
-            const textSuperConf = data.text_super || {};
+            const textSuperSeq = data.text_super_sequence || {};
             currentTourConfig = tourConf;
             
             const freeImagesData = data.free_images || {};
@@ -1469,13 +1461,8 @@
                 currentReadingEl.innerText = "...";
             }
 
-            // --- 文字スーパー 状態同期 ---
-            const statusBox = document.getElementById('text-super-status');
-            if (textSuperConf.htmlContent && textSuperConf.htmlContent.trim() !== '') {
-                if(statusBox) statusBox.style.display = 'block';
-            } else {
-                if(statusBox && !isTextSuperSending) statusBox.style.display = 'none';
-            }
+            // --- 文字スーパー バックエンド同期 ---
+            handleTextSuperSequenceSync(textSuperSeq);
 
             isInitialLoad = false;
         });
@@ -1598,7 +1585,7 @@
         document.getElementById('mic-status').style.display = 'none';
     };
 
-    // --- ✨ ⑪文字スーパー 複数カード＆自動切り替え連続送出ロジック ---
+    // --- ✨ ⑪文字スーパー 複数カード＆Firebaseバックエンド同期ロジック ---
 
     // 全角＝1、半角＝0.5換算の文字数計算関数（HTMLタグ除去）
     function getZenKakuCount(str) {
@@ -1786,105 +1773,132 @@
         textarea.setSelectionRange(start + `<span style="color:${color};">`.length, start + tagText.length - 7);
     };
 
-    // 🚀 連続自動送出の開始
+    // 🚀 連続自動送出の開始（Firebaseへ状態保存）
     window.startTextSuperSequence = () => {
-        // 空でない有効なカードをチェック
-        const validCards = localTextSuperCards.filter(c => c.text && c.text.trim() !== "");
+        const validCards = localTextSuperCards
+            .filter(c => c.text && c.text.trim() !== "")
+            .map(c => ({
+                id: c.id,
+                text: c.text,
+                htmlContent: c.text.trim().replace(/\r\n|\r|\n/g, '<br>')
+            }));
+
         if (validCards.length === 0) {
             alert("送出する字幕テキストを入力してください。");
             return;
         }
 
-        stopTextSuperSequenceTimers();
-        isTextSuperSending = true;
-        textSuperActiveSequenceIndex = 0;
+        stopTextSuperTimers();
 
-        executeTextSuperStep();
+        const seqData = {
+            running: true,
+            currentIndex: 0,
+            cards: validCards,
+            startTime: Date.now()
+        };
+
+        // Firebaseへシーケンス開始情報と表示用テキストを送信
+        secureSet(ref(db, 'broadcast/text_super_sequence'), seqData);
+        secureSet(ref(db, 'broadcast/text_super'), {
+            htmlContent: validCards[0].htmlContent,
+            timestamp: Date.now()
+        });
     };
 
-    // 順次送出ステップの実行
-    function executeTextSuperStep() {
-        if (!isTextSuperSending) return;
+    // Firebaseのシーケンス状態同期＆タイマー進行処理（リロード時にも完璧に同期）
+    function handleTextSuperSequenceSync(seq) {
+        stopTextSuperTimers();
 
-        const intervalSec = parseInt(document.getElementById('text-super-interval-sec').value) || 10;
-        const isLoop = document.getElementById('text-super-loop-select').value === 'true';
+        const statusBox = document.getElementById('text-super-status');
+        const currentNumEl = document.getElementById('text-super-current-card-num');
+        const totalNumEl = document.getElementById('text-super-total-cards');
+        const countdownEl = document.getElementById('text-super-countdown');
 
-        // 有効なカードのフィルタリング
-        const validIndices = localTextSuperCards.map((c, idx) => (c.text && c.text.trim() !== "") ? idx : -1).filter(idx => idx !== -1);
-        
-        if (validIndices.length === 0) {
-            stopTextSuperSequence();
+        if (!seq || !seq.running || !seq.cards || seq.cards.length === 0) {
+            isTextSuperSending = false;
+            textSuperActiveSequenceIndex = -1;
+            if (statusBox) statusBox.style.display = 'none';
+            renderTextSuperCards();
             return;
         }
 
-        if (textSuperActiveSequenceIndex >= validIndices.length) {
-            if (isLoop) {
-                textSuperActiveSequenceIndex = 0;
-            } else {
-                // 1周終了したらクリア
-                stopTextSuperSequence();
-                return;
-            }
+        isTextSuperSending = true;
+        
+        // 元のカード配列内のどのカードが現在送出中かを特定
+        const activeCard = seq.cards[seq.currentIndex];
+        if (activeCard) {
+            textSuperActiveSequenceIndex = localTextSuperCards.findIndex(c => c.id === activeCard.id);
+        } else {
+            textSuperActiveSequenceIndex = -1;
         }
 
-        const targetCardIndex = validIndices[textSuperActiveSequenceIndex];
-        const card = localTextSuperCards[targetCardIndex];
+        if (statusBox) statusBox.style.display = 'block';
+        if (currentNumEl) currentNumEl.innerText = seq.currentIndex + 1;
+        if (totalNumEl) totalNumEl.innerText = seq.cards.length;
 
-        let htmlContent = card.text.trim().replace(/\r\n|\r|\n/g, '<br>');
+        renderTextSuperCards();
 
-        // Firebase へ送出
-        secureSet(ref(db, 'broadcast/text_super'), {
-            htmlContent: htmlContent,
-            timestamp: Date.now()
-        }).then(() => {
-            renderTextSuperCards(); // 送出中ハイライト更新
+        // 経過時間の計算とカウントダウン復元
+        const now = Date.now();
+        const elapsedSec = (now - seq.startTime) / 1000;
+        const remainingSec = Math.max(0, Math.ceil(TEXT_SUPER_INTERVAL_SEC - elapsedSec));
 
-            const statusBox = document.getElementById('text-super-status');
-            const currentNumEl = document.getElementById('text-super-current-card-num');
-            const totalNumEl = document.getElementById('text-super-total-cards');
-            const countdownEl = document.getElementById('text-super-countdown');
+        if (countdownEl) countdownEl.innerText = remainingSec;
 
-            if(statusBox) statusBox.style.display = 'block';
-            if(currentNumEl) currentNumEl.innerText = textSuperActiveSequenceIndex + 1;
-            if(totalNumEl) totalNumEl.innerText = validIndices.length;
+        // UI表示用のカウントダウンタイマー
+        let currentCount = remainingSec;
+        textSuperCountdownTimer = setInterval(() => {
+            currentCount--;
+            if (countdownEl) countdownEl.innerText = Math.max(0, currentCount);
+            if (currentCount <= 0) {
+                clearInterval(textSuperCountdownTimer);
+            }
+        }, 1000);
 
-            let count = intervalSec;
-            if(countdownEl) countdownEl.innerText = count;
+        // 切り替え用タイマー（Firebaseに依存した確定時間で切り替え）
+        const msToNext = Math.max(0, (TEXT_SUPER_INTERVAL_SEC - elapsedSec) * 1000);
 
-            if(textSuperCountdownTimer) clearInterval(textSuperCountdownTimer);
-            textSuperCountdownTimer = setInterval(() => {
-                count--;
-                if(countdownEl) countdownEl.innerText = count;
-                if(count <= 0) clearInterval(textSuperCountdownTimer);
-            }, 1000);
-
-            textSuperActiveSequenceIndex++;
-
-            // 次のカードへ切り替えタイマー
-            textSuperSequenceTimer = setTimeout(() => {
-                executeTextSuperStep();
-            }, intervalSec * 1000);
-        });
+        textSuperStepTimer = setTimeout(() => {
+            const nextIndex = seq.currentIndex + 1;
+            if (nextIndex >= seq.cards.length) {
+                // 1周終了したら自動停止・消去
+                stopTextSuperSequence();
+            } else {
+                // 次のカードへ進めてFirebaseを更新
+                secureSet(ref(db, 'broadcast/text_super_sequence'), {
+                    running: true,
+                    currentIndex: nextIndex,
+                    cards: seq.cards,
+                    startTime: Date.now()
+                });
+                secureSet(ref(db, 'broadcast/text_super'), {
+                    htmlContent: seq.cards[nextIndex].htmlContent,
+                    timestamp: Date.now()
+                });
+            }
+        }, msToNext);
     }
 
-    // 順次送出タイマーのみ停止
-    function stopTextSuperSequenceTimers() {
-        if(textSuperSequenceTimer) { clearTimeout(textSuperSequenceTimer); textSuperSequenceTimer = null; }
-        if(textSuperCountdownTimer) { clearInterval(textSuperCountdownTimer); textSuperCountdownTimer = null; }
+    function stopTextSuperTimers() {
+        if (textSuperStepTimer) { clearTimeout(textSuperStepTimer); textSuperStepTimer = null; }
+        if (textSuperCountdownTimer) { clearInterval(textSuperCountdownTimer); textSuperCountdownTimer = null; }
     }
 
     // 🛑 完全停止 & 即時消去
     window.stopTextSuperSequence = () => {
         isTextSuperSending = false;
-        stopTextSuperSequenceTimers();
+        stopTextSuperTimers();
+
+        secureSet(ref(db, 'broadcast/text_super_sequence'), {
+            running: false,
+            currentIndex: 0,
+            cards: [],
+            startTime: 0
+        });
 
         secureSet(ref(db, 'broadcast/text_super'), {
             htmlContent: "",
             timestamp: Date.now()
-        }).then(() => {
-            const statusBox = document.getElementById('text-super-status');
-            if(statusBox) statusBox.style.display = 'none';
-            renderTextSuperCards(); // ハイライト解除
         });
     };
 </script>
