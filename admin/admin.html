@@ -115,7 +115,7 @@
         .draggable-card:active { cursor: grabbing; }
         .draggable-card.dragging { opacity: 0.5; border: 2px dashed var(--accent-blue); }
 
-        /* 🖼️ 自由配置画像確認用モーダルスタイル */
+        /* 🖼️ プレビュー用モーダルスタイル */
         .preview-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.85); z-index: 10000; align-items: center; justify-content: center;
@@ -191,14 +191,12 @@
             <button class="nav-item" onclick="switchTab('l-shape')"><i class="material-icons">view_quilt</i>⑥L字設定</button>
             <button class="nav-item" onclick="switchTab('camera')"><i class="material-icons">videocam</i>⑦ライブカメラ</button>
             <button class="nav-item" onclick="switchTab('tsunami')"><i class="material-icons">waves</i>⑧津波制御</button>
-            <button class="nav-item" onclick="switchTab('free-image')"><i class="material-icons">grid_view</i>⑨自由配置画像</button>
-            <!-- ⑩音声タブを追加 -->
+            <button class="nav-item" onclick="switchTab('free-image')"><i class="material-icons">grid_view</i>⑨自由配置</button>
             <button class="nav-item" onclick="switchTab('audio')"><i class="material-icons">mic</i>⑩音声・BGM制御</button>
             <button class="nav-item" id="btn-logout" style="margin-top: auto; border-top: 1px solid #333; color: #d13438;"><i class="material-icons">logout</i>🚪 ログアウト</button>
         </nav>
 
         <div class="content">
-            <!-- 既存のタブコンテンツ -->
             <div id="tab-main" class="tab-content active">
                 <h2>ダッシュボード</h2>
                 <div id="status-alert-area"></div>
@@ -407,11 +405,12 @@
                 </div>
             </div>
 
+            <!-- 自由配置タブ -->
             <div id="tab-free-image" class="tab-content">
-                <h2>自由配置画像オーバーレイ（複数対応）</h2>
+                <h2>自由配置オーバーレイ（複数対応）</h2>
                 <div style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;">
                     <button class="primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px;" onclick="addNewFreeImage()">
-                        <i class="material-icons">add_photo_alternate</i> ＋ 新しい画像を追加（空）
+                        <i class="material-icons">add_box</i> ＋ 新しいメディアを追加（空）
                     </button>
                     
                     <div class="card" style="margin: 0; padding: 15px; background: #151515;">
@@ -425,11 +424,9 @@
                 <div id="free-images-control-container"></div>
             </div>
 
-            <!-- 新規追加：⑩音声・BGM制御タブ -->
             <div id="tab-audio" class="tab-content">
                 <h2>音声・BGM制御</h2>
                 
-                <!-- 1. AI音声読み上げ -->
                 <div class="card">
                     <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">record_voice_over</i> AI音声読み上げ（TTS）</label>
                     <p style="font-size:12px; color:var(--text-sub); margin-top:0;">入力したテキストをメイン画面でAI音声として読み上げさせます。</p>
@@ -439,7 +436,6 @@
                     </button>
                 </div>
 
-                <!-- 2. BGM再生制御 -->
                 <div class="card">
                     <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">music_note</i> BGM再生</label>
                     <p style="font-size:12px; color:var(--text-sub); margin-top:0;">メイン画面でBGMを再生・停止します。</p>
@@ -457,7 +453,6 @@
                     </div>
                 </div>
 
-                <!-- 3. マイクリアルタイム配信 -->
                 <div class="card" style="border-left: 5px solid var(--accent-blue);">
                     <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">mic</i> 管理者マイクのリアルタイム配信</label>
                     <p style="font-size:12px; color:var(--text-sub); margin-top:0;">あなたのマイク音声をメイン画面に直接ストリーミングします。（※要マイク許可）</p>
@@ -473,12 +468,12 @@
     </main>
 </div>
 
-<!-- 📦 自由配置画像確認用のモーダルウィンドウアセンブリ -->
+<!-- 📦 プレビュー用モーダルウィンドウ -->
 <div id="image-preview-modal" class="preview-modal" onclick="closeImagePreviewModal(event)">
     <div class="preview-modal-content" onclick="event.stopPropagation()">
         <button class="preview-modal-close" onclick="closeImagePreviewModal(null)">×</button>
-        <h3 id="preview-modal-title" style="margin:0; font-size:16px; color:var(--accent-blue); padding-right:30px;">画像プレビュー</h3>
-        <img id="preview-modal-target-img" class="preview-modal-img" src="" alt="拡大プレビュー">
+        <h3 id="preview-modal-title" style="margin:0; font-size:16px; color:var(--accent-blue); padding-right:30px;">プレビュー</h3>
+        <div id="preview-modal-media-container" style="display:flex; justify-content:center; align-items:center;"></div>
     </div>
 </div>
 
@@ -516,7 +511,6 @@
     let currentTourConfig = null;
 
     // --- 🔐 Firebase Authentication ログイン制御ロジック ---
-
     onAuthStateChanged(auth, (user) => {
         const loginScreen = document.getElementById('login-screen');
         const adminApp = document.getElementById('admin-app');
@@ -524,7 +518,6 @@
         if (user) {
             loginScreen.style.display = 'none';
             adminApp.style.display = 'flex';
-            
             initCameras();
             initPresets();
             startFirebaseSync();
@@ -532,7 +525,7 @@
             loginScreen.style.display = 'flex';
             adminApp.style.display = 'none';
             stopLocalTourTimer(); 
-            stopMicStreaming(); // ログアウト時にマイクも停止
+            stopMicStreaming();
         }
     });
 
@@ -540,19 +533,14 @@
         const userId = document.getElementById('login-userid').value.trim();
         const password = document.getElementById('login-password').value;
         const errorMsg = document.getElementById('login-error-msg');
-
         if (!userId || !password) {
             errorMsg.innerText = "ユーザーIDとパスワードを入力してください。";
             errorMsg.style.display = 'block';
             return;
         }
-
         const fullEmail = `${userId}@kactuif.internal`;
-
         signInWithEmailAndPassword(auth, fullEmail, password)
-            .then(() => {
-                errorMsg.style.display = 'none';
-            })
+            .then(() => { errorMsg.style.display = 'none'; })
             .catch((error) => {
                 console.error(error);
                 errorMsg.innerText = "ログインに失敗しました。ユーザーIDまたはパスワードが正しくありません。";
@@ -561,9 +549,7 @@
     };
 
     document.getElementById('btn-logout').onclick = () => {
-        if(confirm("ログアウトしますか？")) {
-            signOut(auth).catch(err => console.error(err));
-        }
+        if(confirm("ログアウトしますか？")) signOut(auth).catch(err => console.error(err));
     };
 
     // --- 🖋️ Firebase 書き込み関数 ---
@@ -612,42 +598,31 @@
 
     window.toggleVideoOptions = (type) => {
         const vOpts = document.getElementById('video-extra-options');
-        if(vOpts) {
-            vOpts.style.display = (type === 'video') ? 'block' : 'none';
-        }
+        if(vOpts) { vOpts.style.display = (type === 'video') ? 'block' : 'none'; }
     };
 
     window.saveScreenProgram = () => {
         const type = document.getElementById('input-screen-type').value;
         const title = document.getElementById('input-screen-title').value;
         const url = document.getElementById('input-screen-url').value;
-
         const programData = { type: type, title: title, url: url };
-
         if (type === 'video') {
             programData.loop = document.getElementById('input-screen-loop').value === 'true';
             programData.muted = document.getElementById('input-screen-muted').value === 'true';
         }
-
-        secureSet(ref(db, 'broadcast/screen_program'), programData).then(() => {
-            alert("画面投影設定を反映しました");
-        });
+        secureSet(ref(db, 'broadcast/screen_program'), programData).then(() => { alert("画面投影設定を反映しました"); });
     };
 
     window.setPrepareScreen = () => {
         document.getElementById('input-screen-type').value = 'image';
         document.getElementById('input-screen-url').value = 'https://gensai-lab.github.io/eqlive/assets/image/prepare.png';
         toggleVideoOptions('image');
-
         const programData = {
             type: 'image',
             title: document.getElementById('input-screen-title').value || "",
             url: 'https://gensai-lab.github.io/eqlive/assets/image/prepare.png'
         };
-
-        secureSet(ref(db, 'broadcast/screen_program'), programData).then(() => {
-            alert("準備中画面を配信にセットしました");
-        });
+        secureSet(ref(db, 'broadcast/screen_program'), programData).then(() => { alert("準備中画面を配信にセットしました"); });
     };
 
     // --- Firebase Write ---
@@ -657,15 +632,9 @@
         } else {
             const segments = path.split('/');
             if(segments.length === 1) {
-                const obj = {};
-                obj[path] = val;
-                secureUpdate(ref(db, 'broadcast'), obj);
+                const obj = {}; obj[path] = val; secureUpdate(ref(db, 'broadcast'), obj);
             } else {
-                const leaf = segments.pop();
-                const parentPath = segments.join('/');
-                const obj = {};
-                obj[leaf] = val;
-                secureUpdate(ref(db, `broadcast/${parentPath}`), obj);
+                const leaf = segments.pop(); const parentPath = segments.join('/'); const obj = {}; obj[leaf] = val; secureUpdate(ref(db, `broadcast/${parentPath}`), obj);
             }
         }
     };
@@ -676,27 +645,20 @@
     };
 
     window.saveTitle = () => {
-        secureUpdate(ref(db, 'broadcast/current'), {
-            mainTitle: document.getElementById('input-mainTitle').value,
-            subtitle: document.getElementById('input-subtitle').value
-        });
+        secureUpdate(ref(db, 'broadcast/current'), { mainTitle: document.getElementById('input-mainTitle').value, subtitle: document.getElementById('input-subtitle').value });
     };
 
     window.clearTitle = () => secureUpdate(ref(db, 'broadcast/current'), { mainTitle: "", subtitle: "" });
 
     window.saveTicker = () => {
-        secureUpdate(ref(db, 'broadcast/manual_news'), {
-            genre: document.getElementById('input-tic-g').value,
-            line1: document.getElementById('input-tic-1').value,
-            line2: document.getElementById('input-tic-2').value
-        });
+        secureUpdate(ref(db, 'broadcast/manual_news'), { genre: document.getElementById('input-tic-g').value, line1: document.getElementById('input-tic-1').value, line2: document.getElementById('input-tic-2').value });
     };
 
-    // --- 複数自由配置画像管理ロジック ---
+    // --- 自由配置メディア管理ロジック ---
     window.addNewFreeImage = () => {
         const newId = "img_" + Date.now(); 
         const initialConfig = {
-            name: "新規配置画像", url: "", x: 0, y: 0, width: 1920, zIndex: 1, opacity: 1.0, visible: true
+            name: "新規配置", url: "", x: 0, y: 0, width: 1920, zIndex: 1, opacity: 1.0, visible: true, mediaType: "image", loop: true
         };
         secureSet(ref(db, `broadcast/free_images/${newId}`), initialConfig);
     };
@@ -704,61 +666,57 @@
     window.addFreeImageFromPreset = (index) => {
         const preset = imagePresets[index];
         if (!preset) return;
-        
         const newId = "img_" + Date.now();
         const config = {
-            name: preset.name || "プリセット画像",
-            url: preset.url || "",
-            x: preset.x !== undefined ? preset.x : 0,
-            y: preset.y !== undefined ? preset.y : 0,
-            width: preset.width !== undefined ? preset.width : 1920,
-            zIndex: preset.zIndex !== undefined ? preset.zIndex : 1,
-            opacity: preset.opacity !== undefined ? preset.opacity : 1.0,
-            visible: preset.visible !== undefined ? preset.visible : true
+            name: preset.name || "プリセット", url: preset.url || "",
+            x: preset.x !== undefined ? preset.x : 0, y: preset.y !== undefined ? preset.y : 0,
+            width: preset.width !== undefined ? preset.width : 1920, zIndex: preset.zIndex !== undefined ? preset.zIndex : 1,
+            opacity: preset.opacity !== undefined ? preset.opacity : 1.0, visible: preset.visible !== undefined ? preset.visible : true,
+            mediaType: preset.mediaType || "image", loop: preset.loop !== undefined ? preset.loop : true
         };
         secureSet(ref(db, `broadcast/free_images/${newId}`), config);
     };
 
     window.syncRangeImageValue = (id, field, val) => {
-        let numVal = parseFloat(val);
-        if (isNaN(numVal)) numVal = 1;
-        const obj = {};
-        obj[field] = numVal;
-        secureUpdate(ref(db, `broadcast/free_images/${id}`), obj);
+        let numVal = parseFloat(val); if (isNaN(numVal)) numVal = 1;
+        const obj = {}; obj[field] = numVal; secureUpdate(ref(db, `broadcast/free_images/${id}`), obj);
     };
 
     window.updateImageProperty = (id, field, val) => {
-        const obj = {};
-        obj[field] = val;
-        secureUpdate(ref(db, `broadcast/free_images/${id}`), obj);
+        const obj = {}; obj[field] = val; secureUpdate(ref(db, `broadcast/free_images/${id}`), obj);
     };
 
     window.deleteFreeImage = (id) => {
-        if(confirm("この画像を配信レイヤーから完全に削除しますか？")) {
-            remove(ref(db, `broadcast/free_images/${id}`)).catch(err => alert("削除に失敗しました。"));
-        }
+        if(confirm("このメディアを配信レイヤーから完全に削除しますか？")) remove(ref(db, `broadcast/free_images/${id}`)).catch(err => alert("削除に失敗しました。"));
     };
 
     window.handleImageFileSelect = (id, event) => {
         const file = event.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (e) => {
-            const obj = { url: e.target.result };
-            secureUpdate(ref(db, `broadcast/free_images/${id}`), obj);
-        };
+        reader.onload = (e) => { const obj = { url: e.target.result }; secureUpdate(ref(db, `broadcast/free_images/${id}`), obj); };
         reader.readAsDataURL(file);
     };
 
-    window.openImagePreviewModal = (title, url) => {
+    window.openImagePreviewModal = (title, url, mediaType) => {
         const modal = document.getElementById('image-preview-modal');
         const modalTitle = document.getElementById('preview-modal-title');
-        const modalImg = document.getElementById('preview-modal-target-img');
+        const mediaContainer = document.getElementById('preview-modal-media-container');
         
-        if (!modal || !modalImg) return;
+        if (!modal || !mediaContainer) return;
         
-        modalTitle.innerText = `画像プレビュー : ${title || '名称未設定'}`;
-        modalImg.src = url;
+        modalTitle.innerText = `プレビュー : ${title || '名称未設定'}`;
+        mediaContainer.innerHTML = '';
+        
+        if (mediaType === 'video') {
+            const vid = document.createElement('video');
+            vid.src = url; vid.className = 'preview-modal-img'; vid.controls = true; vid.autoplay = true; vid.loop = true;
+            mediaContainer.appendChild(vid);
+        } else {
+            const img = document.createElement('img');
+            img.src = url; img.className = 'preview-modal-img'; img.alt = '拡大プレビュー';
+            mediaContainer.appendChild(img);
+        }
         
         modal.classList.add('open');
     };
@@ -766,7 +724,11 @@
     window.closeImagePreviewModal = (event) => {
         if(event && event.target !== document.getElementById('image-preview-modal')) return;
         const modal = document.getElementById('image-preview-modal');
-        if (modal) modal.classList.remove('open');
+        if (modal) {
+            modal.classList.remove('open');
+            const mediaContainer = document.getElementById('preview-modal-media-container');
+            if(mediaContainer) mediaContainer.innerHTML = ''; 
+        }
     };
 
     function renderFreeImagesControls(imagesData) {
@@ -775,7 +737,7 @@
         container.innerHTML = "";
 
         if (!imagesData || Object.keys(imagesData).length === 0) {
-            container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-sub); font-size:14px;">配置されている画像はありません。</div>`;
+            container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-sub); font-size:14px;">配置されているメディアはありません。</div>`;
             return;
         }
 
@@ -789,14 +751,16 @@
             card.style.borderLeft = conf.visible ? "5px solid var(--accent-blue)" : "5px solid #555";
 
             const currentZIndex = conf.zIndex !== undefined ? conf.zIndex : 1;
+            const currentMediaType = conf.mediaType || 'image';
+            const currentLoop = conf.loop !== undefined ? conf.loop : true;
             
             const hasUrl = conf.url && conf.url.trim() !== "";
             const escapedName = (conf.name || '名称未設定').replace(/'/g, "\\'");
             const escapedUrl = hasUrl ? conf.url.replace(/'/g, "\\'") : '';
             
             const previewBtnHtml = hasUrl 
-                ? `<button class="secondary" style="width:100%; margin-bottom:15px; background:#333; display:flex; align-items:center; justify-content:center; gap:8px;" onclick="openImagePreviewModal('${escapedName}', '${escapedUrl}')"><i class="material-icons" style="font-size:18px;">visibility</i>プレビューを表示</button>`
-                : `<button class="secondary" style="width:100%; margin-bottom:15px; opacity:0.3; cursor:not-allowed; display:flex; align-items:center; justify-content:center; gap:8px;" disabled><i class="material-icons" style="font-size:18px;">visibility_off</i>プレビュー用画像がありません</button>`;
+                ? `<button class="secondary" style="width:100%; margin-bottom:15px; background:#333; display:flex; align-items:center; justify-content:center; gap:8px;" onclick="openImagePreviewModal('${escapedName}', '${escapedUrl}', '${currentMediaType}')"><i class="material-icons" style="font-size:18px;">visibility</i>プレビュー</button>`
+                : `<button class="secondary" style="width:100%; margin-bottom:15px; opacity:0.3; cursor:not-allowed; display:flex; align-items:center; justify-content:center; gap:8px;" disabled><i class="material-icons" style="font-size:18px;">visibility_off</i>プレビュー用メディアがありません</button>`;
 
             card.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:10px;">
@@ -816,12 +780,26 @@
 
                 ${previewBtnHtml}
 
-                <label>画像直リンクURL</label>
+                <label>メディアタイプ</label>
+                <select style="margin-bottom: 10px; padding: 10px; background: #000; color: #fff; border: 1px solid #444; border-radius: 6px; width: 100%; font-size: 14px; font-family: inherit;" onchange="updateImageProperty('${id}', 'mediaType', this.value)">
+                    <option value="image" ${currentMediaType === 'image' ? 'selected' : ''}>画像 / GIF</option>
+                    <option value="video" ${currentMediaType === 'video' ? 'selected' : ''}>動画 (MP4, WebM等)</option>
+                </select>
+
+                <div style="display: ${currentMediaType === 'video' ? 'block' : 'none'}; margin-bottom: 10px;">
+                    <label>動画のループ再生</label>
+                    <select style="padding: 10px; background: #000; color: #fff; border: 1px solid #444; border-radius: 6px; width: 100%; font-size: 14px; font-family: inherit;" onchange="updateImageProperty('${id}', 'loop', this.value === 'true')">
+                        <option value="true" ${currentLoop === true ? 'selected' : ''}>ループする</option>
+                        <option value="false" ${currentLoop === false ? 'selected' : ''}>ループしない</option>
+                    </select>
+                </div>
+
+                <label>メディア直リンクURL（画像/GIF/動画）</label>
                 <input type="text" id="url-${id}" value="${conf.url && !conf.url.startsWith('data:') ? conf.url : ''}" 
                        placeholder="https://..." onchange="updateImageProperty('${id}', 'url', this.value)">
                 
-                <label>ローカル画像ファイルをアップロード</label>
-                <input type="file" accept="image/*" style="padding:6px; font-size:12px;" onchange="handleImageFileSelect('${id}', event)">
+                <label>ローカルファイルをアップロード (※ファイルサイズ注意)</label>
+                <input type="file" accept="image/*,video/*" style="padding:6px; font-size:12px;" onchange="handleImageFileSelect('${id}', event)">
 
                 <div style="margin-top:15px;">
                     <label>X座標 (px) <span style="float:right; color:var(--text-sub);" id="val-${id}-x">${conf.x || 0}px</span></label>
@@ -834,7 +812,7 @@
                         <input type="range" min="0" max="1080" value="${conf.y || 0}" id="range-${id}-y" oninput="document.getElementById('val-${id}-y').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'y', this.value)">
                     </div>
 
-                    <label>画像横幅尺寸 (px) <span style="float:right; color:var(--text-sub);" id="val-${id}-w">${conf.width !== undefined ? conf.width : 1920}px</span></label>
+                    <label>横幅サイズ (px) <span style="float:right; color:var(--text-sub);" id="val-${id}-w">${conf.width !== undefined ? conf.width : 1920}px</span></label>
                     <div class="range-group">
                         <input type="range" min="50" max="1920" value="${conf.width !== undefined ? conf.width : 1920}" id="range-${id}-w" oninput="document.getElementById('val-${id}-w').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'width', this.value)">
                     </div>
@@ -1320,12 +1298,11 @@
         const text = document.getElementById('input-tts-text').value.trim();
         if(!text) { alert("テキストを入力してください。"); return; }
         
-        // Main画面でトリガーさせるため、タイムスタンプを付与してFirebaseへ送信
         secureSet(ref(db, 'broadcast/audio/tts'), {
             text: text,
             timestamp: Date.now()
         }).then(() => {
-            document.getElementById('input-tts-text').value = ""; // 送信後クリア
+            document.getElementById('input-tts-text').value = ""; 
         });
     };
 
@@ -1352,27 +1329,20 @@
 
     window.startMicStreaming = async () => {
         try {
-            // マイクへのアクセス要求
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            
             document.getElementById('btn-mic-start').style.display = 'none';
             document.getElementById('btn-mic-stop').style.display = 'block';
             document.getElementById('mic-status').style.display = 'block';
 
-            // WebRTC初期化
             peerConnection = new RTCPeerConnection(servers);
-            
-            // トラックの追加
             localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-            // ICE Candidateの処理（Main画面へ送信）
             peerConnection.onicecandidate = event => {
                 if(event.candidate) {
-                    const newRef = set(ref(db, `broadcast/audio/webrtc/candidates/admin/${Date.now()}`), event.candidate.toJSON());
+                    set(ref(db, `broadcast/audio/webrtc/candidates/admin/${Date.now()}`), event.candidate.toJSON());
                 }
             };
 
-            // MainからのICE Candidateを受信
             onValue(ref(db, 'broadcast/audio/webrtc/candidates/main'), (snapshot) => {
                 snapshot.forEach((childSnapshot) => {
                     const candidate = new RTCIceCandidate(childSnapshot.val());
@@ -1380,19 +1350,16 @@
                 });
             });
 
-            // Offer作成
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
 
-            // シグナリングデータをリセットしてから送信
             await remove(ref(db, 'broadcast/audio/webrtc'));
             await secureSet(ref(db, 'broadcast/audio/webrtc/offer'), {
                 type: offer.type,
                 sdp: offer.sdp,
-                timestamp: Date.now() // Mainに強制リロードさせるトリガー
+                timestamp: Date.now() 
             });
 
-            // MainからのAnswerを待機
             onValue(ref(db, 'broadcast/audio/webrtc/answer'), (snapshot) => {
                 const data = snapshot.val();
                 if(data && !peerConnection.currentRemoteDescription) {
@@ -1417,14 +1384,12 @@
             peerConnection = null;
         }
 
-        // Firebase上の接続情報を削除し、Main側の音声も止める
         remove(ref(db, 'broadcast/audio/webrtc'));
 
         document.getElementById('btn-mic-start').style.display = 'block';
         document.getElementById('btn-mic-stop').style.display = 'none';
         document.getElementById('mic-status').style.display = 'none';
     };
-
 </script>
 </body>
 </html>
