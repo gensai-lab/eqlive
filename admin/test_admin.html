@@ -495,55 +495,69 @@
                 </div>
             </div>
 
-            <!-- ✨ ⑪文字スーパー タブ (原色カラーパレット版) -->
+            <!-- ✨ ⑪文字スーパー タブ (複数カード＆自動切り替え連続送出対応) -->
             <div id="tab-text-super" class="tab-content">
-                <h2>文字スーパー送出・装飾</h2>
+                <h2>文字スーパー送出・順次放送</h2>
                 <div class="card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <label style="margin:0;">表示テキスト入力 (※最大2行まで)</label>
-                        <span style="font-size:12px; color:var(--text-sub);">※全角23文字を超えると自動改行されます</span>
-                    </div>
-                    <textarea id="input-text-super" style="height:80px;" placeholder="画面上に表示するテキストを入力（最大2行）..." oninput="updateTextSuperPreview()" onkeydown="handleTextSuperKeyDown(event)"></textarea>
-
-                    <!-- 各行の文字数カウンター & 23文字オーバー警告表示 -->
-                    <div id="text-super-line-count" style="font-size:13px; color:var(--text-sub); margin-bottom:15px; display:flex; gap:20px; flex-wrap:wrap; align-items:center; background:#151515; padding:10px 14px; border-radius:6px; border:1px solid #333;">
-                        <div>1行目: <b id="line1-count" style="color:white; font-size:15px;">0</b> / 23文字</div>
-                        <div>2行目: <b id="line2-count" style="color:white; font-size:15px;">0</b> / 23文字</div>
-                        <div id="line-overflow-warn" style="color:var(--accent-red); font-weight:bold; display:none; margin-left:auto;">⚠️ 全角23文字を超えています</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                        <label style="margin:0; font-size:14px;">字幕カード一覧（順に自動切り替え送出されます）</label>
+                        <button class="primary" style="padding:8px 16px; font-size:13px; width:auto; flex:none; display:flex; align-items:center; gap:5px;" onclick="addTextSuperCard()">
+                            <i class="material-icons" style="font-size:16px;">add</i> 字幕カードを追加
+                        </button>
                     </div>
 
-                    <label style="margin-top:10px;">文字色カラー装飾パレット (原色系)</label>
-                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">テキストを選択した状態で色ボタンを押すと、選択箇所に装飾が適用されます。</p>
-                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px; flex-wrap:wrap;">
-                        <button type="button" class="color-palette-btn" style="background:#ffffff;" title="白 (255,255,255)" onclick="insertColorTag('#ffffff')"></button>
-                        <button type="button" class="color-palette-btn" style="background:#ff0000;" title="赤 (255,0,0)" onclick="insertColorTag('#ff0000')"></button>
-                        <button type="button" class="color-palette-btn" style="background:#00ff00;" title="緑 (0,255,0)" onclick="insertColorTag('#00ff00')"></button>
-                        <button type="button" class="color-palette-btn" style="background:#0000ff;" title="青 (0,0,255)" onclick="insertColorTag('#0000ff')"></button>
-                        <button type="button" class="color-palette-btn" style="background:#ffff00;" title="黄 (255,255,0)" onclick="insertColorTag('#ffff00')"></button>
-                        <button type="button" class="color-palette-btn" style="background:#ff00ff;" title="マゼンタ (255,0,255)" onclick="insertColorTag('#ff00ff')"></button>
-                        <button type="button" class="color-palette-btn" style="background:#00ffff;" title="シアン (0,255,255)" onclick="insertColorTag('#00ffff')"></button>
-                        <div style="display:flex; align-items:center; gap:5px; margin-left:10px;">
-                            <span style="font-size:12px; color:var(--text-sub);">任意色:</span>
-                            <input type="color" id="text-super-custom-color" value="#ffff00" style="width:40px; height:32px; padding:2px; margin:0; cursor:pointer;" onchange="insertColorTag(this.value)">
+                    <!-- 🎴 複数字幕カード一覧コンテナ -->
+                    <div id="text-super-cards-container"></div>
+
+                    <!-- 🎨 カラーパレット（アクティブなカードに対して適用） -->
+                    <div style="background:#151515; padding:15px; border-radius:8px; border:1px solid #333; margin-top:15px; margin-bottom:15px;">
+                        <label style="margin-top:0;">文字色カラー装飾パレット (原色系)</label>
+                        <p style="font-size:12px; color:var(--text-sub); margin-top:0; margin-bottom:10px;">編集中のカードのテキストを選択した状態で色ボタンを押すと、装飾が適用されます。</p>
+                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                            <button type="button" class="color-palette-btn" style="background:#ffffff;" title="白 (255,255,255)" onclick="insertColorTagToActive('#ffffff')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#ff0000;" title="赤 (255,0,0)" onclick="insertColorTagToActive('#ff0000')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#00ff00;" title="緑 (0,255,0)" onclick="insertColorTagToActive('#00ff00')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#0000ff;" title="青 (0,0,255)" onclick="insertColorTagToActive('#0000ff')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#ffff00;" title="黄 (255,255,0)" onclick="insertColorTagToActive('#ffff00')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#ff00ff;" title="マゼンタ (255,0,255)" onclick="insertColorTagToActive('#ff00ff')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#00ffff;" title="シアン (0,255,255)" onclick="insertColorTagToActive('#00ffff')"></button>
+                            <div style="display:flex; align-items:center; gap:5px; margin-left:10px;">
+                                <span style="font-size:12px; color:var(--text-sub);">任意色:</span>
+                                <input type="color" id="text-super-custom-color" value="#ffff00" style="width:40px; height:32px; padding:2px; margin:0; cursor:pointer;" onchange="insertColorTagToActive(this.value)">
+                            </div>
                         </div>
                     </div>
 
-                    <label>送信前リアルタイムプレビュー (40px / 7px縁取り再現)</label>
-                    <div id="text-super-preview-box" style="background:#000; border:1px solid #444; padding:15px; border-radius:8px; min-height:80px; font-size:24px; line-height:120%; color:#fff; -webkit-text-stroke: 1.5px #000; paint-order: stroke fill; word-break:break-all; margin-bottom:20px;">
-                        （ここにプレビューが表示されます）
+                    <!-- ⚙️ 送出切り替え設定 -->
+                    <div class="card" style="background:#111; border:1px solid #333; padding:15px; margin-bottom:15px;">
+                        <label>送出切り替え設定</label>
+                        <div style="display:flex; gap:15px; flex-wrap:wrap; align-items:center;">
+                            <div style="flex:1; min-width:200px;">
+                                <label style="font-weight:normal;">1枚あたりの表示時間 (秒)</label>
+                                <input type="number" id="text-super-interval-sec" value="10" min="3" max="60" style="margin-bottom:0;">
+                            </div>
+                            <div style="flex:1; min-width:200px;">
+                                <label style="font-weight:normal;">ループ再生設定</label>
+                                <select id="text-super-loop-select" style="margin-bottom:0;">
+                                    <option value="true" selected>ループ（全カード表示後、最初に戻る）</option>
+                                    <option value="false">1周で終了（最後のカード表示後に自動消去）</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="btn-group">
-                        <button class="primary" style="background:var(--accent-green); display:flex; justify-content:center; align-items:center; gap:8px;" onclick="sendTextSuper()">
-                            <i class="material-icons">send</i> ▶ 画面に送出 (10秒表示)
+                        <button id="btn-text-super-start" class="primary" style="background:var(--accent-green); display:flex; justify-content:center; align-items:center; gap:8px;" onclick="startTextSuperSequence()">
+                            <i class="material-icons">play_arrow</i> ▶ 順次送出を開始
                         </button>
-                        <button class="danger" style="display:flex; justify-content:center; align-items:center; gap:8px;" onclick="clearTextSuper()">
-                            <i class="material-icons">cancel</i> ■ 即時消去
+                        <button id="btn-text-super-stop" class="danger" style="display:flex; justify-content:center; align-items:center; gap:8px;" onclick="stopTextSuperSequence()">
+                            <i class="material-icons" style="font-size:18px;">stop</i> ■ 送出停止・即時消去
                         </button>
                     </div>
 
-                    <div id="text-super-status" style="margin-top:15px; font-size:13px; color:#ffb300; display:none; background:#151515; padding:10px; border-radius:6px; border:1px solid #333;">
-                        📺 画面上に表示中... (残り <span id="text-super-countdown">10</span> 秒)
+                    <!-- 📊 送出ステータス表示 -->
+                    <div id="text-super-status" style="margin-top:15px; font-size:13px; color:#ffb300; display:none; background:#151515; padding:12px; border-radius:6px; border:1px solid #333;">
+                        📺 連続送出中... [カード <span id="text-super-current-card-num">1</span> / <span id="text-super-total-cards">1</span>] (切り替えまで残り <span id="text-super-countdown">10</span> 秒)
                     </div>
                 </div>
             </div>
@@ -594,8 +608,15 @@
     let selectedTourIds = [];
     let currentTourConfig = null;
 
-    let textSuperTimer = null;
-    let textSuperInterval = null;
+    // --- 文字スーパー（複数カード＆順次自動送出用変数） ---
+    let localTextSuperCards = [
+        { id: "card_" + Date.now(), text: "" }
+    ];
+    let activeCardInputId = null; 
+    let textSuperActiveSequenceIndex = 0;
+    let textSuperSequenceTimer = null;
+    let textSuperCountdownTimer = null;
+    let isTextSuperSending = false;
 
     // --- 🔐 Firebase Authentication ログイン制御ロジック ---
     onAuthStateChanged(auth, (user) => {
@@ -607,12 +628,14 @@
             adminApp.style.display = 'flex';
             initCameras();
             initPresets();
+            renderTextSuperCards();
             startFirebaseSync();
         } else {
             loginScreen.style.display = 'flex';
             adminApp.style.display = 'none';
             stopLocalTourTimer(); 
             stopMicStreaming();
+            stopTextSuperSequence();
         }
     });
 
@@ -1412,7 +1435,7 @@
             if (textSuperConf.htmlContent && textSuperConf.htmlContent.trim() !== '') {
                 if(statusBox) statusBox.style.display = 'block';
             } else {
-                if(statusBox) statusBox.style.display = 'none';
+                if(statusBox && !isTextSuperSending) statusBox.style.display = 'none';
             }
 
             isInitialLoad = false;
@@ -1541,9 +1564,9 @@
         document.getElementById('mic-status').style.display = 'none';
     };
 
-    // --- ✨ ⑪文字スーパー 送出・制限・文字数計算ロジック ---
+    // --- ✨ ⑪文字スーパー 複数カード＆自動切り替え連続送出ロジック ---
 
-    // 全角＝1、半角＝0.5換算の文字数計算関数（HTMLタグはカウントから除外）
+    // 全角＝1、半角＝0.5換算の文字数計算関数（HTMLタグ除去）
     function getZenKakuCount(str) {
         if(!str) return 0;
         const temp = document.createElement('div');
@@ -1552,7 +1575,6 @@
         let count = 0;
         for (let i = 0; i < cleanText.length; i++) {
             const c = cleanText.charCodeAt(i);
-            // ASCII半角記号・英数 または 半角カナ
             if ((c >= 0x0000 && c <= 0x007e) || (c >= 0xff61 && c <= 0xff9f)) {
                 count += 0.5;
             } else {
@@ -1562,9 +1584,49 @@
         return Math.ceil(count);
     }
 
+    // カード追加
+    window.addTextSuperCard = () => {
+        localTextSuperCards.push({ id: "card_" + Date.now(), text: "" });
+        renderTextSuperCards();
+    };
+
+    // カード削除
+    window.removeTextSuperCard = (id) => {
+        if(localTextSuperCards.length <= 1) {
+            alert("最低1枚の字幕カードが必要です。");
+            return;
+        }
+        localTextSuperCards = localTextSuperCards.filter(c => c.id !== id);
+        renderTextSuperCards();
+    };
+
+    // 順序変更（上へ / 下へ）
+    window.moveTextSuperCard = (index, direction) => {
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= localTextSuperCards.length) return;
+        const temp = localTextSuperCards[index];
+        localTextSuperCards[index] = localTextSuperCards[targetIndex];
+        localTextSuperCards[targetIndex] = temp;
+        renderTextSuperCards();
+    };
+
+    // テキスト変更時の保存 & カウント/プレビュー更新
+    window.updateTextSuperCardText = (id, val) => {
+        const card = localTextSuperCards.find(c => c.id === id);
+        if (card) {
+            card.text = val;
+            updateTextSuperCardUI(id);
+        }
+    };
+
+    // テキストエリアのフォーカス保持（カラーパレット適用対象判定用）
+    window.handleTextSuperFocus = (id) => {
+        activeCardInputId = id;
+    };
+
     // 2行を超えて改行できないようにブロック
-    window.handleTextSuperKeyDown = (e) => {
-        const textarea = document.getElementById('input-text-super');
+    window.handleTextSuperKeyDown = (e, id) => {
+        const textarea = document.getElementById(`textarea-${id}`);
         if (!textarea) return;
         
         if (e.key === 'Enter') {
@@ -1575,26 +1637,28 @@
         }
     };
 
-    // プレビュー表示および行数・文字数制御
-    window.updateTextSuperPreview = () => {
-        const textarea = document.getElementById('input-text-super');
-        const previewBox = document.getElementById('text-super-preview-box');
+    // UI個別更新（文字数カウント & プレビュー）
+    function updateTextSuperCardUI(id) {
+        const card = localTextSuperCards.find(c => c.id === id);
+        if(!card) return;
+
+        const textarea = document.getElementById(`textarea-${id}`);
+        const previewBox = document.getElementById(`preview-${id}`);
         if(!textarea || !previewBox) return;
 
-        // ペースト等で3行以上になった場合に強制的に最大2行にカット
         let lines = textarea.value.split(/\r\n|\r|\n/);
         if (lines.length > 2) {
             textarea.value = lines.slice(0, 2).join('\n');
             lines = textarea.value.split(/\r\n|\r|\n/);
+            card.text = textarea.value;
         }
 
-        // 行ごとの文字数計算
         const count1 = getZenKakuCount(lines[0] || '');
         const count2 = getZenKakuCount(lines[1] || '');
 
-        const el1 = document.getElementById('line1-count');
-        const el2 = document.getElementById('line2-count');
-        const warnEl = document.getElementById('line-overflow-warn');
+        const el1 = document.getElementById(`line1-count-${id}`);
+        const el2 = document.getElementById(`line2-count-${id}`);
+        const warnEl = document.getElementById(`warn-${id}`);
 
         if (el1) {
             el1.innerText = count1;
@@ -1612,18 +1676,68 @@
         if(!raw || raw.trim() === '') {
             previewBox.innerHTML = '（ここにプレビューが表示されます）';
             previewBox.style.opacity = '0.5';
-            return;
+        } else {
+            previewBox.style.opacity = '1.0';
+            previewBox.innerHTML = raw.replace(/\r\n|\r|\n/g, '<br>');
         }
-        previewBox.style.opacity = '1.0';
-        
-        // 改行コードを <br> に変換してプレビュー表示
-        let formatted = raw.replace(/\r\n|\r|\n/g, '<br>');
-        previewBox.innerHTML = formatted;
-    };
+    }
 
-    // 選択テキストへのカラータグ挿入
-    window.insertColorTag = (color) => {
-        const textarea = document.getElementById('input-text-super');
+    // 全字幕カードを描画
+    function renderTextSuperCards() {
+        const container = document.getElementById('text-super-cards-container');
+        if(!container) return;
+
+        const activeIdBefore = document.activeElement ? document.activeElement.id : null;
+        container.innerHTML = "";
+
+        localTextSuperCards.forEach((card, index) => {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = "card";
+            cardDiv.style.background = "#222";
+            cardDiv.style.borderLeft = (isTextSuperSending && textSuperActiveSequenceIndex === index) ? "5px solid var(--accent-green)" : "5px solid var(--accent-blue)";
+            cardDiv.style.marginBottom = "15px";
+
+            cardDiv.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <span style="font-size:14px; font-weight:bold; color:var(--accent-blue);">字幕カード #${index + 1} ${ (isTextSuperSending && textSuperActiveSequenceIndex === index) ? '<span style="color:var(--accent-green); margin-left:10px;">[送出中]</span>' : '' }</span>
+                    <div class="btn-group" style="margin:0; gap:5px;">
+                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveTextSuperCard(${index}, -1)" ${index === 0 ? 'disabled' : ''}>▲ 上へ</button>
+                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveTextSuperCard(${index}, 1)" ${index === localTextSuperCards.length - 1 ? 'disabled' : ''}>▼ 下へ</button>
+                        <button class="danger" style="padding:4px 8px; font-size:12px;" onclick="removeTextSuperCard('${card.id}')"><i class="material-icons" style="font-size:14px; vertical-align:middle;">delete</i> 削除</button>
+                    </div>
+                </div>
+
+                <label>表示テキスト (最大2行)</label>
+                <textarea id="textarea-${card.id}" style="height:70px; margin-bottom:10px;" placeholder="字幕テキストを入力..." onfocus="handleTextSuperFocus('${card.id}')" oninput="updateTextSuperCardText('${card.id}', this.value)" onkeydown="handleTextSuperKeyDown(event, '${card.id}')">${card.text || ''}</textarea>
+
+                <div style="font-size:12px; color:var(--text-sub); margin-bottom:10px; display:flex; gap:15px; align-items:center; background:#151515; padding:8px 12px; border-radius:6px; border:1px solid #333;">
+                    <div>1行目: <b id="line1-count-${card.id}" style="color:white;">0</b> / 23文字</div>
+                    <div>2行目: <b id="line2-count-${card.id}" style="color:white;">0</b> / 23文字</div>
+                    <div id="warn-${card.id}" style="color:var(--accent-red); font-weight:bold; display:none; margin-left:auto;">⚠️ 23文字オーバー</div>
+                </div>
+
+                <label style="margin-bottom:4px;">プレビュー</label>
+                <div id="preview-${card.id}" style="background:#000; border:1px solid #444; padding:10px; border-radius:6px; min-height:50px; font-size:20px; line-height:120%; color:#fff; -webkit-text-stroke: 1px #000; paint-order: stroke fill; word-break:break-all;">
+                    （ここにプレビューが表示されます）
+                </div>
+            `;
+            container.appendChild(cardDiv);
+            updateTextSuperCardUI(card.id);
+        });
+
+        if (activeIdBefore && document.getElementById(activeIdBefore)) {
+            document.getElementById(activeIdBefore).focus();
+        }
+    }
+
+    // 現在アクティブなテキストエリアへのカラータグ挿入
+    window.insertColorTagToActive = (color) => {
+        if (!activeCardInputId) {
+            if(localTextSuperCards.length > 0) activeCardInputId = localTextSuperCards[0].id;
+            else return;
+        }
+
+        const textarea = document.getElementById(`textarea-${activeCardInputId}`);
         if (!textarea) return;
 
         const start = textarea.selectionStart;
@@ -1634,59 +1748,103 @@
         const tagText = `<span style="color:${color};">${selectedText || '文字'}</span>`;
 
         textarea.value = text.substring(0, start) + tagText + text.substring(end);
+        updateTextSuperCardText(activeCardInputId, textarea.value);
+        
         textarea.focus();
         textarea.setSelectionRange(start + `<span style="color:${color};">`.length, start + tagText.length - 7);
-        
-        updateTextSuperPreview();
     };
 
-    // 文字スーパーの画面送出 (10秒限定)
-    window.sendTextSuper = () => {
-        const textarea = document.getElementById('input-text-super');
-        if(!textarea) return;
+    // 🚀 連続自動送出の開始
+    window.startTextSuperSequence = () => {
+        // 空でない有効なカードをチェック
+        const validCards = localTextSuperCards.filter(c => c.text && c.text.trim() !== "");
+        if (validCards.length === 0) {
+            alert("送出する字幕テキストを入力してください。");
+            return;
+        }
 
-        let raw = textarea.value.trim();
-        if(!raw) { alert("文字スーパーのテキストを入力してください。"); return; }
+        stopTextSuperSequenceTimers();
+        isTextSuperSending = true;
+        textSuperActiveSequenceIndex = 0;
 
-        // 改行コードを <br> に変換
-        let htmlContent = raw.replace(/\r\n|\r|\n/g, '<br>');
+        executeTextSuperStep();
+    };
 
-        // 既存のタイマーをリセット
-        if(textSuperTimer) clearTimeout(textSuperTimer);
-        if(textSuperInterval) clearInterval(textSuperInterval);
+    // 順次送出ステップの実行
+    function executeTextSuperStep() {
+        if (!isTextSuperSending) return;
+
+        const intervalSec = parseInt(document.getElementById('text-super-interval-sec').value) || 10;
+        const isLoop = document.getElementById('text-super-loop-select').value === 'true';
+
+        // 有効なカードのフィルタリング
+        const validIndices = localTextSuperCards.map((c, idx) => (c.text && c.text.trim() !== "") ? idx : -1).filter(idx => idx !== -1);
+        
+        if (validIndices.length === 0) {
+            stopTextSuperSequence();
+            return;
+        }
+
+        if (textSuperActiveSequenceIndex >= validIndices.length) {
+            if (isLoop) {
+                textSuperActiveSequenceIndex = 0;
+            } else {
+                // 1周終了したらクリア
+                stopTextSuperSequence();
+                return;
+            }
+        }
+
+        const targetCardIndex = validIndices[textSuperActiveSequenceIndex];
+        const card = localTextSuperCards[targetCardIndex];
+
+        let htmlContent = card.text.trim().replace(/\r\n|\r|\n/g, '<br>');
 
         // Firebase へ送出
         secureSet(ref(db, 'broadcast/text_super'), {
             htmlContent: htmlContent,
             timestamp: Date.now()
         }).then(() => {
+            renderTextSuperCards(); // 送出中ハイライト更新
+
             const statusBox = document.getElementById('text-super-status');
+            const currentNumEl = document.getElementById('text-super-current-card-num');
+            const totalNumEl = document.getElementById('text-super-total-cards');
             const countdownEl = document.getElementById('text-super-countdown');
-            
-            let count = 10;
+
             if(statusBox) statusBox.style.display = 'block';
+            if(currentNumEl) currentNumEl.innerText = textSuperActiveSequenceIndex + 1;
+            if(totalNumEl) totalNumEl.innerText = validIndices.length;
+
+            let count = intervalSec;
             if(countdownEl) countdownEl.innerText = count;
 
-            // 1秒ごとのカウントダウン表示
-            textSuperInterval = setInterval(() => {
+            if(textSuperCountdownTimer) clearInterval(textSuperCountdownTimer);
+            textSuperCountdownTimer = setInterval(() => {
                 count--;
                 if(countdownEl) countdownEl.innerText = count;
-                if(count <= 0) {
-                    clearInterval(textSuperInterval);
-                }
+                if(count <= 0) clearInterval(textSuperCountdownTimer);
             }, 1000);
 
-            // 10秒後に自動消去
-            textSuperTimer = setTimeout(() => {
-                clearTextSuper();
-            }, 10000);
-        });
-    };
+            textSuperActiveSequenceIndex++;
 
-    // 即時消去
-    window.clearTextSuper = () => {
-        if(textSuperTimer) { clearTimeout(textSuperTimer); textSuperTimer = null; }
-        if(textSuperInterval) { clearInterval(textSuperInterval); textSuperInterval = null; }
+            // 次のカードへ切り替えタイマー
+            textSuperSequenceTimer = setTimeout(() => {
+                executeTextSuperStep();
+            }, intervalSec * 1000);
+        });
+    }
+
+    // 順次送出タイマーのみ停止
+    function stopTextSuperSequenceTimers() {
+        if(textSuperSequenceTimer) { clearTimeout(textSuperSequenceTimer); textSuperSequenceTimer = null; }
+        if(textSuperCountdownTimer) { clearInterval(textSuperCountdownTimer); textSuperCountdownTimer = null; }
+    }
+
+    // 🛑 完全停止 & 即時消去
+    window.stopTextSuperSequence = () => {
+        isTextSuperSending = false;
+        stopTextSuperSequenceTimers();
 
         secureSet(ref(db, 'broadcast/text_super'), {
             htmlContent: "",
@@ -1694,6 +1852,7 @@
         }).then(() => {
             const statusBox = document.getElementById('text-super-status');
             if(statusBox) statusBox.style.display = 'none';
+            renderTextSuperCards(); // ハイライト解除
         });
     };
 </script>
