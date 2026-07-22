@@ -77,6 +77,7 @@
         input, select, textarea {
             width: 100%; padding: 14px; background: #000; border: 1px solid #444; 
             color: white; border-radius: 8px; font-size: 16px; margin-bottom: 15px; font-family: inherit;
+            user-select: text;
         }
 
         .range-group { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
@@ -109,11 +110,6 @@
         }
         .tour-cam-item label { display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; color: white; font-weight: normal; font-size: 14px; }
         .tour-cam-item input[type="checkbox"] { width: auto; margin: 0; }
-
-        /* ドラッグ用のスタイル設定 */
-        .draggable-card { cursor: grab; user-select: none; }
-        .draggable-card:active { cursor: grabbing; }
-        .draggable-card.dragging { opacity: 0.5; border: 2px dashed var(--accent-blue); }
 
         /* 🖼️ プレビュー用モーダルスタイル */
         .preview-modal {
@@ -330,6 +326,7 @@
                 </div>
             </div>
 
+            <!-- ⑥ L字設定 タブ (ボタン移動・スムーズアニメーション対応) -->
             <div id="tab-l-shape" class="tab-content">
                 <h2>L字放送・詳細設定</h2>
                 <div class="card">
@@ -495,7 +492,7 @@
                 </div>
             </div>
 
-            <!-- ✨ ⑪文字スーパー タブ (複数カード＆自動切り替え連続送出対応) -->
+            <!-- ✨ ⑪文字スーパー タブ (複数カード＆順次自動送出・アニメーション対応) -->
             <div id="tab-text-super" class="tab-content">
                 <h2>文字スーパー送出・順次放送</h2>
                 <div class="card">
@@ -943,74 +940,116 @@
         });
     }
 
+    // --- ✨ カード順序入れ替え時「シュンっ」と滑らかに動くアニメーション共通関数 ---
+    function animateCardSwap(container, index1, index2, array, renderFn) {
+        if (!container) {
+            const temp = array[index1];
+            array[index1] = array[index2];
+            array[index2] = temp;
+            renderFn();
+            return;
+        }
+
+        const cards = container.children;
+        const card1 = cards[index1];
+        const card2 = cards[index2];
+
+        if (!card1 || !card2) {
+            const temp = array[index1];
+            array[index1] = array[index2];
+            array[index2] = temp;
+            renderFn();
+            return;
+        }
+
+        // 変化前の位置を取得
+        const rect1 = card1.getBoundingClientRect();
+        const rect2 = card2.getBoundingClientRect();
+
+        // 配列要素を入れ替え
+        const temp = array[index1];
+        array[index1] = array[index2];
+        array[index2] = temp;
+
+        // UIを再描画
+        renderFn();
+
+        // 再描画後の新しいカード要素を取得
+        const newCards = container.children;
+        const newCard1 = newCards[index1]; 
+        const newCard2 = newCards[index2]; 
+
+        if (newCard1 && newCard2) {
+            // 元の位置から現在の位置までの移動距離（Y軸）
+            const dy1 = rect2.top - rect1.top;
+            const dy2 = rect1.top - rect2.top;
+
+            // 「シュンっ」と動くイージングアニメーションを適用
+            newCard1.animate([
+                { transform: `translateY(${dy1}px)` },
+                { transform: 'translateY(0)' }
+            ], {
+                duration: 250,
+                easing: 'cubic-bezier(0.16, 1, 0.3, 1)'
+            });
+
+            newCard2.animate([
+                { transform: `translateY(${dy2}px)` },
+                { transform: 'translateY(0)' }
+            ], {
+                duration: 250,
+                easing: 'cubic-bezier(0.16, 1, 0.3, 1)'
+            });
+        }
+    }
+
     // --- L-Shape Logic ---
     let localLItems = [];
     window.addLItem = () => { localLItems.push({genre:"", text:""}); renderLItems(); };
     window.removeLItem = (i) => { localLItems.splice(i,1); renderLItems(); };
     window.updateLItem = (i, field, val) => { localLItems[i][field] = val; };
 
-    function setupDragAndDrop() {
+    // L字カード上下移動（ボタン操作＆アニメーション）
+    window.moveLItem = (index, direction) => {
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= localLItems.length) return;
         const container = document.getElementById('l-items-container');
-        const cards = container.querySelectorAll('.draggable-card');
-        cards.forEach(card => {
-            card.addEventListener('dragstart', (e) => { card.classList.add('dragging'); e.dataTransfer.setData('text/plain', card.dataset.index); });
-            card.addEventListener('dragend', () => { card.classList.remove('dragging'); reorderLocalLItems(); });
-            card.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                const draggingCard = container.querySelector('.dragging');
-                const afterElement = getDragAfterElement(container, e.clientY);
-                if (afterElement == null) { container.appendChild(draggingCard); } else { container.insertBefore(draggingCard, afterElement); }
-            });
-        });
-    }
-
-    function getDragAfterElement(container, y) {
-        const draggableElements = [...container.querySelectorAll('.draggable-card:not(.dragging)')];
-        return draggableElements.reduce((closest, child) => {
-            const box = child.getBoundingClientRect();
-            const offset = y - box.top - box.height / 2;
-            if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } else { return closest; }
-        }, { offset: Number.NEGATIVE_INFINITY }).element;
-    }
-
-    function reorderLocalLItems() {
-        const container = document.getElementById('l-items-container');
-        const cards = [...container.querySelectorAll('.draggable-card')];
-        const newOrderedList = [];
-        cards.forEach(card => {
-            const oldIndex = parseInt(card.dataset.index);
-            newOrderedList.push(localLItems[oldIndex]);
-        });
-        localLItems = newOrderedList;
-        renderLItems(); 
-    }
+        animateCardSwap(container, index, targetIndex, localLItems, renderLItems);
+    };
 
     function renderLItems() {
         const container = document.getElementById('l-items-container');
         if(!container) return;
+
+        const activeIdBefore = document.activeElement ? document.activeElement.id : null;
         container.innerHTML = "";
+
         localLItems.forEach((item, i) => {
             const div = document.createElement('div');
-            div.className = "card draggable-card";
-            div.draggable = true; div.dataset.index = i;
+            div.className = "card";
             div.style.background = "#252525";
             div.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue); display:flex; align-items:center; gap:5px;">
-                        <i class="material-icons" style="font-size:16px; cursor:move;">drag_indicator</i> カード #${i}
+                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue);">
+                        カード #${i + 1}
                     </div>
-                    <div class="btn-group" style="margin:0;">
-                        <button class="danger" style="padding:5px 10px;" onclick="removeLItem(${i})"><i class="material-icons" style="font-size:14px;">delete</i></button>
+                    <div class="btn-group" style="margin:0; gap:5px;">
+                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveLItem(${i}, -1)" ${i === 0 ? 'disabled' : ''}>▲ 上へ</button>
+                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveLItem(${i}, 1)" ${i === localLItems.length - 1 ? 'disabled' : ''}>▼ 下へ</button>
+                        <button class="danger" style="padding:4px 8px; font-size:12px;" onclick="removeLItem(${i})"><i class="material-icons" style="font-size:14px; vertical-align:middle;">delete</i> 削除</button>
                     </div>
                 </div>
                 <label>ジャンル</label>
-                <input type="text" value="${item.genre || ''}" oninput="updateLItem(${i}, 'genre', this.value)">
+                <input type="text" id="input-l-genre-${i}" value="${item.genre || ''}" oninput="updateLItem(${i}, 'genre', this.value)">
                 <label>内容</label>
-                <input type="text" value="${item.text || ''}" oninput="updateLItem(${i}, 'text', this.value)">
+                <input type="text" id="input-l-text-${i}" value="${item.text || ''}" oninput="updateLItem(${i}, 'text', this.value)">
             `;
             container.appendChild(div);
         });
-        setupDragAndDrop();
+
+        if (activeIdBefore && document.getElementById(activeIdBefore)) {
+            document.getElementById(activeIdBefore).focus();
+        }
     }
 
     window.saveLShape = () => {
@@ -1337,7 +1376,7 @@
             syncInput('input-subtitle', cur.subtitle);
             if(data.manual_news) { syncInput('input-tic-g', data.manual_news.genre); syncInput('input-tic-1', data.manual_news.line1); syncInput('input-tic-2', data.manual_news.line2); }
 
-            const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container') || containerIsDragging());
+            const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container'));
             if(data.l_shape && !isEditingL) {
                 syncInput('input-l-leftText', data.l_shape.leftText);
                 const items = data.l_shape.topItems;
@@ -1440,11 +1479,6 @@
 
             isInitialLoad = false;
         });
-    }
-
-    function containerIsDragging() {
-        const container = document.getElementById('l-items-container');
-        return container ? container.querySelectorAll('.dragging').length > 0 : false;
     }
 
     // --- 🔊 音声・BGM・マイク制御 ---
@@ -1600,14 +1634,12 @@
         renderTextSuperCards();
     };
 
-    // 順序変更（上へ / 下へ）
+    // 順序変更（上へ / 下へ - アニメーション付き）
     window.moveTextSuperCard = (index, direction) => {
         const targetIndex = index + direction;
         if (targetIndex < 0 || targetIndex >= localTextSuperCards.length) return;
-        const temp = localTextSuperCards[index];
-        localTextSuperCards[index] = localTextSuperCards[targetIndex];
-        localTextSuperCards[targetIndex] = temp;
-        renderTextSuperCards();
+        const container = document.getElementById('text-super-cards-container');
+        animateCardSwap(container, index, targetIndex, localTextSuperCards, renderTextSuperCards);
     };
 
     // テキスト変更時の保存 & カウント/プレビュー更新
