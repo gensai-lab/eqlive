@@ -165,7 +165,7 @@
         }
     });
 
-    // --- 自由配置画像リストの同期反映 ---
+    // --- 自由配置リストの同期反映 ---
     const freeImagesRef = ref(db, 'broadcast/free_images');
     onValue(freeImagesRef, (snapshot) => {
         const imagesData = snapshot.val();
@@ -174,16 +174,31 @@
             Object.keys(imagesData).forEach(id => {
                 const imgConf = imagesData[id];
                 if (imgConf && imgConf.visible && imgConf.url) {
-                    const img = document.createElement('img');
-                    img.id = `sub-img-node-${id}`;
-                    img.className = 'custom-free-image';
-                    img.src = imgConf.url;
-                    img.style.left = `${imgConf.x !== undefined ? imgConf.x : 0}px`;
-                    img.style.top = `${imgConf.y !== undefined ? imgConf.y : 0}px`;
-                    img.style.width = `${imgConf.width !== undefined ? imgConf.width : 300}px`;
-                    img.style.height = `${imgConf.height !== undefined ? imgConf.height : 'auto'}`;
-                    img.style.opacity = (imgConf.opacity !== undefined) ? imgConf.opacity : 1;
-                    imageLayer.appendChild(img);
+                    
+                    let mediaEl;
+                    // mediaTypeがvideoなら自動再生・ミュートのvideoタグを生成、それ以外はimgタグを生成
+                    if (imgConf.mediaType === 'video') {
+                        mediaEl = document.createElement('video');
+                        mediaEl.src = imgConf.url;
+                        mediaEl.autoplay = true;
+                        mediaEl.muted = true; // ブラウザの自動再生ポリシー対策
+                        mediaEl.playsInline = true;
+                        mediaEl.loop = (imgConf.loop !== undefined) ? imgConf.loop : true;
+                    } else {
+                        mediaEl = document.createElement('img');
+                        mediaEl.src = imgConf.url;
+                    }
+
+                    mediaEl.id = `sub-img-node-${id}`;
+                    mediaEl.className = 'custom-free-image';
+                    mediaEl.style.left = `${imgConf.x !== undefined ? imgConf.x : 0}px`;
+                    mediaEl.style.top = `${imgConf.y !== undefined ? imgConf.y : 0}px`;
+                    mediaEl.style.width = `${imgConf.width !== undefined ? imgConf.width : 300}px`;
+                    mediaEl.style.height = `${imgConf.height !== undefined ? imgConf.height : 'auto'}`;
+                    mediaEl.style.opacity = (imgConf.opacity !== undefined) ? imgConf.opacity : 1;
+                    mediaEl.style.zIndex = (imgConf.zIndex !== undefined) ? imgConf.zIndex : 1;
+
+                    imageLayer.appendChild(mediaEl);
                 }
             });
         }
@@ -221,14 +236,6 @@
             apiTsunamiActive = false;
         }
         updateTsunamiVisibility();
-    }
-
-    function updateTsunamiVisibility() {
-        if (apiTsunamiActive || manualTsunamiActive) {
-            tsunamiContainer.classList.add('is-active');
-        } else {
-            tsunamiContainer.classList.remove('is-active');
-        }
     }
 
     checkTsunamiStatus();
