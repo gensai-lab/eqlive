@@ -32,7 +32,9 @@
             height: auto;
             
             font-size: 40px;
-            line-height: 120%;
+            line-height: 130%; /* 行間 130% */
+            letter-spacing: 0.03em; /* 文字間 3% */
+            font-feature-settings: "palt"; /* 文字詰め機能（プロポーショナルメトリクス）適用 */
             color: #FFFFFF;
             
             /* 文字枠線の設定（丸縁取り） */
@@ -51,6 +53,8 @@
             -webkit-text-stroke: inherit;
             stroke-linejoin: inherit;
             paint-order: inherit;
+            letter-spacing: inherit;
+            font-feature-settings: inherit;
         }
     </style>
 </head>
