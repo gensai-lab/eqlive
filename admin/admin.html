@@ -433,8 +433,16 @@
                 
                 <div class="card">
                     <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">record_voice_over</i> AI音声読み上げ（TTS）</label>
-                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">入力したテキストをメイン画面でAI音声として読み上げさせます。</p>
-                    <textarea id="input-tts-text" style="height:80px;" placeholder="読み上げるテキストを入力..."></textarea>
+                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">
+                        入力したテキストをメイン画面でAI音声として読み上げさせます。<br>
+                        <span style="color:#ffb300;">※長文の場合は句読点（。！？）区切りで自動分割して安全に順次処理されます。</span>
+                    </p>
+                    
+                    <textarea id="input-tts-text" style="height:100px;" placeholder="読み上げるテキストを入力..." oninput="updateTTSCharCount()"></textarea>
+                    
+                    <div style="font-size:12px; color:var(--text-sub); margin-top:-10px; margin-bottom:12px; text-align:right;">
+                        文字数: <span id="tts-char-count" style="color:#fff; font-weight:bold;">0</span> 文字
+                    </div>
                     
                     <!-- 実行ボタン & クリア・停止ボタン -->
                     <div class="btn-group" style="margin-bottom: 15px;">
@@ -954,29 +962,23 @@
             return;
         }
 
-        // 変化前の位置を取得
         const rect1 = card1.getBoundingClientRect();
         const rect2 = card2.getBoundingClientRect();
 
-        // 配列要素を入れ替え
         const temp = array[index1];
         array[index1] = array[index2];
         array[index2] = temp;
 
-        // UIを再描画
         renderFn();
 
-        // 再描画後の新しいカード要素を取得
         const newCards = container.children;
         const newCard1 = newCards[index1]; 
         const newCard2 = newCards[index2]; 
 
         if (newCard1 && newCard2) {
-            // 元の位置から現在の位置までの移動距離（Y軸）
             const dy1 = rect2.top - rect1.top;
             const dy2 = rect1.top - rect2.top;
 
-            // 「シュンっ」と動くイージングアニメーションを適用
             newCard1.animate([
                 { transform: `translateY(${dy1}px)` },
                 { transform: 'translateY(0)' }
@@ -1001,7 +1003,6 @@
     window.removeLItem = (i) => { localLItems.splice(i,1); renderLItems(); };
     window.updateLItem = (i, field, val) => { localLItems[i][field] = val; };
 
-    // L字カード上下移動（ボタン操作＆アニメーション）
     window.moveLItem = (index, direction) => {
         const targetIndex = index + direction;
         if (targetIndex < 0 || targetIndex >= localLItems.length) return;
@@ -1429,6 +1430,7 @@
                 const ttsInput = document.getElementById('input-tts-text');
                 if (ttsInput && document.activeElement.id !== 'input-tts-text') {
                     ttsInput.value = audioConf.tts.text;
+                    updateTTSCharCount();
                 }
             }
 
@@ -1470,13 +1472,46 @@
 
     // --- 🔊 音声・BGM・マイク制御 ---
 
-    // 1. AI音声読み上げ（TTS）送信
+    // 文字数カウンター更新関数
+    window.updateTTSCharCount = () => {
+        const text = document.getElementById('input-tts-text').value;
+        const countEl = document.getElementById('tts-char-count');
+        if (countEl) countEl.innerText = text.length;
+    };
+
+    // 長文を句読点や最大文字数（約120文字）ごとに分割するヘルパー関数
+    function splitTextForTTS(text, maxLength = 120) {
+        if (!text) return [];
+        // 句読点（。！？）や改行で分割
+        const sentences = text.match(/[^。！？\n]+[。！？\n]?/g) || [text];
+        const chunks = [];
+        let currentChunk = "";
+
+        for (const sentence of sentences) {
+            if ((currentChunk + sentence).length > maxLength && currentChunk.length > 0) {
+                chunks.push(currentChunk.trim());
+                currentChunk = sentence;
+            } else {
+                currentChunk += sentence;
+            }
+        }
+        if (currentChunk.trim().length > 0) {
+            chunks.push(currentChunk.trim());
+        }
+        return chunks;
+    }
+
+    // 1. AI音声読み上げ（TTS）送信（長文分割対応）
     window.sendTTS = () => {
         const text = document.getElementById('input-tts-text').value.trim();
         if(!text) { alert("テキストを入力してください。"); return; }
         
+        // 長文対策：句読点や文字数に応じて分割したチャンク配列を生成
+        const chunks = splitTextForTTS(text, 120);
+
         secureSet(ref(db, 'broadcast/audio/tts'), {
             text: text,
+            chunks: chunks,
             action: 'speak',
             timestamp: Date.now()
         });
@@ -1485,9 +1520,11 @@
     // AI音声読み上げ（TTS）クリア・停止
     window.clearTTS = () => {
         document.getElementById('input-tts-text').value = "";
+        updateTTSCharCount();
         
         secureSet(ref(db, 'broadcast/audio/tts'), {
             text: "",
+            chunks: [],
             action: "cancel",
             timestamp: Date.now()
         });
@@ -1651,7 +1688,7 @@
         if (e.key === 'Enter') {
             const lines = textarea.value.split(/\r\n|\r|\n/);
             if (lines.length >= 2) {
-                e.preventDefault(); // 3行目の作成を阻止
+                e.preventDefault();
             }
         }
     };
@@ -1797,7 +1834,6 @@
             startTime: Date.now()
         };
 
-        // Firebaseへシーケンス開始情報と表示用テキストを送信
         secureSet(ref(db, 'broadcast/text_super_sequence'), seqData);
         secureSet(ref(db, 'broadcast/text_super'), {
             htmlContent: validCards[0].htmlContent,
@@ -1805,7 +1841,7 @@
         });
     };
 
-    // Firebaseのシーケンス状態同期＆タイマー進行処理（リロード時にも完璧に同期）
+    // Firebaseのシーケンス状態同期＆タイマー進行処理（リロード時にも同期）
     function handleTextSuperSequenceSync(seq) {
         stopTextSuperTimers();
 
@@ -1824,7 +1860,6 @@
 
         isTextSuperSending = true;
         
-        // 元のカード配列内のどのカードが現在送出中かを特定
         const activeCard = seq.cards[seq.currentIndex];
         if (activeCard) {
             textSuperActiveSequenceIndex = localTextSuperCards.findIndex(c => c.id === activeCard.id);
@@ -1838,14 +1873,12 @@
 
         renderTextSuperCards();
 
-        // 経過時間の計算とカウントダウン復元
         const now = Date.now();
         const elapsedSec = (now - seq.startTime) / 1000;
         const remainingSec = Math.max(0, Math.ceil(TEXT_SUPER_INTERVAL_SEC - elapsedSec));
 
         if (countdownEl) countdownEl.innerText = remainingSec;
 
-        // UI表示用のカウントダウンタイマー
         let currentCount = remainingSec;
         textSuperCountdownTimer = setInterval(() => {
             currentCount--;
@@ -1855,16 +1888,13 @@
             }
         }, 1000);
 
-        // 切り替え用タイマー（Firebaseに依存した確定時間で切り替え）
         const msToNext = Math.max(0, (TEXT_SUPER_INTERVAL_SEC - elapsedSec) * 1000);
 
         textSuperStepTimer = setTimeout(() => {
             const nextIndex = seq.currentIndex + 1;
             if (nextIndex >= seq.cards.length) {
-                // 1周終了したら自動停止・消去
                 stopTextSuperSequence();
             } else {
-                // 次のカードへ進めてFirebaseを更新
                 secureSet(ref(db, 'broadcast/text_super_sequence'), {
                     running: true,
                     currentIndex: nextIndex,
@@ -1879,28 +1909,25 @@
         }, msToNext);
     }
 
-    function stopTextSuperTimers() {
-        if (textSuperStepTimer) { clearTimeout(textSuperStepTimer); textSuperStepTimer = null; }
-        if (textSuperCountdownTimer) { clearInterval(textSuperCountdownTimer); textSuperCountdownTimer = null; }
-    }
-
-    // 🛑 完全停止 & 即時消去
+    // 🛑 順次送出の停止・即時消去
     window.stopTextSuperSequence = () => {
-        isTextSuperSending = false;
         stopTextSuperTimers();
-
         secureSet(ref(db, 'broadcast/text_super_sequence'), {
             running: false,
             currentIndex: 0,
             cards: [],
-            startTime: 0
+            startTime: Date.now()
         });
-
         secureSet(ref(db, 'broadcast/text_super'), {
             htmlContent: "",
             timestamp: Date.now()
         });
     };
+
+    function stopTextSuperTimers() {
+        if (textSuperStepTimer) { clearTimeout(textSuperStepTimer); textSuperStepTimer = null; }
+        if (textSuperCountdownTimer) { clearInterval(textSuperCountdownTimer); textSuperCountdownTimer = null; }
+    }
 </script>
 </body>
 </html>
