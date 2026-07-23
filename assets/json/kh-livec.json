@@ -656,7 +656,7 @@
         "url":  "https://images.weserv.nl/?url=210.237.44.104:8080/images/moto.jpg"
     },
     {
-        "id":  "nakanoshima",
+        "id":  "tairashima",
         "name":  "鹿児島 平島",
         "area":  "九州",
         "genre":  "海",
@@ -664,7 +664,7 @@
         "url":  "https://images.weserv.nl/?url=210.237.44.104:8080/images/mina.jpg"
     },
     {
-        "id":  "nakanoshima",
+        "id":  "kodakarashima",
         "name":  "鹿児島 小宝島",
         "area":  "九州",
         "genre":  "海",
@@ -672,7 +672,7 @@
         "url":  "https://images.weserv.nl/?url=210.237.44.104:8080/images/kotakara.jpg"
     },
     {
-        "id":  "nakanoshima",
+        "id":  "takarashima",
         "name":  "鹿児島 宝島",
         "area":  "九州",
         "genre":  "海",
