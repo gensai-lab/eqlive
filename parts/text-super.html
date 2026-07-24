@@ -44,7 +44,7 @@ body, html {
 
 /* HTML要素が含まれた場合も装飾を継承 */
 #text-super-container * {
-    color: inherit;
+    /* colorはfontタグ等の色指定を上書きしてしまうため指定しない（親要素から自然に継承させる） */
     -webkit-text-stroke: inherit;
     stroke-linejoin: inherit;
     paint-order: inherit;
