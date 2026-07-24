@@ -77,10 +77,36 @@ body, html {
     // Firebaseから /broadcast/text_super_sequence/cards をリアルタイム取得
     const textSuperSequenceRef = ref(db, 'broadcast/text_super_sequence/cards');
 
+    // タイムアウトを管理するための変数
+    let sequenceTimeout = null;
+
+    // カードを順番に表示する関数
+    function playSequence(texts, index) {
+        if (index < texts.length) {
+            // 現在のインデックスのテキストを表示
+            container.innerHTML = texts[index];
+            
+            // 10秒（10000ミリ秒）後に次のテキストを表示
+            sequenceTimeout = setTimeout(() => {
+                playSequence(texts, index + 1);
+            }, 10000);
+        } else {
+            // 最後のカードを表示し終わったら（10秒経過後）、コンテナを空にする
+            container.innerHTML = '';
+            sequenceTimeout = null;
+        }
+    }
+
     onValue(textSuperSequenceRef, (snapshot) => {
+        // 新しいデータが来た場合や更新された場合、実行中のタイマーをリセットする
+        if (sequenceTimeout) {
+            clearTimeout(sequenceTimeout);
+            sequenceTimeout = null;
+        }
+
         const cards = snapshot.val();
         if (cards) {
-            let combinedText = '';
+            const validTexts = [];
             
             // Firebaseからのデータが配列、またはオブジェクト（数字キー）のどちらで返ってきても対応できるように処理
             const keys = Object.keys(cards);
@@ -90,11 +116,16 @@ body, html {
             
             keys.forEach(key => {
                 if (cards[key] && cards[key].text) {
-                    combinedText += cards[key].text;
+                    validTexts.push(cards[key].text);
                 }
             });
 
-            container.innerHTML = combinedText;
+            if (validTexts.length > 0) {
+                // シーケンスの再生を開始
+                playSequence(validTexts, 0);
+            } else {
+                container.innerHTML = '';
+            }
         } else {
             container.innerHTML = '';
         }
