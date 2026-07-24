@@ -985,7 +985,7 @@
         });
     }
 
-    // --- ✨ カード順序入れ替え時アニメーション共通関数 ---
+    // --- ✨ カード順序入れ替え時「シュンっ」と滑らかに動くアニメーション共通関数 ---
     function animateCardSwap(container, index1, index2, array, renderFn) {
         if (!container) {
             const temp = array[index1];
@@ -1802,7 +1802,7 @@
         }
     };
 
-    // 順序変更（上へ / 下へ）
+    // 順序変更（上へ / 下へ - アニメーション付き）
     window.moveTextSuperCard = (index, direction) => {
         const targetIndex = index + direction;
         if (targetIndex < 0 || targetIndex >= localTextSuperCards.length) return;
@@ -1856,74 +1856,68 @@
         const count1 = getZenKakuCount(lines[0] || '');
         const count2 = getZenKakuCount(lines[1] || '');
 
-        const el1 = document.getElementById(`count-line1-${id}`);
-        const el2 = document.getElementById(`count-line2-${id}`);
-        if(el1) el1.innerText = `${count1} / 22`;
-        if(el2) el2.innerText = `${count2} / 22`;
+        const el1 = document.getElementById(`count1-${id}`);
+        const el2 = document.getElementById(`count2-${id}`);
+        if(el1) el1.innerText = count1;
+        if(el2) el2.innerText = count2;
 
-        // プレビュー表示更新（装飾タグのHTML変換）
-        let formatted = (card.text || '')
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/\[color:(#[0-9a-fA-F]{3,6})\](.*?)\[\/color\]/g, '<span style="color:$1">$2</span>')
-            .replace(/\n/g, '<br>');
-        previewBox.innerHTML = formatted || '<span style="color:#666;">（文字を入力するとここにプレビューが表示されます）</span>';
+        if (previewBox) {
+            previewBox.innerHTML = textarea.value.replace(/\n/g, '<br>') || '<span style="color:#666;">（プレビュー表示）</span>';
+        }
     }
 
-    // 全字幕カード一覧の描画
     function renderTextSuperCards() {
         const container = document.getElementById('text-super-cards-container');
-        if (!container) return;
+        if(!container) return;
 
-        const activeIdBefore = activeCardInputId;
+        const activeIdBefore = document.activeElement ? document.activeElement.id : null;
         container.innerHTML = "";
 
-        localTextSuperCards.forEach((card, index) => {
+        localTextSuperCards.forEach((card, i) => {
             const div = document.createElement('div');
             div.className = "card";
             div.style.background = "#222";
             div.style.marginBottom = "15px";
+            div.style.border = activeCardInputId === card.id ? "1px solid var(--accent-blue)" : "1px solid #333";
+
+            const lines = (card.text || "").split(/\r\n|\r|\n/);
+            const count1 = getZenKakuCount(lines[0] || '');
+            const count2 = getZenKakuCount(lines[1] || '');
 
             div.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <div style="font-size:13px; font-weight:bold; color:var(--accent-blue);">
-                        カード #${index + 1}
+                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue);">
+                        字幕カード #${i + 1}
                     </div>
                     <div class="btn-group" style="margin:0; gap:5px;">
-                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveTextSuperCard(${index}, -1)" ${index === 0 ? 'disabled' : ''}>▲ 上へ</button>
-                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveTextSuperCard(${index}, 1)" ${index === localTextSuperCards.length - 1 ? 'disabled' : ''}>▼ 下へ</button>
+                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveTextSuperCard(${i}, -1)" ${i === 0 ? 'disabled' : ''}>▲ 上へ</button>
+                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveTextSuperCard(${i}, 1)" ${i === localTextSuperCards.length - 1 ? 'disabled' : ''}>▼ 下へ</button>
                         <button class="danger" style="padding:4px 8px; font-size:12px;" onclick="removeTextSuperCard('${card.id}')"><i class="material-icons" style="font-size:14px; vertical-align:middle;">delete</i> 削除</button>
                     </div>
                 </div>
 
-                <textarea id="textarea-${card.id}" style="height:70px; margin-bottom:8px; font-size:15px; font-family:inherit; resize:vertical;" 
-                    placeholder="2行以内で入力（[color:#ff0000]赤色[/color]等で色装飾可能）"
-                    oninput="updateTextSuperCardText('${card.id}', this.value)"
+                <textarea id="textarea-${card.id}" style="height:70px; margin-bottom:8px; font-size:15px;" placeholder="字幕テキストを入力..." 
                     onfocus="handleTextSuperFocus('${card.id}')"
+                    oninput="updateTextSuperCardText('${card.id}', this.value)"
                     onkeydown="handleTextSuperKeyDown(event, '${card.id}')">${card.text || ''}</textarea>
 
                 <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-sub); margin-bottom:10px;">
-                    <div>1行目: <span id="count-line1-${card.id}">0 / 22</span> 文字</div>
-                    <div>2行目: <span id="count-line2-${card.id}">0 / 22</span> 文字</div>
+                    <div>1行目: <span id="count1-${card.id}" style="color:#fff; font-weight:bold;">${count1}</span> / 18文字 | 2行目: <span id="count2-${card.id}" style="color:#fff; font-weight:bold;">${count2}</span> / 18文字</div>
                 </div>
 
-                <label style="font-size:11px; color:#888;">送出プレビュー:</label>
-                <div id="preview-${card.id}" style="background:#000; border:1px solid #333; padding:8px 12px; border-radius:6px; min-height:40px; font-size:14px; word-break:break-all;"></div>
+                <div style="font-size:11px; color:var(--text-sub); margin-bottom:4px;">プレビュー:</div>
+                <div id="preview-${card.id}" style="background:#000; padding:10px; border-radius:6px; font-size:14px; min-height:45px; border:1px solid #333; word-break:break-all;">
+                    ${card.text ? card.text.replace(/\n/g, '<br>') : '<span style="color:#666;">（プレビュー表示）</span>'}
+                </div>
             `;
-
             container.appendChild(div);
-            updateTextSuperCardUI(card.id);
         });
 
-        if (activeIdBefore && document.getElementById(`textarea-${activeIdBefore}`)) {
-            document.getElementById(`textarea-${activeIdBefore}`).focus();
-        } else if (localTextSuperCards.length > 0) {
-            activeCardInputId = localTextSuperCards[0].id;
+        if (activeIdBefore && document.getElementById(activeIdBefore)) {
+            document.getElementById(activeIdBefore).focus();
         }
     }
 
-    // カラーパレットタグ挿入処理
     window.insertColorTagToActive = (colorHex) => {
         if (!activeCardInputId) {
             if (localTextSuperCards.length > 0) activeCardInputId = localTextSuperCards[0].id;
@@ -1937,117 +1931,71 @@
         const end = textarea.selectionEnd;
         const val = textarea.value;
 
-        const selectedText = val.substring(start, end);
-        const openTag = `[color:${colorHex}]`;
-        const closeTag = `[/color]`;
-
-        let newText = "";
         if (start !== end) {
-            newText = val.substring(0, start) + openTag + selectedText + closeTag + val.substring(end);
+            const selectedText = val.substring(start, end);
+            const replacement = `<font color="${colorHex}">${selectedText}</font>`;
+            textarea.value = val.substring(0, start) + replacement + val.substring(end);
+            textarea.selectionStart = start;
+            textarea.selectionEnd = start + replacement.length;
         } else {
-            newText = val.substring(0, start) + openTag + closeTag + val.substring(end);
+            const tag = `<font color="${colorHex}">テキスト</font>`;
+            textarea.value = val.substring(0, start) + tag + val.substring(end);
+            textarea.selectionStart = start + `<font color="${colorHex}">`.length;
+            textarea.selectionEnd = textarea.selectionStart + 4;
         }
 
-        textarea.value = newText;
-        updateTextSuperCardText(activeCardInputId, newText);
-
-        const newPos = start + openTag.length + (start !== end ? selectedText.length : 0);
         textarea.focus();
-        textarea.setSelectionRange(newPos, newPos);
+        updateTextSuperCardText(activeCardInputId, textarea.value);
     };
 
-    // 文字スーパー順次送出開始
     window.startTextSuperSequence = () => {
         const validCards = localTextSuperCards.filter(c => c.text && c.text.trim() !== "");
         if (validCards.length === 0) {
-            alert("送出する文字スーパーの内容を入力してください。");
+            alert("送出するテキストが入力されていません。");
             return;
         }
 
-        stopTextSuperTimers();
-        isTextSuperSending = true;
-
-        const seqData = {
-            active: true,
-            currentIndex: 0,
-            totalCards: validCards.length,
-            cards: validCards.map(c => c.text),
-            intervalSec: TEXT_SUPER_INTERVAL_SEC,
-            timestamp: Date.now()
-        };
-
-        secureSet(ref(db, 'broadcast/text_super_sequence'), seqData);
-    };
-
-    // 送出停止・即時消去
-    window.stopTextSuperSequence = () => {
-        stopTextSuperTimers();
-        isTextSuperSending = false;
-
         secureSet(ref(db, 'broadcast/text_super_sequence'), {
-            active: false,
-            currentIndex: -1,
-            cards: [],
+            cards: validCards,
+            currentIndex: 0,
+            interval: TEXT_SUPER_INTERVAL_SEC,
+            status: 'playing',
             timestamp: Date.now()
         });
     };
 
-    // ローカルタイマー停止処理
+    window.stopTextSuperSequence = () => {
+        stopTextSuperTimers();
+        secureSet(ref(db, 'broadcast/text_super_sequence'), {
+            cards: [],
+            currentIndex: -1,
+            interval: TEXT_SUPER_INTERVAL_SEC,
+            status: 'stopped',
+            timestamp: Date.now()
+        });
+    };
+
     function stopTextSuperTimers() {
+        isTextSuperSending = false;
         if (textSuperStepTimer) { clearTimeout(textSuperStepTimer); textSuperStepTimer = null; }
         if (textSuperCountdownTimer) { clearInterval(textSuperCountdownTimer); textSuperCountdownTimer = null; }
         const statusEl = document.getElementById('text-super-status');
         if (statusEl) statusEl.style.display = 'none';
     }
 
-    // Firebase同期およびタイマー制御
     function handleTextSuperSequenceSync(seq) {
-        if (!seq || !seq.active || !seq.cards || seq.cards.length === 0) {
+        if (!seq || seq.status !== 'playing' || !seq.cards || seq.cards.length === 0) {
             stopTextSuperTimers();
             return;
         }
 
         const statusEl = document.getElementById('text-super-status');
-        const currentCardNumEl = document.getElementById('text-super-current-card-num');
+        const cardNumEl = document.getElementById('text-super-current-card-num');
         const totalCardsEl = document.getElementById('text-super-total-cards');
-        const countdownEl = document.getElementById('text-super-countdown');
 
         if (statusEl) statusEl.style.display = 'block';
-        if (currentCardNumEl) currentCardNumEl.innerText = (seq.currentIndex || 0) + 1;
+        if (cardNumEl) cardNumEl.innerText = (seq.currentIndex || 0) + 1;
         if (totalCardsEl) totalCardsEl.innerText = seq.cards.length;
-
-        // すでに現在のインデックスでタイマーが動いていれば二重起動を防ぐ
-        if (textSuperActiveSequenceIndex === seq.currentIndex && textSuperCountdownTimer) {
-            return;
-        }
-
-        stopTextSuperTimers();
-        textSuperActiveSequenceIndex = seq.currentIndex || 0;
-
-        let remainingSec = seq.intervalSec || TEXT_SUPER_INTERVAL_SEC;
-        if (countdownEl) countdownEl.innerText = remainingSec;
-
-        textSuperCountdownTimer = setInterval(() => {
-            remainingSec--;
-            if (countdownEl) countdownEl.innerText = remainingSec;
-            if (remainingSec <= 0) {
-                clearInterval(textSuperCountdownTimer);
-                textSuperCountdownTimer = null;
-            }
-        }, 1000);
-
-        textSuperStepTimer = setTimeout(() => {
-            const nextIndex = (seq.currentIndex || 0) + 1;
-            if (nextIndex < seq.cards.length) {
-                secureUpdate(ref(db, 'broadcast/text_super_sequence'), {
-                    currentIndex: nextIndex,
-                    timestamp: Date.now()
-                });
-            } else {
-                // 全カード送出完了 -> 自動消去
-                stopTextSuperSequence();
-            }
-        }, remainingSec * 1000);
     }
 </script>
 </body>
