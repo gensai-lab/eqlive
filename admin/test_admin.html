@@ -1,1 +1,1729 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-title" content="EQLive Admin">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
+    <title>Kactuif EQLive Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="apple-touch-icon" href="https://gensai-lab.github.io/eqlive/assets/logo/app-icon.png">
+    <style>
+        :root {
+            --bg-color: #0a0a0a; --sidebar-bg: #151515; --card-bg: #1e1e1e;
+            --accent-blue: #005AFF; --accent-red: #d13438; --accent-green: #107c10;
+            --text-main: #ffffff; --text-sub: #aaaaaa;
+            --header-height: 60px; --nav-width: 260px;
+        }
 
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0; font-family: 'BIZ UDPGothic', sans-serif;
+            background: var(--bg-color); color: var(--text-main);
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+        }
+
+        /* ログイン画面用スタイル */
+        #login-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color); z-index: 9999; display: flex;
+            align-items: center; justify-content: center; padding: 20px;
+        }
+        .login-card {
+            background: var(--card-bg); border: 1px solid #333; border-radius: 12px;
+            padding: 30px; width: 100%; max-width: 400px; text-align: center;
+        }
+
+        /* メイン管理画面用スタイル（ログイン後のみ表示） */
+        #admin-app { display: none; flex-direction: column; height: 100vh; width: 100%; }
+
+        header {
+            height: var(--header-height); background: #000; border-bottom: 1px solid #333;
+            display: flex; align-items: center; justify-content: space-between; padding: 0 15px; 
+            z-index: 2000; flex-shrink: 0;
+        }
+        .menu-toggle { background: none; border: none; color: white; cursor: pointer; display: none; padding: 8px; }
+        .header-logo img { height: 28px; }
+
+        main { display: flex; flex: 1; overflow: hidden; position: relative; }
+        
+        nav {
+            width: var(--nav-width); background: var(--sidebar-bg); border-right: 1px solid #333;
+            display: flex; flex-direction: column; overflow-y: auto; transition: transform 0.3s ease;
+            z-index: 1500;
+        }
+        
+        .nav-item {
+            background: none; border: none; color: var(--text-sub); padding: 14px 20px;
+            text-align: left; font-size: 14px; cursor: pointer; border-left: 4px solid transparent;
+            display: flex; align-items: center; gap: 12px; transition: 0.2s; font-family: inherit;
+        }
+        .nav-item i { font-size: 20px; }
+        .nav-item.active { background: rgba(0, 90, 255, 0.1); color: white; border-left-color: var(--accent-blue); }
+        .nav-item:hover { background: #252525; }
+
+        .content { flex: 1; padding: 25px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .tab-content { display: none; max-width: 1000px; margin: 0 auto; }
+        .tab-content.active { display: block; }
+
+        .card { background: var(--card-bg); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; position: relative; }
+        .card.alert { border-left: 5px solid var(--accent-red); }
+        
+        h2 { font-size: 18px; margin: 0 0 18px 0; display: flex; align-items: center; gap: 10px; color: var(--accent-blue); }
+        label { display: block; color: var(--text-sub); font-size: 12px; margin-bottom: 8px; font-weight: bold; }
+        
+        input, select, textarea {
+            width: 100%; padding: 14px; background: #000; border: 1px solid #444; 
+            color: white; border-radius: 8px; font-size: 16px; margin-bottom: 15px; font-family: inherit;
+            user-select: text;
+        }
+
+        .range-group { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+        .range-group input[type="range"] { margin: 0; flex: 1; }
+        .range-group span { width: 60px; text-align: right; font-size: 14px; color: var(--text-sub); }
+
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        button { font-family: inherit; cursor: pointer; border: none; border-radius: 8px; padding: 14px; font-weight: bold; transition: 0.2s; }
+        button.primary { background: var(--accent-blue); color: white; flex: 1; }
+        button.secondary { background: #333; color: white; flex: 1; }
+        button.danger { background: var(--accent-red); color: white; flex: 1; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .filter-container {
+            padding: 10px; background: #151515; border-bottom: 1px solid #333;
+            display: flex; gap: 8px; overflow-x: auto; white-space: nowrap;
+        }
+        .filter-btn {
+            background: #333; color: #fff; padding: 6px 15px; border-radius: 20px; font-size: 12px; border: 1px solid #444;
+            cursor: pointer; transition: 0.2s;
+        }
+        .filter-btn.active {
+            background: var(--accent-blue); border-color: var(--accent-blue);
+        }
+
+        /* 巡回設定用スタイル */
+        .tour-cam-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px; border-bottom: 1px solid #333; font-size: 14px;
+        }
+        .tour-cam-item label { display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; color: white; font-weight: normal; font-size: 14px; }
+        .tour-cam-item input[type="checkbox"] { width: auto; margin: 0; }
+
+        /* 🖼️ プレビュー用モーダルスタイル */
+        .preview-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); z-index: 10000; align-items: center; justify-content: center;
+            padding: 20px; opacity: 0; transition: opacity 0.2s ease;
+        }
+        .preview-modal.open { display: flex; opacity: 1; }
+        .preview-modal-content {
+            background: var(--card-bg); border: 1px solid #444; border-radius: 12px;
+            padding: 20px; max-width: 90%; max-height: 90%; display: flex; flex-direction: column;
+            position: relative; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .preview-modal-close {
+            position: absolute; top: 10px; right: 10px; background: #333; border: none;
+            color: white; border-radius: 50%; width: 32px; height: 32px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; font-weight: bold; transition: 0.2s;
+        }
+        .preview-modal-close:hover { background: var(--accent-red); }
+        .preview-modal-img {
+            max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 6px;
+            background: #000; border: 1px solid #222; margin-top: 15px;
+        }
+
+        /* 文字スーパー パレット用スタイル */
+        .color-palette-btn {
+            width: 32px; height: 32px; border-radius: 50%; border: 2px solid #555; cursor: pointer; transition: transform 0.1s;
+        }
+        .color-palette-btn:hover { transform: scale(1.15); }
+
+        /* RSS・速報スーパー用スタイル */
+        .rss-tab-btn {
+            background: #252525; color: #aaa; padding: 8px 16px; border-radius: 6px; font-size: 13px; border: 1px solid #444; cursor: pointer; transition: 0.2s;
+        }
+        .rss-tab-btn.active {
+            background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); font-weight: bold;
+        }
+
+        @media (max-width: 900px) {
+            .menu-toggle { display: flex; }
+            nav { 
+                position: absolute; left: 0; top: 0; padding-top: var(--header-height);
+                height: 100%; transform: translateX(-100%); 
+            }
+            nav.open { transform: translateX(0); box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
+            .nav-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1400; }
+            .nav-overlay.active { display: block; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 🔑 認証用オーバーレイ画面 -->
+<div id="login-screen">
+    <div class="login-card">
+        <img src="https://gensai-lab.github.io/eqlive/assets/logo/logo-ptn1_white.svg" alt="EQLive Logo" style="height:32px; margin-bottom:20px;">
+        <h3 style="margin-top:0; margin-bottom:25px; font-size:16px; color:var(--text-sub);">EQLive 団体内管理システム</h3>
+        <div id="login-error-msg" style="color:var(--accent-red); font-size:13px; margin-bottom:15px; text-align:left; display:none;"></div>
+        
+        <label style="text-align:left;">ユーザーID</label>
+        <input type="text" id="login-userid" placeholder="ユーザーIDを入力">
+        
+        <label style="text-align:left;">パスワード</label>
+        <input type="password" id="login-password" placeholder="••••••••">
+        
+        <button id="btn-execute-login" class="primary" style="width:100%; margin-top:10px;">ログイン</button>
+    </div>
+</div>
+
+<!-- 📱 メイン管理者用アプリケーションエリア -->
+<div id="admin-app">
+    <header>
+        <button class="menu-toggle" onclick="toggleNav()"><i class="material-icons">menu</i></button>
+        <div class="header-logo">
+            <img src="https://gensai-lab.github.io/eqlive/assets/logo/logo-ptn1_white.svg" alt="EQLive Logo">
+        </div>
+        <div style="width:40px;"></div>
+    </header>
+
+    <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+
+    <main>
+        <nav id="side-nav">
+            <button class="nav-item active" onclick="switchTab('main')"><i class="material-icons">dashboard</i>①メイン画面</button>
+            <button class="nav-item" onclick="switchTab('mode')"><i class="material-icons">person_search</i>②配信モード選択</button>
+            <button class="nav-item" onclick="switchTab('display')"><i class="material-icons">screenshot_monitor</i>③画面表示</button>
+            <button class="nav-item" onclick="switchTab('title')"><i class="material-icons">subtitles</i>④タイトル</button>
+            <button class="nav-item" onclick="switchTab('ticker')"><i class="material-icons">view_carousel</i>⑤Ticker</button>
+            <button class="nav-item" onclick="switchTab('l-shape')"><i class="material-icons">view_quilt</i>⑥L字設定</button>
+            <button class="nav-item" onclick="switchTab('camera')"><i class="material-icons">videocam</i>⑦ライブカメラ</button>
+            <button class="nav-item" onclick="switchTab('tsunami')"><i class="material-icons">waves</i>⑧津波制御</button>
+            <button class="nav-item" onclick="switchTab('free-image')"><i class="material-icons">grid_view</i>⑨自由配置</button>
+            <button class="nav-item" onclick="switchTab('audio')"><i class="material-icons">mic</i>⑩音声・BGM制御</button>
+            <button class="nav-item" onclick="switchTab('text-super')"><i class="material-icons">text_fields</i>⑪文字スーパー</button>
+            <button class="nav-item" id="btn-logout" style="margin-top: auto; border-top: 1px solid #333; color: #d13438;"><i class="material-icons">logout</i>🚪 ログアウト</button>
+        </nav>
+
+        <div class="content">
+            <div id="tab-main" class="tab-content active">
+                <h2>ダッシュボード</h2>
+                <div id="status-alert-area"></div>
+                <div class="card">
+                    <label>配信ステータス</label>
+                    <div style="font-size: 14px; line-height: 1.8;">
+                        <div>配信担当: <span id="stat-dist">--</span></div>
+                        <div>現在のモード: <span id="stat-mode">--</span></div>
+                        <div>カメラソース: <span id="stat-cam">--</span></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <label>プレビュー（EQLive YouTubeライブ自動判定）</label>
+                    <div id="preview-player-container" style="aspect-ratio: 16/9; background:#000; display:flex; align-items:center; justify-content:center; color:#fff; border-radius:8px; overflow:hidden; position:relative;">
+                        YouTube Liveの配信ステータスを確認中...
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-mode" class="tab-content">
+                <h2>配信担当選択</h2>
+                <div class="card">
+                    <label>配信主体 (distributor)</label>
+                    <select id="input-distributor">
+                        <option value="bot">🤖 自動 (Bot)</option>
+                        <option value="ningen">👤 有人 (人間)</option>
+                    </select>
+                    <button id="btn-save-dist" class="primary" onclick="saveDist()">設定を反映</button>
+                </div>
+            </div>
+
+            <div id="tab-display" class="tab-content">
+                <h2>画面ソース・レイアウト</h2>
+                <div class="card">
+                    <label>基本モード (layoutMode)</label>
+                    <div class="btn-group">
+                        <button id="btn-lay-live" class="secondary" onclick="updateFB('current/layoutMode','live')">通常放送</button>
+                        <button id="btn-lay-emer" class="secondary" onclick="updateFB('current/layoutMode','emergency')">有事放送</button>
+                    </div>
+                    
+                    <label>L字表示切替 (current_mode)</label>
+                    <div class="btn-group">
+                        <button id="btn-m-sub" class="secondary" onclick="updateFB('current_mode','sub-switcher')">L字 OFF</button>
+                        <button id="btn-m-l" class="secondary" onclick="updateFB('current_mode','l-screen')">L字 ON</button>
+                    </div>
+                    <div id="link-to-l" style="display:none; text-align:right;">
+                        <a href="#" onclick="switchTab('l-shape')" style="color:var(--accent-blue); font-size:12px;">→ L字の詳細設定へ</a>
+                    </div>
+
+                    <label>時計・時刻表示 (timeVisible)</label>
+                    <div class="btn-group">
+                        <button id="btn-time-show" class="secondary" onclick="updateFB('current/timeVisible', true)">表示</button>
+                        <button id="btn-time-hide" class="secondary" onclick="updateFB('current/timeVisible', false)">非表示</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <label>メインソース選択 (mainSource)</label>
+                    <select id="input-mainSource" onchange="updateFB('current/mainSource', this.value)">
+                        <option value="camera">📹 ライブカメラ</option>
+                        <option value="screen">📺 画面投影</option>
+                    </select>
+
+                    <div id="screen-options" style="display:none; border-top:1px solid #333; padding-top:15px;">
+                        <label>投影種別 (screen_program/type)</label>
+                        <select id="input-screen-type" onchange="toggleVideoOptions(this.value)">
+                            <option value="screenshare">PC画面共有</option>
+                            <option value="image">画像投影</option>
+                            <option value="video">映像投影</option>
+                            <option value="youtube">YouTube投影</option>
+                            <option value="web">Webサイト投影</option>
+                        </select>
+                        
+                        <div id="video-extra-options" style="display:none; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                            <label>ループ設定</label>
+                            <select id="input-screen-loop" style="margin-bottom: 10px;">
+                                <option value="true">ループ再生する</option>
+                                <option value="false">ループ再生しない</option>
+                            </select>
+                            <label>音量設定</label>
+                            <select id="input-screen-muted" style="margin-bottom: 0;">
+                                <option value="false">音量ON（自動再生対応）</option>
+                                <option value="true">ミュート（消音）</option>
+                            </select>
+                        </div>
+
+                        <label>オーバーレイ・タイトル</label>
+                        <input type="text" id="input-screen-title">
+                        <label>URL (画像/映像/YouTube/Web)</label>
+                        <input type="text" id="input-screen-url" placeholder="https://...">
+                        
+                        <div class="btn-group" style="margin-top: 10px;">
+                            <button class="primary" onclick="saveScreenProgram()"><i class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:5px;">send</i> 設定を反映する</button>
+                            <button class="secondary" style="background:#d13438; color:white;" onclick="setPrepareScreen()"><i class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:5px;">visibility_off</i> 準備中画面</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-title" class="tab-content">
+                <h2>タイトル編集</h2>
+                <div class="card">
+                    <label>メインタイトル</label>
+                    <input type="text" id="input-mainTitle">
+                    <label>サブタイトル</label>
+                    <input type="text" id="input-subtitle">
+                    <div class="btn-group">
+                        <button class="primary" onclick="saveTitle()">設定反映</button>
+                        <button class="danger" onclick="clearTitle()">タイトルを削除</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-ticker" class="tab-content">
+                <h2>Ticker（最新情報）</h2>
+                <div class="card">
+                    <label>ジャンル</label>
+                    <input type="text" id="input-tic-g" placeholder="例：地震速報">
+                    <label>本文 1行目</label>
+                    <input type="text" id="input-tic-1">
+                    <label>本文 2行目</label>
+                    <input type="text" id="input-tic-2">
+                    <button class="primary" style="width:100%" onclick="saveTicker()">Tickerを更新</button>
+                </div>
+            </div>
+
+            <div id="tab-l-shape" class="tab-content">
+                <h2>L字放送・詳細設定</h2>
+                <div class="card">
+                    <label>左側縦書きテロップ (leftText)</label>
+                    <textarea id="input-l-leftText" style="height:80px;"></textarea>
+                </div>
+                <div id="l-items-container"></div>
+                <button class="secondary" style="width:100%; margin-bottom:10px;" onclick="addLItem()"><i class="material-icons">add</i> カードを追加</button>
+                <button class="primary" style="width:100%;" onclick="saveLShape()">Firebaseに保存反映</button>
+            </div>
+
+            <div id="tab-camera" class="tab-content">
+                <h2>ライブカメラ制御・自動巡回</h2>
+                
+                <div class="card" style="border-left: 5px solid var(--accent-blue);">
+                    <label>自動巡回モード</label>
+                    <div class="btn-group">
+                        <button id="btn-tour-on" class="secondary" onclick="toggleTourModeUI(true)">巡回モード ON</button>
+                        <button id="btn-tour-off" class="primary" onclick="toggleTourModeUI(false)">巡回モード OFF</button>
+                    </div>
+
+                    <div id="tour-details-area" style="display: none; margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;">
+                        <label>巡回切り替え間隔</label>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+                            <input type="number" id="input-tour-interval" min="5" value="30" style="margin: 0; flex: 1;" onchange="saveTourConfigToFB()">
+                            <select id="select-tour-unit" style="margin: 0; width: 100px;" onchange="saveTourConfigToFB()">
+                                <option value="1">秒おき</option>
+                                <option value="60" selected>分おき</option>
+                            </select>
+                        </div>
+
+                        <label>巡回対象カメラの選択 (<span id="tour-selected-count">0</span>台選択中)</label>
+                        <div id="tour-camera-selector" style="max-height: 200px; overflow-y: auto; background: #000; border: 1px solid #444; border-radius: 8px; margin-bottom: 15px; padding: 5px;">
+                        </div>
+
+                        <div class="btn-group">
+                            <button id="btn-tour-start" class="primary" style="background: var(--accent-green);" onclick="startCameraTourFB()">▶ 巡回を開始する</button>
+                            <button id="btn-tour-stop" class="danger" style="display: none;" onclick="stopCameraTourFB()">■ 巡回を停止</button>
+                        </div>
+                        <div id="tour-status-text" style="font-size: 13px; color: #ffb300; margin-top: 10px; display: none;"></div>
+                    </div>
+                </div>
+
+                <div class="filter-container" id="area-filter-container">
+                    <button class="filter-btn active" onclick="filterByArea('すべて', this)">すべて</button>
+                    <button class="filter-btn" onclick="filterByArea('北海道', this)">北海道</button>
+                    <button class="filter-btn" onclick="filterByArea('東北', this)">東北</button>
+                    <button class="filter-btn" onclick="filterByArea('関東', this)">関東</button>
+                    <button class="filter-btn" onclick="filterByArea('東海', this)">東海</button>
+                    <button class="filter-btn" onclick="filterByArea('北陸', this)">北陸</button>
+                    <button class="filter-btn" onclick="filterByArea('近畿', this)">近畿</button>
+                    <button class="filter-btn" onclick="filterByArea('中国', this)">中国</button>
+                    <button class="filter-btn" onclick="filterByArea('四国', this)">四国</button>
+                    <button class="filter-btn" onclick="filterByArea('九州', this)">九州</button>
+                    <button class="filter-btn" onclick="filterByArea('沖縄', this)">沖縄</button>
+                </div>
+                <div class="filter-container" id="genre-filter-container" style="border-top:none; background:#1c1c1c;"></div>
+                
+                <div class="card" style="padding:0; overflow:hidden;">
+                    <div id="cam-list" style="height:500px; overflow-y:auto; background:#000;"></div>
+                </div>
+            </div>
+
+            <div id="tab-tsunami" class="tab-content">
+                <h2>津波リスト制御</h2>
+                <div class="card">
+                    <label>ページ送り設定</label>
+                    <div class="btn-group">
+                        <button id="btn-tsu-auto" class="secondary" onclick="updateFB('tsunami_config/autoPage', true)">自動送り</button>
+                        <button id="btn-tsu-manual" class="secondary" onclick="updateFB('tsunami_config/autoPage', false)">手動送り</button>
+                    </div>
+                    
+                    <div id="tsu-manual-ctrl" style="margin-top:20px; display:none;">
+                        <label>ページ操作</label>
+                        <div class="btn-group">
+                            <button class="primary" onclick="triggerTsu('prev')"><i class="material-icons">arrow_back</i> 前のページ</button>
+                            <button class="primary" onclick="triggerTsu('next')">次のページ <i class="material-icons">arrow_forward</i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-free-image" class="tab-content">
+                <h2>自由配置オーバーレイ（複数対応）</h2>
+                <div style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;">
+                    <button class="primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px;" onclick="addNewFreeImage()">
+                        <i class="material-icons">add_box</i> ＋ 新しいメディアを追加（空）
+                    </button>
+                    
+                    <div class="card" style="margin: 0; padding: 15px; background: #151515;">
+                        <label style="margin-bottom: 10px;"><i class="material-icons" style="font-size: 16px; vertical-align: middle;">auto_awesome</i> プリセットからクイック追加</label>
+                        <div id="preset-buttons-container" class="btn-group" style="margin: 0;">
+                            <span style="color: var(--text-sub); font-size: 13px;">プリセットを読み込み中...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="free-images-control-container"></div>
+            </div>
+
+            <div id="tab-audio" class="tab-content">
+                <h2>音声・BGM制御</h2>
+                
+                <div class="card">
+                    <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">record_voice_over</i> AI音声読み上げ（TTS）</label>
+                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">
+                        入力したテキストをメイン画面でAI音声として読み上げさせます。<br>
+                        <span style="color:#ffb300;">※長文の場合は句読点（。！？）区切りで自動分割して安全に順次処理されます。</span>
+                    </p>
+                    
+                    <textarea id="input-tts-text" style="height:100px;" placeholder="読み上げるテキストを入力..." oninput="updateTTSCharCount()"></textarea>
+                    
+                    <div style="font-size:12px; color:var(--text-sub); margin-top:-10px; margin-bottom:12px; text-align:right;">
+                        文字数: <span id="tts-char-count" style="color:#fff; font-weight:bold;">0</span> 文字
+                    </div>
+                    
+                    <div class="btn-group" style="margin-bottom: 15px;">
+                        <button class="primary" style="display:flex; justify-content:center; align-items:center; gap:8px;" onclick="sendTTS()">
+                            <i class="material-icons">campaign</i> 読み上げを実行
+                        </button>
+                        <button class="danger" style="display:flex; justify-content:center; align-items:center; gap:8px;" onclick="clearTTS()">
+                            <i class="material-icons">clear</i> クリア・停止
+                        </button>
+                    </div>
+
+                    <div id="tts-status-container" style="background: #151515; padding: 15px; border-radius: 8px; border: 1px solid #333;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px;">
+                            <span id="tts-status-text" style="color:var(--text-sub); font-weight:bold;">待機中</span>
+                            <span id="tts-eta-text" style="color:var(--text-sub);">--</span>
+                        </div>
+                        
+                        <div style="width:100%; background:#222; border-radius:4px; height:8px; margin-bottom:10px; overflow:hidden;">
+                            <div id="tts-progress-bar" style="width:0%; height:100%; background:var(--accent-blue); transition:width 0.3s ease;"></div>
+                        </div>
+
+                        <div style="font-size:12px; color:#888; margin-bottom:4px;">現在読み上げ中の箇所:</div>
+                        <div id="tts-current-reading" style="font-size:14px; color:#fff; min-height:20px; word-break:break-all; background:#000; padding:8px; border-radius:6px; border:1px solid #222;">...</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">music_note</i> BGM再生</label>
+                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">メイン画面でBGMを再生・停止します。</p>
+                    <label>BGMファイルのURL (Github等)</label>
+                    <input type="text" id="input-bgm-url" placeholder="例: assets/audio/bgm.mp3" value="assets/audio/bgm.mp3">
+                    
+                    <label>BGM音量 <span style="float:right; color:var(--text-sub);" id="val-bgm-vol">50%</span></label>
+                    <div class="range-group">
+                        <input type="range" min="0" max="1" step="0.05" value="0.5" id="range-bgm-vol" oninput="document.getElementById('val-bgm-vol').innerText = Math.round(this.value * 100) + '%'; changeBGMVolume(this.value)">
+                    </div>
+
+                    <div class="btn-group">
+                        <button id="btn-bgm-play" class="primary" style="background:var(--accent-green);" onclick="toggleBGM(true)">▶ BGM再生</button>
+                        <button id="btn-bgm-stop" class="danger" onclick="toggleBGM(false)">■ BGM停止</button>
+                    </div>
+                </div>
+
+                <div class="card" style="border-left: 5px solid var(--accent-blue);">
+                    <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">mic</i> 管理者マイクのリアルタイム配信</label>
+                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">あなたのマイク音声をメイン画面に直接ストリーミングします。（※要マイク許可）</p>
+                    <div id="mic-status" style="font-size:13px; color:#ffb300; margin-bottom:15px; display:none;">🎤 マイク配信中...</div>
+                    <div class="btn-group">
+                        <button id="btn-mic-start" class="primary" onclick="startMicStreaming()">マイク配信を開始</button>
+                        <button id="btn-mic-stop" class="danger" style="display:none;" onclick="stopMicStreaming()">マイク配信を停止</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ✨ ⑪文字スーパー タブ -->
+            <div id="tab-text-super" class="tab-content">
+                <h2>文字スーパー送出・順次放送</h2>
+
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                        <label style="margin:0; font-size:14px;">字幕カード一覧（順に自動切り替え送出されます）</label>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button class="primary" style="padding:8px 14px; font-size:13px; width:auto; flex:none; display:flex; align-items:center; gap:5px;" onclick="addTextSuperCard()">
+                                <i class="material-icons" style="font-size:16px;">add</i> 字幕カードを追加
+                            </button>
+                            <button class="danger" style="padding:8px 14px; font-size:13px; width:auto; flex:none; display:flex; align-items:center; gap:5px; background:var(--accent-red);" onclick="clearAllTextSuperCards()">
+                                <i class="material-icons" style="font-size:16px;">cleaning_services</i> オールクリア
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 🎴 複数字幕カード一覧コンテナ -->
+                    <div id="text-super-cards-container"></div>
+
+                    <!-- 🎨 カラーパレット -->
+                    <div style="background:#151515; padding:15px; border-radius:8px; border:1px solid #333; margin-top:15px; margin-bottom:15px;">
+                        <label style="margin-top:0;">文字色カラー装飾パレット (原色系)</label>
+                        <p style="font-size:12px; color:var(--text-sub); margin-top:0; margin-bottom:10px;">編集中のカードのテキストを選択した状態で色ボタンを押すと、装飾が適用されます。</p>
+                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                            <button type="button" class="color-palette-btn" style="background:#ffffff;" title="白 (255,255,255)" onclick="insertColorTagToActive('#ffffff')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#ff0000;" title="赤 (255,0,0)" onclick="insertColorTagToActive('#ff0000')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#00ff00;" title="緑 (0,255,0)" onclick="insertColorTagToActive('#00ff00')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#0000ff;" title="青 (0,0,255)" onclick="insertColorTagToActive('#0000ff')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#ffff00;" title="黄 (255,255,0)" onclick="insertColorTagToActive('#ffff00')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#ff00ff;" title="マゼンタ (255,0,255)" onclick="insertColorTagToActive('#ff00ff')"></button>
+                            <button type="button" class="color-palette-btn" style="background:#00ffff;" title="シアン (0,255,255)" onclick="insertColorTagToActive('#00ffff')"></button>
+                            <div style="display:flex; align-items:center; gap:5px; margin-left:10px;">
+                                <span style="font-size:12px; color:var(--text-sub);">任意色:</span>
+                                <input type="color" id="text-super-custom-color" value="#ffff00" style="width:40px; height:32px; padding:2px; margin:0; cursor:pointer;" onchange="insertColorTagToActive(this.value)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ⚙️ 送出切り替え設定 -->
+                    <div class="card" style="background:#111; border:1px solid #333; padding:15px; margin-bottom:15px;">
+                        <label style="margin-bottom:8px;">送出切り替え設定 (固定)</label>
+                        <div style="display:flex; gap:20px; flex-wrap:wrap; align-items:center; font-size:13px; color:var(--text-sub);">
+                            <div>1枚あたりの表示時間: <b style="color:white; font-size:14px;">10 秒</b></div>
+                            <div>再生モード: <b style="color:white; font-size:14px;">1周で終了（全カード表示後に自動消去）</b></div>
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button id="btn-text-super-start" class="primary" style="background:var(--accent-green); display:flex; justify-content:center; align-items:center; gap:8px;" onclick="startTextSuperSequence()">
+                            <i class="material-icons">play_arrow</i> ▶ 順次送出を開始
+                        </button>
+                        <button id="btn-text-super-stop" class="danger" style="display:flex; justify-content:center; align-items:center; gap:8px;" onclick="stopTextSuperSequence()">
+                            <i class="material-icons" style="font-size:18px;">stop</i> ■ 送出停止・即時消去
+                        </button>
+                    </div>
+
+                    <!-- 📊 送出ステータス表示 -->
+                    <div id="text-super-status" style="margin-top:15px; font-size:13px; color:#ffb300; display:none; background:#151515; padding:12px; border-radius:6px; border:1px solid #333;">
+                        📺 連続送出中... [カード <span id="text-super-current-card-num">1</span> / <span id="text-super-total-cards">1</span>] (切り替えまで残り <span id="text-super-countdown">10</span> 秒)
+                    </div>
+                </div>
+
+                <!-- 📰 速報ソース取得枠 (3枠: ニュース・地震・津波) -->
+                <div class="card" style="border-left: 5px solid var(--accent-blue);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                        <label style="margin:0; font-size:14px;"><i class="material-icons" style="font-size:18px; vertical-align:middle;">rss_feed</i> 速報ニュース・防災情報リスト</label>
+                        <button class="secondary" style="padding:6px 12px; font-size:12px; width:auto; flex:none; display:flex; align-items:center; gap:5px;" onclick="fetchRssNews()">
+                            <i class="material-icons" style="font-size:16px;">refresh</i> 再読み込み
+                        </button>
+                    </div>
+
+                    <!-- 3枠切替タブ -->
+                    <div style="display:flex; gap:8px; margin-bottom:12px; overflow-x:auto; padding-bottom:4px;">
+                        <button id="btn-rss-news" class="rss-tab-btn active" onclick="switchRssCategory('news')">📰 ニュース (NHK速報)</button>
+                        <button id="btn-rss-earthquake" class="rss-tab-btn" onclick="switchRssCategory('earthquake')">⚠️ 地震 (P2P地震情報)</button>
+                        <button id="btn-rss-tsunami" class="rss-tab-btn" onclick="switchRssCategory('tsunami')">🌊 津波 (準備中)</button>
+                    </div>
+
+                    <!-- RSSリスト表示枠 -->
+                    <div id="rss-news-list" style="background:#000; border:1px solid #333; border-radius:8px; max-height:220px; overflow-y:auto;">
+                        <div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">速報データを読み込んでいます...</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<!-- 📦 プレビュー用モーダルウィンドウ -->
+<div id="image-preview-modal" class="preview-modal" onclick="closeImagePreviewModal(event)">
+    <div class="preview-modal-content" onclick="event.stopPropagation()">
+        <button class="preview-modal-close" onclick="closeImagePreviewModal(null)">×</button>
+        <h3 id="preview-modal-title" style="margin:0; font-size:16px; color:var(--accent-blue); padding-right:30px;">プレビュー</h3>
+        <div id="preview-modal-media-container" style="display:flex; justify-content:center; align-items:center;"></div>
+    </div>
+</div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue, update, set, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+        authDomain: "mgl-eqlive.firebaseapp.com",
+        databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+        projectId: "mgl-eqlive",
+        storageBucket: "mgl-eqlive.firebasestorage.app",
+        messagingSenderId: "1060231327645",
+        appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth(app); 
+
+    let allCameras = [];
+    let imagePresets = []; 
+    let currentSelectedArea = "すべて";
+    let currentSelectedGenre = "すべて";
+    let currentCameraSourceId = ""; 
+
+    let tourActiveLocal = false;
+    let tourTimer = null;
+    let tourIndex = 0;
+    let selectedTourIds = [];
+    let currentTourConfig = null;
+
+    // --- 文字スーパー（複数カード＆固定条件送出用定数・変数） ---
+    const TEXT_SUPER_INTERVAL_SEC = 10;
+    window.localTextSuperCards = [
+        { id: "card_" + Date.now(), text: "" }
+    ];
+    window.activeCardInputId = null; 
+    let textSuperActiveSequenceIndex = -1;
+    let textSuperStepTimer = null;
+    let textSuperCountdownTimer = null;
+    let isTextSuperSending = false;
+
+    // --- 速報ニュース (3枠: news, earthquake, tsunami) ---
+    window.currentRssCategory = 'news';
+
+    // --- 🔐 Firebase Authentication ログイン制御ロジック ---
+    onAuthStateChanged(auth, (user) => {
+        const loginScreen = document.getElementById('login-screen');
+        const adminApp = document.getElementById('admin-app');
+        
+        if (user) {
+            loginScreen.style.display = 'none';
+            adminApp.style.display = 'flex';
+            initCameras();
+            initPresets();
+            window.renderTextSuperCards();
+            window.fetchRssNews();
+            startFirebaseSync();
+        } else {
+            loginScreen.style.display = 'flex';
+            adminApp.style.display = 'none';
+            stopLocalTourTimer(); 
+            window.stopMicStreaming();
+            window.stopTextSuperTimers();
+        }
+    });
+
+    document.getElementById('btn-execute-login').onclick = () => {
+        const userId = document.getElementById('login-userid').value.trim();
+        const password = document.getElementById('login-password').value;
+        const errorMsg = document.getElementById('login-error-msg');
+        if (!userId || !password) {
+            errorMsg.innerText = "ユーザーIDとパスワードを入力してください。";
+            errorMsg.style.display = 'block';
+            return;
+        }
+        const fullEmail = `${userId}@kactuif.internal`;
+        signInWithEmailAndPassword(auth, fullEmail, password)
+            .then(() => { errorMsg.style.display = 'none'; })
+            .catch((error) => {
+                console.error(error);
+                errorMsg.innerText = "ログインに失敗しました。ユーザーIDまたはパスワードが正しくありません。";
+                errorMsg.style.display = 'block';
+            });
+    };
+
+    document.getElementById('btn-logout').onclick = () => {
+        if(confirm("ログアウトしますか？")) signOut(auth).catch(err => console.error(err));
+    };
+
+    // --- 🖋️ Firebase 書き込み関数 ---
+    function secureSet(dbRef, dataObject) {
+        return set(dbRef, dataObject).catch(err => {
+            alert("エラー: Firebaseへの保存が拒否されました。\n権限がないか、セッションが切れた可能性があります。");
+            console.error(err);
+        });
+    }
+
+    function secureUpdate(dbRef, dataObject) {
+        return update(dbRef, dataObject).catch(err => {
+            alert("エラー: Firebaseの更新が拒否されました。");
+            console.error(err);
+        });
+    }
+
+    // --- UI Logic ---
+    window.toggleNav = () => {
+        document.getElementById('side-nav').classList.toggle('open');
+        document.getElementById('nav-overlay').classList.toggle('active');
+    };
+
+    window.switchTab = (id) => {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(`tab-${id}`).classList.add('active');
+        
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
+            if(item.getAttribute('onclick')?.includes(`'${id}'`)) item.classList.add('active');
+        });
+
+        if(window.innerWidth <= 900) {
+            document.getElementById('side-nav').classList.remove('open');
+            document.getElementById('nav-overlay').classList.remove('active');
+        }
+    };
+
+    window.toggleNingen = () => {
+        const val = document.getElementById('input-distributor').value;
+        const btn = document.getElementById('btn-save-dist');
+        if(!btn) return;
+        btn.disabled = false;
+    };
+
+    window.toggleVideoOptions = (type) => {
+        const vOpts = document.getElementById('video-extra-options');
+        if(vOpts) { vOpts.style.display = (type === 'video') ? 'block' : 'none'; }
+    };
+
+    window.saveScreenProgram = () => {
+        const type = document.getElementById('input-screen-type').value;
+        const title = document.getElementById('input-screen-title').value;
+        const url = document.getElementById('input-screen-url').value;
+        const programData = { type: type, title: title, url: url };
+        if (type === 'video') {
+            programData.loop = document.getElementById('input-screen-loop').value === 'true';
+            programData.muted = document.getElementById('input-screen-muted').value === 'true';
+        }
+        secureSet(ref(db, 'broadcast/screen_program'), programData).then(() => { alert("画面投影設定を反映しました"); });
+    };
+
+    window.setPrepareScreen = () => {
+        document.getElementById('input-screen-type').value = 'image';
+        document.getElementById('input-screen-url').value = 'https://gensai-lab.github.io/eqlive/assets/image/prepare.png';
+        toggleVideoOptions('image');
+        const programData = {
+            type: 'image',
+            title: document.getElementById('input-screen-title').value || "",
+            url: 'https://gensai-lab.github.io/eqlive/assets/image/prepare.png'
+        };
+        secureSet(ref(db, 'broadcast/screen_program'), programData).then(() => { alert("準備中画面を配信にセットしました"); });
+    };
+
+    // --- Firebase Write ---
+    window.updateFB = (path, val) => {
+        if (typeof val === 'object' && val !== null) {
+            secureSet(ref(db, `broadcast/${path}`), val);
+        } else {
+            const segments = path.split('/');
+            if(segments.length === 1) {
+                const obj = {}; obj[path] = val; secureUpdate(ref(db, 'broadcast'), obj);
+            } else {
+                const leaf = segments.pop(); const parentPath = segments.join('/'); const obj = {}; obj[leaf] = val; secureUpdate(ref(db, `broadcast/${parentPath}`), obj);
+            }
+        }
+    };
+
+    window.saveDist = () => {
+        const d = document.getElementById('input-distributor').value;
+        secureUpdate(ref(db, 'broadcast/current'), { distributor: d, operator: (d==='bot'?"System":"有人担当") });
+    };
+
+    window.saveTitle = () => {
+        secureUpdate(ref(db, 'broadcast/current'), { mainTitle: document.getElementById('input-mainTitle').value, subtitle: document.getElementById('input-subtitle').value });
+    };
+
+    window.clearTitle = () => secureUpdate(ref(db, 'broadcast/current'), { mainTitle: "", subtitle: "" });
+
+    window.saveTicker = () => {
+        secureUpdate(ref(db, 'broadcast/manual_news'), { genre: document.getElementById('input-tic-g').value, line1: document.getElementById('input-tic-1').value, line2: document.getElementById('input-tic-2').value });
+    };
+
+    // --- 自由配置メディア管理ロジック ---
+    window.addNewFreeImage = () => {
+        const newId = "img_" + Date.now(); 
+        const initialConfig = {
+            name: "新規配置", url: "", x: 0, y: 0, width: 1920, zIndex: 1, opacity: 1.0, visible: true, mediaType: "image", loop: true
+        };
+        secureSet(ref(db, `broadcast/free_images/${newId}`), initialConfig);
+    };
+
+    window.addFreeImageFromPreset = (index) => {
+        const preset = imagePresets[index];
+        if (!preset) return;
+        const newId = "img_" + Date.now();
+        const config = {
+            name: preset.name || "プリセット", url: preset.url || "",
+            x: preset.x !== undefined ? preset.x : 0, y: preset.y !== undefined ? preset.y : 0,
+            width: preset.width !== undefined ? preset.width : 1920, zIndex: preset.zIndex !== undefined ? preset.zIndex : 1,
+            opacity: preset.opacity !== undefined ? preset.opacity : 1.0, visible: preset.visible !== undefined ? preset.visible : true,
+            mediaType: preset.mediaType || "image", loop: preset.loop !== undefined ? preset.loop : true
+        };
+        secureSet(ref(db, `broadcast/free_images/${newId}`), config);
+    };
+
+    window.syncRangeImageValue = (id, field, val) => {
+        let numVal = parseFloat(val); if (isNaN(numVal)) numVal = 1;
+        const obj = {}; obj[field] = numVal; secureUpdate(ref(db, `broadcast/free_images/${id}`), obj);
+    };
+
+    window.updateImageProperty = (id, field, val) => {
+        const obj = {}; obj[field] = val; secureUpdate(ref(db, `broadcast/free_images/${id}`), obj);
+    };
+
+    window.deleteFreeImage = (id) => {
+        if(confirm("このメディアを配信レイヤーから完全に削除しますか？")) remove(ref(db, `broadcast/free_images/${id}`)).catch(err => alert("削除に失敗しました。"));
+    };
+
+    window.handleImageFileSelect = (id, event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => { const obj = { url: e.target.result }; secureUpdate(ref(db, `broadcast/free_images/${id}`), obj); };
+        reader.readAsDataURL(file);
+    };
+
+    window.openImagePreviewModal = (title, url, mediaType) => {
+        const modal = document.getElementById('image-preview-modal');
+        const modalTitle = document.getElementById('preview-modal-title');
+        const mediaContainer = document.getElementById('preview-modal-media-container');
+        
+        if (!modal || !mediaContainer) return;
+        
+        modalTitle.innerText = `プレビュー : ${title || '名称未設定'}`;
+        mediaContainer.innerHTML = '';
+        
+        if (mediaType === 'video') {
+            const vid = document.createElement('video');
+            vid.src = url; vid.className = 'preview-modal-img'; vid.controls = true; vid.autoplay = true; vid.loop = true;
+            mediaContainer.appendChild(vid);
+        } else {
+            const img = document.createElement('img');
+            img.src = url; img.className = 'preview-modal-img'; img.alt = '拡大プレビュー';
+            mediaContainer.appendChild(img);
+        }
+        
+        modal.classList.add('open');
+    };
+
+    window.closeImagePreviewModal = (event) => {
+        if(event && event.target !== document.getElementById('image-preview-modal')) return;
+        const modal = document.getElementById('image-preview-modal');
+        if (modal) {
+            modal.classList.remove('open');
+            const mediaContainer = document.getElementById('preview-modal-media-container');
+            if(mediaContainer) mediaContainer.innerHTML = ''; 
+        }
+    };
+
+    function renderFreeImagesControls(imagesData) {
+        const container = document.getElementById('free-images-control-container');
+        if (!container) return;
+        container.innerHTML = "";
+
+        if (!imagesData || Object.keys(imagesData).length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-sub); font-size:14px;">配置されているメディアはありません。</div>`;
+            return;
+        }
+
+        Object.keys(imagesData).forEach(id => {
+            const conf = imagesData[id];
+            if(!conf || id === 'secret_key') return;
+
+            const card = document.createElement('div');
+            card.className = "card";
+            card.style.background = "#222";
+            card.style.borderLeft = conf.visible ? "5px solid var(--accent-blue)" : "5px solid #555";
+
+            const currentZIndex = conf.zIndex !== undefined ? conf.zIndex : 1;
+            const currentMediaType = conf.mediaType || 'image';
+            const currentLoop = conf.loop !== undefined ? conf.loop : true;
+            
+            const hasUrl = conf.url && conf.url.trim() !== "";
+            const escapedName = (conf.name || '名称未設定').replace(/'/g, "\\'");
+            const escapedUrl = hasUrl ? conf.url.replace(/'/g, "\\'") : '';
+            
+            const previewBtnHtml = hasUrl 
+                ? `<button class="secondary" style="width:100%; margin-bottom:15px; background:#333; display:flex; align-items:center; justify-content:center; gap:8px;" onclick="openImagePreviewModal('${escapedName}', '${escapedUrl}', '${currentMediaType}')"><i class="material-icons" style="font-size:18px;">visibility</i>プレビュー</button>`
+                : `<button class="secondary" style="width:100%; margin-bottom:15px; opacity:0.3; cursor:not-allowed; display:flex; align-items:center; justify-content:center; gap:8px;" disabled><i class="material-icons" style="font-size:18px;">visibility_off</i>プレビュー用メディアがありません</button>`;
+
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:10px;">
+                    <input type="text" value="${conf.name || '名称未設定'}" 
+                           style="margin:0; width:60%; padding:6px 10px; font-size:14px; background:#000;" 
+                           onchange="updateImageProperty('${id}', 'name', this.value)">
+                    <div class="btn-group" style="margin:0;">
+                        <button class="${conf.visible ? 'primary' : 'secondary'}" style="padding:6px 12px; font-size:12px;" 
+                                onclick="updateImageProperty('${id}', 'visible', ${!conf.visible})">
+                            ${conf.visible ? '表示中' : '非表示'}
+                        </button>
+                        <button class="danger" style="padding:6px 12px; font-size:12px;" onclick="deleteFreeImage('${id}')">
+                            <i class="material-icons" style="font-size:14px; vertical-align:middle;">delete</i>
+                        </button>
+                    </div>
+                </div>
+
+                ${previewBtnHtml}
+
+                <label>メディアタイプ</label>
+                <select style="margin-bottom: 10px; padding: 10px; background: #000; color: #fff; border: 1px solid #444; border-radius: 6px; width: 100%; font-size: 14px; font-family: inherit;" onchange="updateImageProperty('${id}', 'mediaType', this.value)">
+                    <option value="image" ${currentMediaType === 'image' ? 'selected' : ''}>画像 / GIF</option>
+                    <option value="video" ${currentMediaType === 'video' ? 'selected' : ''}>動画 (MP4, WebM等)</option>
+                </select>
+
+                <div style="display: ${currentMediaType === 'video' ? 'block' : 'none'}; margin-bottom: 10px;">
+                    <label>動画のループ再生</label>
+                    <select style="padding: 10px; background: #000; color: #fff; border: 1px solid #444; border-radius: 6px; width: 100%; font-size: 14px; font-family: inherit;" onchange="updateImageProperty('${id}', 'loop', this.value === 'true')">
+                        <option value="true" ${currentLoop === true ? 'selected' : ''}>ループする</option>
+                        <option value="false" ${currentLoop === false ? 'selected' : ''}>ループしない</option>
+                    </select>
+                </div>
+
+                <label>メディア直リンクURL（画像/GIF/動画）</label>
+                <input type="text" id="url-${id}" value="${conf.url && !conf.url.startsWith('data:') ? conf.url : ''}" 
+                       placeholder="https://..." onchange="updateImageProperty('${id}', 'url', this.value)">
+                
+                <label>ローカルファイルをアップロード (※ファイルサイズ注意)</label>
+                <input type="file" accept="image/*,video/*" style="padding:6px; font-size:12px;" onchange="handleImageFileSelect('${id}', event)">
+
+                <div style="margin-top:15px;">
+                    <label>X座標 (px) <span style="float:right; color:var(--text-sub);" id="val-${id}-x">${conf.x || 0}px</span></label>
+                    <div class="range-group">
+                        <input type="range" min="0" max="1920" value="${conf.x || 0}" id="range-${id}-x" oninput="document.getElementById('val-${id}-x').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'x', this.value)">
+                    </div>
+
+                    <label>Y座標 (px) <span style="float:right; color:var(--text-sub);" id="val-${id}-y">${conf.y || 0}px</span></label>
+                    <div class="range-group">
+                        <input type="range" min="0" max="1080" value="${conf.y || 0}" id="range-${id}-y" oninput="document.getElementById('val-${id}-y').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'y', this.value)">
+                    </div>
+
+                    <label>横幅サイズ (px) <span style="float:right; color:var(--text-sub);" id="val-${id}-w">${conf.width !== undefined ? conf.width : 1920}px</span></label>
+                    <div class="range-group">
+                        <input type="range" min="50" max="1920" value="${conf.width !== undefined ? conf.width : 1920}" id="range-${id}-w" oninput="document.getElementById('val-${id}-w').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'width', this.value)">
+                    </div>
+
+                    <label>レイヤー順序 (z-index 1〜10)</label>
+                    <div class="range-group">
+                        <input type="range" min="1" max="10" value="${currentZIndex}" id="range-${id}-z" oninput="document.getElementById('num-${id}-z').value = this.value; syncRangeImageValue('${id}', 'zIndex', this.value)">
+                        <input type="number" min="1" max="999" value="${currentZIndex}" id="num-${id}-z" style="width: 65px; padding: 6px; font-size: 14px; margin: 0; text-align: center; background: #000; border: 1px solid #444; border-radius: 6px;" onchange="document.getElementById('range-${id}-z').value = this.value; syncRangeImageValue('${id}', 'zIndex', this.value)">
+                    </div>
+
+                    <label>不透明度 (opacity) <span style="float:right; color:var(--text-sub);" id="val-${id}-o">${conf.opacity !== undefined ? conf.opacity : 1.0}</span></label>
+                    <div class="range-group">
+                        <input type="range" min="0" max="1" step="0.1" value="${conf.opacity !== undefined ? conf.opacity : 1.0}" id="range-${id}-o" oninput="document.getElementById('val-${id}-o').innerText = this.value; syncRangeImageValue('${id}', 'opacity', this.value)">
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function animateCardSwap(container, index1, index2, array, renderFn) {
+        if (!container) {
+            const temp = array[index1];
+            array[index1] = array[index2];
+            array[index2] = temp;
+            renderFn();
+            return;
+        }
+
+        const cards = container.children;
+        const card1 = cards[index1];
+        const card2 = cards[index2];
+
+        if (!card1 || !card2) {
+            const temp = array[index1];
+            array[index1] = array[index2];
+            array[index2] = temp;
+            renderFn();
+            return;
+        }
+
+        const rect1 = card1.getBoundingClientRect();
+        const rect2 = card2.getBoundingClientRect();
+
+        const temp = array[index1];
+        array[index1] = array[index2];
+        array[index2] = temp;
+
+        renderFn();
+
+        const newCards = container.children;
+        const newCard1 = newCards[index1]; 
+        const newCard2 = newCards[index2]; 
+
+        if (newCard1 && newCard2) {
+            const dy1 = rect2.top - rect1.top;
+            const dy2 = rect1.top - rect2.top;
+
+            newCard1.animate([
+                { transform: `translateY(${dy1}px)` },
+                { transform: 'translateY(0)' }
+            ], {
+                duration: 250,
+                easing: 'cubic-bezier(0.16, 1, 0.3, 1)'
+            });
+
+            newCard2.animate([
+                { transform: `translateY(${dy2}px)` },
+                { transform: 'translateY(0)' }
+            ], {
+                duration: 250,
+                easing: 'cubic-bezier(0.16, 1, 0.3, 1)'
+            });
+        }
+    }
+
+    // --- L-Shape Logic ---
+    let localLItems = [];
+    window.addLItem = () => { localLItems.push({genre:"", text:""}); renderLItems(); };
+    window.removeLItem = (i) => { localLItems.splice(i,1); renderLItems(); };
+    window.updateLItem = (i, field, val) => { localLItems[i][field] = val; };
+
+    window.moveLItem = (index, direction) => {
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= localLItems.length) return;
+        const container = document.getElementById('l-items-container');
+        animateCardSwap(container, index, targetIndex, localLItems, renderLItems);
+    };
+
+    function renderLItems() {
+        const container = document.getElementById('l-items-container');
+        if(!container) return;
+
+        const activeIdBefore = document.activeElement ? document.activeElement.id : null;
+        container.innerHTML = "";
+
+        localLItems.forEach((item, i) => {
+            const div = document.createElement('div');
+            div.className = "card";
+            div.style.background = "#252525";
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue);">
+                        カード #${i + 1}
+                    </div>
+                    <div class="btn-group" style="margin:0; gap:5px;">
+                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveLItem(${i}, -1)" ${i === 0 ? 'disabled' : ''}>▲ 上へ</button>
+                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveLItem(${i}, 1)" ${i === localLItems.length - 1 ? 'disabled' : ''}>▼ 下へ</button>
+                        <button class="danger" style="padding:4px 8px; font-size:12px;" onclick="removeLItem(${i})"><i class="material-icons" style="font-size:14px; vertical-align:middle;">delete</i> 削除</button>
+                    </div>
+                </div>
+                <label>ジャンル</label>
+                <input type="text" id="input-l-genre-${i}" value="${item.genre || ''}" oninput="updateLItem(${i}, 'genre', this.value)">
+                <label>内容</label>
+                <input type="text" id="input-l-text-${i}" value="${item.text || ''}" oninput="updateLItem(${i}, 'text', this.value)">
+            `;
+            container.appendChild(div);
+        });
+
+        if (activeIdBefore && document.getElementById(activeIdBefore)) {
+            document.getElementById(activeIdBefore).focus();
+        }
+    }
+
+    window.saveLShape = () => {
+        const topItemsObj = {};
+        localLItems.forEach((item, index) => {
+            topItemsObj[index] = { genre: item.genre || "", text: item.text || "" };
+        });
+        secureSet(ref(db, 'broadcast/l_shape'), {
+            leftText: document.getElementById('input-l-leftText').value || "", topItems: topItemsObj
+        }).then(() => { alert("L字放送設定をFirebaseに保存しました"); });
+    };
+
+    window.triggerTsu = (dir) => {
+        secureSet(ref(db, 'broadcast/tsunami_config/manualTrigger'), { direction: dir, timestamp: Date.now() });
+    };
+
+    // --- 巡回モード（Tour Mode） ---
+    window.toggleTourModeUI = (isOn) => {
+        const btnOn = document.getElementById('btn-tour-on');
+        const btnOff = document.getElementById('btn-tour-off');
+        const detailsArea = document.getElementById('tour-details-area');
+        if (isOn) {
+            btnOn.className = "primary"; btnOff.className = "secondary"; detailsArea.style.display = "block";
+        } else {
+            btnOn.className = "secondary"; btnOff.className = "primary"; detailsArea.style.display = "none"; stopCameraTourFB();
+        }
+        saveTourConfigToFB(isOn);
+    };
+
+    function buildTourCameraSelector() {
+        const container = document.getElementById('tour-camera-selector');
+        if (!container) return;
+        container.innerHTML = "";
+        allCameras.forEach(cam => {
+            const isChecked = selectedTourIds.includes(cam.id);
+            const item = document.createElement('div');
+            item.className = "tour-cam-item";
+            item.innerHTML = `
+                <label for="chk-tour-${cam.id}">
+                    <input type="checkbox" id="chk-tour-${cam.id}" value="${cam.id}" ${isChecked ? 'checked' : ''} onchange="updateTourSelectedCount()">
+                    <span>${cam.name} (${cam.area || '未設定'})</span>
+                </label>
+            `;
+            container.appendChild(item);
+        });
+        updateTourSelectedCountUI();
+    }
+
+    window.updateTourSelectedCount = () => { updateTourSelectedCountUI(); saveTourConfigToFB(); };
+
+    function updateTourSelectedCountUI() {
+        const container = document.getElementById('tour-camera-selector');
+        if (!container) return;
+        const checked = container.querySelectorAll('input[type="checkbox"]:checked');
+        selectedTourIds = Array.from(checked).map(chk => chk.value);
+        const countSpan = document.getElementById('tour-selected-count');
+        if(countSpan) countSpan.innerText = selectedTourIds.length;
+    }
+
+    window.saveTourConfigToFB = (customEnabled) => {
+        const intervalInput = document.getElementById('input-tour-interval')?.value || "30";
+        const unitMultiplier = document.getElementById('select-tour-unit')?.value || "60";
+        let isEnabled = customEnabled !== undefined ? customEnabled : (currentTourConfig ? !!currentTourConfig.enabled : false);
+        const tourConfigData = {
+            enabled: isEnabled, running: currentTourConfig ? !!currentTourConfig.running : false,
+            interval: parseInt(intervalInput) || 30, unit: parseInt(unitMultiplier) || 60, selectedIds: selectedTourIds || []
+        };
+        secureSet(ref(db, 'broadcast/tour_config'), tourConfigData);
+    };
+
+    window.startCameraTourFB = () => {
+        if (selectedTourIds.length < 2) { alert("自動巡回を行うには、カメラを2台以上選択してください。"); return; }
+        const intervalInput = document.getElementById('input-tour-interval').value;
+        const unitMultiplier = document.getElementById('select-tour-unit').value;
+        let totalSeconds = parseInt(intervalInput) * parseInt(unitMultiplier);
+        if (isNaN(totalSeconds) || totalSeconds < 5) { alert("切り替え間隔は5秒以上に設定してください。"); return; }
+        secureSet(ref(db, 'broadcast/tour_config'), {
+            enabled: true, running: true, interval: parseInt(intervalInput) || 30, unit: parseInt(unitMultiplier) || 60, selectedIds: selectedTourIds || []
+        });
+    };
+
+    window.stopCameraTourFB = () => {
+        const intervalInput = document.getElementById('input-tour-interval')?.value || "30";
+        const unitMultiplier = document.getElementById('select-tour-unit')?.value || "60";
+        secureSet(ref(db, 'broadcast/tour_config'), {
+            enabled: document.getElementById('btn-tour-on').classList.contains('primary'), running: false,
+            interval: parseInt(intervalInput) || 30, unit: parseInt(unitMultiplier) || 60, selectedIds: selectedTourIds || []
+        });
+    };
+
+    function startLocalTourLoop(totalSeconds) {
+        stopLocalTourTimer();
+        tourActiveLocal = true;
+        const btnStart = document.getElementById('btn-tour-start');
+        const btnStop = document.getElementById('btn-tour-stop');
+        const statusText = document.getElementById('tour-status-text');
+        if (btnStart) btnStart.style.display = "none";
+        if (btnStop) btnStop.style.display = "block";
+        if (statusText) { statusText.style.display = "block"; statusText.innerText = "🚨 巡回モード実行中..."; }
+        executeTourStep(totalSeconds);
+    }
+
+    function executeTourStep(seconds) {
+        if (!tourActiveLocal) return;
+        if (tourIndex >= selectedTourIds.length) { tourIndex = 0; }
+        const targetCamId = selectedTourIds[tourIndex];
+        const camObj = allCameras.find(c => c.id === targetCamId);
+        if (camObj) {
+            updateFB('current/cameraSource', camObj.id);
+            const statusText = document.getElementById('tour-status-text');
+            if (statusText) statusText.innerText = `🔄 自動巡回中 [${tourIndex + 1}/${selectedTourIds.length}]: 「${camObj.name}」を配信中 (${seconds}秒後に次へ)`;
+        }
+        tourIndex++;
+        tourTimer = setTimeout(() => { executeTourStep(seconds); }, seconds * 1000);
+    }
+
+    function stopLocalTourTimer() {
+        tourActiveLocal = false;
+        if (tourTimer) { clearTimeout(tourTimer); tourTimer = null; }
+        const btnStart = document.getElementById('btn-tour-start');
+        const btnStop = document.getElementById('btn-tour-stop');
+        const statusText = document.getElementById('tour-status-text');
+        if (btnStart) btnStart.style.display = "block";
+        if (btnStop) btnStop.style.display = "none";
+        if (statusText) { statusText.style.display = "none"; statusText.innerText = ""; }
+    }
+
+    function buildGenreFilterButtons(cams) {
+        const container = document.getElementById('genre-filter-container');
+        if (!container) return;
+        const genres = new Set();
+        cams.forEach(c => { if (c.genre && c.genre.trim() !== "") genres.add(c.genre.trim()); });
+        container.innerHTML = `<button class="filter-btn active" id="genre-btn-all" onclick="filterByGenre('すべて', this)">全ジャンル</button>`;
+        genres.forEach(genreName => {
+            const btn = document.createElement('button');
+            btn.className = "filter-btn";
+            let icon = "📷 ";
+            if(genreName === "海") icon = "🌊 ";
+            else if(genreName === "河川") icon = "🏞️ ";
+            else if(genreName === "道路") icon = "🛣️ ";
+            else if(genreName === "都市") icon = "🏙️ ";
+            btn.innerText = `${icon}${genreName}`;
+            btn.onclick = () => filterByGenre(genreName, btn);
+            container.appendChild(btn);
+        });
+    }
+
+    window.filterByArea = (area, btn) => {
+        const container = document.getElementById('area-filter-container');
+        container.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSelectedArea = area;
+        applyCombinedFilter();
+    };
+
+    window.filterByGenre = (genre, btn) => {
+        const container = document.getElementById('genre-filter-container');
+        container.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSelectedGenre = genre;
+        applyCombinedFilter();
+    };
+
+    function applyCombinedFilter() {
+        let filtered = allCameras;
+        if (currentSelectedArea !== 'すべて') filtered = filtered.filter(c => c.area === currentSelectedArea);
+        if (currentSelectedGenre !== 'すべて') filtered = filtered.filter(c => c.genre === currentSelectedGenre);
+        renderCameraList(filtered);
+    }
+
+    function renderCameraList(cams) {
+        const list = document.getElementById('cam-list');
+        if(!list) return;
+        list.innerHTML = "";
+        if(cams.length === 0) {
+            list.innerHTML = `<div style="text-align:center; padding:40px; color:#555; font-size:14px;">該当するカメラがありません</div>`;
+            return;
+        }
+        cams.forEach(c => {
+            const d = document.createElement('div');
+            d.style.cssText = "padding:18px; border-bottom:1px solid #222; cursor:pointer;";
+            const genreTag = c.genre ? c.genre : '未分類';
+            d.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div><div style="font-weight:bold;">${c.name}</div><small style="color:#777;">ID: ${c.id}</small></div>
+                    <div style="display:flex; gap:6px;">
+                        <span style="font-size:10px; background:#1A365D; color:#90CDF4; padding:2px 8px; border-radius:4px;">${genreTag}</span>
+                        <span style="font-size:10px; background:#333; padding:2px 8px; border-radius:4px;">${c.area || '未設定'}</span>
+                    </div>
+                </div>
+            `;
+            d.onclick = () => {
+                if(tourActiveLocal) {
+                    if(confirm("現在自動巡回モードが動作中です。手動切り替えを行いますか？（巡回は停止します）")) stopCameraTourFB(); else return;
+                }
+                updateFB('current/cameraSource', c.id);
+            };
+            list.appendChild(d);
+        });
+    }
+
+    function updatePreviewPlayer() {
+        const container = document.getElementById('preview-player-container');
+        if (!container) return;
+        container.innerHTML = `
+            <div id="yt-live-check-player" style="width:100%; height:100%; position:absolute; top:0; left:0; visibility:hidden;"></div>
+            <div id="offline-message-layer" style="text-align:center; z-index:10; padding:20px; display:none;">
+                <i class="material-icons" style="font-size:48px; color:var(--text-sub); margin-bottom:10px;">videocam_off</i>
+                <div style="font-weight:bold; font-size:15px; margin-bottom:4px;">現在、YouTubeライブ配信は行われていません</div>
+                <div style="font-size:12px; color:var(--text-sub);">EQLiveプロジェクトが稼働するとここに自動で映像が投影されます</div>
+            </div>
+            <div id="loading-message-layer" style="text-align:center; z-index:5;">
+                <div style="font-size:13px; color:var(--text-sub);">配信ステータスを取得しています...</div>
+            </div>
+        `;
+        new YT.Player('yt-live-check-player', {
+            width: '100%', height: '100%', videoId: '', 
+            playerVars: { 'listType': 'live_stream', 'list': 'UC8nCen_24bQ-Vsp-f1F080w', 'autoplay': 1, 'mute': 1, 'controls': 1, 'rel': 0 },
+            events: {
+                'onReady': () => {
+                    document.getElementById('loading-message-layer').style.display = 'none';
+                    document.getElementById('yt-live-check-player').style.visibility = 'visible';
+                },
+                'onError': () => {
+                    document.getElementById('loading-message-layer').style.display = 'none';
+                    document.getElementById('yt-live-check-player').style.display = 'none';
+                    document.getElementById('offline-message-layer').style.display = 'block';
+                }
+            }
+        });
+    }
+
+    async function initPresets() {
+        const container = document.getElementById('preset-buttons-container');
+        if (!container) return;
+        try {
+            const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/presets.json");
+            imagePresets = await res.json();
+            if (imagePresets.length === 0) return;
+            container.innerHTML = "";
+            imagePresets.forEach((preset, index) => {
+                const btn = document.createElement('button');
+                btn.className = "secondary"; btn.style.cssText = "padding: 8px 14px; font-size: 13px; font-weight: normal; flex: none;";
+                btn.innerText = preset.name || `プリセット ${index + 1}`;
+                btn.onclick = () => addFreeImageFromPreset(index);
+                container.appendChild(btn);
+            });
+        } catch(e) { console.error(e); }
+    }
+
+    async function initCameras() {
+        try {
+            const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json");
+            allCameras = await res.json();
+            buildGenreFilterButtons(allCameras);
+            applyCombinedFilter();
+            buildTourCameraSelector(); 
+            updatePreviewPlayer();
+        } catch(e) { console.error(e); }
+    }
+
+    let isInitialLoad = true;
+
+    function startFirebaseSync() {
+        onValue(ref(db, 'broadcast'), (snapshot) => {
+            const data = snapshot.val();
+            if(!data) return;
+
+            const cur = data.current || {};
+            const tsu = data.tsunami_config || {};
+            const tourConf = data.tour_config || {};
+            const audioConf = data.audio || {};
+            const textSuperSeq = data.text_super_sequence || {};
+            currentTourConfig = tourConf;
+            
+            const freeImagesData = data.free_images || {};
+            const activeEl = document.activeElement;
+            const isEditingFreeImage = activeEl && (activeEl.id.startsWith('range-') || activeEl.id.startsWith('num-') || activeEl.id.startsWith('url-') || activeEl.type === 'file');
+            if(!isEditingFreeImage){ renderFreeImagesControls(freeImagesData); }
+
+            const statDist = document.getElementById('stat-dist');
+            const statMode = document.getElementById('stat-mode');
+            const statCam = document.getElementById('stat-cam');
+            if(statDist) statDist.innerText = `${cur.distributor === 'bot' ? '🤖 自動 (Bot)' : '👤 有人'} (${cur.operator || '--'})`;
+            if(statMode) statMode.innerText = cur.layoutMode === 'emergency' ? '🚨 有事放送' : '🏠 通常放送';
+            if(statCam) statCam.innerText = cur.cameraSource || '--';
+
+            if (cur.cameraSource && cur.cameraSource !== currentCameraSourceId) currentCameraSourceId = cur.cameraSource;
+
+            const alertArea = document.getElementById('status-alert-area');
+            if(alertArea) alertArea.innerHTML = data.current_mode === 'l-screen' ? '<div class="card alert"><i class="material-icons" style="vertical-align:bottom; color:var(--accent-red)">warning</i> L字放送が実行中です</div>' : '';
+
+            const syncSelect = (id, val) => { const el = document.getElementById(id); if(el && document.activeElement.id !== id) el.value = val || ""; };
+            syncSelect('input-distributor', cur.distributor);
+            toggleNingen();
+
+            const setBtn = (id, cond) => { const el = document.getElementById(id); if(el) el.className = cond ? "primary" : "secondary"; };
+            setBtn('btn-lay-live', cur.layoutMode === 'live');
+            setBtn('btn-lay-emer', cur.layoutMode === 'emergency');
+            setBtn('btn-m-sub', data.current_mode === 'sub-switcher');
+            setBtn('btn-m-l', data.current_mode === 'l-screen');
+            setBtn('btn-time-show', cur.timeVisible !== false);
+            setBtn('btn-time-hide', cur.timeVisible === false);
+            
+            const linkToL = document.getElementById('link-to-l');
+            if(linkToL) linkToL.style.display = data.current_mode === 'l-screen' ? 'block' : 'none';
+
+            syncSelect('input-mainSource', cur.mainSource);
+            const screenOpts = document.getElementById('screen-options');
+            if(screenOpts) screenOpts.style.display = cur.mainSource === 'screen' ? 'block' : 'none';
+            
+            if(data.screen_program) {
+                syncSelect('input-screen-type', data.screen_program.type);
+                toggleVideoOptions(data.screen_program.type);
+                const syncInputOrValue = (id, val) => { const el = document.getElementById(id); if(el && document.activeElement.id !== id) el.value = String(val !== undefined ? val : ""); };
+                syncInputOrValue('input-screen-title', data.screen_program.title);
+                syncInputOrValue('input-screen-url', data.screen_program.url);
+                syncSelect('input-screen-loop', data.screen_program.loop !== undefined ? String(data.screen_program.loop) : 'true');
+                syncSelect('input-screen-muted', data.screen_program.muted !== undefined ? String(data.screen_program.muted) : 'false');
+            }
+
+            const syncInput = (id, val) => { const el = document.getElementById(id); if(el && document.activeElement.id !== id) el.value = val || ""; };
+            syncInput('input-mainTitle', cur.mainTitle);
+            syncInput('input-subtitle', cur.subtitle);
+            if(data.manual_news) { syncInput('input-tic-g', data.manual_news.genre); syncInput('input-tic-1', data.manual_news.line1); syncInput('input-tic-2', data.manual_news.line2); }
+
+            const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container'));
+            if(data.l_shape && !isEditingL) {
+                syncInput('input-l-leftText', data.l_shape.leftText);
+                const items = data.l_shape.topItems;
+                if(items) {
+                    const keys = Object.keys(items).sort((a,b) => parseInt(a) - parseInt(b));
+                    const newItems = keys.map(key => ({ genre: items[key].genre || "", text: items[key].text || "" }));
+                    if(isInitialLoad || localLItems.length !== newItems.length) { localLItems = newItems; renderLItems(); }
+                }
+            }
+            
+            setBtn('btn-tsu-auto', tsu.autoPage === true);
+            setBtn('btn-tsu-manual', tsu.autoPage === false);
+            const tsuCtrl = document.getElementById('tsu-manual-ctrl');
+            if(tsuCtrl) tsuCtrl.style.display = tsu.autoPage === false ? 'block' : 'none';
+
+            // --- Tour Sync ---
+            const btnTourOn = document.getElementById('btn-tour-on');
+            const btnTourOff = document.getElementById('btn-tour-off');
+            const tourDetailsArea = document.getElementById('tour-details-area');
+            const intervalEl = document.getElementById('input-tour-interval');
+            const unitEl = document.getElementById('select-tour-unit');
+
+            if (tourConf.enabled) {
+                btnTourOn.className = "primary"; btnTourOff.className = "secondary"; if(tourDetailsArea) tourDetailsArea.style.display = "block";
+            } else {
+                btnTourOn.className = "secondary"; btnTourOff.className = "primary"; if(tourDetailsArea) tourDetailsArea.style.display = "none";
+            }
+
+            if (intervalEl && document.activeElement.id !== 'input-tour-interval') intervalEl.value = tourConf.interval || 30;
+            if (unitEl && document.activeElement.id !== 'select-tour-unit') unitEl.value = tourConf.unit || 60;
+            if (tourConf.selectedIds && Array.isArray(tourConf.selectedIds)) { selectedTourIds = tourConf.selectedIds; buildTourCameraSelector(); }
+
+            if (tourConf.running && tourConf.enabled) {
+                const totalSec = (tourConf.interval || 30) * (tourConf.unit || 60);
+                if (!tourActiveLocal) startLocalTourLoop(totalSec);
+            } else {
+                if (tourActiveLocal) stopLocalTourTimer();
+            }
+
+            // --- Audio BGM Sync ---
+            const btnBgmPlay = document.getElementById('btn-bgm-play');
+            const btnBgmStop = document.getElementById('btn-bgm-stop');
+            const bgmUrl = document.getElementById('input-bgm-url');
+            
+            if (audioConf.bgm) {
+                if (audioConf.bgm.playing) {
+                    btnBgmPlay.className = "primary";
+                    btnBgmPlay.style.background = "var(--accent-green)";
+                    btnBgmStop.className = "secondary";
+                } else {
+                    btnBgmPlay.className = "secondary";
+                    btnBgmPlay.style.background = "";
+                    btnBgmStop.className = "danger";
+                }
+                if (bgmUrl && document.activeElement.id !== 'input-bgm-url') bgmUrl.value = audioConf.bgm.url || "";
+                
+                const rangeVol = document.getElementById('range-bgm-vol');
+                const valVol = document.getElementById('val-bgm-vol');
+                if (rangeVol && document.activeElement.id !== 'range-bgm-vol') {
+                    rangeVol.value = audioConf.bgm.volume !== undefined ? audioConf.bgm.volume : 0.5;
+                    if (valVol) valVol.innerText = Math.round(rangeVol.value * 100) + '%';
+                }
+            }
+
+            // --- Text Super Sync ---
+            if (textSuperSeq) {
+                isTextSuperSending = textSuperSeq.running;
+                const startBtn = document.getElementById('btn-text-super-start');
+                const stopBtn = document.getElementById('btn-text-super-stop');
+                const statusDiv = document.getElementById('text-super-status');
+                
+                if (isTextSuperSending) {
+                    startBtn.style.display = 'none';
+                    stopBtn.style.display = 'flex';
+                    statusDiv.style.display = 'block';
+                    
+                    document.getElementById('text-super-current-card-num').innerText = textSuperSeq.currentIndex + 1;
+                    document.getElementById('text-super-total-cards').innerText = textSuperSeq.total;
+                } else {
+                    startBtn.style.display = 'flex';
+                    stopBtn.style.display = 'none';
+                    statusDiv.style.display = 'none';
+                }
+            }
+            
+            isInitialLoad = false;
+        });
+    }
+
+    // --- Audio BGM Functions ---
+    window.toggleBGM = (play) => {
+        const url = document.getElementById('input-bgm-url').value;
+        const vol = document.getElementById('range-bgm-vol').value;
+        secureUpdate(ref(db, 'broadcast/audio/bgm'), {
+            playing: play,
+            url: url,
+            volume: parseFloat(vol)
+        });
+    };
+
+    window.changeBGMVolume = (val) => {
+        secureUpdate(ref(db, 'broadcast/audio/bgm'), { volume: parseFloat(val) });
+    };
+
+    // --- TTS (AI音声) Functions ---
+    window.updateTTSCharCount = () => {
+        const text = document.getElementById('input-tts-text').value;
+        document.getElementById('tts-char-count').innerText = text.length;
+    };
+
+    window.sendTTS = () => {
+        const text = document.getElementById('input-tts-text').value;
+        if (!text.trim()) return;
+        secureSet(ref(db, 'broadcast/audio/tts'), {
+            text: text,
+            trigger: Date.now()
+        }).then(() => alert("読み上げを実行しました"));
+    };
+
+    window.clearTTS = () => {
+        document.getElementById('input-tts-text').value = "";
+        updateTTSCharCount();
+        secureSet(ref(db, 'broadcast/audio/tts'), { text: "", trigger: 0, stop: Date.now() });
+    };
+
+    // --- Mic Streaming ---
+    window.startMicStreaming = () => {
+        document.getElementById('mic-status').style.display = 'block';
+        document.getElementById('btn-mic-start').style.display = 'none';
+        document.getElementById('btn-mic-stop').style.display = 'block';
+    };
+    
+    window.stopMicStreaming = () => {
+        document.getElementById('mic-status').style.display = 'none';
+        document.getElementById('btn-mic-start').style.display = 'block';
+        document.getElementById('btn-mic-stop').style.display = 'none';
+    };
+
+    // --- Text Super (⑪文字スーパー) Functions ---
+    window.renderTextSuperCards = () => {
+        const container = document.getElementById('text-super-cards-container');
+        if (!container) return;
+        container.innerHTML = "";
+        
+        window.localTextSuperCards.forEach((card, i) => {
+            const div = document.createElement('div');
+            div.className = "card";
+            div.style.background = "#252525";
+            div.style.marginBottom = "10px";
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue);">カード #${i + 1}</div>
+                    <div class="btn-group" style="margin:0; gap:5px;">
+                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveTextSuperCard(${i}, -1)" ${i === 0 ? 'disabled' : ''}>▲ 上へ</button>
+                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveTextSuperCard(${i}, 1)" ${i === window.localTextSuperCards.length - 1 ? 'disabled' : ''}>▼ 下へ</button>
+                        <button class="danger" style="padding:4px 8px; font-size:12px;" onclick="removeTextSuperCard(${i})"><i class="material-icons" style="font-size:14px;">delete</i></button>
+                    </div>
+                </div>
+                <textarea id="input-text-super-${i}" style="height:60px; margin-bottom:0;" placeholder="ここに文字スーパーのテキストを入力..." onfocus="activeCardInputId=this.id" oninput="updateTextSuperCard(${i}, this.value)">${card.text}</textarea>
+            `;
+            container.appendChild(div);
+        });
+    };
+
+    window.addTextSuperCard = (defaultText = "") => {
+        window.localTextSuperCards.push({ id: "card_" + Date.now(), text: defaultText });
+        window.renderTextSuperCards();
+    };
+
+    window.removeTextSuperCard = (index) => {
+        window.localTextSuperCards.splice(index, 1);
+        if (window.localTextSuperCards.length === 0) {
+            window.addTextSuperCard(); 
+        } else {
+            window.renderTextSuperCards();
+        }
+    };
+
+    window.clearAllTextSuperCards = () => {
+        if (confirm("全ての文字スーパーカードをクリアしますか？")) {
+            window.localTextSuperCards = [{ id: "card_" + Date.now(), text: "" }];
+            window.renderTextSuperCards();
+        }
+    };
+
+    window.updateTextSuperCard = (index, value) => {
+        window.localTextSuperCards[index].text = value;
+    };
+
+    window.moveTextSuperCard = (index, direction) => {
+        const target = index + direction;
+        if (target < 0 || target >= window.localTextSuperCards.length) return;
+        const temp = window.localTextSuperCards[index];
+        window.localTextSuperCards[index] = window.localTextSuperCards[target];
+        window.localTextSuperCards[target] = temp;
+        window.renderTextSuperCards();
+    };
+
+    window.insertColorTagToActive = (colorHex) => {
+        if (!window.activeCardInputId) {
+            alert("色を適用したいテキストボックスを選択（フォーカス）してください。");
+            return;
+        }
+        const textarea = document.getElementById(window.activeCardInputId);
+        if (!textarea) return;
+        
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        
+        if (start === end) {
+            alert("色を付けたい文字を選択状態にしてからパレットを押してください。");
+            return;
+        }
+        
+        const selectedText = text.substring(start, end);
+        const replacement = `<span style="color:${colorHex};">${selectedText}</span>`;
+        textarea.value = text.substring(0, start) + replacement + text.substring(end);
+        
+        const indexMatch = window.activeCardInputId.match(/\d+$/);
+        if (indexMatch) {
+            window.localTextSuperCards[parseInt(indexMatch[0])].text = textarea.value;
+        }
+    };
+
+    window.startTextSuperSequence = () => {
+        const validCards = window.localTextSuperCards.filter(c => c.text.trim() !== "");
+        if (validCards.length === 0) {
+            alert("送出するテキストがありません。");
+            return;
+        }
+        
+        secureSet(ref(db, 'broadcast/text_super_sequence'), {
+            running: true,
+            cards: validCards,
+            currentIndex: 0,
+            total: validCards.length,
+            trigger: Date.now()
+        });
+    };
+
+    window.stopTextSuperSequence = () => {
+        secureSet(ref(db, 'broadcast/text_super_sequence'), {
+            running: false,
+            cards: [],
+            currentIndex: 0,
+            total: 0,
+            trigger: Date.now()
+        });
+    };
+    
+    window.stopTextSuperTimers = () => {
+        if (textSuperStepTimer) clearInterval(textSuperStepTimer);
+        if (textSuperCountdownTimer) clearInterval(textSuperCountdownTimer);
+    }
+
+    // --- RSS速報・地震情報 ---
+    window.switchRssCategory = (category) => {
+        window.currentRssCategory = category;
+        document.querySelectorAll('.rss-tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`btn-rss-${category}`).classList.add('active');
+        window.fetchRssNews();
+    };
+
+    window.fetchRssNews = async () => {
+        const listContainer = document.getElementById('rss-news-list');
+        listContainer.innerHTML = '<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">データを読み込んでいます...</div>';
+        
+        if (window.currentRssCategory === 'earthquake') {
+            try {
+                // P2P地震情報 API v2 を使用
+                const res = await fetch("https://api.p2pquake.net/v2/history?codes=551&limit=10");
+                const data = await res.json();
+                
+                listContainer.innerHTML = '';
+                
+                if (data.length === 0) {
+                    listContainer.innerHTML = '<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">最近の地震情報はありません。</div>';
+                    return;
+                }
+                
+                data.forEach(item => {
+                    const eq = item.earthquake;
+                    if (!eq) return;
+                    
+                    const time = eq.time || "不明";
+                    const hypo = eq.hypocenter ? eq.hypocenter.name : "調査中";
+                    const maxScale = eq.maxScale;
+                    const magnitude = eq.hypocenter && eq.hypocenter.magnitude !== -1 ? `M${eq.hypocenter.magnitude}` : "M不明";
+                    const depth = eq.hypocenter && eq.hypocenter.depth !== -1 ? `深さ約${eq.hypocenter.depth}km` : "深さ不明";
+                    
+                    const scaleMap = { 10:"1", 20:"2", 30:"3", 40:"4", 45:"5弱", 50:"5強", 55:"6弱", 60:"6強", 70:"7" };
+                    const dispScale = scaleMap[maxScale] ? `最大震度${scaleMap[maxScale]}` : "震度不明";
+                    
+                    // 追加するカードテキストを作成
+                    const cardText = `【地震情報】${time}ごろ、${hypo}を震源とする地震がありました。${dispScale}（${magnitude} / ${depth}）`;
+                    
+                    const div = document.createElement('div');
+                    div.style.cssText = "padding:12px; border-bottom:1px solid #333; font-size:13px; display:flex; justify-content:space-between; align-items:center;";
+                    div.innerHTML = `
+                        <div style="flex:1; padding-right:10px;">
+                            <div style="color:var(--accent-blue); font-weight:bold; margin-bottom:4px;">${time} - ${dispScale}</div>
+                            <div style="color:#ddd;">震源: ${hypo} (${magnitude} / ${depth})</div>
+                        </div>
+                        <button class="secondary" style="padding:6px 12px; font-size:12px; white-space:nowrap; background:#333; transition:0.2s;" onclick="addTextSuperCard('${cardText}'); this.style.background='var(--accent-green)'; this.innerText='追加済';">
+                            <i class="material-icons" style="font-size:14px; vertical-align:middle;">add</i> カードへ
+                        </button>
+                    `;
+                    listContainer.appendChild(div);
+                });
+            } catch (err) {
+                console.error(err);
+                listContainer.innerHTML = '<div style="padding:15px; color:var(--accent-red); text-align:center; font-size:13px;">地震情報の取得に失敗しました。</div>';
+            }
+        } else if (window.currentRssCategory === 'news') {
+            listContainer.innerHTML = '<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">ニュース(NHK)はCORS等の理由により現在取得できません。</div>';
+        } else if (window.currentRssCategory === 'tsunami') {
+            listContainer.innerHTML = '<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">津波情報は現在準備中です。</div>';
+        }
+    };
+
+</script>
+</body>
+</html>
