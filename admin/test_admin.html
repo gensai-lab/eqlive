@@ -334,6 +334,7 @@
                 </div>
             </div>
 
+            <!-- ⑥ L字設定 タブ (ボタン移動・スムーズアニメーション対応) -->
             <div id="tab-l-shape" class="tab-content">
                 <h2>L字放送・詳細設定</h2>
                 <div class="card">
@@ -416,6 +417,7 @@
                 </div>
             </div>
 
+            <!-- 自由配置タブ -->
             <div id="tab-free-image" class="tab-content">
                 <h2>自由配置オーバーレイ（複数対応）</h2>
                 <div style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;">
@@ -450,6 +452,7 @@
                         文字数: <span id="tts-char-count" style="color:#fff; font-weight:bold;">0</span> 文字
                     </div>
                     
+                    <!-- 実行ボタン & クリア・停止ボタン -->
                     <div class="btn-group" style="margin-bottom: 15px;">
                         <button class="primary" style="display:flex; justify-content:center; align-items:center; gap:8px;" onclick="sendTTS()">
                             <i class="material-icons">campaign</i> 読み上げを実行
@@ -459,16 +462,19 @@
                         </button>
                     </div>
 
+                    <!-- TTSステータス・進捗・読み上げ箇所 表示エリア -->
                     <div id="tts-status-container" style="background: #151515; padding: 15px; border-radius: 8px; border: 1px solid #333;">
                         <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px;">
                             <span id="tts-status-text" style="color:var(--text-sub); font-weight:bold;">待機中</span>
                             <span id="tts-eta-text" style="color:var(--text-sub);">--</span>
                         </div>
                         
+                        <!-- プログレスバー -->
                         <div style="width:100%; background:#222; border-radius:4px; height:8px; margin-bottom:10px; overflow:hidden;">
                             <div id="tts-progress-bar" style="width:0%; height:100%; background:var(--accent-blue); transition:width 0.3s ease;"></div>
                         </div>
 
+                        <!-- 現在読み上げ中のテキスト -->
                         <div style="font-size:12px; color:#888; margin-bottom:4px;">現在読み上げ中の箇所:</div>
                         <div id="tts-current-reading" style="font-size:14px; color:#fff; min-height:20px; word-break:break-all; background:#000; padding:8px; border-radius:6px; border:1px solid #222;">...</div>
                     </div>
@@ -502,9 +508,24 @@
                 </div>
             </div>
 
-            <!-- ✨ ⑪文字スーパー タブ -->
+            <!-- ✨ ⑪文字スーパー タブ (速報ニュース取得・3枠対応・オールクリア追加) -->
             <div id="tab-text-super" class="tab-content">
                 <h2>文字スーパー送出・順次放送</h2>
+
+                <!-- 🚨 DMDATA 地震情報自動取得カード -->
+                <div class="card" style="border-left: 5px solid var(--accent-red); margin-bottom: 15px;">
+                    <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">emergency</i> 地震情報の自動生成 (DMDATA API)</label>
+                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">
+                        DMDATAのAPIキーを使用して、直近の地震情報を自動で字幕カード化します。<br>
+                        <span style="color:#ffb300;">※震度1,2の場合は震源・震度情報（市町村）、震度3以上の場合は震度速報のフォーマットから順にルール通り生成されます。</span>
+                    </p>
+                    <div style="display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+                        <input type="password" id="input-dmdata-apikey" placeholder="DMDATA APIキー (v2) を入力" style="margin-bottom:0; flex:1; min-width:200px;">
+                        <button class="primary" style="background:var(--accent-red); white-space:nowrap; width:auto; padding:0 20px;" onclick="fetchEarthquakeFromDMData(event)">
+                            <i class="material-icons" style="vertical-align:middle; font-size:18px;">download</i> 情報を取得して生成
+                        </button>
+                    </div>
+                </div>
 
                 <div class="card">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
@@ -522,7 +543,7 @@
                     <!-- 🎴 複数字幕カード一覧コンテナ -->
                     <div id="text-super-cards-container"></div>
 
-                    <!-- 🎨 カラーパレット -->
+                    <!-- 🎨 カラーパレット（アクティブなカードに対して適用） -->
                     <div style="background:#151515; padding:15px; border-radius:8px; border:1px solid #333; margin-top:15px; margin-bottom:15px;">
                         <label style="margin-top:0;">文字色カラー装飾パレット (原色系)</label>
                         <p style="font-size:12px; color:var(--text-sub); margin-top:0; margin-bottom:10px;">編集中のカードのテキストを選択した状態で色ボタンを押すと、装飾が適用されます。</p>
@@ -541,7 +562,7 @@
                         </div>
                     </div>
 
-                    <!-- ⚙️ 送出切り替え設定 -->
+                    <!-- ⚙️ 送出切り替え設定 (固定設定表示) -->
                     <div class="card" style="background:#111; border:1px solid #333; padding:15px; margin-bottom:15px;">
                         <label style="margin-bottom:8px;">送出切り替え設定 (固定)</label>
                         <div style="display:flex; gap:20px; flex-wrap:wrap; align-items:center; font-size:13px; color:var(--text-sub);">
@@ -561,11 +582,11 @@
 
                     <!-- 📊 送出ステータス表示 -->
                     <div id="text-super-status" style="margin-top:15px; font-size:13px; color:#ffb300; display:none; background:#151515; padding:12px; border-radius:6px; border:1px solid #333;">
-                        📺 連続送出中... [カード <span id="text-super-current-card-num">1</span> / <span id="text-super-total-cards">1</span>] (切り替えまで残り <span id="text-super-countdown">10</span> 秒)
+                        📺 連続送出中... [カード <span id="text-super-current-card-num">1</span> / <span id="text-super-total-cards">1</span>] (切り替えまで残り <span id="text-super-countdown">...</span> 秒)
                     </div>
                 </div>
 
-                <!-- 📰 速報ソース取得枠 (3枠: ニュース・地震・津波) -->
+                <!-- 📰 速報ソース取得枠 (3枠: ニュース・地震・津波) を送出ボタンの下に配置 -->
                 <div class="card" style="border-left: 5px solid var(--accent-blue);">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
                         <label style="margin:0; font-size:14px;"><i class="material-icons" style="font-size:18px; vertical-align:middle;">rss_feed</i> 速報ニュース・防災情報リスト</label>
@@ -577,7 +598,7 @@
                     <!-- 3枠切替タブ -->
                     <div style="display:flex; gap:8px; margin-bottom:12px; overflow-x:auto; padding-bottom:4px;">
                         <button id="btn-rss-news" class="rss-tab-btn active" onclick="switchRssCategory('news')">📰 ニュース (NHK速報)</button>
-                        <button id="btn-rss-earthquake" class="rss-tab-btn" onclick="switchRssCategory('earthquake')">⚠️ 地震 (P2P地震情報)</button>
+                        <button id="btn-rss-earthquake" class="rss-tab-btn" onclick="switchRssCategory('earthquake')">⚠️ 地震 (準備中)</button>
                         <button id="btn-rss-tsunami" class="rss-tab-btn" onclick="switchRssCategory('tsunami')">🌊 津波 (準備中)</button>
                     </div>
 
@@ -635,18 +656,17 @@
     let currentTourConfig = null;
 
     // --- 文字スーパー（複数カード＆固定条件送出用定数・変数） ---
-    const TEXT_SUPER_INTERVAL_SEC = 10;
-    window.localTextSuperCards = [
-        { id: "card_" + Date.now(), text: "" }
-    ];
-    window.activeCardInputId = null; 
-    let textSuperActiveSequenceIndex = -1;
-    let textSuperStepTimer = null;
-    let textSuperCountdownTimer = null;
-    let isTextSuperSending = false;
+    const TEXT_SUPER_INTERVAL_SEC = 10; // 固定: 10秒
+    let localTextSuperCards = [];
+    let activeCardInputId = null; 
 
     // --- 速報ニュース (3枠: news, earthquake, tsunami) ---
-    window.currentRssCategory = 'news';
+    let currentRssCategory = 'news';
+    const RSS_URLS = {
+        news: "https://news.web.nhk/n-data/conf/na/rss/cat0.xml",
+        earthquake: "", // 今後追加予定
+        tsunami: ""    // 今後追加予定
+    };
 
     // --- 🔐 Firebase Authentication ログイン制御ロジック ---
     onAuthStateChanged(auth, (user) => {
@@ -658,15 +678,14 @@
             adminApp.style.display = 'flex';
             initCameras();
             initPresets();
-            window.renderTextSuperCards();
-            window.fetchRssNews();
+            renderTextSuperCards();
+            fetchRssNews();
             startFirebaseSync();
         } else {
             loginScreen.style.display = 'flex';
             adminApp.style.display = 'none';
             stopLocalTourTimer(); 
-            window.stopMicStreaming();
-            window.stopTextSuperTimers();
+            stopMicStreaming();
         }
     });
 
@@ -974,6 +993,7 @@
         });
     }
 
+    // --- ✨ カード順序入れ替え時「シュンっ」と滑らかに動くアニメーション共通関数 ---
     function animateCardSwap(container, index1, index2, array, renderFn) {
         if (!container) {
             const temp = array[index1];
@@ -1448,58 +1468,135 @@
             const bgmUrl = document.getElementById('input-bgm-url');
             
             if (audioConf.bgm) {
-                if (audioConf.bgm.playing) {
-                    btnBgmPlay.className = "primary";
-                    btnBgmPlay.style.background = "var(--accent-green)";
-                    btnBgmStop.className = "secondary";
+                if (audioConf.bgm.isPlaying) {
+                    btnBgmPlay.className = "secondary"; btnBgmPlay.style.background = "#333";
+                    btnBgmStop.className = "primary"; btnBgmStop.style.background = "var(--accent-red)";
                 } else {
-                    btnBgmPlay.className = "secondary";
-                    btnBgmPlay.style.background = "";
+                    btnBgmPlay.className = "primary"; btnBgmPlay.style.background = "var(--accent-green)";
                     btnBgmStop.className = "danger";
                 }
-                if (bgmUrl && document.activeElement.id !== 'input-bgm-url') bgmUrl.value = audioConf.bgm.url || "";
-                
-                const rangeVol = document.getElementById('range-bgm-vol');
-                const valVol = document.getElementById('val-bgm-vol');
-                if (rangeVol && document.activeElement.id !== 'range-bgm-vol') {
-                    rangeVol.value = audioConf.bgm.volume !== undefined ? audioConf.bgm.volume : 0.5;
-                    if (valVol) valVol.innerText = Math.round(rangeVol.value * 100) + '%';
+                if(bgmUrl && document.activeElement.id !== 'input-bgm-url') bgmUrl.value = audioConf.bgm.url || "";
+            }
+
+            // --- TTSステータス Sync ---
+            if (audioConf.tts && audioConf.tts.text && audioConf.tts.action !== 'cancel') {
+                const ttsInput = document.getElementById('input-tts-text');
+                if (ttsInput && document.activeElement.id !== 'input-tts-text') {
+                    ttsInput.value = audioConf.tts.text;
+                    updateTTSCharCount();
                 }
             }
 
-            // --- Text Super Sync ---
-            if (textSuperSeq) {
-                isTextSuperSending = textSuperSeq.running;
-                const startBtn = document.getElementById('btn-text-super-start');
-                const stopBtn = document.getElementById('btn-text-super-stop');
-                const statusDiv = document.getElementById('text-super-status');
-                
-                if (isTextSuperSending) {
-                    startBtn.style.display = 'none';
-                    stopBtn.style.display = 'flex';
-                    statusDiv.style.display = 'block';
-                    
-                    document.getElementById('text-super-current-card-num').innerText = textSuperSeq.currentIndex + 1;
-                    document.getElementById('text-super-total-cards').innerText = textSuperSeq.total;
-                } else {
-                    startBtn.style.display = 'flex';
-                    stopBtn.style.display = 'none';
-                    statusDiv.style.display = 'none';
-                }
+            const ttsStatus = audioConf.tts_status || {};
+            const statusTextEl = document.getElementById('tts-status-text');
+            const etaTextEl = document.getElementById('tts-eta-text');
+            const progressBarEl = document.getElementById('tts-progress-bar');
+            const currentReadingEl = document.getElementById('tts-current-reading');
+
+            if (ttsStatus.status === 'generating') {
+                statusTextEl.innerText = "⏳ 音声生成中...";
+                statusTextEl.style.color = "#ffb300";
+                etaTextEl.innerText = ttsStatus.eta ? `残り約${ttsStatus.eta}秒 (${ttsStatus.progress || 0}%)` : `${ttsStatus.progress || 0}%`;
+                progressBarEl.style.width = `${ttsStatus.progress || 0}%`;
+                progressBarEl.style.background = "#ffb300";
+                currentReadingEl.innerText = "生成中のため待機中...";
+            } else if (ttsStatus.status === 'playing') {
+                statusTextEl.innerText = "🔊 読み上げ中...";
+                statusTextEl.style.color = "var(--accent-green)";
+                etaTextEl.innerText = ttsStatus.eta ? `残り約${ttsStatus.eta}秒 (${ttsStatus.progress || 0}%)` : `${ttsStatus.progress || 0}%`;
+                progressBarEl.style.width = `${ttsStatus.progress || 0}%`;
+                progressBarEl.style.background = "var(--accent-green)";
+                currentReadingEl.innerText = ttsStatus.currentText || "読み上げ中...";
+            } else {
+                statusTextEl.innerText = "待機中";
+                statusTextEl.style.color = "var(--text-sub)";
+                etaTextEl.innerText = "--";
+                progressBarEl.style.width = "0%";
+                progressBarEl.style.background = "var(--accent-blue)";
+                currentReadingEl.innerText = "...";
             }
-            
+
+            // --- 文字スーパー バックエンド同期 ---
+            handleTextSuperSequenceSync(textSuperSeq);
+
             isInitialLoad = false;
         });
     }
 
-    // --- Audio BGM Functions ---
+    // --- 🔊 音声・BGM・マイク制御 ---
+
+    // 文字数カウンター更新関数
+    window.updateTTSCharCount = () => {
+        const text = document.getElementById('input-tts-text').value;
+        const countEl = document.getElementById('tts-char-count');
+        if (countEl) countEl.innerText = text.length;
+    };
+
+    // 長文を句読点や最大文字数（約120文字）ごとに分割するヘルパー関数
+    function splitTextForTTS(text, maxLength = 120) {
+        if (!text) return [];
+        const sentences = text.match(/[^。！？\n]+[。！？\n]?/g) || [text];
+        const chunks = [];
+        let currentChunk = "";
+
+        for (const sentence of sentences) {
+            if ((currentChunk + sentence).length > maxLength && currentChunk.length > 0) {
+                chunks.push(currentChunk.trim());
+                currentChunk = sentence;
+            } else {
+                currentChunk += sentence;
+            }
+        }
+        if (currentChunk.trim().length > 0) {
+            chunks.push(currentChunk.trim());
+        }
+        return chunks;
+    }
+
+    // 1. AI音声読み上げ（TTS）送信（長文分割対応）
+    window.sendTTS = () => {
+        const text = document.getElementById('input-tts-text').value.trim();
+        if(!text) { alert("テキストを入力してください。"); return; }
+        
+        const chunks = splitTextForTTS(text, 120);
+
+        secureSet(ref(db, 'broadcast/audio/tts'), {
+            text: text,
+            chunks: chunks,
+            action: 'speak',
+            timestamp: Date.now()
+        });
+    };
+
+    // AI音声読み上げ（TTS）クリア・停止
+    window.clearTTS = () => {
+        document.getElementById('input-tts-text').value = "";
+        updateTTSCharCount();
+        
+        secureSet(ref(db, 'broadcast/audio/tts'), {
+            text: "",
+            chunks: [],
+            action: "cancel",
+            timestamp: Date.now()
+        });
+        
+        secureSet(ref(db, 'broadcast/audio/tts_status'), {
+            status: 'idle',
+            progress: 0,
+            eta: 0,
+            currentText: '待機中'
+        });
+    };
+
+    // 2. BGM再生制御
     window.toggleBGM = (play) => {
-        const url = document.getElementById('input-bgm-url').value;
-        const vol = document.getElementById('range-bgm-vol').value;
+        const url = document.getElementById('input-bgm-url').value.trim();
+        const vol = parseFloat(document.getElementById('range-bgm-vol').value) || 0.5;
+        
         secureUpdate(ref(db, 'broadcast/audio/bgm'), {
-            playing: play,
             url: url,
-            volume: parseFloat(vol)
+            isPlaying: play,
+            volume: vol
         });
     };
 
@@ -1507,223 +1604,509 @@
         secureUpdate(ref(db, 'broadcast/audio/bgm'), { volume: parseFloat(val) });
     };
 
-    // --- TTS (AI音声) Functions ---
-    window.updateTTSCharCount = () => {
-        const text = document.getElementById('input-tts-text').value;
-        document.getElementById('tts-char-count').innerText = text.length;
+    // 3. マイクリアルタイム配信 (WebRTC)
+    let localStream = null;
+    let peerConnection = null;
+    const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+    window.startMicStreaming = async () => {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            document.getElementById('btn-mic-start').style.display = 'none';
+            document.getElementById('btn-mic-stop').style.display = 'block';
+            document.getElementById('mic-status').style.display = 'block';
+
+            peerConnection = new RTCPeerConnection(servers);
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            peerConnection.onicecandidate = event => {
+                if(event.candidate) {
+                    set(ref(db, `broadcast/audio/webrtc/candidates/admin/${Date.now()}`), event.candidate.toJSON());
+                }
+            };
+
+            onValue(ref(db, 'broadcast/audio/webrtc/candidates/main'), (snapshot) => {
+                snapshot.forEach((childSnapshot) => {
+                    const candidate = new RTCIceCandidate(childSnapshot.val());
+                    peerConnection.addIceCandidate(candidate);
+                });
+            });
+
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+
+            await remove(ref(db, 'broadcast/audio/webrtc'));
+            await secureSet(ref(db, 'broadcast/audio/webrtc/offer'), {
+                type: offer.type,
+                sdp: offer.sdp,
+                timestamp: Date.now() 
+            });
+
+            onValue(ref(db, 'broadcast/audio/webrtc/answer'), (snapshot) => {
+                const data = snapshot.val();
+                if(data && !peerConnection.currentRemoteDescription) {
+                    const answerDescription = new RTCSessionDescription(data);
+                    peerConnection.setRemoteDescription(answerDescription);
+                }
+            });
+
+        } catch (error) {
+            console.error("マイクの起動に失敗しました: ", error);
+            alert("マイクのアクセスが許可されていないか、利用できません。");
+        }
     };
 
-    window.sendTTS = () => {
-        const text = document.getElementById('input-tts-text').value;
-        if (!text.trim()) return;
-        secureSet(ref(db, 'broadcast/audio/tts'), {
-            text: text,
-            trigger: Date.now()
-        }).then(() => alert("読み上げを実行しました"));
-    };
-
-    window.clearTTS = () => {
-        document.getElementById('input-tts-text').value = "";
-        updateTTSCharCount();
-        secureSet(ref(db, 'broadcast/audio/tts'), { text: "", trigger: 0, stop: Date.now() });
-    };
-
-    // --- Mic Streaming ---
-    window.startMicStreaming = () => {
-        document.getElementById('mic-status').style.display = 'block';
-        document.getElementById('btn-mic-start').style.display = 'none';
-        document.getElementById('btn-mic-stop').style.display = 'block';
-    };
-    
     window.stopMicStreaming = () => {
-        document.getElementById('mic-status').style.display = 'none';
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
+        }
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+
+        remove(ref(db, 'broadcast/audio/webrtc'));
+
         document.getElementById('btn-mic-start').style.display = 'block';
         document.getElementById('btn-mic-stop').style.display = 'none';
+        document.getElementById('mic-status').style.display = 'none';
     };
 
-    // --- Text Super (⑪文字スーパー) Functions ---
+    // --- 🖋️ 文字スーパー カード制御・追加・色装飾用ロジック ---
+    
+    window.addTextSuperCard = () => {
+        localTextSuperCards.push({ id: "card_" + Date.now(), text: "" });
+        renderTextSuperCards();
+    };
+
+    window.clearAllTextSuperCards = () => {
+        if(confirm("全ての字幕カードを消去しますか？")) {
+            localTextSuperCards = [];
+            renderTextSuperCards();
+            secureSet(ref(db, 'broadcast/text_super_sequence/cards'), []);
+        }
+    };
+
+    window.removeTextSuperCard = (id) => {
+        localTextSuperCards = localTextSuperCards.filter(c => c.id !== id);
+        renderTextSuperCards();
+    };
+
+    window.updateTextSuperCard = (id, text) => {
+        const card = localTextSuperCards.find(c => c.id === id);
+        if(card) card.text = text;
+    };
+
     window.renderTextSuperCards = () => {
         const container = document.getElementById('text-super-cards-container');
         if (!container) return;
         container.innerHTML = "";
         
-        window.localTextSuperCards.forEach((card, i) => {
+        if(localTextSuperCards.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:20px; color:#555; font-size:13px;">カードがありません</div>`;
+            return;
+        }
+        
+        localTextSuperCards.forEach((card, index) => {
             const div = document.createElement('div');
             div.className = "card";
             div.style.background = "#252525";
             div.style.marginBottom = "10px";
             div.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue);">カード #${i + 1}</div>
-                    <div class="btn-group" style="margin:0; gap:5px;">
-                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveTextSuperCard(${i}, -1)" ${i === 0 ? 'disabled' : ''}>▲ 上へ</button>
-                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveTextSuperCard(${i}, 1)" ${i === window.localTextSuperCards.length - 1 ? 'disabled' : ''}>▼ 下へ</button>
-                        <button class="danger" style="padding:4px 8px; font-size:12px;" onclick="removeTextSuperCard(${i})"><i class="material-icons" style="font-size:14px;">delete</i></button>
-                    </div>
+                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue);">カード #${index + 1}</div>
+                    <button class="danger" style="padding:4px 8px; font-size:12px;" onclick="removeTextSuperCard('${card.id}')">削除</button>
                 </div>
-                <textarea id="input-text-super-${i}" style="height:60px; margin-bottom:0;" placeholder="ここに文字スーパーのテキストを入力..." onfocus="activeCardInputId=this.id" oninput="updateTextSuperCard(${i}, this.value)">${card.text}</textarea>
+                <textarea id="ts-input-${card.id}" style="height:120px; margin:0;" onfocus="activeCardInputId='ts-input-${card.id}'" oninput="updateTextSuperCard('${card.id}', this.value)">${card.text}</textarea>
             `;
             container.appendChild(div);
         });
     };
 
-    window.addTextSuperCard = (defaultText = "") => {
-        window.localTextSuperCards.push({ id: "card_" + Date.now(), text: defaultText });
-        window.renderTextSuperCards();
-    };
-
-    window.removeTextSuperCard = (index) => {
-        window.localTextSuperCards.splice(index, 1);
-        if (window.localTextSuperCards.length === 0) {
-            window.addTextSuperCard(); 
-        } else {
-            window.renderTextSuperCards();
-        }
-    };
-
-    window.clearAllTextSuperCards = () => {
-        if (confirm("全ての文字スーパーカードをクリアしますか？")) {
-            window.localTextSuperCards = [{ id: "card_" + Date.now(), text: "" }];
-            window.renderTextSuperCards();
-        }
-    };
-
-    window.updateTextSuperCard = (index, value) => {
-        window.localTextSuperCards[index].text = value;
-    };
-
-    window.moveTextSuperCard = (index, direction) => {
-        const target = index + direction;
-        if (target < 0 || target >= window.localTextSuperCards.length) return;
-        const temp = window.localTextSuperCards[index];
-        window.localTextSuperCards[index] = window.localTextSuperCards[target];
-        window.localTextSuperCards[target] = temp;
-        window.renderTextSuperCards();
-    };
-
     window.insertColorTagToActive = (colorHex) => {
-        if (!window.activeCardInputId) {
-            alert("色を適用したいテキストボックスを選択（フォーカス）してください。");
+        if (!activeCardInputId) {
+            alert("色を適用するテキストボックスを選択（フォーカス）してください。");
             return;
         }
-        const textarea = document.getElementById(window.activeCardInputId);
-        if (!textarea) return;
+        const inputEl = document.getElementById(activeCardInputId);
+        if (!inputEl) return;
         
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const text = textarea.value;
+        const start = inputEl.selectionStart;
+        const end = inputEl.selectionEnd;
+        const text = inputEl.value;
         
         if (start === end) {
-            alert("色を付けたい文字を選択状態にしてからパレットを押してください。");
+            alert("色を適用する文字を選択状態でボタンを押してください。");
             return;
         }
         
         const selectedText = text.substring(start, end);
-        const replacement = `<span style="color:${colorHex};">${selectedText}</span>`;
-        textarea.value = text.substring(0, start) + replacement + text.substring(end);
+        const newText = text.substring(0, start) + `<color:${colorHex}>${selectedText}</color>` + text.substring(end);
         
-        const indexMatch = window.activeCardInputId.match(/\d+$/);
-        if (indexMatch) {
-            window.localTextSuperCards[parseInt(indexMatch[0])].text = textarea.value;
-        }
+        inputEl.value = newText;
+        const cardId = activeCardInputId.replace('ts-input-', '');
+        updateTextSuperCard(cardId, newText);
     };
 
     window.startTextSuperSequence = () => {
-        const validCards = window.localTextSuperCards.filter(c => c.text.trim() !== "");
-        if (validCards.length === 0) {
-            alert("送出するテキストがありません。");
-            return;
-        }
-        
+        if(localTextSuperCards.length === 0) { alert("送出するカードがありません。"); return; }
         secureSet(ref(db, 'broadcast/text_super_sequence'), {
-            running: true,
-            cards: validCards,
+            cards: localTextSuperCards,
+            isPlaying: true,
             currentIndex: 0,
-            total: validCards.length,
-            trigger: Date.now()
+            intervalSec: TEXT_SUPER_INTERVAL_SEC,
+            timestamp: Date.now()
         });
     };
 
     window.stopTextSuperSequence = () => {
-        secureSet(ref(db, 'broadcast/text_super_sequence'), {
-            running: false,
-            cards: [],
-            currentIndex: 0,
-            total: 0,
-            trigger: Date.now()
+        secureUpdate(ref(db, 'broadcast/text_super_sequence'), {
+            isPlaying: false
         });
     };
-    
-    window.stopTextSuperTimers = () => {
-        if (textSuperStepTimer) clearInterval(textSuperStepTimer);
-        if (textSuperCountdownTimer) clearInterval(textSuperCountdownTimer);
+
+    function handleTextSuperSequenceSync(seqData) {
+        const statusEl = document.getElementById('text-super-status');
+        const startBtn = document.getElementById('btn-text-super-start');
+        const stopBtn = document.getElementById('btn-text-super-stop');
+        
+        if (seqData && seqData.isPlaying) {
+            if(statusEl) statusEl.style.display = 'block';
+            if(startBtn) { startBtn.className = 'secondary'; startBtn.style.background = '#333'; }
+            if(stopBtn) { stopBtn.className = 'danger'; }
+            
+            const currentNumEl = document.getElementById('text-super-current-card-num');
+            const totalNumEl = document.getElementById('text-super-total-cards');
+            if(currentNumEl) currentNumEl.innerText = (seqData.currentIndex || 0) + 1;
+            if(totalNumEl) totalNumEl.innerText = (seqData.cards || []).length;
+            
+        } else {
+            if(statusEl) statusEl.style.display = 'none';
+            if(startBtn) { startBtn.className = 'primary'; startBtn.style.background = 'var(--accent-green)'; }
+            if(stopBtn) { stopBtn.className = 'secondary'; stopBtn.style.background = '#333'; }
+        }
     }
 
-    // --- RSS速報・地震情報 ---
-    window.switchRssCategory = (category) => {
-        window.currentRssCategory = category;
+    // --- 🚨 DMDATA 地震情報・API取得とテキストカードの自動生成ロジック ---
+
+    window.fetchEarthquakeFromDMData = async (event) => {
+        const apikey = document.getElementById('input-dmdata-apikey').value.trim();
+        if (!apikey) {
+            alert("DMDATAのAPIキーを入力してください。");
+            return;
+        }
+        
+        const btn = event.currentTarget;
+        const origText = btn.innerHTML;
+        btn.innerHTML = `<i class="material-icons" style="vertical-align:middle; font-size:18px;">hourglass_empty</i> 取得中...`;
+        btn.disabled = true;
+
+        try {
+            // 直近の地震電文をJSONフォーマットで取得 (VXSE51:震度速報, VXSE52:震源に関する情報, VXSE53:震源・震度に関する情報)
+            const listUrl = `https://api.dmdata.jp/v2/telegram?type=VXSE51,VXSE52,VXSE53&limit=20&format=json`;
+            const res = await fetch(listUrl, {
+                headers: { 'Authorization': 'Basic ' + btoa(apikey + ':') }
+            });
+            
+            if (!res.ok) throw new Error("DMDATA APIの取得に失敗しました。APIキーが正しいか確認してください。");
+            const listData = await res.json();
+            
+            if (!listData.items || listData.items.length === 0) {
+                alert("該当する地震情報が見つかりませんでした。");
+                return;
+            }
+
+            // 最新のイベントIDを取得し、関連する電文を抽出
+            const latestEventId = listData.items[0].eventId;
+            const eventItems = listData.items.filter(item => item.eventId === latestEventId);
+            
+            let vxse51Item = eventItems.find(i => i.type === 'VXSE51');
+            let vxse52Item = eventItems.find(i => i.type === 'VXSE52');
+            let vxse53Item = eventItems.find(i => i.type === 'VXSE53');
+            
+            const fetchBody = async (url) => {
+                const r = await fetch(url, { headers: { 'Authorization': 'Basic ' + btoa(apikey + ':') } });
+                const d = await r.json();
+                return d;
+            };
+
+            let cards = [];
+            
+            // 地震情報の種別・発表状況に応じて使用するフォーマットを変更
+            if (vxse53Item) {
+                const data = await fetchBody(vxse53Item.url);
+                cards = generateCardsVXSE53(data.body);
+            } else if (vxse52Item && vxse51Item) {
+                const data52 = await fetchBody(vxse52Item.url);
+                const data51 = await fetchBody(vxse51Item.url);
+                cards = generateCardsVXSE52_51(data52.body, data51.body);
+            } else if (vxse52Item) {
+                const data52 = await fetchBody(vxse52Item.url);
+                cards = generateCardsVXSE52(data52.body);
+            } else if (vxse51Item) {
+                const data51 = await fetchBody(vxse51Item.url);
+                cards = generateCardsVXSE51(data51.body);
+            } else {
+                alert("解析できるフォーマットが見つかりませんでした。");
+                return;
+            }
+
+            // 生成されたテキストをカードに割り当て
+            localTextSuperCards = cards.map((c, i) => ({ id: "card_" + Date.now() + "_" + i, text: c }));
+            renderTextSuperCards();
+            alert("地震情報を取得し、文字スーパーのカードを生成しました。");
+
+        } catch (e) {
+            console.error(e);
+            alert(e.message);
+        } finally {
+            btn.innerHTML = origText;
+            btn.disabled = false;
+        }
+    };
+
+    // 時間文字列のフォーマット
+    function formatTime(isoStr) {
+        if (!isoStr) return "";
+        const d = new Date(isoStr);
+        const h = d.getHours();
+        const m = d.getMinutes();
+        const ampm = h < 12 ? "午前" : "午後";
+        const h12 = h % 12 || 12;
+        return `${ampm}${h12}時${m.toString().padStart(2, '0')}分`;
+    }
+
+    // 地震の強さの表現
+    function getStrengthText(maxInt) {
+        if (["4"].includes(maxInt)) return "やや強い";
+        if (["5-", "5+", "6-", "6+", "7"].includes(maxInt)) return "強い";
+        return ""; 
+    }
+
+    // 震度の文字変換
+    function getIntText(maxInt) {
+        const map = { "1": "1", "2": "2", "3": "3", "4": "4", "5-": "5弱", "5+": "5強", "6-": "6弱", "6+": "6強", "7": "7" };
+        return map[maxInt] || maxInt;
+    }
+
+    // 震度別の地域一覧カードを生成（3列改行、6行で分割）
+    function getIntensityCards(intensityData, isCity = false) {
+        if (!intensityData || !intensityData.observation || !intensityData.observation.prefs) return [];
+        
+        const intMap = {}; 
+        intensityData.observation.prefs.forEach(pref => {
+            const targets = isCity ? (pref.cities || []) : (pref.areas || []);
+            targets.forEach(target => {
+                const int = target.maxInt;
+                if (!int) return;
+                if (!intMap[int]) intMap[int] = [];
+                intMap[int].push(target.name);
+            });
+        });
+        
+        const intKeys = Object.keys(intMap).sort((a,b) => {
+            const order = {"7":9, "6+":8, "6-":7, "5+":6, "5-":5, "4":4, "3":3, "2":2, "1":1};
+            return (order[b] || 0) - (order[a] || 0);
+        });
+        
+        let cards = [];
+        intKeys.forEach(intKey => {
+            const places = intMap[intKey];
+            const intStr = getIntText(intKey);
+            const prefix = `震度${intStr} `;
+            const indentStr = "    "; 
+
+            let placeLines = [];
+            for (let i = 0; i < places.length; i += 3) {
+                const chunk = places.slice(i, i + 3);
+                if (i === 0) {
+                    placeLines.push(prefix + chunk.join(" "));
+                } else {
+                    placeLines.push(indentStr + chunk.join(" "));
+                }
+            }
+            
+            // 6行ごとに新しいカードとして分割
+            for (let i = 0; i < placeLines.length; i += 6) {
+                cards.push(placeLines.slice(i, i + 6).join("\n"));
+            }
+        });
+        return cards;
+    }
+
+    // VXSE51 (震度速報) のカード生成
+    function generateCardsVXSE51(body) {
+        let cards = [];
+        const eq = body.earthquake;
+        const int = body.intensity;
+        const maxInt = int?.observation?.maxInt;
+        
+        const timeStr = formatTime(eq?.originTime);
+        let regionName = eq?.hypocenter?.name || (int?.observation?.prefs?.[0]?.name ? int.observation.prefs[0].name + "など" : "---"); 
+        const strength = getStrengthText(maxInt);
+        
+        cards.push(`${timeStr}ごろ${regionName}で\n${strength ? strength + '地震がありました' : '地震がありました'}`);
+        cards.push(`強い・長い揺れを感じた沿岸部では\n念のため津波に注意してください`);
+        
+        cards = cards.concat(getIntensityCards(int, false));
+        return cards;
+    }
+
+    // VXSE52 (震源に関する情報) のカード生成
+    function generateCardsVXSE52(body) {
+        let cards = [];
+        const eq = body.earthquake;
+        
+        const timeStr = formatTime(eq?.originTime);
+        const regionName = eq?.hypocenter?.name || "---";
+        
+        cards.push(`${timeStr}ごろ${regionName}で\n地震がありました`);
+        
+        const depth = eq?.hypocenter?.depth?.value;
+        const depthStr = (depth === 0) ? "ごく浅い" : `${depth}キロ`;
+        const mag = eq?.magnitude?.value;
+        
+        cards.push(`震源は${regionName} 深さ${depthStr}\nマグニチュード${mag}`);
+        
+        let tsunamiText = body.comments?.forecastComment?.text || "この地震による津波の心配はありません";
+        if (tsunamiText.includes("津波警報") || tsunamiText.includes("津波注意報")) {
+            tsunamiText = "この地震で津波情報が発表されています";
+        } else {
+            tsunamiText = "この地震による津波の心配はありません";
+        }
+        cards.push(tsunamiText);
+        return cards;
+    }
+
+    // VXSE53 (震源・震度に関する情報) のカード生成
+    function generateCardsVXSE53(body) {
+        let cards = [];
+        const eq = body.earthquake;
+        const int = body.intensity;
+        const maxInt = int?.observation?.maxInt;
+        
+        const timeStr = formatTime(eq?.originTime);
+        const regionName = eq?.hypocenter?.name || "---";
+        const strength = getStrengthText(maxInt);
+        
+        cards.push(`${timeStr}ごろ${regionName}で\n${strength ? strength + '地震がありました' : '地震がありました'}`);
+        
+        const depth = eq?.hypocenter?.depth?.value;
+        const depthStr = (depth === 0) ? "ごく浅い" : `${depth}キロ`;
+        const mag = eq?.magnitude?.value;
+        
+        cards.push(`震源は${regionName} 深さ${depthStr}\nマグニチュード${mag}`);
+        
+        let tsunamiText = body.comments?.forecastComment?.text || "この地震による津波の心配はありません";
+        if (tsunamiText.includes("津波警報") || tsunamiText.includes("津波注意報")) {
+            tsunamiText = "この地震で津波情報が発表されています";
+        } else {
+            tsunamiText = "この地震による津波の心配はありません";
+        }
+        cards.push(tsunamiText);
+        
+        cards = cards.concat(getIntensityCards(int, true));
+        return cards;
+    }
+
+    // VXSE52とVXSE51のデータを組み合わせたカード生成（震度3以上でVXSE53が入っていないタイミング用）
+    function generateCardsVXSE52_51(body52, body51) {
+        let cards = [];
+        const eq = body52.earthquake;
+        const int = body51.intensity;
+        const maxInt = int?.observation?.maxInt;
+        
+        const timeStr = formatTime(eq?.originTime);
+        const regionName = eq?.hypocenter?.name || "---";
+        const strength = getStrengthText(maxInt);
+        
+        cards.push(`${timeStr}ごろ${regionName}で\n${strength ? strength + '地震がありました' : '地震がありました'}`);
+        
+        const depth = eq?.hypocenter?.depth?.value;
+        const depthStr = (depth === 0) ? "ごく浅い" : `${depth}キロ`;
+        const mag = eq?.magnitude?.value;
+        
+        cards.push(`震源は${regionName} 深さ${depthStr}\nマグニチュード${mag}`);
+        
+        let tsunamiText = body52.comments?.forecastComment?.text || "この地震による津波の心配はありません";
+        if (tsunamiText.includes("津波警報") || tsunamiText.includes("津波注意報")) {
+            tsunamiText = "この地震で津波情報が発表されています";
+        } else {
+            tsunamiText = "この地震による津波の心配はありません";
+        }
+        cards.push(tsunamiText);
+        
+        cards = cards.concat(getIntensityCards(int, false));
+        return cards;
+    }
+
+
+    // --- 📰 速報ニュース取得 & 挿入ロジック (3枠対応) ---
+    window.switchRssCategory = (cat) => {
+        currentRssCategory = cat;
         document.querySelectorAll('.rss-tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.getElementById(`btn-rss-${category}`).classList.add('active');
-        window.fetchRssNews();
+        const activeBtn = document.getElementById(`btn-rss-${cat}`);
+        if(activeBtn) activeBtn.classList.add('active');
+        fetchRssNews();
     };
 
     window.fetchRssNews = async () => {
         const listContainer = document.getElementById('rss-news-list');
-        listContainer.innerHTML = '<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">データを読み込んでいます...</div>';
-        
-        if (window.currentRssCategory === 'earthquake') {
+        if (!listContainer) return;
+
+        const url = RSS_URLS[currentRssCategory];
+        if (!url) {
+            listContainer.innerHTML = `<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">この枠の情報配信元は今後追加予定です。</div>`;
+            return;
+        }
+
+        listContainer.innerHTML = `<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">速報データを取得中...</div>`;
+
+        try {
+            let res;
             try {
-                // P2P地震情報 API v2 を使用
-                const res = await fetch("https://api.p2pquake.net/v2/history?codes=551&limit=10");
-                const data = await res.json();
-                
-                listContainer.innerHTML = '';
-                
-                if (data.length === 0) {
-                    listContainer.innerHTML = '<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">最近の地震情報はありません。</div>';
-                    return;
-                }
-                
-                data.forEach(item => {
-                    const eq = item.earthquake;
-                    if (!eq) return;
-                    
-                    const time = eq.time || "不明";
-                    const hypo = eq.hypocenter ? eq.hypocenter.name : "調査中";
-                    const maxScale = eq.maxScale;
-                    const magnitude = eq.hypocenter && eq.hypocenter.magnitude !== -1 ? `M${eq.hypocenter.magnitude}` : "M不明";
-                    const depth = eq.hypocenter && eq.hypocenter.depth !== -1 ? `深さ約${eq.hypocenter.depth}km` : "深さ不明";
-                    
-                    const scaleMap = { 10:"1", 20:"2", 30:"3", 40:"4", 45:"5弱", 50:"5強", 55:"6弱", 60:"6強", 70:"7" };
-                    const dispScale = scaleMap[maxScale] ? `最大震度${scaleMap[maxScale]}` : "震度不明";
-                    
-                    // 追加するカードテキストを作成
-                    const cardText = `【地震情報】${time}ごろ、${hypo}を震源とする地震がありました。${dispScale}（${magnitude} / ${depth}）`;
-                    
-                    const div = document.createElement('div');
-                    div.style.cssText = "padding:12px; border-bottom:1px solid #333; font-size:13px; display:flex; justify-content:space-between; align-items:center;";
-                    div.innerHTML = `
-                        <div style="flex:1; padding-right:10px;">
-                            <div style="color:var(--accent-blue); font-weight:bold; margin-bottom:4px;">${time} - ${dispScale}</div>
-                            <div style="color:#ddd;">震源: ${hypo} (${magnitude} / ${depth})</div>
-                        </div>
-                        <button class="secondary" style="padding:6px 12px; font-size:12px; white-space:nowrap; background:#333; transition:0.2s;" onclick="addTextSuperCard('${cardText}'); this.style.background='var(--accent-green)'; this.innerText='追加済';">
-                            <i class="material-icons" style="font-size:14px; vertical-align:middle;">add</i> カードへ
-                        </button>
-                    `;
-                    listContainer.appendChild(div);
-                });
-            } catch (err) {
-                console.error(err);
-                listContainer.innerHTML = '<div style="padding:15px; color:var(--accent-red); text-align:center; font-size:13px;">地震情報の取得に失敗しました。</div>';
+                res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+            } catch(e) {
+                res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
             }
-        } else if (window.currentRssCategory === 'news') {
-            listContainer.innerHTML = '<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">ニュース(NHK)はCORS等の理由により現在取得できません。</div>';
-        } else if (window.currentRssCategory === 'tsunami') {
-            listContainer.innerHTML = '<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">津波情報は現在準備中です。</div>';
+
+            if (!res.ok) throw new Error("取得エラー");
+
+            const xmlText = await res.text();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+            const items = xmlDoc.querySelectorAll("item");
+
+            if (!items || items.length === 0) {
+                listContainer.innerHTML = `<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">現在発表されている速報情報はありません</div>`;
+                return;
+            }
+
+            listContainer.innerHTML = "";
+            items.forEach((item) => {
+                const title = item.querySelector("title")?.textContent || "";
+                const desc = item.querySelector("description")?.textContent || "";
+                const pubDate = item.querySelector("pubDate")?.textContent || "";
+
+                const row = document.createElement('div');
+                row.style.cssText = "padding:10px 12px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; gap:10px;";
+                
+                const cleanTitle = title.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+                
+                row.innerHTML = `
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:13px; font-weight:bold; color:#fff; word-break:break-all;">${title}</div>
+                        ${desc ? `<div style="font-size:11px; color:#888; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${desc}</div>` : ''}
+                    </div>
+                `;
+                listContainer.appendChild(row);
+            });
+        } catch (e) {
+            console.error("RSS Fetch Error:", e);
+            listContainer.innerHTML = `<div style="padding:15px; color:var(--accent-red); text-align:center; font-size:13px;">取得に失敗しました</div>`;
         }
     };
-
 </script>
 </body>
 </html>
