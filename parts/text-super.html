@@ -53,9 +53,26 @@ body, html {
     letter-spacing: inherit;
     font-feature-settings: inherit;
 }
+
+/* ジャンル別ロゴ画像（速報・地震・津波・気象・噴火）表示コンテナ */
+#image-super-container {
+    position: absolute;
+    left: 50%;
+    top: 46px;
+    height: 68px;
+    width: auto;
+    transform: translateX(-50%);
+    display: none;
+}
+#image-super-container img {
+    height: 68px;
+    width: auto;
+    display: block;
+}
 </style>
 </head>
 <body>
+<div id="image-super-container"><img id="genre-image" src="" alt=""></div>
 <div id="text-super-container"></div>
 
 <script type="module">
@@ -75,32 +92,34 @@ body, html {
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const container = document.getElementById('text-super-container');
+    const imageContainer = document.getElementById('image-super-container');
+    const imageEl = document.getElementById('genre-image');
 
-    // Firebaseから /broadcast/text_super_sequence をリアルタイム取得
-    // （cardsとgenreを同じスナップショットから取得するため、親ノードごと監視する）
+    // ジャンルごとのロゴ画像パス
+    const genreImageMap = {
+        sokuho: 'assets/image/l1.png',   // 速報
+        quake: 'assets/image/l2.png',    // 地震
+        tsunami: 'assets/image/l3.png',  // 津波
+        weather: 'assets/image/l4.png',  // 気象
+        funka: 'assets/image/l5.png'     // 噴火
+    };
+
+    // Firebaseから /broadcast/text_super_sequence をリアルタイム取得（cards・genreの両方を利用）
     const textSuperSequenceRef = ref(db, 'broadcast/text_super_sequence');
 
     // タイムアウトを管理するための変数
     let sequenceTimeout = null;
+    let imageTimeout = null;
 
-    // ジャンルごとの前置画像（速報カットイン）パス
-    const GENRE_IMAGE_MAP = {
-        sokuho: 'assets/image/l1.png',   // 速報
-        quake: 'assets/image/l2.png',    // 地震
-        tsunami: 'assets/image/l3.png',  // 津波
-        Weather: 'assets/image/l4.png',  // 気象
-        funka: 'assets/image/l5.png'     // 噴火
-    };
-
-    const IMAGE_DISPLAY_MS = 6000;  // 前置画像の表示時間（6秒）
-    const TEXT_DISPLAY_MS = 10000;  // 各カードの表示時間（10秒）
-
-    // 前置画像を表示し、表示し終わったらコールバックを実行する関数
-    function showGenreImage(imageSrc, callback) {
-        container.innerHTML = `<img src="${imageSrc}" alt="" style="display:block; max-width:100%; height:auto;">`;
-        sequenceTimeout = setTimeout(() => {
-            callback();
-        }, IMAGE_DISPLAY_MS);
+    function clearAllTimers() {
+        if (sequenceTimeout) {
+            clearTimeout(sequenceTimeout);
+            sequenceTimeout = null;
+        }
+        if (imageTimeout) {
+            clearTimeout(imageTimeout);
+            imageTimeout = null;
+        }
     }
 
     // カードを順番に表示する関数
@@ -108,11 +127,11 @@ body, html {
         if (index < texts.length) {
             // 現在のインデックスのテキストを表示
             container.innerHTML = texts[index];
-            
+
             // 10秒（10000ミリ秒）後に次のテキストを表示
             sequenceTimeout = setTimeout(() => {
                 playSequence(texts, index + 1);
-            }, TEXT_DISPLAY_MS);
+            }, 10000);
         } else {
             // 最後のカードを表示し終わったら（10秒経過後）、コンテナを空にする
             container.innerHTML = '';
@@ -120,46 +139,62 @@ body, html {
         }
     }
 
+    // ジャンル画像を6秒表示してから文字スーパーのシーケンスを開始する関数
+    function showImageThenPlaySequence(imgSrc, texts) {
+        imageEl.src = imgSrc;
+        imageContainer.style.display = 'block';
+        container.innerHTML = ''; // 画像表示中は文字を隠す
+
+        imageTimeout = setTimeout(() => {
+            imageContainer.style.display = 'none';
+            imageEl.src = '';
+            playSequence(texts, 0);
+        }, 6000);
+    }
+
     onValue(textSuperSequenceRef, (snapshot) => {
         // 新しいデータが来た場合や更新された場合、実行中のタイマーをリセットする
-        if (sequenceTimeout) {
-            clearTimeout(sequenceTimeout);
-            sequenceTimeout = null;
-        }
+        clearAllTimers();
+        imageContainer.style.display = 'none';
 
         const data = snapshot.val();
-        const cards = data ? data.cards : null;
-        const genre = data ? data.genre : null;
+        if (!data) {
+            container.innerHTML = '';
+            return;
+        }
 
+        const cards = data.cards;
+        const genre = data.genre;
+
+        const validTexts = [];
         if (cards) {
-            const validTexts = [];
-            
             // Firebaseからのデータが配列、またはオブジェクト（数字キー）のどちらで返ってきても対応できるように処理
             const keys = Object.keys(cards);
-            
+
             // X=数字 のキー順（0, 1, 2...）になるようにソート
             keys.sort((a, b) => Number(a) - Number(b));
-            
+
             keys.forEach(key => {
                 if (cards[key] && cards[key].text) {
                     validTexts.push(cards[key].text);
                 }
             });
+        }
 
-            if (validTexts.length > 0) {
-                // genreに対応する前置画像が設定されていれば、先に6秒表示してから文字カードを再生
-                const imageSrc = GENRE_IMAGE_MAP[genre];
-                if (imageSrc) {
-                    showGenreImage(imageSrc, () => playSequence(validTexts, 0));
-                } else {
-                    // 該当ジャンルがない場合は従来通り文字カードのみ再生
-                    playSequence(validTexts, 0);
-                }
-            } else {
-                container.innerHTML = '';
-            }
-        } else {
+        if (validTexts.length === 0) {
             container.innerHTML = '';
+            return;
+        }
+
+        // genreの値（大文字小文字を問わない）に対応する画像があれば先に表示
+        const genreKey = genre ? String(genre).toLowerCase() : '';
+        const imgSrc = genreImageMap[genreKey];
+
+        if (imgSrc) {
+            showImageThenPlaySequence(imgSrc, validTexts);
+        } else {
+            // 該当ジャンルの画像がない場合はそのまま文字スーパーを再生
+            playSequence(validTexts, 0);
         }
     });
 </script>
