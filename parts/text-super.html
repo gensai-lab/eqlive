@@ -95,13 +95,22 @@ body, html {
     const imageContainer = document.getElementById('image-super-container');
     const imageEl = document.getElementById('genre-image');
 
-    // ジャンルごとのロゴ画像パス
+    // ジャンルごとのロゴ画像パス（フォントと同じドメインの絶対URLで指定）
+    // ※実際の画像設置場所が異なる場合はここのURLを変更してください
     const genreImageMap = {
-        sokuho: 'assets/image/l1.png',   // 速報
-        quake: 'assets/image/l2.png',    // 地震
-        tsunami: 'assets/image/l3.png',  // 津波
-        weather: 'assets/image/l4.png',  // 気象
-        funka: 'assets/image/l5.png'     // 噴火
+        sokuho: 'https://gensai-lab.github.io/eqlive/assets/image/l1.png',   // 速報
+        quake: 'https://gensai-lab.github.io/eqlive/assets/image/l2.png',    // 地震
+        tsunami: 'https://gensai-lab.github.io/eqlive/assets/image/l3.png',  // 津波
+        weather: 'https://gensai-lab.github.io/eqlive/assets/image/l4.png',  // 気象
+        funka: 'https://gensai-lab.github.io/eqlive/assets/image/l5.png'     // 噴火
+    };
+
+    // 画像の読み込み失敗を検知してコンソールに出す（動作確認用）
+    imageEl.onerror = () => {
+        console.error('[text-super] ジャンル画像の読み込みに失敗しました:', imageEl.src);
+    };
+    imageEl.onload = () => {
+        console.log('[text-super] ジャンル画像を表示しました:', imageEl.src);
     };
 
     // Firebaseから /broadcast/text_super_sequence をリアルタイム取得（cards・genreの両方を利用）
@@ -189,6 +198,7 @@ body, html {
         // genreの値（大文字小文字を問わない）に対応する画像があれば先に表示
         const genreKey = genre ? String(genre).toLowerCase() : '';
         const imgSrc = genreImageMap[genreKey];
+        console.log('[text-super] 受信genre:', genre, '→ 判定キー:', genreKey, '→ 画像URL:', imgSrc || '(なし)');
 
         if (imgSrc) {
             showImageThenPlaySequence(imgSrc, validTexts);
