@@ -2228,7 +2228,8 @@
 
         const cards = [card1, card2, card3];
         if (includePlaces) {
-            const places = (intensity.cities && intensity.cities.length) ? intensity.cities : intensity.regions;
+            // VXSE53の震度情報は regions（地方単位）ではなく cities（市町村単位）を使用する
+            const places = intensity.cities || [];
             const groups = eqGroupPlaces(places);
             cards.push(...eqCardsFromGroups(groups));
         }
