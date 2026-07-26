@@ -1772,10 +1772,15 @@
         });
     };
 
-    // --- 🌏 DMDATA 地震情報パネル（文字スーパータブ内・地震タブ） ---
+    // --- 🌏 DMDATA 地震情報パネル（文字スーパータブ内・地震タブ／WebSocketでリアルタイム受信） ---
+    let dmdataSocket = null;
+    let dmdataEventCache = {}; // eventId -> { VXSE51, VXSE52, VXSE53, lastReceived }
+    let dmdataEventOrder = []; // 受信順（新しい順）のeventId一覧
+
     function renderEarthquakePanel(container) {
         container.style.background = 'transparent';
         container.style.border = 'none';
+        const connected = !!dmdataSocket;
         container.innerHTML = `
             <div style="background:#000; border:1px solid #333; border-radius:8px; padding:14px;">
                 <label style="margin-top:0; font-size:13px;">DMDATA APIキー</label>
@@ -1786,19 +1791,22 @@
                 <div style="font-size:11px; color:var(--text-sub); margin-bottom:14px;">
                     APIキーはログイン中の管理者のみ閲覧できるFirebase上に保存され、外部には公開されません。<br/>
                     <a href="https://manager.dmdata.jp/control/dev/credentials" target="_blank" style="color:var(--accent-blue);">DMDATAコントロールパネルでAPIキーを発行</a>
-                    （スコープで <b>telegram.list</b> と <b>telegram.get.earthquake</b> を有効にしてください。反映まで数分かかる場合があります）
+                    （スコープで <b>socket.start</b> と <b>telegram.get.earthquake</b> を有効にし、地震・津波関連区分(telegram.earthquake)の契約が必要です）
                 </div>
 
                 <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
-                    <button class="primary" style="width:auto; padding:8px 14px; font-size:13px; flex:none;" onclick="fetchLatestEarthquakeInfo()">
-                        <i class="material-icons" style="font-size:16px; vertical-align:middle;">refresh</i> 最新の地震情報を取得
+                    <button id="btn-eq-connect" class="primary" style="width:auto; padding:8px 14px; font-size:13px; flex:none; ${connected ? 'background:var(--accent-red, #d33);' : ''}" onclick="${connected ? 'stopDmdataWebSocket()' : 'startDmdataWebSocket()'}">
+                        <i class="material-icons" style="font-size:16px; vertical-align:middle;">${connected ? 'stop' : 'sensors'}</i> ${connected ? 'WebSocket受信を停止' : 'WebSocket受信を開始'}
                     </button>
                     <label style="font-size:12px; color:var(--text-sub); display:flex; align-items:center; gap:5px; margin:0;">
                         <input type="checkbox" id="chk-eq-include-places" checked style="width:auto; margin:0;"> 市区町村・地域別の震度カードも含める
                     </label>
                 </div>
 
-                <div id="eq-status" style="font-size:12px; color:var(--text-sub); margin-bottom:8px;"></div>
+                <div id="eq-status" style="font-size:12px; color:var(--text-sub); margin-bottom:8px;">${connected ? '接続中。地震情報の受信を待機しています…' : '未接続です。「WebSocket受信を開始」を押してください。'}</div>
+
+                <div id="eq-log" style="margin-bottom:10px;"></div>
+
                 <div id="eq-preview" style="background:#111; border:1px solid #333; border-radius:8px; max-height:260px; overflow-y:auto; display:none;"></div>
                 <div id="eq-actions" style="margin-top:10px; display:none;">
                     <button class="primary" style="background:var(--accent-green); width:auto; padding:8px 14px; font-size:13px;" onclick="applyEarthquakeCardsToTextSuper()">
@@ -1807,139 +1815,212 @@
                 </div>
             </div>
         `;
+        renderEqLog();
     }
 
-    window.fetchLatestEarthquakeInfo = async () => {
-        const statusEl = document.getElementById('eq-status');
-        const previewEl = document.getElementById('eq-preview');
-        const actionsEl = document.getElementById('eq-actions');
-        if (!statusEl) return;
+    function renderEqLog() {
+        const logEl = document.getElementById('eq-log');
+        if (!logEl) return;
+        if (dmdataEventOrder.length === 0) {
+            logEl.innerHTML = "";
+            return;
+        }
+        logEl.innerHTML = `<div style="font-size:12px; color:var(--text-sub); margin-bottom:6px;">受信した地震情報（新しい順）</div>` +
+            dmdataEventOrder.slice(0, 10).map(eid => {
+                const ev = dmdataEventCache[eid];
+                const types = ['VXSE53', 'VXSE52', 'VXSE51'].filter(t => ev[t]).join(' / ');
+                const headline = (ev.VXSE53 && ev.VXSE53.headline) || (ev.VXSE52 && ev.VXSE52.headline) || (ev.VXSE51 && ev.VXSE51.headline) || eid;
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:#111; border:1px solid #333; border-radius:6px; margin-bottom:6px;">
+                        <div style="font-size:12px; color:#ddd; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${headline.replace(/</g, '&lt;')}<br/><span style="color:#777; font-size:10px;">${types}</span></div>
+                        <button class="secondary" style="width:auto; padding:6px 10px; font-size:11px; flex:none;" onclick="buildAndPreviewFromEvent('${eid}')">カードを作成</button>
+                    </div>
+                `;
+            }).join('');
+    }
 
+    window.startDmdataWebSocket = async () => {
+        const statusEl = document.getElementById('eq-status');
         if (!dmdataApiKey) {
             alert("先にDMDATA APIキーを設定してください。");
             return;
         }
-
-        statusEl.textContent = "DMDATAから地震情報を取得中...";
-        if (previewEl) previewEl.style.display = 'none';
-        if (actionsEl) actionsEl.style.display = 'none';
+        if (dmdataSocket) return;
+        if (typeof DecompressionStream === 'undefined') {
+            alert("このブラウザはgzip展開(DecompressionStream)に対応していないため、DMDATA WebSocket受信が利用できません。Google Chrome等の最新ブラウザをご利用ください。");
+            return;
+        }
+        if (statusEl) statusEl.textContent = "Socket Start APIに接続中...";
 
         try {
             const authHeader = 'Basic ' + btoa(dmdataApiKey + ':');
-            const listUrl = 'https://api.dmdata.jp/v2/telegram?type=VXSE51&type=VXSE52&type=VXSE53&limit=60';
-            const listRes = await fetch(listUrl, { headers: { 'Authorization': authHeader } });
-            const listData = await listRes.json();
-            console.log("[DMDATA] telegram.list response:", listData);
-            if (listData.status !== 'ok') {
-                throw new Error((listData.error && listData.error.message) || 'APIエラーが発生しました。');
-            }
-
-            const items = (listData.items || []).filter(it => !(it.head && it.head.test));
-            if (items.length === 0) {
-                statusEl.textContent = "現在配信されている地震情報はありません。";
-                return;
-            }
-
-            // 種別ごとに受信日時降順で並べる（一覧APIのxmlReportにeventIdが含まれない場合があるため、
-            // 実際の判定はこの後に取得する電文本体側のeventIdで行う）
-            const byType = { VXSE51: [], VXSE52: [], VXSE53: [] };
-            items.forEach(it => {
-                const t = it.head && it.head.type;
-                if (byType[t]) byType[t].push(it);
+            const startRes = await fetch('https://api.dmdata.jp/v2/socket', {
+                method: 'POST',
+                headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    classifications: ["telegram.earthquake"],
+                    types: ["VXSE51", "VXSE52", "VXSE53"],
+                    test: "no",
+                    formatMode: "json",
+                    appName: "EQLive"
+                })
             });
-            Object.keys(byType).forEach(t => byType[t].sort((a, b) => new Date(b.receivedTime) - new Date(a.receivedTime)));
+            const startData = await startRes.json();
+            console.log("[DMDATA] socket.start response:", startData);
+            if (startData.status !== 'ok') {
+                throw new Error((startData.error && startData.error.message) || 'Socket Startに失敗しました。');
+            }
 
-            const authHeaderObj = { headers: { 'Authorization': authHeader } };
-            const fetchJson = async (item) => {
-                const res = await fetch(`${item.url}?formatMode=json`, authHeaderObj);
-                if (!res.ok) throw new Error(`電文データの取得に失敗しました (HTTP ${res.status})`);
-                const json = await res.json();
-                console.log(`[DMDATA] fetched ${item.head && item.head.type} (${item.id}):`, json);
-                return json;
-            };
+            const ws = new WebSocket(startData.websocket.url, ['dmdata.v2']);
+            dmdataSocket = ws;
 
-            // フェーズ1: 各種別の最新1件を取得し、eventIdが一致するか確認
-            const latestByType = {};
-            for (const t of ['VXSE53', 'VXSE52', 'VXSE51']) {
-                if (byType[t].length > 0) {
-                    latestByType[t] = { item: byType[t][0], json: await fetchJson(byType[t][0]) };
+            ws.addEventListener('open', () => {
+                const s = document.getElementById('eq-status');
+                if (s) s.textContent = "接続完了。地震情報の受信を待機しています…";
+                renderEarthquakePanel(document.getElementById('rss-news-list'));
+            });
+
+            ws.addEventListener('close', (ev) => {
+                console.log("[DMDATA] WebSocket closed:", ev.code, ev.reason);
+                dmdataSocket = null;
+                const s = document.getElementById('eq-status');
+                if (s) s.textContent = `切断されました (code: ${ev.code}${ev.reason ? ', ' + ev.reason : ''})`;
+                const container = document.getElementById('rss-news-list');
+                if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
+            });
+
+            ws.addEventListener('error', (ev) => {
+                console.error("[DMDATA] WebSocket error:", ev);
+            });
+
+            ws.addEventListener('message', async (ev) => {
+                let msg;
+                try { msg = JSON.parse(ev.data); } catch (e) { return; }
+
+                if (msg.type === 'ping') {
+                    ws.send(JSON.stringify({ type: 'pong', pingId: msg.pingId }));
+                    return;
                 }
-            }
-
-            const fetchedList = Object.values(latestByType);
-            if (fetchedList.length === 0 || !fetchedList.some(f => f.json && f.json.eventId)) {
-                throw new Error("電文データにeventIdが見つかりませんでした。formatMode=jsonの応答形式が想定と異なる可能性があります（コンソールログを確認してください）。");
-            }
-
-            // もっとも新しく受信された電文のeventIdを「対象の地震」とする
-            fetchedList.sort((a, b) => new Date(b.item.receivedTime) - new Date(a.item.receivedTime));
-            const anchorEventId = fetchedList[0].json.eventId;
-
-            const result = { VXSE51: null, VXSE52: null, VXSE53: null };
-            for (const t of ['VXSE51', 'VXSE52', 'VXSE53']) {
-                if (latestByType[t] && latestByType[t].json.eventId === anchorEventId) {
-                    result[t] = latestByType[t].json;
+                if (msg.type === 'error') {
+                    console.error("[DMDATA] error message:", msg);
+                    const s = document.getElementById('eq-status');
+                    if (s) s.textContent = `エラー: ${msg.error} (code: ${msg.code})`;
+                    if (msg.close) dmdataSocket = null;
+                    return;
                 }
-            }
-
-            // フェーズ2: anchorEventIdに一致しなかった／取得できなかった種別は、
-            // 直近の候補を数件さかのぼって同じeventIdのものを探す
-            const EXTRA_CANDIDATES = 5;
-            for (const t of ['VXSE51', 'VXSE52', 'VXSE53']) {
-                if (result[t]) continue;
-                const cands = byType[t].slice(0, EXTRA_CANDIDATES);
-                for (const it of cands) {
-                    if (latestByType[t] && it.id === latestByType[t].item.id) continue; // フェーズ1で確認済み
-                    try {
-                        const json = await fetchJson(it);
-                        if (json.eventId === anchorEventId) {
-                            result[t] = json;
-                            break;
-                        }
-                    } catch (e) {
-                        console.warn(`[DMDATA] ${t} candidate fetch failed:`, e);
-                    }
+                if (msg.type === 'data') {
+                    await handleDmdataMessage(msg);
                 }
-            }
-
-            const json51 = result.VXSE51;
-            const json52 = result.VXSE52;
-            const json53 = result.VXSE53;
-
-            const includePlaces = document.getElementById('chk-eq-include-places')?.checked ?? true;
-
-            let cards = [];
-            let sourceLabel = "";
-            if (json53) {
-                cards = buildVxse53Cards(json53, includePlaces);
-                sourceLabel = "震源・震度に関する情報 (VXSE53)";
-            } else if (json52) {
-                cards = buildVxse52Cards(json52, json51, includePlaces);
-                sourceLabel = "震源に関する情報 (VXSE52)" + (json51 ? " + 震度速報 (VXSE51)" : "");
-            } else if (json51) {
-                cards = buildVxse51Cards(json51, includePlaces);
-                sourceLabel = "震度速報 (VXSE51)";
-            } else {
-                throw new Error("対応する電文データを取得できませんでした。");
-            }
-
-            dmdataGeneratedCards = cards;
-            statusEl.textContent = `取得完了: ${sourceLabel}（${cards.length}枚のカードを生成）`;
-
-            if (previewEl) {
-                previewEl.innerHTML = cards.map((c, i) => `
-                    <div style="padding:10px 12px; border-bottom:1px solid #222;">
-                        <div style="font-size:10px; color:#666; margin-bottom:3px;">カード${i + 1}</div>
-                        <div style="font-size:13px; white-space:pre-wrap; color:#fff;">${c.replace(/</g, '&lt;')}</div>
-                    </div>
-                `).join('');
-                previewEl.style.display = 'block';
-            }
-            if (actionsEl) actionsEl.style.display = 'block';
+            });
         } catch (err) {
-            console.error("DMDATA fetch error:", err);
-            statusEl.textContent = `取得に失敗しました: ${err.message}`;
+            console.error("[DMDATA] connect error:", err);
+            dmdataSocket = null;
+            if (statusEl) statusEl.textContent = `接続に失敗しました: ${err.message}`;
         }
+    };
+
+    window.stopDmdataWebSocket = () => {
+        if (dmdataSocket) {
+            dmdataSocket.close(1000, "manual close");
+            dmdataSocket = null;
+        }
+        const container = document.getElementById('rss-news-list');
+        if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
+    };
+
+    // base64 + gzip(またはzip)で圧縮された body を展開してJSONにする
+    async function decodeDmdataBody(msg) {
+        const binary = atob(msg.body);
+        let bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+        if (msg.compression === 'gzip') {
+            const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+            const buf = await new Response(stream).arrayBuffer();
+            bytes = new Uint8Array(buf);
+        } else if (msg.compression === 'zip') {
+            throw new Error('zip圧縮のデータには対応していません');
+        }
+        const text = new TextDecoder('utf-8').decode(bytes);
+        return JSON.parse(text);
+    }
+
+    async function handleDmdataMessage(msg) {
+        const type = msg.head && msg.head.type;
+        if (!['VXSE51', 'VXSE52', 'VXSE53'].includes(type)) return;
+        if (msg.head && msg.head.test) return;
+        if (msg.format !== 'json') {
+            console.warn("[DMDATA] 想定外のformat（jsonではありません）:", msg.format, msg);
+            return;
+        }
+
+        let json;
+        try {
+            json = await decodeDmdataBody(msg);
+        } catch (e) {
+            console.error("[DMDATA] body decode error:", e);
+            return;
+        }
+        console.log(`[DMDATA] received ${type}:`, json);
+
+        const eid = json.eventId;
+        if (!eid) return;
+
+        if (!dmdataEventCache[eid]) dmdataEventCache[eid] = {};
+        dmdataEventCache[eid][type] = json;
+        dmdataEventCache[eid].lastReceived = Date.now();
+
+        dmdataEventOrder = dmdataEventOrder.filter(x => x !== eid);
+        dmdataEventOrder.unshift(eid);
+        if (dmdataEventOrder.length > 20) {
+            const removed = dmdataEventOrder.splice(20);
+            removed.forEach(x => delete dmdataEventCache[x]);
+        }
+
+        renderEqLog();
+        buildAndPreviewFromEvent(eid);
+    }
+
+    window.buildAndPreviewFromEvent = (eventId) => {
+        const ev = dmdataEventCache[eventId];
+        const statusEl = document.getElementById('eq-status');
+        const previewEl = document.getElementById('eq-preview');
+        const actionsEl = document.getElementById('eq-actions');
+        if (!ev) return;
+
+        const includePlaces = document.getElementById('chk-eq-include-places')?.checked ?? true;
+        const json51 = ev.VXSE51 || null;
+        const json52 = ev.VXSE52 || null;
+        const json53 = ev.VXSE53 || null;
+
+        let cards = [];
+        let sourceLabel = "";
+        if (json53) {
+            cards = buildVxse53Cards(json53, includePlaces);
+            sourceLabel = "震源・震度に関する情報 (VXSE53)";
+        } else if (json52) {
+            cards = buildVxse52Cards(json52, json51, includePlaces);
+            sourceLabel = "震源に関する情報 (VXSE52)" + (json51 ? " + 震度速報 (VXSE51)" : "");
+        } else if (json51) {
+            cards = buildVxse51Cards(json51, includePlaces);
+            sourceLabel = "震度速報 (VXSE51)";
+        } else {
+            return;
+        }
+
+        dmdataGeneratedCards = cards;
+        if (statusEl) statusEl.textContent = `カード生成: ${sourceLabel}（${cards.length}枚）`;
+
+        if (previewEl) {
+            previewEl.innerHTML = cards.map((c, i) => `
+                <div style="padding:10px 12px; border-bottom:1px solid #222;">
+                    <div style="font-size:10px; color:#666; margin-bottom:3px;">カード${i + 1}</div>
+                    <div style="font-size:13px; white-space:pre-wrap; color:#fff;">${c.replace(/</g, '&lt;')}</div>
+                </div>
+            `).join('');
+            previewEl.style.display = 'block';
+        }
+        if (actionsEl) actionsEl.style.display = 'block';
     };
 
     window.applyEarthquakeCardsToTextSuper = () => {
