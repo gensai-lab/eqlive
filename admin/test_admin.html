@@ -1826,9 +1826,10 @@
 
         try {
             const authHeader = 'Basic ' + btoa(dmdataApiKey + ':');
-            const listUrl = 'https://api.dmdata.jp/v2/telegram?type=VXSE51&type=VXSE52&type=VXSE53&limit=50';
+            const listUrl = 'https://api.dmdata.jp/v2/telegram?type=VXSE51&type=VXSE52&type=VXSE53&limit=60';
             const listRes = await fetch(listUrl, { headers: { 'Authorization': authHeader } });
             const listData = await listRes.json();
+            console.log("[DMDATA] telegram.list response:", listData);
             if (listData.status !== 'ok') {
                 throw new Error((listData.error && listData.error.message) || 'APIエラーが発生しました。');
             }
@@ -1839,44 +1840,71 @@
                 return;
             }
 
-            // イベントIDごとにグルーピングし、直近受信したイベントを採用する
-            const byEvent = {};
+            // 種別ごとに受信日時降順で並べる（一覧APIのxmlReportにeventIdが含まれない場合があるため、
+            // 実際の判定はこの後に取得する電文本体側のeventIdで行う）
+            const byType = { VXSE51: [], VXSE52: [], VXSE53: [] };
             items.forEach(it => {
-                const eid = it.xmlReport && it.xmlReport.head && it.xmlReport.head.eventId;
-                if (!eid) return;
-                if (!byEvent[eid]) byEvent[eid] = [];
-                byEvent[eid].push(it);
+                const t = it.head && it.head.type;
+                if (byType[t]) byType[t].push(it);
             });
-            const eventIds = Object.keys(byEvent);
-            if (eventIds.length === 0) throw new Error("有効な地震情報が見つかりませんでした。");
+            Object.keys(byType).forEach(t => byType[t].sort((a, b) => new Date(b.receivedTime) - new Date(a.receivedTime)));
 
-            eventIds.sort((a, b) => {
-                const ta = Math.max(...byEvent[a].map(x => new Date(x.receivedTime).getTime()));
-                const tb = Math.max(...byEvent[b].map(x => new Date(x.receivedTime).getTime()));
-                return tb - ta;
-            });
-            const eventItems = byEvent[eventIds[0]];
-
-            const pick = (type) => {
-                const cands = eventItems.filter(x => x.head && x.head.type === type);
-                if (cands.length === 0) return null;
-                cands.sort((a, b) => new Date(b.receivedTime) - new Date(a.receivedTime));
-                return cands[0];
-            };
-
-            const item51 = pick('VXSE51');
-            const item52 = pick('VXSE52');
-            const item53 = pick('VXSE53');
-
+            const authHeaderObj = { headers: { 'Authorization': authHeader } };
             const fetchJson = async (item) => {
-                if (!item) return null;
-                // ※ formatMode=json はXML電文をJSONスキーマ変換済みデータとして取得するためのパラメータです
-                const res = await fetch(`${item.url}?formatMode=json`, { headers: { 'Authorization': authHeader } });
+                const res = await fetch(`${item.url}?formatMode=json`, authHeaderObj);
                 if (!res.ok) throw new Error(`電文データの取得に失敗しました (HTTP ${res.status})`);
-                return await res.json();
+                const json = await res.json();
+                console.log(`[DMDATA] fetched ${item.head && item.head.type} (${item.id}):`, json);
+                return json;
             };
 
-            const [json51, json52, json53] = await Promise.all([fetchJson(item51), fetchJson(item52), fetchJson(item53)]);
+            // フェーズ1: 各種別の最新1件を取得し、eventIdが一致するか確認
+            const latestByType = {};
+            for (const t of ['VXSE53', 'VXSE52', 'VXSE51']) {
+                if (byType[t].length > 0) {
+                    latestByType[t] = { item: byType[t][0], json: await fetchJson(byType[t][0]) };
+                }
+            }
+
+            const fetchedList = Object.values(latestByType);
+            if (fetchedList.length === 0 || !fetchedList.some(f => f.json && f.json.eventId)) {
+                throw new Error("電文データにeventIdが見つかりませんでした。formatMode=jsonの応答形式が想定と異なる可能性があります（コンソールログを確認してください）。");
+            }
+
+            // もっとも新しく受信された電文のeventIdを「対象の地震」とする
+            fetchedList.sort((a, b) => new Date(b.item.receivedTime) - new Date(a.item.receivedTime));
+            const anchorEventId = fetchedList[0].json.eventId;
+
+            const result = { VXSE51: null, VXSE52: null, VXSE53: null };
+            for (const t of ['VXSE51', 'VXSE52', 'VXSE53']) {
+                if (latestByType[t] && latestByType[t].json.eventId === anchorEventId) {
+                    result[t] = latestByType[t].json;
+                }
+            }
+
+            // フェーズ2: anchorEventIdに一致しなかった／取得できなかった種別は、
+            // 直近の候補を数件さかのぼって同じeventIdのものを探す
+            const EXTRA_CANDIDATES = 5;
+            for (const t of ['VXSE51', 'VXSE52', 'VXSE53']) {
+                if (result[t]) continue;
+                const cands = byType[t].slice(0, EXTRA_CANDIDATES);
+                for (const it of cands) {
+                    if (latestByType[t] && it.id === latestByType[t].item.id) continue; // フェーズ1で確認済み
+                    try {
+                        const json = await fetchJson(it);
+                        if (json.eventId === anchorEventId) {
+                            result[t] = json;
+                            break;
+                        }
+                    } catch (e) {
+                        console.warn(`[DMDATA] ${t} candidate fetch failed:`, e);
+                    }
+                }
+            }
+
+            const json51 = result.VXSE51;
+            const json52 = result.VXSE52;
+            const json53 = result.VXSE53;
 
             const includePlaces = document.getElementById('chk-eq-include-places')?.checked ?? true;
 
