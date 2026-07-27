@@ -214,18 +214,86 @@
         }
     });
 
-    // === 🗣️ 追加: AI音声読み上げ制御 (Web Speech API) ===
+    // === 🗣️ 追加: AI音声読み上げ制御 (Web Speech API・チャンク逐次読み上げ対応) ===
+    let ttsQueue = [];
+    let ttsCurrentToken = 0; // このトークンより新しい要求が来たら現在の読み上げを打ち切る
+    let ttsKeepAliveTimer = null;
+
+    // Chrome/OBS(Chromium)は「1回の発話が長い・無音区間が続く」と音声合成が
+    // 内部的に停止してしまう既知の不具合があるため、発話中は定期的に
+    // pause()→resume()を呼んで機能を維持する（読み上げ音声は途切れない）
+    function startTtsKeepAlive() {
+        stopTtsKeepAlive();
+        ttsKeepAliveTimer = setInterval(() => {
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.pause();
+                window.speechSynthesis.resume();
+            }
+        }, 5000);
+    }
+    function stopTtsKeepAlive() {
+        if (ttsKeepAliveTimer) { clearInterval(ttsKeepAliveTimer); ttsKeepAliveTimer = null; }
+    }
+
+    function updateTtsStatus(data) {
+        set(ref(db, 'broadcast/audio/tts_status'), data).catch(() => {});
+    }
+
+    function speakOneChunk(text) {
+        return new Promise((resolve) => {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ja-JP'; // 日本語
+            // ※声色などを変えたい場合は window.speechSynthesis.getVoices() を取得してセットします
+            utterance.onend = resolve;
+            utterance.onerror = resolve; // 1チャンクが失敗しても後続の読み上げを止めない
+            window.speechSynthesis.speak(utterance);
+        });
+    }
+
+    async function speakTTSChunks(chunks, token) {
+        const total = chunks.length;
+        startTtsKeepAlive();
+
+        for (let i = 0; i < total; i++) {
+            if (token !== ttsCurrentToken) { stopTtsKeepAlive(); return; } // 新しい要求 or キャンセルで中断
+            const chunk = chunks[i];
+            updateTtsStatus({
+                status: 'playing',
+                progress: Math.round((i / total) * 100),
+                eta: Math.max(0, Math.round((total - i) * 4)), // 簡易目安（1チャンクあたり約4秒）
+                currentText: chunk
+            });
+            await speakOneChunk(chunk);
+        }
+
+        stopTtsKeepAlive();
+        if (token === ttsCurrentToken) {
+            updateTtsStatus({ status: 'idle', progress: 100, eta: 0, currentText: '完了' });
+        }
+    }
+
     onValue(ref(db, 'broadcast/audio/tts'), (snapshot) => {
         const ttsData = snapshot.val();
-        if (ttsData && ttsData.text && ttsData.timestamp !== ttsLastTimestamp) {
-            ttsLastTimestamp = ttsData.timestamp;
-            
-            // 読み上げの実行
-            const utterance = new SpeechSynthesisUtterance(ttsData.text);
-            utterance.lang = 'ja-JP'; // 日本語
-            // ※声色などを変えりたい場合は window.speechSynthesis.getVoices() を取得してセットします
-            window.speechSynthesis.speak(utterance);
+        if (!ttsData || ttsData.timestamp === ttsLastTimestamp) return;
+        ttsLastTimestamp = ttsData.timestamp;
+
+        // 新しい要求が来たら、進行中の読み上げは無条件に打ち切る
+        ttsCurrentToken++;
+        window.speechSynthesis.cancel();
+        stopTtsKeepAlive();
+
+        if (ttsData.action === 'cancel') {
+            updateTtsStatus({ status: 'idle', progress: 0, eta: 0, currentText: '待機中' });
+            return;
         }
+
+        // chunks（分割済み）があれば優先使用。無い場合はtextを1チャンクとして扱う（後方互換）
+        const chunks = (Array.isArray(ttsData.chunks) && ttsData.chunks.length > 0)
+            ? ttsData.chunks
+            : (ttsData.text ? [ttsData.text] : []);
+        if (chunks.length === 0) return;
+
+        speakTTSChunks(chunks, ttsCurrentToken);
     });
 
     // === 🎤 追加: WebRTC マイク受信制御 ===
@@ -284,3 +352,4 @@
 </script>
 </body>
 </html>
+x
