@@ -556,6 +556,15 @@
                         </div>
                     </div>
 
+                    <!-- 🏷️ ジャンル選択（送出時に表示するロゴ画像の種類） -->
+                    <div class="card" style="background:#111; border:1px solid #333; padding:15px; margin-bottom:15px;">
+                        <label style="margin-bottom:8px;">ジャンル（送出前に表示するロゴ）</label>
+                        <div id="text-super-genre-selector" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+                        <p style="font-size:11px; color:var(--text-sub); margin:8px 0 0;">
+                            ※「地震」は⚠️地震（DMDATA）タブから反映すると自動で選択されます（手動選択不要）。
+                        </p>
+                    </div>
+
                     <div class="btn-group">
                         <button id="btn-text-super-start" class="primary" style="background:var(--accent-green); display:flex; justify-content:center; align-items:center; gap:8px;" onclick="startTextSuperSequence()">
                             <i class="material-icons">play_arrow</i> ▶ 順次送出を開始
@@ -583,7 +592,7 @@
                     <!-- 3枠切替タブ -->
                     <div style="display:flex; gap:8px; margin-bottom:12px; overflow-x:auto; padding-bottom:4px;">
                         <button id="btn-rss-news" class="rss-tab-btn active" onclick="switchRssCategory('news')">📰 ニュース (NHK速報)</button>
-                        <button id="btn-rss-earthquake" class="rss-tab-btn" onclick="switchRssCategory('earthquake')">⚠️ 地震 (準備中)</button>
+                        <button id="btn-rss-earthquake" class="rss-tab-btn" onclick="switchRssCategory('earthquake')">⚠️ 地震（DMDATA）</button>
                         <button id="btn-rss-tsunami" class="rss-tab-btn" onclick="switchRssCategory('tsunami')">🌊 津波 (準備中)</button>
                     </div>
 
@@ -650,14 +659,26 @@
     let textSuperStepTimer = null;
     let textSuperCountdownTimer = null;
     let isTextSuperSending = false;
+    let selectedTextSuperGenre = ""; // "" | "sokuho" | "quake" | "tsunami" | "weather" | "funka"
+    const TEXT_SUPER_GENRE_OPTIONS = [
+        { key: "",        label: "なし" },
+        { key: "sokuho",  label: "🚨 速報" },
+        { key: "tsunami", label: "🌊 津波" },
+        { key: "weather", label: "☔ 気象" },
+        { key: "funka",   label: "🌋 噴火" }
+    ];
 
     // --- 速報ニュース (3枠: news, earthquake, tsunami) ---
     let currentRssCategory = 'news';
     const RSS_URLS = {
         news: "https://news.web.nhk/n-data/conf/na/rss/cat0.xml",
-        earthquake: "", // 今後追加予定
+        earthquake: "", // DMDATA APIで個別取得するため未使用
         tsunami: ""    // 今後追加予定
     };
+
+    // --- 🌏 DMDATA 地震情報（文字スーパー連携）用の状態 ---
+    let dmdataApiKey = "";
+    let dmdataGeneratedCards = [];
 
     // --- 🔐 Firebase Authentication ログイン制御ロジック ---
     onAuthStateChanged(auth, (user) => {
@@ -670,8 +691,10 @@
             initCameras();
             initPresets();
             renderTextSuperCards();
+            renderTextSuperGenreSelector();
             fetchRssNews();
             startFirebaseSync();
+            loadDmdataSettings();
         } else {
             loginScreen.style.display = 'flex';
             adminApp.style.display = 'none';
@@ -1678,6 +1701,11 @@
         const listContainer = document.getElementById('rss-news-list');
         if (!listContainer) return;
 
+        if (currentRssCategory === 'earthquake') {
+            renderEarthquakePanel(listContainer);
+            return;
+        }
+
         const url = RSS_URLS[currentRssCategory];
         if (!url) {
             listContainer.innerHTML = `<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">この枠の情報配信元は今後追加予定です。</div>`;
@@ -1734,6 +1762,505 @@
             listContainer.innerHTML = `<div style="padding:15px; color:var(--accent-red); text-align:center; font-size:13px;">速報ニュースの取得に失敗しました。</div>`;
         }
     };
+
+    // --- 🌏 DMDATA APIキー設定 ---
+    function loadDmdataSettings() {
+        onValue(ref(db, 'settings/dmdataApiKey'), (snap) => {
+            dmdataApiKey = snap.val() || "";
+            const input = document.getElementById('input-dmdata-apikey');
+            if (input) {
+                input.placeholder = dmdataApiKey ? "•••••••• (設定済み・変更する場合のみ入力)" : "DMDATAのAPIキーを入力";
+            }
+        });
+    }
+
+    window.saveDmdataApiKey = () => {
+        const input = document.getElementById('input-dmdata-apikey');
+        if (!input) return;
+        const val = input.value.trim();
+        if (!val) {
+            alert("APIキーを入力してください。");
+            return;
+        }
+        secureSet(ref(db, 'settings/dmdataApiKey'), val).then(() => {
+            dmdataApiKey = val;
+            input.value = "";
+            input.placeholder = "•••••••• (設定済み・変更する場合のみ入力)";
+            alert("DMDATA APIキーを保存しました。");
+        });
+    };
+
+    // --- 🌏 DMDATA 地震情報パネル（文字スーパータブ内・地震タブ／WebSocketでリアルタイム受信） ---
+    let dmdataSocket = null;
+    let dmdataEventCache = {}; // eventId -> { VXSE51, VXSE52, VXSE53, lastReceived }
+    let dmdataEventOrder = []; // 受信順（新しい順）のeventId一覧
+    let eqAutoSendEnabled = true; // trueの間は地震情報受信時に確認なしで自動送出する（デフォルトON）
+
+    function renderEarthquakePanel(container) {
+        container.style.background = 'transparent';
+        container.style.border = 'none';
+        const connected = !!dmdataSocket;
+        container.innerHTML = `
+            <div style="background:#000; border:1px solid #333; border-radius:8px; padding:14px;">
+                <label style="margin-top:0; font-size:13px;">DMDATA APIキー</label>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
+                    <input type="password" id="input-dmdata-apikey" placeholder="${dmdataApiKey ? '•••••••• (設定済み・変更する場合のみ入力)' : 'DMDATAのAPIキーを入力'}" style="flex:1; min-width:180px; margin:0;">
+                    <button class="secondary" style="width:auto; padding:8px 14px; font-size:12px; flex:none;" onclick="saveDmdataApiKey()">キーを保存</button>
+                </div>
+                <div style="font-size:11px; color:var(--text-sub); margin-bottom:14px;">
+                    APIキーはログイン中の管理者のみ閲覧できるFirebase上に保存され、外部には公開されません。<br/>
+                    <a href="https://manager.dmdata.jp/control/dev/credentials" target="_blank" style="color:var(--accent-blue);">DMDATAコントロールパネルでAPIキーを発行</a>
+                    （スコープで <b>socket.start</b> と <b>telegram.get.earthquake</b> を有効にし、地震・津波関連区分(telegram.earthquake)の契約が必要です）
+                </div>
+
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+                    <button id="btn-eq-connect" class="primary" style="width:auto; padding:8px 14px; font-size:13px; flex:none; ${connected ? 'background:var(--accent-red, #d33);' : ''}" onclick="${connected ? 'stopDmdataWebSocket()' : 'startDmdataWebSocket()'}">
+                        <i class="material-icons" style="font-size:16px; vertical-align:middle;">${connected ? 'stop' : 'sensors'}</i> ${connected ? 'WebSocket受信を停止' : 'WebSocket受信を開始'}
+                    </button>
+                    <label style="font-size:12px; color:var(--text-sub); display:flex; align-items:center; gap:5px; margin:0;">
+                        <input type="checkbox" id="chk-eq-include-places" checked style="width:auto; margin:0;"> 市区町村・地域別の震度カードも含める
+                    </label>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; padding:10px 12px; background:#1a0000; border:1px solid #522; border-radius:6px;">
+                    <input type="checkbox" id="chk-eq-auto-send" ${eqAutoSendEnabled ? 'checked' : ''} style="width:auto; margin:0;" onchange="eqAutoSendEnabled = this.checked;">
+                    <label for="chk-eq-auto-send" style="font-size:12px; color:#f88; margin:0; cursor:pointer;">
+                        ⚠️ 地震情報を人の確認なしで自動送出する（電文受信時に即座に字幕スーパーへ反映・送出します）
+                    </label>
+                </div>
+                <div style="font-size:11px; color:var(--text-sub); margin-bottom:10px;">
+                    ※デフォルトで有効になっています。有効化中は担当者が内容を確認せずそのまま放送に出るため、誤報時は速やかに「順次送出を停止」してください。手動確認したい場合はチェックを外してください（外してもページ再読み込みで再びONに戻ります）。
+                </div>
+
+                <div id="eq-status" style="font-size:12px; color:var(--text-sub); margin-bottom:8px;">${connected ? '接続中。地震情報の受信を待機しています…' : '未接続です。「WebSocket受信を開始」を押してください。'}</div>
+
+                <div id="eq-log" style="margin-bottom:10px;"></div>
+
+                <div id="eq-preview" style="background:#111; border:1px solid #333; border-radius:8px; max-height:260px; overflow-y:auto; display:none;"></div>
+                <div id="eq-actions" style="margin-top:10px; display:none;">
+                    <button class="primary" style="background:var(--accent-green); width:auto; padding:8px 14px; font-size:13px;" onclick="applyEarthquakeCardsToTextSuper()">
+                        <i class="material-icons" style="font-size:16px; vertical-align:middle;">playlist_add</i> 字幕カードに反映（既存カードを置き換え）
+                    </button>
+                </div>
+            </div>
+        `;
+        renderEqLog();
+    }
+
+    function renderEqLog() {
+        const logEl = document.getElementById('eq-log');
+        if (!logEl) return;
+        if (dmdataEventOrder.length === 0) {
+            logEl.innerHTML = "";
+            return;
+        }
+        logEl.innerHTML = `<div style="font-size:12px; color:var(--text-sub); margin-bottom:6px;">受信した地震情報（新しい順）</div>` +
+            dmdataEventOrder.slice(0, 10).map(eid => {
+                const ev = dmdataEventCache[eid];
+                const types = ['VXSE53', 'VXSE52', 'VXSE51'].filter(t => ev[t]).join(' / ');
+                const headline = (ev.VXSE53 && ev.VXSE53.headline) || (ev.VXSE52 && ev.VXSE52.headline) || (ev.VXSE51 && ev.VXSE51.headline) || eid;
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:#111; border:1px solid #333; border-radius:6px; margin-bottom:6px;">
+                        <div style="font-size:12px; color:#ddd; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${headline.replace(/</g, '&lt;')}<br/><span style="color:#777; font-size:10px;">${types}</span></div>
+                        <button class="secondary" style="width:auto; padding:6px 10px; font-size:11px; flex:none;" onclick="buildAndPreviewFromEvent('${eid}')">カードを作成</button>
+                    </div>
+                `;
+            }).join('');
+    }
+
+    window.startDmdataWebSocket = async () => {
+        const statusEl = document.getElementById('eq-status');
+        if (!dmdataApiKey) {
+            alert("先にDMDATA APIキーを設定してください。");
+            return;
+        }
+        if (dmdataSocket) return;
+        if (typeof DecompressionStream === 'undefined') {
+            alert("このブラウザはgzip展開(DecompressionStream)に対応していないため、DMDATA WebSocket受信が利用できません。Google Chrome等の最新ブラウザをご利用ください。");
+            return;
+        }
+        if (statusEl) statusEl.textContent = "Socket Start APIに接続中...";
+
+        try {
+            const authHeader = 'Basic ' + btoa(dmdataApiKey + ':');
+            const startRes = await fetch('https://api.dmdata.jp/v2/socket', {
+                method: 'POST',
+                headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    classifications: ["telegram.earthquake"],
+                    types: ["VXSE51", "VXSE52", "VXSE53"],
+                    test: "no",
+                    formatMode: "json",
+                    appName: "EQLive"
+                })
+            });
+            const startData = await startRes.json();
+            console.log("[DMDATA] socket.start response:", startData);
+            if (startData.status !== 'ok') {
+                throw new Error((startData.error && startData.error.message) || 'Socket Startに失敗しました。');
+            }
+
+            const ws = new WebSocket(startData.websocket.url, ['dmdata.v2']);
+            dmdataSocket = ws;
+
+            ws.addEventListener('open', () => {
+                const s = document.getElementById('eq-status');
+                if (s) s.textContent = "接続完了。地震情報の受信を待機しています…";
+                renderEarthquakePanel(document.getElementById('rss-news-list'));
+            });
+
+            ws.addEventListener('close', (ev) => {
+                console.log("[DMDATA] WebSocket closed:", ev.code, ev.reason);
+                dmdataSocket = null;
+                const s = document.getElementById('eq-status');
+                if (s) s.textContent = `切断されました (code: ${ev.code}${ev.reason ? ', ' + ev.reason : ''})`;
+                const container = document.getElementById('rss-news-list');
+                if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
+            });
+
+            ws.addEventListener('error', (ev) => {
+                console.error("[DMDATA] WebSocket error:", ev);
+            });
+
+            ws.addEventListener('message', async (ev) => {
+                let msg;
+                try { msg = JSON.parse(ev.data); } catch (e) { return; }
+
+                if (msg.type === 'ping') {
+                    ws.send(JSON.stringify({ type: 'pong', pingId: msg.pingId }));
+                    return;
+                }
+                if (msg.type === 'error') {
+                    console.error("[DMDATA] error message:", msg);
+                    const s = document.getElementById('eq-status');
+                    if (s) s.textContent = `エラー: ${msg.error} (code: ${msg.code})`;
+                    if (msg.close) dmdataSocket = null;
+                    return;
+                }
+                if (msg.type === 'data') {
+                    await handleDmdataMessage(msg);
+                }
+            });
+        } catch (err) {
+            console.error("[DMDATA] connect error:", err);
+            dmdataSocket = null;
+            if (statusEl) statusEl.textContent = `接続に失敗しました: ${err.message}`;
+        }
+    };
+
+    window.stopDmdataWebSocket = () => {
+        if (dmdataSocket) {
+            dmdataSocket.close(1000, "manual close");
+            dmdataSocket = null;
+        }
+        const container = document.getElementById('rss-news-list');
+        if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
+    };
+
+    // base64 + gzip(またはzip)で圧縮された body を展開してJSONにする
+    async function decodeDmdataBody(msg) {
+        const binary = atob(msg.body);
+        let bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+        if (msg.compression === 'gzip') {
+            const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+            const buf = await new Response(stream).arrayBuffer();
+            bytes = new Uint8Array(buf);
+        } else if (msg.compression === 'zip') {
+            throw new Error('zip圧縮のデータには対応していません');
+        }
+        const text = new TextDecoder('utf-8').decode(bytes);
+        return JSON.parse(text);
+    }
+
+    async function handleDmdataMessage(msg) {
+        const type = msg.head && msg.head.type;
+        if (!['VXSE51', 'VXSE52', 'VXSE53'].includes(type)) return;
+        if (msg.head && msg.head.test) return;
+        if (msg.format !== 'json') {
+            console.warn("[DMDATA] 想定外のformat（jsonではありません）:", msg.format, msg);
+            return;
+        }
+
+        let json;
+        try {
+            json = await decodeDmdataBody(msg);
+        } catch (e) {
+            console.error("[DMDATA] body decode error:", e);
+            return;
+        }
+        console.log(`[DMDATA] received ${type}:`, json);
+
+        const eid = json.eventId;
+        if (!eid) return;
+
+        if (!dmdataEventCache[eid]) dmdataEventCache[eid] = {};
+        dmdataEventCache[eid][type] = json;
+        dmdataEventCache[eid].lastReceived = Date.now();
+
+        dmdataEventOrder = dmdataEventOrder.filter(x => x !== eid);
+        dmdataEventOrder.unshift(eid);
+        if (dmdataEventOrder.length > 20) {
+            const removed = dmdataEventOrder.splice(20);
+            removed.forEach(x => delete dmdataEventCache[x]);
+        }
+
+        renderEqLog();
+        buildAndPreviewFromEvent(eid);
+    }
+
+    window.buildAndPreviewFromEvent = (eventId) => {
+        const ev = dmdataEventCache[eventId];
+        const statusEl = document.getElementById('eq-status');
+        const previewEl = document.getElementById('eq-preview');
+        const actionsEl = document.getElementById('eq-actions');
+        if (!ev) return;
+
+        const includePlaces = document.getElementById('chk-eq-include-places')?.checked ?? true;
+        const json51 = ev.VXSE51 || null;
+        const json52 = ev.VXSE52 || null;
+        const json53 = ev.VXSE53 || null;
+
+        let cards = [];
+        let sourceLabel = "";
+        if (json53) {
+            cards = buildVxse53Cards(json53, includePlaces);
+            sourceLabel = "震源・震度に関する情報 (VXSE53)";
+        } else if (json52) {
+            cards = buildVxse52Cards(json52, json51, includePlaces);
+            sourceLabel = "震源に関する情報 (VXSE52)" + (json51 ? " + 震度速報 (VXSE51)" : "");
+        } else if (json51) {
+            cards = buildVxse51Cards(json51, includePlaces);
+            sourceLabel = "震度速報 (VXSE51)";
+        } else {
+            return;
+        }
+
+        dmdataGeneratedCards = cards;
+        if (statusEl) statusEl.textContent = `カード生成: ${sourceLabel}（${cards.length}枚）`;
+
+        if (previewEl) {
+            previewEl.innerHTML = cards.map((c, i) => `
+                <div style="padding:10px 12px; border-bottom:1px solid #222;">
+                    <div style="font-size:10px; color:#666; margin-bottom:3px;">カード${i + 1}</div>
+                    <div style="font-size:13px; white-space:pre-wrap; color:#fff;">${c.replace(/</g, '&lt;')}</div>
+                </div>
+            `).join('');
+            previewEl.style.display = 'block';
+        }
+        if (actionsEl) actionsEl.style.display = 'block';
+
+        // 🚨 自動送出が有効な場合は、確認を挟まず即座に字幕カードへ反映して送出する
+        if (eqAutoSendEnabled) {
+            applyEarthquakeCardsToTextSuper({ silent: true, autoStart: true });
+            if (statusEl) statusEl.textContent = `自動送出しました: ${sourceLabel}（${cards.length}枚）`;
+        }
+    };
+
+    window.applyEarthquakeCardsToTextSuper = (opts) => {
+        const { silent = false, autoStart = false } = opts || {};
+        if (!dmdataGeneratedCards || dmdataGeneratedCards.length === 0) return;
+        if (!silent) {
+            if (!confirm(`現在の字幕カード（${localTextSuperCards.length}枚）を、取得した地震情報カード（${dmdataGeneratedCards.length}枚）に置き換えます。よろしいですか？`)) return;
+        }
+        localTextSuperCards = dmdataGeneratedCards.map(text => ({
+            id: "card_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
+            text
+        }));
+        selectedTextSuperGenre = "quake"; // 地震情報反映時はジャンルを自動で「地震」に設定
+        renderTextSuperCards();
+        renderTextSuperGenreSelector();
+
+        if (autoStart) {
+            // 自動送出モード：確認・タブ切替なしで即座に送出する
+            startTextSuperSequence();
+        } else {
+            switchTab('text-super');
+            alert("字幕カードに反映し、ジャンルを「地震」に設定しました。内容を確認のうえ送出してください。");
+        }
+    };
+
+    // --- 🌏 DMDATA 電文 → 字幕カード変換ロジック ---
+
+    const EQ_PREF_CHIHOU = {
+        "01": "北海道地方",
+        "02": "東北地方", "03": "東北地方", "04": "東北地方", "05": "東北地方", "06": "東北地方", "07": "東北地方",
+        "08": "関東甲信地方", "09": "関東甲信地方", "10": "関東甲信地方", "11": "関東甲信地方", "12": "関東甲信地方",
+        "13": "関東甲信地方", "14": "関東甲信地方", "19": "関東甲信地方", "20": "関東甲信地方",
+        "15": "北陸地方", "16": "北陸地方", "17": "北陸地方", "18": "北陸地方",
+        "21": "東海地方", "22": "東海地方", "23": "東海地方", "24": "東海地方",
+        "25": "近畿地方", "26": "近畿地方", "27": "近畿地方", "28": "近畿地方", "29": "近畿地方", "30": "近畿地方",
+        "31": "中国地方", "32": "中国地方", "33": "中国地方", "34": "中国地方", "35": "中国地方",
+        "36": "四国地方", "37": "四国地方", "38": "四国地方", "39": "四国地方",
+        "40": "九州地方", "41": "九州地方", "42": "九州地方", "43": "九州地方", "44": "九州地方", "45": "九州地方", "46": "九州地方",
+        "47": "沖縄地方"
+    };
+    const EQ_PREF_NAMES = {
+        "01": "北海道", "02": "青森県", "03": "岩手県", "04": "宮城県", "05": "秋田県", "06": "山形県", "07": "福島県",
+        "08": "茨城県", "09": "栃木県", "10": "群馬県", "11": "埼玉県", "12": "千葉県", "13": "東京都", "14": "神奈川県",
+        "15": "新潟県", "16": "富山県", "17": "石川県", "18": "福井県", "19": "山梨県", "20": "長野県",
+        "21": "岐阜県", "22": "静岡県", "23": "愛知県", "24": "三重県",
+        "25": "滋賀県", "26": "京都府", "27": "大阪府", "28": "兵庫県", "29": "奈良県", "30": "和歌山県",
+        "31": "鳥取県", "32": "島根県", "33": "岡山県", "34": "広島県", "35": "山口県",
+        "36": "徳島県", "37": "香川県", "38": "愛媛県", "39": "高知県",
+        "40": "福岡県", "41": "佐賀県", "42": "長崎県", "43": "熊本県", "44": "大分県", "45": "宮崎県", "46": "鹿児島県",
+        "47": "沖縄県"
+    };
+    const EQ_INT_ORDER = ["1", "2", "3", "4", "5-", "!5-", "5+", "6-", "6+", "7"];
+    const EQ_INT_LABEL = { "1": "1", "2": "2", "3": "3", "4": "4", "5-": "5弱", "5+": "5強", "6-": "6弱", "6+": "6強", "7": "7", "!5-": "5弱以上" };
+
+    function eqIntRank(v) {
+        const i = EQ_INT_ORDER.indexOf(v);
+        return i;
+    }
+
+    function eqStrengthModifier(maxInt) {
+        if (["5-", "5+", "6-", "6+", "7", "!5-"].includes(maxInt)) return "強い";
+        if (maxInt === "4") return "やや強い";
+        return "";
+    }
+
+    function eqFmtHourMinute(isoDt) {
+        const m = /T(\d{2}):(\d{2}):/.exec(isoDt);
+        if (!m) return "";
+        const hh = parseInt(m[1], 10);
+        const mm = parseInt(m[2], 10);
+        let ampm, h12;
+        if (hh === 0) { ampm = "午前"; h12 = 0; }
+        else if (hh < 12) { ampm = "午前"; h12 = hh; }
+        else if (hh === 12) { ampm = "午後"; h12 = 0; }
+        else { ampm = "午後"; h12 = hh - 12; }
+        return `${ampm}${h12}時${mm}分ごろ`;
+    }
+
+    function eqRegionFromHypocenter(name) {
+        if (!name) return null;
+        for (const code in EQ_PREF_NAMES) {
+            if (name.includes(EQ_PREF_NAMES[code])) return EQ_PREF_CHIHOU[code];
+        }
+        return null;
+    }
+
+    function eqRegionFromIntensity(intensity) {
+        const prefs = (intensity && intensity.prefectures) || [];
+        if (prefs.length === 0) return null;
+        let best = null;
+        prefs.forEach(p => {
+            if (!best || eqIntRank(p.maxInt) > eqIntRank(best.maxInt)) best = p;
+        });
+        return best ? EQ_PREF_CHIHOU[best.code] : null;
+    }
+
+    // 震度ごとにグループ化（高い震度順）
+    function eqGroupPlaces(places) {
+        const valid = (places || []).filter(p => p.maxInt);
+        valid.sort((a, b) => eqIntRank(b.maxInt) - eqIntRank(a.maxInt));
+        const groups = [];
+        let curLevel = null, curList = [];
+        valid.forEach(p => {
+            if (p.maxInt !== curLevel) {
+                if (curList.length) groups.push([curLevel, curList]);
+                curLevel = p.maxInt;
+                curList = [];
+            }
+            curList.push(p.name);
+        });
+        if (curList.length) groups.push([curLevel, curList]);
+        return groups;
+    }
+
+    // グループを「震度X　〇〇　〇〇　〇〇 / 　　　　〇〇　〇〇　〇〇」形式のカードに変換（6件ごと・1行3件）
+    function eqCardsFromGroups(groups) {
+        const cards = [];
+        groups.forEach(([level, names]) => {
+            const label = EQ_INT_LABEL[level] || level;
+            for (let i = 0; i < names.length; i += 6) {
+                const chunk = names.slice(i, i + 6);
+                const row1 = chunk.slice(0, 3);
+                const row2 = chunk.slice(3, 6);
+                const prefix1 = (i === 0) ? `<font color="#ffff00">震度${label}</font>　` : "　　　　";
+                const lines = [prefix1 + row1.join("　")];
+                if (row2.length) lines.push("　　　　" + row2.join("　"));
+                cards.push(lines.join("\n"));
+            }
+        });
+        return cards;
+    }
+
+    // 津波に関するカード3の文言判定（付加文コメントのキーワードに基づく簡易判定）
+    function eqTsunamiCard(comments) {
+        const text = (comments && comments.forecast && comments.forecast.text) || "";
+        if (/(大津波警報|津波警報|津波注意報)/.test(text)) {
+            return "この地震で津波情報が発表されています";
+        }
+        return "この地震による津波の心配はありません";
+    }
+
+    function buildVxse51Cards(d, includePlaces) {
+        const body = d.body;
+        const intensity = body.intensity;
+        const region = eqRegionFromIntensity(intensity) || "";
+        const dt = eqFmtHourMinute(d.targetDateTime);
+        const modifier = eqStrengthModifier(intensity.maxInt);
+        const card1 = `${dt}${region}で\n${modifier}地震がありました`;
+        const card2 = "強い・長い揺れを感じた沿岸部では\n念のため津波に注意してください";
+        const cards = [card1, card2];
+        if (includePlaces) {
+            const groups = eqGroupPlaces(intensity.regions);
+            cards.push(...eqCardsFromGroups(groups));
+        }
+        return cards;
+    }
+
+    function buildVxse52Cards(d, vxse51Companion, includePlaces) {
+        const body = d.body;
+        const eq = body.earthquake;
+        let region = eqRegionFromHypocenter(eq.hypocenter.name);
+        if (!region && vxse51Companion) region = eqRegionFromIntensity(vxse51Companion.body.intensity);
+        region = region || "";
+        const dt = eqFmtHourMinute(eq.originTime);
+        const card1 = `${dt}${region}で\n地震がありました`;
+
+        const depth = eq.hypocenter.depth.value;
+        const depthTxt = (String(depth) === "0") ? "ごく浅い" : `${depth}キロ`;
+        const card2 = `震源は${eq.hypocenter.name}　深さ${depthTxt}\nマグニチュード${eq.magnitude.value}`;
+
+        const card3 = eqTsunamiCard(body.comments);
+
+        const cards = [card1, card2, card3];
+        // VXSE52には震度情報が含まれないため、震度速報(VXSE51)のデータを使用する
+        if (includePlaces && vxse51Companion) {
+            const groups = eqGroupPlaces(vxse51Companion.body.intensity.regions);
+            cards.push(...eqCardsFromGroups(groups));
+        }
+        return cards;
+    }
+
+    function buildVxse53Cards(d, includePlaces) {
+        const body = d.body;
+        const eq = body.earthquake;
+        const intensity = body.intensity;
+        const region = eqRegionFromHypocenter(eq.hypocenter.name) || eqRegionFromIntensity(intensity) || "";
+        const dt = eqFmtHourMinute(eq.originTime);
+        const modifier = eqStrengthModifier(intensity.maxInt);
+        const card1 = `${dt}${region}で\n${modifier}地震がありました`;
+
+        const depth = eq.hypocenter.depth.value;
+        const depthTxt = (String(depth) === "0") ? "ごく浅い" : `${depth}キロ`;
+        const card2 = `震源は${eq.hypocenter.name}　深さ${depthTxt}\nマグニチュード${eq.magnitude.value}`;
+
+        const card3 = eqTsunamiCard(body.comments);
+
+        const cards = [card1, card2, card3];
+        if (includePlaces) {
+            // VXSE53の震度情報は regions（地方単位）ではなく cities（市町村単位）を使用する
+            const places = intensity.cities || [];
+            const groups = eqGroupPlaces(places);
+            cards.push(...eqCardsFromGroups(groups));
+        }
+        return cards;
+    }
 
     window.insertNewsToActiveCard = (newsText) => {
         if (!activeCardInputId || !localTextSuperCards.find(c => c.id === activeCardInputId)) {
@@ -1797,7 +2324,9 @@
                 { id: "card_" + Date.now(), text: "" }
             ];
             activeCardInputId = localTextSuperCards[0].id;
+            selectedTextSuperGenre = "";
             renderTextSuperCards();
+            renderTextSuperGenreSelector();
             stopTextSuperSequence();
         }
     };
@@ -1948,6 +2477,20 @@
         updateTextSuperCardText(activeCardInputId, textarea.value);
     };
 
+    function renderTextSuperGenreSelector() {
+        const el = document.getElementById('text-super-genre-selector');
+        if (!el) return;
+        el.innerHTML = TEXT_SUPER_GENRE_OPTIONS.map(opt => `
+            <button type="button" class="filter-btn ${selectedTextSuperGenre === opt.key ? 'active' : ''}"
+                onclick="selectTextSuperGenre('${opt.key}')">${opt.label}</button>
+        `).join('');
+    }
+
+    window.selectTextSuperGenre = (genreKey) => {
+        selectedTextSuperGenre = genreKey;
+        renderTextSuperGenreSelector();
+    };
+
     window.startTextSuperSequence = () => {
         const validCards = localTextSuperCards.filter(c => c.text && c.text.trim() !== "");
         if (validCards.length === 0) {
@@ -1957,6 +2500,7 @@
 
         secureSet(ref(db, 'broadcast/text_super_sequence'), {
             cards: validCards,
+            genre: selectedTextSuperGenre || null,
             currentIndex: 0,
             interval: TEXT_SUPER_INTERVAL_SEC,
             status: 'playing',
@@ -1968,6 +2512,7 @@
         stopTextSuperTimers();
         secureSet(ref(db, 'broadcast/text_super_sequence'), {
             cards: [],
+            genre: null,
             currentIndex: -1,
             interval: TEXT_SUPER_INTERVAL_SEC,
             status: 'stopped',
@@ -2000,5 +2545,3 @@
 </script>
 </body>
 </html>
-
-                            
