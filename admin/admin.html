@@ -1550,7 +1550,29 @@
     // 長文を句読点や最大文字数（約120文字）ごとに分割するヘルパー関数
     function splitTextForTTS(text, maxLength = 120) {
         if (!text) return [];
-        const sentences = text.match(/[^。！？\n]+[。！？\n]?/g) || [text];
+
+        // まず句点（。！？・改行）で一旦区切る
+        const rawSentences = text.match(/[^。！？\n]+[。！？\n]?/g) || [text];
+
+        // 句点で区切ってもmaxLengthを超える一文（句読点の無い長文など）は、
+        // 読点（、）やスペースを優先しつつ、それでも見つからなければ強制的に文字数で分割する。
+        // これをやらないと「maxLengthを超えたまま」のチャンクが残り、
+        // 読み上げ側（TTSエンジン）の文字数上限に引っかかって読み上げに失敗する原因になる。
+        const sentences = [];
+        rawSentences.forEach(s => {
+            let rest = s;
+            while (rest.length > maxLength) {
+                let cut = -1;
+                for (let i = Math.min(maxLength, rest.length) - 1; i >= Math.floor(maxLength * 0.5); i--) {
+                    if (rest[i] === '、' || rest[i] === ' ' || rest[i] === '　') { cut = i + 1; break; }
+                }
+                if (cut === -1) cut = maxLength; // 読点等が見つからない場合は文字数で強制分割
+                sentences.push(rest.slice(0, cut));
+                rest = rest.slice(cut);
+            }
+            if (rest.length > 0) sentences.push(rest);
+        });
+
         const chunks = [];
         let currentChunk = "";
 
