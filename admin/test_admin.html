@@ -1550,7 +1550,29 @@
     // 長文を句読点や最大文字数（約120文字）ごとに分割するヘルパー関数
     function splitTextForTTS(text, maxLength = 120) {
         if (!text) return [];
-        const sentences = text.match(/[^。！？\n]+[。！？\n]?/g) || [text];
+
+        // まず句点（。！？・改行）で一旦区切る
+        const rawSentences = text.match(/[^。！？\n]+[。！？\n]?/g) || [text];
+
+        // 句点で区切ってもmaxLengthを超える一文（句読点の無い長文など）は、
+        // 読点（、）やスペースを優先しつつ、それでも見つからなければ強制的に文字数で分割する。
+        // これをやらないと「maxLengthを超えたまま」のチャンクが残り、
+        // 読み上げ側（TTSエンジン）の文字数上限に引っかかって読み上げに失敗する原因になる。
+        const sentences = [];
+        rawSentences.forEach(s => {
+            let rest = s;
+            while (rest.length > maxLength) {
+                let cut = -1;
+                for (let i = Math.min(maxLength, rest.length) - 1; i >= Math.floor(maxLength * 0.5); i--) {
+                    if (rest[i] === '、' || rest[i] === ' ' || rest[i] === '　') { cut = i + 1; break; }
+                }
+                if (cut === -1) cut = maxLength; // 読点等が見つからない場合は文字数で強制分割
+                sentences.push(rest.slice(0, cut));
+                rest = rest.slice(cut);
+            }
+            if (rest.length > 0) sentences.push(rest);
+        });
+
         const chunks = [];
         let currentChunk = "";
 
@@ -1790,33 +1812,17 @@
         });
     };
 
-    // --- 🌏 DMDATA / P2P地震情報 パネル（文字スーパータブ内・地震タブ／WebSocketでリアルタイム受信） ---
+    // --- 🌏 DMDATA 地震情報パネル（文字スーパータブ内・地震タブ／WebSocketでリアルタイム受信） ---
     let dmdataSocket = null;
-    let p2pSocket = null; // P2P地震情報 WebSocket (wss://api.p2pquake.net/v2/ws、APIキー不要)
-    let dmdataEventCache = {}; // eventId(またはp2p:id) -> { VXSE51, VXSE52, VXSE53, P2PQUAKE, _source, lastReceived }
-    let dmdataEventOrder = []; // 受信順（新しい順）のeventId一覧（DMDATA・P2P共通）
+    let dmdataEventCache = {}; // eventId -> { VXSE51, VXSE52, VXSE53, lastReceived }
+    let dmdataEventOrder = []; // 受信順（新しい順）のeventId一覧
     let eqAutoSendEnabled = true; // trueの間は地震情報受信時に確認なしで自動送出する（デフォルトON）
 
     function renderEarthquakePanel(container) {
         container.style.background = 'transparent';
         container.style.border = 'none';
         const connected = !!dmdataSocket;
-        const p2pConnected = !!p2pSocket;
         container.innerHTML = `
-            <div style="background:#000; border:1px solid #333; border-radius:8px; padding:14px; margin-bottom:14px;">
-                <label style="margin-top:0; font-size:13px;">🌐 P2P地震情報（推奨・APIキー不要）</label>
-                <div style="font-size:11px; color:var(--text-sub); margin-bottom:10px;">
-                    <a href="https://www.p2pquake.net/develop/json_api_v2/" target="_blank" style="color:var(--accent-blue);">P2P地震情報 JSON API v2</a>
-                    のWebSocketにAPIキーなしで接続します。DMDATAとは別に、同時に受信できます。
-                </div>
-                <div style="display:flex; gap:10px; align-items:center; margin-bottom:4px; flex-wrap:wrap;">
-                    <button id="btn-p2p-connect" class="primary" style="width:auto; padding:8px 14px; font-size:13px; flex:none; ${p2pConnected ? 'background:var(--accent-red, #d33);' : ''}" onclick="${p2pConnected ? 'stopP2pQuakeWebSocket()' : 'startP2pQuakeWebSocket()'}">
-                        <i class="material-icons" style="font-size:16px; vertical-align:middle;">${p2pConnected ? 'stop' : 'sensors'}</i> ${p2pConnected ? 'P2P受信を停止' : 'P2P受信を開始'}
-                    </button>
-                    <div id="p2p-status" style="font-size:12px; color:var(--text-sub);">${p2pConnected ? '接続中。地震情報の受信を待機しています…' : '未接続です。'}</div>
-                </div>
-            </div>
-
             <div style="background:#000; border:1px solid #333; border-radius:8px; padding:14px;">
                 <label style="margin-top:0; font-size:13px;">DMDATA APIキー</label>
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
@@ -1831,11 +1837,8 @@
 
                 <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
                     <button id="btn-eq-connect" class="primary" style="width:auto; padding:8px 14px; font-size:13px; flex:none; ${connected ? 'background:var(--accent-red, #d33);' : ''}" onclick="${connected ? 'stopDmdataWebSocket()' : 'startDmdataWebSocket()'}">
-                        <i class="material-icons" style="font-size:16px; vertical-align:middle;">${connected ? 'stop' : 'sensors'}</i> ${connected ? 'DMDATA受信を停止' : 'DMDATA受信を開始'}
+                        <i class="material-icons" style="font-size:16px; vertical-align:middle;">${connected ? 'stop' : 'sensors'}</i> ${connected ? 'WebSocket受信を停止' : 'WebSocket受信を開始'}
                     </button>
-                </div>
-
-                <div style="margin-bottom:10px;">
                     <label style="font-size:12px; color:var(--text-sub); display:flex; align-items:center; gap:5px; margin:0;">
                         <input type="checkbox" id="chk-eq-include-places" checked style="width:auto; margin:0;"> 市区町村・地域別の震度カードも含める
                     </label>
@@ -1844,14 +1847,14 @@
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; padding:10px 12px; background:#1a0000; border:1px solid #522; border-radius:6px;">
                     <input type="checkbox" id="chk-eq-auto-send" ${eqAutoSendEnabled ? 'checked' : ''} style="width:auto; margin:0;" onchange="eqAutoSendEnabled = this.checked;">
                     <label for="chk-eq-auto-send" style="font-size:12px; color:#f88; margin:0; cursor:pointer;">
-                        ⚠️ 地震情報を人の確認なしで自動送出する（P2P・DMDATAいずれかで電文受信時に即座に字幕スーパーへ反映・送出します）
+                        ⚠️ 地震情報を人の確認なしで自動送出する（電文受信時に即座に字幕スーパーへ反映・送出します）
                     </label>
                 </div>
                 <div style="font-size:11px; color:var(--text-sub); margin-bottom:10px;">
                     ※デフォルトで有効になっています。有効化中は担当者が内容を確認せずそのまま放送に出るため、誤報時は速やかに「順次送出を停止」してください。手動確認したい場合はチェックを外してください（外してもページ再読み込みで再びONに戻ります）。
                 </div>
 
-                <div id="eq-status" style="font-size:12px; color:var(--text-sub); margin-bottom:8px;">${connected ? 'DMDATA接続中。地震情報の受信を待機しています…' : 'DMDATA未接続です。'}</div>
+                <div id="eq-status" style="font-size:12px; color:var(--text-sub); margin-bottom:8px;">${connected ? '接続中。地震情報の受信を待機しています…' : '未接続です。「WebSocket受信を開始」を押してください。'}</div>
 
                 <div id="eq-log" style="margin-bottom:10px;"></div>
 
@@ -1873,22 +1876,11 @@
             logEl.innerHTML = "";
             return;
         }
-        logEl.innerHTML = `<div style="font-size:12px; color:var(--text-sub); margin-bottom:6px;">受信した地震情報（新しい順・DMDATA/P2P共通）</div>` +
+        logEl.innerHTML = `<div style="font-size:12px; color:var(--text-sub); margin-bottom:6px;">受信した地震情報（新しい順）</div>` +
             dmdataEventOrder.slice(0, 10).map(eid => {
                 const ev = dmdataEventCache[eid];
-                let types, headline;
-                if (ev._source === 'p2p') {
-                    const d = ev.P2PQUAKE;
-                    const typeLabelMap = {
-                        ScalePrompt: "震度速報", Destination: "震源情報", ScaleAndDestination: "震度・震源",
-                        DetailScale: "各地の震度", Foreign: "遠地地震", Other: "その他"
-                    };
-                    types = `P2P / ${typeLabelMap[(d.issue && d.issue.type)] || d.issue && d.issue.type || ''}`;
-                    headline = (d.earthquake && d.earthquake.hypocenter && d.earthquake.hypocenter.name) || 'P2P地震情報';
-                } else {
-                    types = ['VXSE53', 'VXSE52', 'VXSE51'].filter(t => ev[t]).join(' / ');
-                    headline = (ev.VXSE53 && ev.VXSE53.headline) || (ev.VXSE52 && ev.VXSE52.headline) || (ev.VXSE51 && ev.VXSE51.headline) || eid;
-                }
+                const types = ['VXSE53', 'VXSE52', 'VXSE51'].filter(t => ev[t]).join(' / ');
+                const headline = (ev.VXSE53 && ev.VXSE53.headline) || (ev.VXSE52 && ev.VXSE52.headline) || (ev.VXSE51 && ev.VXSE51.headline) || eid;
                 return `
                     <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:#111; border:1px solid #333; border-radius:6px; margin-bottom:6px;">
                         <div style="font-size:12px; color:#ddd; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${headline.replace(/</g, '&lt;')}<br/><span style="color:#777; font-size:10px;">${types}</span></div>
@@ -1987,72 +1979,6 @@
         if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
     };
 
-    // --- 🌐 P2P地震情報 WebSocket（APIキー不要・gzip展開も不要） ---
-    window.startP2pQuakeWebSocket = () => {
-        if (p2pSocket) return;
-        try {
-            const ws = new WebSocket('wss://api.p2pquake.net/v2/ws');
-            p2pSocket = ws;
-
-            ws.addEventListener('open', () => {
-                const container = document.getElementById('rss-news-list');
-                if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
-            });
-
-            ws.addEventListener('close', (ev) => {
-                console.log("[P2P] WebSocket closed:", ev.code, ev.reason);
-                p2pSocket = null;
-                const container = document.getElementById('rss-news-list');
-                if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
-            });
-
-            ws.addEventListener('error', (ev) => {
-                console.error("[P2P] WebSocket error:", ev);
-            });
-
-            ws.addEventListener('message', (ev) => {
-                let msg;
-                try { msg = JSON.parse(ev.data); } catch (e) { return; }
-                handleP2pMessage(msg);
-            });
-        } catch (err) {
-            console.error("[P2P] connect error:", err);
-            p2pSocket = null;
-        }
-    };
-
-    window.stopP2pQuakeWebSocket = () => {
-        if (p2pSocket) {
-            p2pSocket.close(1000, "manual close");
-            p2pSocket = null;
-        }
-        const container = document.getElementById('rss-news-list');
-        if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
-    };
-
-    function handleP2pMessage(json) {
-        // code: 551=地震情報, 552=津波予報, 554/556=緊急地震速報, 555=ピア数, 561/9611=地震感知情報
-        if (json.code !== 551) return; // 現状は地震情報(551)のみ字幕スーパーに連携
-        if (!json.id) return;
-
-        const eid = 'p2p:' + json.id;
-        dmdataEventCache[eid] = {
-            _source: 'p2p',
-            P2PQUAKE: json,
-            lastReceived: Date.now()
-        };
-
-        dmdataEventOrder = dmdataEventOrder.filter(x => x !== eid);
-        dmdataEventOrder.unshift(eid);
-        if (dmdataEventOrder.length > 20) {
-            const removed = dmdataEventOrder.splice(20);
-            removed.forEach(x => delete dmdataEventCache[x]);
-        }
-
-        renderEqLog();
-        buildAndPreviewFromEvent(eid);
-    }
-
     // base64 + gzip(またはzip)で圧縮された body を展開してJSONにする
     async function decodeDmdataBody(msg) {
         const binary = atob(msg.body);
@@ -2114,40 +2040,23 @@
         if (!ev) return;
 
         const includePlaces = document.getElementById('chk-eq-include-places')?.checked ?? true;
+        const json51 = ev.VXSE51 || null;
+        const json52 = ev.VXSE52 || null;
+        const json53 = ev.VXSE53 || null;
 
         let cards = [];
         let sourceLabel = "";
-
-        if (ev._source === 'p2p') {
-            const d = ev.P2PQUAKE;
-            const issueType = (d.issue && d.issue.type) || "";
-            const typeLabelMap = {
-                ScalePrompt: "震度速報",
-                Destination: "震源に関する情報",
-                ScaleAndDestination: "震度・震源に関する情報",
-                DetailScale: "各地の震度に関する情報",
-                Foreign: "遠地地震に関する情報",
-                Other: "地震情報"
-            };
-            cards = buildP2pQuakeCards(d, includePlaces);
-            sourceLabel = `${typeLabelMap[issueType] || "地震情報"} (P2P地震情報)`;
+        if (json53) {
+            cards = buildVxse53Cards(json53, includePlaces);
+            sourceLabel = "震源・震度に関する情報 (VXSE53)";
+        } else if (json52) {
+            cards = buildVxse52Cards(json52, json51, includePlaces);
+            sourceLabel = "震源に関する情報 (VXSE52)" + (json51 ? " + 震度速報 (VXSE51)" : "");
+        } else if (json51) {
+            cards = buildVxse51Cards(json51, includePlaces);
+            sourceLabel = "震度速報 (VXSE51)";
         } else {
-            const json51 = ev.VXSE51 || null;
-            const json52 = ev.VXSE52 || null;
-            const json53 = ev.VXSE53 || null;
-
-            if (json53) {
-                cards = buildVxse53Cards(json53, includePlaces);
-                sourceLabel = "震源・震度に関する情報 (VXSE53)";
-            } else if (json52) {
-                cards = buildVxse52Cards(json52, json51, includePlaces);
-                sourceLabel = "震源に関する情報 (VXSE52)" + (json51 ? " + 震度速報 (VXSE51)" : "");
-            } else if (json51) {
-                cards = buildVxse51Cards(json51, includePlaces);
-                sourceLabel = "震度速報 (VXSE51)";
-            } else {
-                return;
-            }
+            return;
         }
 
         dmdataGeneratedCards = cards;
@@ -2308,101 +2217,6 @@
             return "この地震で津波情報が発表されています";
         }
         return "この地震による津波の心配はありません";
-    }
-
-    // --- 🌐 P2P地震情報 (JSON API v2, code:551 JMAQuake) → 字幕カード変換ロジック ---
-
-    // P2Pのscale値(10〜70)をDMDATA形式のmaxIntコード("1"〜"7","5-"など)に変換
-    const P2P_SCALE_TO_INT = {
-        10: "1", 20: "2", 30: "3", 40: "4",
-        45: "5-", 46: "!5-", 50: "5+", 55: "6-", 60: "6+", 70: "7"
-    };
-
-    // P2Pの日時形式 "2019/08/26 20:53:00" から「午後8時53分ごろ」を生成
-    function eqFmtHourMinuteP2p(str) {
-        const m = /\s(\d{2}):(\d{2}):/.exec(str || "");
-        if (!m) return "";
-        const hh = parseInt(m[1], 10);
-        const mm = parseInt(m[2], 10);
-        let ampm, h12;
-        if (hh === 0) { ampm = "午前"; h12 = 0; }
-        else if (hh < 12) { ampm = "午前"; h12 = hh; }
-        else if (hh === 12) { ampm = "午後"; h12 = 0; }
-        else { ampm = "午後"; h12 = hh - 12; }
-        return `${ampm}${h12}時${mm}分ごろ`;
-    }
-
-    function eqP2pTsunamiCard(domesticTsunami) {
-        switch (domesticTsunami) {
-            case 'Checking': return "津波の有無を調査中です";
-            case 'NonEffective': return "若干の海面変動が予想されますが、被害の心配はありません";
-            case 'Watch':
-            case 'Warning':
-                return "この地震で津波情報が発表されています";
-            case 'None':
-            default:
-                return "この地震による津波の心配はありません";
-        }
-    }
-
-    function eqRegionFromP2pPref(prefName) {
-        if (!prefName) return null;
-        for (const code in EQ_PREF_NAMES) {
-            if (EQ_PREF_NAMES[code] === prefName) return EQ_PREF_CHIHOU[code];
-        }
-        return null;
-    }
-
-    function buildP2pQuakeCards(d, includePlaces) {
-        const issueType = (d.issue && d.issue.type) || "";
-        const eq = d.earthquake || {};
-        const hypo = eq.hypocenter || {};
-        const hypoName = hypo.name || "";
-        let displayRegion = hypoName;
-        const dt = eqFmtHourMinuteP2p(eq.time);
-
-        // 震源名が無い場合（震度速報など）は、最大震度の観測点の都道府県から地方名を推定する（カード1の場所表記のみに使用）
-        if (!displayRegion && d.points && d.points.length) {
-            let best = null;
-            d.points.forEach(p => { if (!best || (p.scale || 0) > (best.scale || 0)) best = p; });
-            if (best) displayRegion = eqRegionFromP2pPref(best.pref) || "";
-        }
-
-        const maxScale = eq.maxScale;
-        const scaleKey = (maxScale !== undefined && maxScale !== null && maxScale !== -1) ? (P2P_SCALE_TO_INT[maxScale] || "") : "";
-        const modifier = eqStrengthModifier(scaleKey);
-
-        const cards = [];
-        cards.push(displayRegion ? `${dt}${displayRegion}で\n${modifier}地震がありました` : `${dt}地震がありました`);
-
-        const hasHypoDetail = hypoName && hypo.depth !== undefined && hypo.depth !== -1 && hypo.magnitude !== undefined && hypo.magnitude !== -1;
-        if (hasHypoDetail) {
-            const depthTxt = (Number(hypo.depth) === 0) ? "ごく浅い" : `${hypo.depth}キロ`;
-            cards.push(`震源は${hypoName}　深さ${depthTxt}\nマグニチュード${hypo.magnitude}`);
-        }
-
-        if (eq.domesticTsunami) {
-            cards.push(eqP2pTsunamiCard(eq.domesticTsunami));
-        }
-
-        if (includePlaces && d.points && d.points.length) {
-            // ScalePrompt(震度速報)は区域(isArea:true)、それ以外(震度・震源情報等)は観測点=市町村(isArea:false)を優先使用
-            let pts = d.points;
-            if (issueType === 'ScalePrompt') {
-                const areaPts = pts.filter(p => p.isArea);
-                if (areaPts.length) pts = areaPts;
-            } else {
-                const cityPts = pts.filter(p => !p.isArea);
-                if (cityPts.length) pts = cityPts;
-            }
-            const places = pts
-                .map(p => ({ name: p.addr, maxInt: P2P_SCALE_TO_INT[p.scale] || null }))
-                .filter(p => p.maxInt);
-            const groups = eqGroupPlaces(places);
-            cards.push(...eqCardsFromGroups(groups));
-        }
-
-        return cards;
     }
 
     function buildVxse51Cards(d, includePlaces) {
