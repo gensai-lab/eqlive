@@ -74,6 +74,7 @@ body, html {
 <body>
 <div id="image-super-container"><img id="genre-image" src="" alt=""></div>
 <div id="text-super-container"></div>
+<audio id="genre-audio" preload="auto"></audio>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -94,6 +95,7 @@ body, html {
     const container = document.getElementById('text-super-container');
     const imageContainer = document.getElementById('image-super-container');
     const imageEl = document.getElementById('genre-image');
+    const audioEl = document.getElementById('genre-audio');
 
     // ジャンルごとのロゴ画像パス（フォントと同じドメインの絶対URLで指定）
     // ※実際の画像設置場所が異なる場合はここのURLを変更してください
@@ -103,6 +105,20 @@ body, html {
         tsunami: 'https://gensai-lab.github.io/eqlive/assets/image/l3.png',  // 津波
         weather: 'https://gensai-lab.github.io/eqlive/assets/image/l4.png',  // 気象
         funka: 'https://gensai-lab.github.io/eqlive/assets/image/l5.png'     // 噴火
+    };
+
+    // ジャンルごとの効果音パス（速報・噴火はl1、地震はl2、津波はl3、気象はl4を共用）
+    const genreAudioMap = {
+        sokuho: 'https://gensai-lab.github.io/eqlive/assets/audio/l1.mp3',   // 速報
+        funka: 'https://gensai-lab.github.io/eqlive/assets/audio/l1.mp3',    // 噴火
+        quake: 'https://gensai-lab.github.io/eqlive/assets/audio/l2.mp3',    // 地震
+        tsunami: 'https://gensai-lab.github.io/eqlive/assets/audio/l3.mp3',  // 津波
+        weather: 'https://gensai-lab.github.io/eqlive/assets/audio/l4.mp3'   // 気象
+    };
+
+    // 効果音の再生失敗を検知してコンソールに出す（動作確認用）
+    audioEl.onerror = () => {
+        console.error('[text-super] 効果音の読み込みに失敗しました:', audioEl.src);
     };
 
     // 画像の読み込み失敗を検知してコンソールに出す（動作確認用）
@@ -199,6 +215,14 @@ body, html {
         const genreKey = genre ? String(genre).toLowerCase() : '';
         const imgSrc = genreImageMap[genreKey];
         console.log('[text-super] 受信genre:', genre, '→ 判定キー:', genreKey, '→ 画像URL:', imgSrc || '(なし)');
+
+        // 送出時に、ジャンルに応じた効果音を1回再生する
+        const sndSrc = genreAudioMap[genreKey];
+        if (sndSrc) {
+            audioEl.src = sndSrc;
+            audioEl.currentTime = 0;
+            audioEl.play().catch(err => console.warn('[text-super] 効果音の再生に失敗しました（自動再生ブロックの可能性）:', err));
+        }
 
         if (imgSrc) {
             showImageThenPlaySequence(imgSrc, validTexts);
