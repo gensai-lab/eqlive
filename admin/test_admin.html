@@ -442,37 +442,31 @@
                 <div class="card">
                     <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">record_voice_over</i> AI音声読み上げ（TTS）</label>
                     <p style="font-size:12px; color:var(--text-sub); margin-top:0;">
-                        入力したテキストをメイン画面でVoiceText Web APIの音声として読み上げさせます。<br>
-                        <span style="color:#ffb300;">※長文の場合は自動分割して順次処理されます（VoiceTextは1リクエスト200文字まで）。</span>
+                        入力したテキストをメイン画面でResponsiveVoice.jsの音声として読み上げさせます。<br>
+                        <span style="color:#ffb300;">※長文の場合は句読点区切りで自動分割して順次処理されます。</span>
                     </p>
 
-                    <!-- VoiceText Web API設定 -->
+                    <!-- ResponsiveVoice.js設定 -->
                     <div style="background:#111; border:1px solid #333; border-radius:8px; padding:12px; margin-bottom:14px;">
-                        <label style="margin-top:0; font-size:12px;">🗣️ VoiceText Web API設定</label>
+                        <label style="margin-top:0; font-size:12px;">🗣️ ResponsiveVoice.js設定</label>
                         <div style="font-size:11px; color:var(--text-sub); margin-bottom:8px;">
-                            <a href="https://cloud.voicetext.jp/webapi" target="_blank" style="color:var(--accent-blue);">VoiceText Web API</a>のAPIキーを設定してください。
-                            <span style="color:#ff8080;">※このサービスは無料利用登録を現在受け付けておらず（サイト上に「無料利用登録(終了しました)」と記載）、有料プランのAPIキーが必要な可能性があります。契約状況をご確認ください。</span><br>
-                            <span style="color:#ff8080;">※APIキーはメイン画面（main-switcher.html）のJavaScriptから直接VoiceTextへ送信されるため、ブラウザの開発者ツール等で閲覧できる状態になります。取り扱いにご注意ください。</span>
+                            <a href="https://responsivevoice.org/register/" target="_blank" style="color:var(--accent-blue);">ResponsiveVoice</a>で無料登録してAPIキーを取得してください（Freeプランで月100万文字まで無料・商用利用も可）。ブラウザから直接読み上げるため、サーバーやローカルソフトのインストールは不要です。
+                            <span style="color:#ff8080;">※APIキーはメイン画面（main-switcher.html）のJavaScriptから直接ResponsiveVoiceへ送信されるため、ブラウザの開発者ツール等で閲覧できる状態になります。取り扱いにご注意ください。</span>
                         </div>
                         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-                            <input type="password" id="input-voicetext-apikey" placeholder="VoiceTextのAPIキー" style="flex:2; min-width:200px; margin:0;">
-                            <select id="input-voicetext-speaker" style="flex:1; min-width:140px; margin:0;">
-                                <option value="hikari">hikari（女性）</option>
-                                <option value="haruka">haruka（女性）</option>
-                                <option value="show">show（男性）</option>
-                                <option value="takeru">takeru（男性）</option>
-                                <option value="santa">santa（サンタ）</option>
-                                <option value="bear">bear（クマ）</option>
+                            <input type="password" id="input-rv-apikey" placeholder="ResponsiveVoiceのAPIキー" style="flex:2; min-width:200px; margin:0;">
+                            <select id="input-rv-voice" style="flex:1; min-width:140px; margin:0;">
+                                <option value="Japanese Female">Japanese Female（女性）</option>
+                                <option value="Japanese Male">Japanese Male（男性）</option>
                             </select>
                         </div>
                         <div class="btn-group" style="margin:0;">
-                            <button class="secondary" style="width:auto; padding:8px 14px; font-size:12px; flex:none;" onclick="saveVoiceTextSettings()">VoiceText設定を保存</button>
-                            <button class="secondary" style="width:auto; padding:8px 14px; font-size:12px; flex:none;" onclick="testVoiceTextPlayback()">🔊 この場で試聴する</button>
+                            <button class="secondary" style="width:auto; padding:8px 14px; font-size:12px; flex:none;" onclick="saveResponsiveVoiceSettings()">ResponsiveVoice設定を保存</button>
+                            <button class="secondary" style="width:auto; padding:8px 14px; font-size:12px; flex:none;" onclick="testResponsiveVoicePlayback()">🔊 この場で試聴する</button>
                         </div>
                         <div style="font-size:11px; color:var(--text-sub); margin-top:6px;">
-                            ※「この場で試聴する」は、このadmin画面から直接VoiceTextへ接続して音声を鳴らします。ここで鳴れば、メイン画面（main-switcher.html）側でも同じ理屈で鳴らせるはずです。ここで「CORS」等のエラーが出る場合は、ブラウザから直接VoiceTextへ接続できない可能性があり、別の対応（プロキシサーバー等）が必要になります。
+                            ※「この場で試聴する」は、このadmin画面から直接ResponsiveVoiceへ接続して音声を鳴らします。ここで鳴れば、メイン画面（main-switcher.html）側でも同じ理屈で鳴らせるはずです。
                         </div>
-                        <audio id="voicetext-test-audio" style="display:none;"></audio>
                     </div>
 
                     <textarea id="input-tts-text" style="height:100px;" placeholder="読み上げるテキストを入力..." oninput="updateTTSCharCount()"></textarea>
@@ -724,7 +718,7 @@
             fetchRssNews();
             startFirebaseSync();
             loadDmdataSettings();
-            loadVoiceTextSettings();
+            loadResponsiveVoiceSettings();
         } else {
             loginScreen.style.display = 'flex';
             adminApp.style.display = 'none';
@@ -1282,6 +1276,7 @@
             else if(genreName === "河川") icon = "🏞️ ";
             else if(genreName === "道路") icon = "🛣️ ";
             else if(genreName === "都市") icon = "🏙️ ";
+            else if(genreName === "akki") icon = "📡 ";
             btn.innerText = `${icon}${genreName}`;
             btn.onclick = () => filterByGenre(genreName, btn);
             container.appendChild(btn);
@@ -1323,10 +1318,12 @@
             const d = document.createElement('div');
             d.style.cssText = "padding:18px; border-bottom:1px solid #222; cursor:pointer;";
             const genreTag = c.genre ? c.genre : '未分類';
+            const typeTag = c.type === 'youtube' ? '<span style="font-size:10px; background:#4A1D1D; color:#FFAB91; padding:2px 8px; border-radius:4px;">YouTube</span>' : '';
             d.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <div><div style="font-weight:bold;">${c.name}</div><small style="color:#777;">ID: ${c.id}</small></div>
                     <div style="display:flex; gap:6px;">
+                        ${typeTag}
                         <span style="font-size:10px; background:#1A365D; color:#90CDF4; padding:2px 8px; border-radius:4px;">${genreTag}</span>
                         <span style="font-size:10px; background:#333; padding:2px 8px; border-radius:4px;">${c.area || '未設定'}</span>
                     </div>
@@ -1392,14 +1389,40 @@
     }
 
     async function initCameras() {
+        let khLivecCams = [];
+        let kactuifCams = [];
+
+        // ① 既存データ（kh-livec.json / HLS配信）
         try {
             const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json");
-            allCameras = await res.json();
-            buildGenreFilterButtons(allCameras);
-            applyCombinedFilter();
-            buildTourCameraSelector(); 
-            updatePreviewPlayer();
-        } catch(e) { console.error(e); }
+            khLivecCams = await res.json();
+        } catch (e) {
+            console.error("[camera] kh-livec.jsonの取得に失敗しました:", e);
+        }
+
+        // ② メンバー提供データ（kactuif.ikunocam.net / YouTube配信）
+        // こちらはgenre・areaが無いため、genreは「akki」として補完する
+        try {
+            const res2 = await fetch("https://kactuif.ikunocam.net/data");
+            const kactuifData = await res2.json();
+            const streams = (kactuifData && Array.isArray(kactuifData.streams)) ? kactuifData.streams : [];
+            kactuifCams = streams.map(s => ({
+                id: s.id,
+                name: s.name,
+                area: "", // このデータソースには都道府県情報が無いため未設定
+                genre: "akki",
+                type: s.type || "youtube",
+                url: s.url
+            }));
+        } catch (e) {
+            console.error("[camera] kactuif.ikunocam.netの取得に失敗しました:", e);
+        }
+
+        allCameras = [...khLivecCams, ...kactuifCams];
+        buildGenreFilterButtons(allCameras);
+        applyCombinedFilter();
+        buildTourCameraSelector();
+        updatePreviewPlayer();
     }
 
     let isInitialLoad = true;
@@ -1674,15 +1697,33 @@
     // 3. マイクリアルタイム配信 (WebRTC)
     let localStream = null;
     let peerConnection = null;
+    let pendingRemoteIceCandidates = []; // setRemoteDescription完了前に届いたcandidateを一時保管
+    let unsubMainCandidates = null; // 前回のリスナーを確実に解除するため保持
+    let unsubMicAnswer = null;
     const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
     window.startMicStreaming = async () => {
         try {
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            // 前回のリスナーが残っていれば解除してから開始する（多重登録による誤動作防止）
+            if (unsubMainCandidates) { unsubMainCandidates(); unsubMainCandidates = null; }
+            if (unsubMicAnswer) { unsubMicAnswer(); unsubMicAnswer = null; }
+
+            // echoCancellation/noiseSuppression/autoGainControlを明示指定し、
+            // 音質のブレ（環境によってON/OFFが変わり音が歪む）を防ぐ
+            localStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    channelCount: 1
+                },
+                video: false
+            });
             document.getElementById('btn-mic-start').style.display = 'none';
             document.getElementById('btn-mic-stop').style.display = 'block';
             document.getElementById('mic-status').style.display = 'block';
 
+            pendingRemoteIceCandidates = [];
             peerConnection = new RTCPeerConnection(servers);
             localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
@@ -1692,10 +1733,17 @@
                 }
             };
 
-            onValue(ref(db, 'broadcast/audio/webrtc/candidates/main'), (snapshot) => {
+            // 相手(メイン画面)からのICE candidateは、setRemoteDescriptionが完了するまで
+            // 追加できない（エラーになり音声が繋がらない/途切れる原因になる）ため、
+            // 完了前に届いた分は一旦キューに貯めておき、完了後にまとめて追加する
+            unsubMainCandidates = onValue(ref(db, 'broadcast/audio/webrtc/candidates/main'), (snapshot) => {
                 snapshot.forEach((childSnapshot) => {
                     const candidate = new RTCIceCandidate(childSnapshot.val());
-                    peerConnection.addIceCandidate(candidate);
+                    if (peerConnection && peerConnection.remoteDescription) {
+                        peerConnection.addIceCandidate(candidate).catch(e => console.error("[WebRTC] addIceCandidate失敗:", e));
+                    } else {
+                        pendingRemoteIceCandidates.push(candidate);
+                    }
                 });
             });
 
@@ -1709,11 +1757,17 @@
                 timestamp: Date.now() 
             });
 
-            onValue(ref(db, 'broadcast/audio/webrtc/answer'), (snapshot) => {
+            unsubMicAnswer = onValue(ref(db, 'broadcast/audio/webrtc/answer'), async (snapshot) => {
                 const data = snapshot.val();
-                if(data && !peerConnection.currentRemoteDescription) {
+                if(data && peerConnection && !peerConnection.currentRemoteDescription) {
                     const answerDescription = new RTCSessionDescription(data);
-                    peerConnection.setRemoteDescription(answerDescription);
+                    await peerConnection.setRemoteDescription(answerDescription);
+                    // キューに貯まっていたcandidateをここでまとめて追加する
+                    const queued = pendingRemoteIceCandidates;
+                    pendingRemoteIceCandidates = [];
+                    for (const c of queued) {
+                        try { await peerConnection.addIceCandidate(c); } catch (e) { console.error("[WebRTC] addIceCandidate失敗:", e); }
+                    }
                 }
             });
 
@@ -1732,6 +1786,9 @@
             peerConnection.close();
             peerConnection = null;
         }
+        if (unsubMainCandidates) { unsubMainCandidates(); unsubMainCandidates = null; }
+        if (unsubMicAnswer) { unsubMicAnswer(); unsubMicAnswer = null; }
+        pendingRemoteIceCandidates = [];
 
         remove(ref(db, 'broadcast/audio/webrtc'));
 
@@ -1842,58 +1899,58 @@
         });
     };
 
-    // --- 🗣️ VoiceText Web API設定（メイン画面がこのAPIキー/話者名で直接VoiceTextへ接続して読み上げます） ---
-    function loadVoiceTextSettings() {
-        onValue(ref(db, 'settings/voicetext'), (snap) => {
+    // --- 🗣️ ResponsiveVoice.js設定（メイン画面がこのAPIキー/声で直接ResponsiveVoiceへ接続して読み上げます） ---
+    function loadResponsiveVoiceSettings() {
+        onValue(ref(db, 'settings/responsivevoice'), (snap) => {
             const conf = snap.val() || {};
-            const keyInput = document.getElementById('input-voicetext-apikey');
-            const speakerInput = document.getElementById('input-voicetext-speaker');
+            const keyInput = document.getElementById('input-rv-apikey');
+            const voiceInput = document.getElementById('input-rv-voice');
             if (keyInput) {
-                keyInput.placeholder = conf.apiKey ? "•••••••• (設定済み・変更する場合のみ入力)" : "VoiceTextのAPIキー";
+                keyInput.placeholder = conf.apiKey ? "•••••••• (設定済み・変更する場合のみ入力)" : "ResponsiveVoiceのAPIキー";
             }
-            if (speakerInput && document.activeElement.id !== 'input-voicetext-speaker') {
-                speakerInput.value = conf.speaker || 'hikari';
+            if (voiceInput && document.activeElement.id !== 'input-rv-voice') {
+                voiceInput.value = conf.voice || 'Japanese Female';
             }
         });
     }
 
-    window.saveVoiceTextSettings = () => {
-        const keyInput = document.getElementById('input-voicetext-apikey');
-        const speakerInput = document.getElementById('input-voicetext-speaker');
-        const speaker = speakerInput.value || 'hikari';
+    window.saveResponsiveVoiceSettings = () => {
+        const keyInput = document.getElementById('input-rv-apikey');
+        const voiceInput = document.getElementById('input-rv-voice');
+        const voice = voiceInput.value || 'Japanese Female';
         const newKey = keyInput.value.trim();
 
-        // キー欄が空の場合は既存のキーを維持したまま話者名だけ更新する
-        const targetRef = ref(db, 'settings/voicetext');
+        // キー欄が空の場合は既存のキーを維持したまま声だけ更新する
+        const targetRef = ref(db, 'settings/responsivevoice');
         if (!newKey) {
             onValue(targetRef, function handler(snap) {
                 const conf = snap.val() || {};
-                secureSet(targetRef, { apiKey: conf.apiKey || "", speaker }).then(() => {
-                    alert("VoiceText設定を保存しました。");
+                secureSet(targetRef, { apiKey: conf.apiKey || "", voice }).then(() => {
+                    alert("ResponsiveVoice設定を保存しました。");
                 });
             }, { onlyOnce: true });
             return;
         }
 
-        secureSet(targetRef, { apiKey: newKey, speaker }).then(() => {
+        secureSet(targetRef, { apiKey: newKey, voice }).then(() => {
             keyInput.value = "";
             keyInput.placeholder = "•••••••• (設定済み・変更する場合のみ入力)";
-            alert("VoiceText設定を保存しました。");
+            alert("ResponsiveVoice設定を保存しました。");
         });
     };
 
-    // admin画面から直接VoiceTextへ接続して試聴する（CORS等の問題をここで先に切り分けるため）
-    window.testVoiceTextPlayback = async () => {
-        const keyInput = document.getElementById('input-voicetext-apikey');
-        const speakerInput = document.getElementById('input-voicetext-speaker');
-        const testAudio = document.getElementById('voicetext-test-audio');
+    // admin画面から直接ResponsiveVoiceへ接続して試聴する
+    let rvTestScriptLoadPromise = null;
+    window.testResponsiveVoicePlayback = async () => {
+        const keyInput = document.getElementById('input-rv-apikey');
+        const voiceInput = document.getElementById('input-rv-voice');
         const typedKey = keyInput.value.trim();
 
         let apiKey = typedKey;
         if (!apiKey) {
             // 未入力なら保存済みのキーを1回だけ取得して使う
             const snap = await new Promise(resolve => {
-                const r = ref(db, 'settings/voicetext');
+                const r = ref(db, 'settings/responsivevoice');
                 onValue(r, s => resolve(s), { onlyOnce: true });
             });
             apiKey = (snap.val() && snap.val().apiKey) || "";
@@ -1904,37 +1961,24 @@
         }
 
         try {
-            const params = new URLSearchParams();
-            params.set('text', 'こんにちは、テキストトゥースピーチのテストです。');
-            params.set('speaker', speakerInput.value || 'hikari');
-            params.set('format', 'mp3');
-
-            const res = await fetch('https://api.voicetext.jp/v1/tts', {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Basic ' + btoa(apiKey + ':'),
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: params.toString()
-            });
-
-            if (!res.ok) {
-                let msg = `エラー (HTTP ${res.status})`;
-                try {
-                    const errJson = await res.json();
-                    if (errJson.error && errJson.error.message) msg += `: ${errJson.error.message}`;
-                } catch (e) {}
-                alert(`試聴に失敗しました。${msg}`);
-                return;
+            if (!window.responsiveVoice) {
+                if (!rvTestScriptLoadPromise) {
+                    rvTestScriptLoadPromise = new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = `https://code.responsivevoice.org/responsivevoice.js?key=${encodeURIComponent(apiKey)}`;
+                        script.onload = () => resolve();
+                        script.onerror = () => { rvTestScriptLoadPromise = null; reject(new Error("スクリプトの読み込みに失敗しました")); };
+                        document.head.appendChild(script);
+                    });
+                }
+                await rvTestScriptLoadPromise;
             }
-
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            testAudio.src = url;
-            testAudio.play().catch(err => alert("音声の取得には成功しましたが、再生に失敗しました: " + err.message));
+            window.responsiveVoice.speak('こんにちは、テキストトゥースピーチのテストです。', voiceInput.value || 'Japanese Female', {
+                onerror: () => alert("試聴に失敗しました。APIキーや選択した声が正しいかご確認ください。")
+            });
         } catch (err) {
-            alert("試聴に失敗しました。ブラウザからVoiceTextへ直接接続できない可能性があります（CORSエラーなど）。詳細はコンソールをご確認ください。\n\nエラー内容: " + err.message);
-            console.error("[VoiceText test] error:", err);
+            alert("試聴に失敗しました。詳細はコンソールをご確認ください。\n\nエラー内容: " + err.message);
+            console.error("[ResponsiveVoice test] error:", err);
         }
     };
 
