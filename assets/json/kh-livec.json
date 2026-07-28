@@ -1040,6 +1040,14 @@
         "url":  "https://www.youtube.com/embed/Y0ErmD-el-0"
     },
     {
+        "id":  "shirakawa",
+        "name":  "白川",
+        "area":  "九州",
+        "genre":  "河川",
+        "type":  "youtube",
+        "url":  "https://www.youtube.com/embed/SflPu7L6HII"
+    },
+    {
         "id":  "yt_u2m1jX3GztY",
         "name":  "大野川",
         "area":  "九州",
