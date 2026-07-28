@@ -336,6 +336,14 @@
         "url":  "https://www.youtube.com/embed/D1w7umb0ZqI"
     },
     {
+        "id":  "hiratsuka",
+        "name":  "神奈川 平塚市",
+        "area":  "関東",
+        "genre":  "海",
+        "type":  "youtube",
+        "url":  "https://www.youtube.com/embed/62_twW5uXd4"
+    },
+    {
         "id":  "tsurugisaki_lt",
         "name":  "神奈川 三浦市",
         "area":  "関東",
