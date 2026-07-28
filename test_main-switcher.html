@@ -117,7 +117,6 @@
     <audio id="eew-audio" src="assets/eew-audio.mp3" preload="auto"></audio>
     <audio id="bgm-audio" loop preload="auto"></audio>
     <audio id="mic-audio" autoplay></audio> <!-- WebRTCマイク出力用 -->
-    <audio id="tts-audio" preload="auto"></audio> <!-- VoiceText読み上げ再生用 -->
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -211,20 +210,18 @@
         }
     });
 
-    // === 🗣️ 追加: AI音声読み上げ制御 (VoiceText Web API 使用・チャンク逐次読み上げ対応) ===
+    // === 🗣️ 追加: AI音声読み上げ制御 (ResponsiveVoice.js 使用・チャンク逐次読み上げ対応) ===
     let ttsCurrentToken = 0; // このトークンより新しい要求が来たら現在の読み上げを打ち切る
-    let voicetextConfig = { apiKey: '', speaker: 'hikari' };
-    let ttsCurrentAbortController = null;
-    let ttsCurrentObjectUrl = null;
-    const ttsAudioEl = document.getElementById('tts-audio');
+    let responsiveVoiceConfig = { apiKey: '', voice: 'Japanese Female' };
+    let rvScriptLoadPromise = null; // スクリプトの二重読み込みを防ぐ
 
-    // VoiceTextのAPIキー・話者名はadmin画面から設定可能（settings/voicetext）
-    onValue(ref(db, 'settings/voicetext'), (snapshot) => {
+    // ResponsiveVoiceのAPIキー・声はadmin画面から設定可能（settings/responsivevoice）
+    onValue(ref(db, 'settings/responsivevoice'), (snapshot) => {
         const conf = snapshot.val();
         if (conf) {
-            voicetextConfig = {
+            responsiveVoiceConfig = {
                 apiKey: conf.apiKey || '',
-                speaker: conf.speaker || 'hikari'
+                voice: conf.voice || 'Japanese Female'
             };
         }
     });
@@ -234,65 +231,48 @@
     }
 
     function stopCurrentTtsPlayback() {
-        if (ttsCurrentAbortController) { ttsCurrentAbortController.abort(); ttsCurrentAbortController = null; }
-        ttsAudioEl.pause();
-        ttsAudioEl.currentTime = 0;
-        if (ttsCurrentObjectUrl) { URL.revokeObjectURL(ttsCurrentObjectUrl); ttsCurrentObjectUrl = null; }
-    }
-
-    // VoiceText Web APIにテキストを送って音声(mp3)を合成させる
-    async function synthesizeVoiceText(text, signal) {
-        if (!voicetextConfig.apiKey) throw new Error('VoiceTextのAPIキーが設定されていません（admin画面で設定してください）');
-
-        const params = new URLSearchParams();
-        params.set('text', text);
-        params.set('speaker', voicetextConfig.speaker);
-        params.set('format', 'mp3'); // ファイルサイズを抑えるためmp3を指定（既定はwav）
-
-        const res = await fetch('https://api.voicetext.jp/v1/tts', {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Basic ' + btoa(voicetextConfig.apiKey + ':'),
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: params.toString(),
-            signal
-        });
-        if (!res.ok) {
-            let msg = `VoiceText API error: ${res.status}`;
-            try {
-                const errJson = await res.json();
-                if (errJson.error && errJson.error.message) msg += ` - ${errJson.error.message}`;
-            } catch (e) {}
-            throw new Error(msg);
+        if (window.responsiveVoice && window.responsiveVoice.cancel) {
+            try { window.responsiveVoice.cancel(); } catch (e) {}
         }
-        return await res.blob();
     }
 
-    function playAudioBlob(blob) {
+    // ResponsiveVoice.jsのスクリプトを（APIキーが判明してから）1回だけ動的に読み込む
+    function ensureResponsiveVoiceLoaded() {
+        if (window.responsiveVoice) return Promise.resolve();
+        if (!responsiveVoiceConfig.apiKey) return Promise.reject(new Error('ResponsiveVoiceのAPIキーが設定されていません（admin画面で設定してください）'));
+        if (rvScriptLoadPromise) return rvScriptLoadPromise;
+
+        rvScriptLoadPromise = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = `https://code.responsivevoice.org/responsivevoice.js?key=${encodeURIComponent(responsiveVoiceConfig.apiKey)}`;
+            script.onload = () => resolve();
+            script.onerror = () => { rvScriptLoadPromise = null; reject(new Error('ResponsiveVoiceスクリプトの読み込みに失敗しました')); };
+            document.head.appendChild(script);
+        });
+        return rvScriptLoadPromise;
+    }
+
+    function speakWithResponsiveVoice(text) {
         return new Promise((resolve) => {
-            if (ttsCurrentObjectUrl) { URL.revokeObjectURL(ttsCurrentObjectUrl); }
-            const url = URL.createObjectURL(blob);
-            ttsCurrentObjectUrl = url;
-            ttsAudioEl.src = url;
-            ttsAudioEl.onended = () => resolve();
-            ttsAudioEl.onerror = () => resolve();
-            ttsAudioEl.play().catch(err => {
-                console.warn("[TTS] VoiceText音声の再生に失敗しました（クリックによるアンロック前の可能性）:", err);
+            try {
+                window.responsiveVoice.speak(text, responsiveVoiceConfig.voice, {
+                    onend: () => resolve(),
+                    onerror: () => resolve() // 1チャンクが失敗しても後続の読み上げを止めない
+                });
+            } catch (e) {
+                console.error("[TTS] ResponsiveVoice speak失敗:", e);
                 resolve();
-            });
+            }
         });
     }
 
     async function speakOneChunk(text, token) {
         try {
-            ttsCurrentAbortController = new AbortController();
-            const blob = await synthesizeVoiceText(text, ttsCurrentAbortController.signal);
+            await ensureResponsiveVoiceLoaded();
             if (token !== ttsCurrentToken) return; // 待っている間に新しい要求が来ていたら再生しない
-            await playAudioBlob(blob);
+            await speakWithResponsiveVoice(text);
         } catch (err) {
-            if (err.name === 'AbortError') return;
-            console.error("[TTS] VoiceTextでの音声合成に失敗しました。APIキー設定(settings/voicetext)やCORSの状況を確認してください:", err);
+            console.error("[TTS] ResponsiveVoiceでの読み上げに失敗しました。APIキー設定(settings/responsivevoice)を確認してください:", err);
         }
     }
 
@@ -340,14 +320,21 @@
     });
 
     // === 🎤 追加: WebRTC マイク受信制御 ===
+    let pendingAdminIceCandidates = []; // setRemoteDescription完了前に届いたcandidateを一時保管
+    let unsubAdminCandidates = null; // 前回のリスナーを確実に解除するため保持
+
     onValue(ref(db, 'broadcast/audio/webrtc/offer'), async (snapshot) => {
         const offerData = snapshot.val();
+
+        // 新しいオファーが来る／Admin側で停止された場合、前回の接続とリスナーは必ず片付ける
+        if (unsubAdminCandidates) { unsubAdminCandidates(); unsubAdminCandidates = null; }
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+        pendingAdminIceCandidates = [];
+
         if (!offerData) {
-            // Admin側で停止された場合、切断して終了
-            if (peerConnection) {
-                peerConnection.close();
-                peerConnection = null;
-            }
             micAudio.srcObject = null;
             return;
         }
@@ -367,12 +354,16 @@
             }
         };
 
-        // AdminからのICE Candidateを受信
-        onValue(ref(db, 'broadcast/audio/webrtc/candidates/admin'), (iceSnapshot) => {
+        // AdminからのICE Candidateを受信。setRemoteDescriptionが完了するまでは
+        // addIceCandidateできない（失敗して音声が繋がらない/途切れる原因になる）ため、
+        // 完了前に届いた分は一旦キューに貯めておき、完了後にまとめて追加する
+        unsubAdminCandidates = onValue(ref(db, 'broadcast/audio/webrtc/candidates/admin'), (iceSnapshot) => {
             iceSnapshot.forEach((childSnapshot) => {
                 const candidate = new RTCIceCandidate(childSnapshot.val());
-                if(peerConnection.remoteDescription) {
-                    peerConnection.addIceCandidate(candidate).catch(e => console.error(e));
+                if (peerConnection && peerConnection.remoteDescription) {
+                    peerConnection.addIceCandidate(candidate).catch(e => console.error("[WebRTC] addIceCandidate失敗:", e));
+                } else {
+                    pendingAdminIceCandidates.push(candidate);
                 }
             });
         });
@@ -380,6 +371,13 @@
         // 相手(Admin)の情報をセット
         const offerDescription = new RTCSessionDescription(offerData);
         await peerConnection.setRemoteDescription(offerDescription);
+
+        // キューに貯まっていたcandidateをここでまとめて追加する
+        const queued = pendingAdminIceCandidates;
+        pendingAdminIceCandidates = [];
+        for (const c of queued) {
+            try { await peerConnection.addIceCandidate(c); } catch (e) { console.error("[WebRTC] addIceCandidate失敗:", e); }
+        }
 
         // 返答(Answer)を作成してFirebase経由で送り返す
         const answer = await peerConnection.createAnswer();
