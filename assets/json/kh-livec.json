@@ -88,14 +88,6 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/nosappumisaki_lt-live.m3u8"
     },
     {
-        "id":  "yt_0YJKesNgY8E",
-        "name":  "北海道開発局管内",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/0YJKesNgY8E"
-    },
-    {
         "id":  "tappisaki_lt",
         "name":  "青森 東津軽郡",
         "area":  "東北",
@@ -192,14 +184,6 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/honmoku_vtss-live.m3u8"
     },
     {
-        "id":  "yt_HWdvsgLIumE",
-        "name":  "さいたま",
-        "area":  "関東",
-        "genre":  "線路",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/HWdvsgLIumE"
-    },
-    {
         "id":  "tokyo_suginami",
         "name":  "東京 杉並区",
         "area":  "関東",
@@ -214,118 +198,6 @@
         "genre":  "河川",
         "type":  "youtube",
         "url":  "https://www.youtube.com/embed/wsfTTC7UA0M"
-    },
-    {
-        "id":  "yt_P40WrJaz1yI",
-        "name":  "東京 練馬区",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/P40WrJaz1yI"
-    },
-    {
-        "id":  "yt_MtGWlABeo5k",
-        "name":  "東京 中野区",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/MtGWlABeo5k"
-    },
-    {
-        "id":  "yt_6AvK0EoOw94",
-        "name":  "東京 港区",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/6AvK0EoOw94"
-    },
-    {
-        "id":  "yt_-LYYtxqcqy8",
-        "name":  "東京 新宿区",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/-LYYtxqcqy8"
-    },
-    {
-        "id":  "yt_X7jHfUSvqVk",
-        "name":  "東京 町田市",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/X7jHfUSvqVk"
-    },
-    {
-        "id":  "yt_evjYruwTtGE",
-        "name":  "東京 八王子市",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/evjYruwTtGE"
-    },
-    {
-        "id":  "yt_MOYui7vUqsE",
-        "name":  "東京 日の出町",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/MOYui7vUqsE"
-    },
-    {
-        "id":  "yt_t_3tOge2ZUs",
-        "name":  "東京 青梅市",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/t_3tOge2ZUs"
-    },
-    {
-        "id":  "yt_0zXgy4Riwdg",
-        "name":  "東京 清瀬市",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/0zXgy4Riwdg"
-    },
-    {
-        "id":  "yt_loW9744B-Co",
-        "name":  "東京 東久留米市",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/loW9744B-Co"
-    },
-    {
-        "id":  "yt_6DkAz-eIQOA",
-        "name":  "東京 あきる野市",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/6DkAz-eIQOA"
-    },
-    {
-        "id":  "yt_fJxRI4M2WDE",
-        "name":  "東京 東大和市",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/fJxRI4M2WDE"
-    },
-    {
-        "id":  "yt_uyhpROBRVLI",
-        "name":  "東京 東村山市",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/uyhpROBRVLI"
-    },
-    {
-        "id":  "yt_5rPWVJylf5s",
-        "name":  "東京 三鷹市",
-        "area":  "関東",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/5rPWVJylf5s"
     },
     {
         "id":  "gunma",
@@ -368,44 +240,12 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/hachijosima_lt-live.m3u8"
     },
     {
-        "id":  "yt_7IygrRRgXYQ",
-        "name":  "八丈島漁港",
-        "area":  "関東",
-        "genre":  "海",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/7IygrRRgXYQ"
-    },
-    {
         "id": "tokyo_izu-oshima",
         "name": "伊豆大島",
         "area": "関東",
         "genre": "海",
         "type": "youtube",
         "url": "https://www.youtube.com/embed/PxvOdMbj6gA"
-    },
-    {
-        "id": "yt_2v_bBrtolUM",
-        "name": "神津島",
-        "area": "関東",
-        "genre": "海",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/2v_bBrtolUM"
-    },
-    {
-        "id": "yt_3n3J_Npip8Q",
-        "name": "新島",
-        "area": "関東",
-        "genre": "海",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/3n3J_Npip8Q"
-    },
-    {
-        "id": "yt_6UMh7x2RSdE",
-        "name": "三宅島",
-        "area": "関東",
-        "genre": "海",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/6UMh7x2RSdE"
     },
     {
         "id": "tokyo_ogasawara",
@@ -504,14 +344,6 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/tateishimisaki-live.m3u8"
     },
     {
-        "id": "yt_THWHK9Pb2W4",
-        "name": "北川",
-        "area": "北陸",
-        "genre": "河川",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/Sx6Y3_J_nng"
-    },
-    {
         "id":  "fushiki_dl",
         "name":  "富山 射水市",
         "area":  "北陸",
@@ -568,44 +400,12 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/osaka_lt-live.m3u8"
     },
     {
-        "id": "yt_696B4fw5nQI",
-        "name": "近畿地方整備局管内",
-        "area": "近畿",
-        "genre": "河川",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/696B4fw5nQI"
-    },
-    {
-        "id": "yt_KgkcDu8VV4U",
-        "name": "淀川・宇治川",
-        "area": "近畿",
-        "genre": "河川",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/KgkcDu8VV4U"
-    },
-    {
-        "id": "yt_v1B72NFVmEM",
-        "name": "由良川",
-        "area": "近畿",
-        "genre": "河川",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/v1B72NFVmEM"
-    },
-    {
         "id":  "kobe_no2_ss",
         "name":  "神戸",
         "area":  "近畿",
         "genre":  "海",
         "type":  "hls",
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/kobe_no2_ss-live.m3u8"
-    },
-    {
-        "id": "yt_z5qAABHK2Oc",
-        "name": "兵庫 東播海岸",
-        "area": "近畿",
-        "genre": "河川",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/v1B72NFVmEM"
     },
     {
         "id":  "esaki_radar",
@@ -624,30 +424,6 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/shionomisaki_lt-live.m3u8"
     },
     {
-        "id": "yt_wm0zg86lEQU",
-        "name": "和歌山",
-        "area": "近畿",
-        "genre": "河川",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/wm0zg86lEQU"
-    },
-    {
-        "id": "yt_tz30D6x3oyc",
-        "name": "和歌山 紀美野町",
-        "area": "近畿",
-        "genre": "河川",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/tz30D6x3oyc"
-    },
-    {
-        "id": "yt_Siq4ueJtKQg",
-        "name": "和歌山 海南町",
-        "area": "近畿",
-        "genre": "河川",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/Siq4ueJtKQg"
-    },
-    {
         "id":  "kyogamisaki_lt",
         "name":  "京都 京丹後市",
         "area":  "近畿",
@@ -664,44 +440,12 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/bakuchimisaki_lt-live.m3u8"
     },
     {
-        "id": "yt_hfQpi7ZYias",
-        "name": "桂川",
-        "area": "近畿",
-        "genre": "河川",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/hfQpi7ZYias"
-    },
-    {
-        "id": "yt_Sx6Y3_J_nng",
-        "name": "木津川",
-        "area": "近畿",
-        "genre": "河川",
-        "type": "youtube",
-        "url": "https://www.youtube.com/embed/Sx6Y3_J_nng"
-    },
-    {
         "id":  "magosaki_lt",
         "name":  "徳島 鳴門町",
         "area":  "四国",
         "genre":  "海",
         "type":  "hls",
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/magosaki_lt-live.m3u8"
-    },
-    {
-        "id":  "yt_mN_mre5GaGg",
-        "name":  "徳島 那賀町",
-        "area":  "徳島",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/mN_mre5GaGg"
-    },
-    {
-        "id":  "yt_zFjM5NDNOIk",
-        "name":  "徳島 阿南市",
-        "area":  "徳島",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/zFjM5NDNOIk"
     },
     {
         "id":  "kochi_lt",
@@ -720,22 +464,6 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/sadamisaki_lt-live.m3u8"
     },
     {
-        "id":  "yt_WY4LcV6RHqk",
-        "name":  "愛媛 大洲市",
-        "area":  "四国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/WY4LcV6RHqk"
-    },
-    {
-        "id":  "yt_IkP6n_5lzlQ",
-        "name":  "愛媛 西予市",
-        "area":  "四国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/IkP6n_5lzlQ"
-    },
-    {
         "id":  "bisan_martis",
         "name":  "香川 宇多津町",
         "area":  "四国",
@@ -750,46 +478,6 @@
         "genre":  "海",
         "type":  "hls",
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/ondonoseto_s_entrance_no1-live.m3u8"
-    },
-    {
-        "id":  "yt_7E1L09gjWOU",
-        "name":  "広島",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/7E1L09gjWOU"
-    },
-    {
-        "id":  "yt_R6JtcNnmy7U",
-        "name":  "広島 安芸高田市",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/R6JtcNnmy7U"
-    },
-    {
-        "id":  "yt_SVt3p_hgLfg",
-        "name":  "広島 福山市",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/SVt3p_hgLfg"
-    },
-    {
-        "id":  "yt__1pGHRADu7o",
-        "name":  "広島 府中市",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/_1pGHRADu7o"
-    },
-    {
-        "id":  "yt_WLGxKyBcJqg",
-        "name":  "広島 大竹市",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/WLGxKyBcJqg"
     },
     {
         "id":  "iwamiosakihana_lt",
@@ -816,108 +504,12 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/mihonoseki_lt-live.m3u8"
     },
     {
-        "id":  "yt_vPwAekmcmvs",
-        "name":  "鳥取 伯耆町",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/vPwAekmcmvs"
-    },
-    {
-        "id":  "yt__IpOfCuzrzw",
-        "name":  "鳥取 米子市",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/_IpOfCuzrzw"
-    },
-    {
-        "id":  "yt_bOajPNd7n",
-        "name":  "鳥取 倉吉市",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/bOajPNd7n"
-    },
-    {
-        "id":  "yt_xrdR9P66Zd4",
-        "name":  "鳥取",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/xrdR9P66Zd4"
-    },
-    {
-        "id":  "yt_YliJ-Plcvhc",
-        "name":  "島根 益田市",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/YliJ-Plcvhc"
-    },
-    {
-        "id":  "yt__QW6YCaADpU",
-        "name":  "島根 江津市",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/_QW6YCaADpU"
-    },
-    {
-        "id":  "yt_mQgLSL7hyMM",
-        "name":  "島根 美郷町",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/mQgLSL7hyMM"
-    },
-    {
-        "id":  "yt_zH2Vfc9OyVk",
-        "name":  "島根 雲南市",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/zH2Vfc9OyVk"
-    },
-    {
-        "id":  "yt_O2WboRntAQY",
-        "name":  "島根 出雲市",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/O2WboRntAQY"
-    },
-    {
-        "id":  "yt_6xs8eg4uyS8",
-        "name":  "岡山 倉敷市",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/6xs8eg4uyS8"
-    },
-    {
-        "id":  "yt_nhoukgdiHRA",
-        "name":  "岡山",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/nhoukgdiHRA"
-    },
-    {
         "id":  "mishima_n_lt",
         "name":  "山口 萩市",
         "area":  "中国",
         "genre":  "海",
         "type":  "hls",
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/mishima_n_lt-live.m3u8"
-    },
-    {
-        "id":  "yt_FJSlba8uyFY",
-        "name":  "山口 周南市",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/FJSlba8uyFY"
     },
     {
         "id":  "hinoyamashita_tss",
@@ -928,44 +520,12 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/hinoyamashita_tss-live.m3u8"
     },
     {
-        "id":  "yt_SKqyhIr8qMw",
-        "name":  "山口",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/SKqyhIr8qMw"
-    },
-    {
-        "id":  "yt_uBHLYJkN4KA",
-        "name":  "山口 岩国市",
-        "area":  "中国",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/uBHLYJkN4KA"
-    },
-    {
         "id":  "sekisaki_lt",
         "name":  "大分",
         "area":  "九州",
         "genre":  "海",
         "type":  "hls",
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/sekisaki_lt-live.m3u8"
-    },
-    {
-        "id":  "yt_g103BWotLLU",
-        "name":  "大分川",
-        "area":  "九州",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/g103BWotLLU"
-    },
-    {
-        "id":  "yt_5RnOHwAZfnQ",
-        "name":  "番匠川",
-        "area":  "九州",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/5RnOHwAZfnQ"
     },
     {
         "id":  "miirakunagasakihana_lt",
@@ -1032,44 +592,12 @@
         "url":  "https://www.youtube.com/embed/roLilL1JvUQ"
     },
     {
-        "id":  "yt_Y0ErmD-el-0",
-        "name":  "五ヶ瀬川",
-        "area":  "九州",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/Y0ErmD-el-0"
-    },
-    {
         "id":  "shirakawa",
         "name":  "白川",
         "area":  "九州",
         "genre":  "河川",
         "type":  "youtube",
         "url":  "https://www.youtube.com/embed/SflPu7L6HII"
-    },
-    {
-        "id":  "yt_u2m1jX3GztY",
-        "name":  "大野川",
-        "area":  "九州",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/u2m1jX3GztY"
-    },
-    {
-        "id":  "yt_ufUaVqpliWw",
-        "name":  "川内川",
-        "area":  "九州",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/ufUaVqpliWw"
-    },
-    {
-        "id":  "yt_TfI9dvQdW1s",
-        "name":  "肝属川",
-        "area":  "九州",
-        "genre":  "河川",
-        "type":  "youtube",
-        "url":  "https://www.youtube.com/embed/TfI9dvQdW1s"
     },
     {
         "id":  "satamisaki_lt",
