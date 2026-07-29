@@ -1726,9 +1726,25 @@
             document.getElementById('btn-mic-stop').style.display = 'block';
             document.getElementById('mic-status').style.display = 'block';
 
+            // 重要: 前回セッションの signaling データ(offer/answer/candidates)は、
+            // ここで一度だけ、まだICE候補の収集が始まる前にクリアする。
+            // 以前はこのremove()をcreateOffer/setLocalDescriptionの"後"に呼んでいたため、
+            // setLocalDescription直後に発火し始めるonicecandidateで書き込まれた
+            // 候補情報が、このremove()によって消されてしまうことがあった
+            // （タイミング次第で接続できたりできなかったりする不安定の原因）。
+            await remove(ref(db, 'broadcast/audio/webrtc'));
+
             pendingRemoteIceCandidates = [];
             peerConnection = new RTCPeerConnection(servers);
             localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            // 接続状態を確認できるようログを出しておく（無音になった場合の切り分け用）
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log('[WebRTC/admin] ICE connection state:', peerConnection.iceConnectionState);
+            };
+            peerConnection.onconnectionstatechange = () => {
+                console.log('[WebRTC/admin] Connection state:', peerConnection.connectionState);
+            };
 
             peerConnection.onicecandidate = event => {
                 if(event.candidate) {
@@ -1753,7 +1769,6 @@
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
 
-            await remove(ref(db, 'broadcast/audio/webrtc'));
             await secureSet(ref(db, 'broadcast/audio/webrtc/offer'), {
                 type: offer.type,
                 sdp: offer.sdp,
