@@ -23,6 +23,7 @@
     let map;
     let geoJsonLayer;
     let shingenMarker;
+    let pendingEew = null; // geoJsonLayerの読み込み完了前にupdateMapFromParentが呼ばれた場合に保持しておく
 
     async function init() {
         map = L.map('map', {
@@ -40,11 +41,22 @@
                     layer._prefName = feature.properties.name || feature.properties.nam_ja || feature.properties.pref || "";
                 }
             }).addTo(map);
+
+            // GeoJSONの読み込み完了前に更新要求が来ていた場合は、ここで反映する
+            if (pendingEew) {
+                const eew = pendingEew;
+                pendingEew = null;
+                updateMap(eew);
+            }
         } catch (e) { console.error(e); }
     }
 
     window.updateMapFromParent = function(eew) {
-        if (!map || !geoJsonLayer) return;
+        if (!map || !geoJsonLayer) {
+            // まだ準備ができていない場合は保留しておき、init完了後に反映する
+            pendingEew = eew;
+            return;
+        }
         updateMap(eew);
     };
 
