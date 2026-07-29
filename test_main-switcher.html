@@ -154,7 +154,10 @@
         // 全オーディオ要素をアンロック
         eewAudio.play().then(() => { eewAudio.pause(); eewAudio.currentTime = 0; }).catch(()=>{});
         bgmAudio.play().then(() => { bgmAudio.pause(); }).catch(()=>{});
-        micAudio.play().catch(()=>{}); // マイク配信用要素も同じくアンロックしておく（自動再生ブロック対策）
+
+        // Web Speech API の初期化ロック解除 (無音を発声)
+        const initUtterance = new SpeechSynthesisUtterance('');
+        window.speechSynthesis.speak(initUtterance);
 
         unlockOverlay.style.display = 'none';
         console.log("Audio Systems Unlocked!");
@@ -211,77 +214,105 @@
         }
     });
 
-    // === 🗣️ 追加: AI音声読み上げ制御 (ResponsiveVoice.js 使用・チャンク逐次読み上げ対応) ===
+    // === 🗣️ 追加: AI音声読み上げ制御 (Web Speech API・ブラウザ内蔵・APIキー不要) ===
     let ttsCurrentToken = 0; // このトークンより新しい要求が来たら現在の読み上げを打ち切る
-    let responsiveVoiceConfig = { apiKey: '', voice: 'Japanese Female' };
-    let rvScriptLoadPromise = null; // スクリプトの二重読み込みを防ぐ
+    let ttsKeepAliveTimer = null;
+    let cachedJapaneseVoice = null; // 見つかった日本語音声をキャッシュ
 
-    // ResponsiveVoiceのAPIキー・声はadmin画面から設定可能（settings/responsivevoice）
-    onValue(ref(db, 'settings/responsivevoice'), (snapshot) => {
-        const conf = snapshot.val();
-        if (conf) {
-            responsiveVoiceConfig = {
-                apiKey: conf.apiKey || '',
-                voice: conf.voice || 'Japanese Female'
+    // ブラウザによっては音声一覧(getVoices)が非同期に読み込まれるため、
+    // 'voiceschanged'イベント発火 or 一覧が埋まるまで待つ（最大3秒でタイムアウト）
+    function waitForVoices() {
+        return new Promise((resolve) => {
+            const existing = window.speechSynthesis.getVoices();
+            if (existing && existing.length > 0) { resolve(existing); return; }
+
+            let done = false;
+            const onVoicesChanged = () => {
+                if (done) return;
+                const voices = window.speechSynthesis.getVoices();
+                if (voices && voices.length > 0) {
+                    done = true;
+                    window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+                    resolve(voices);
+                }
             };
+            window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
+
+            setTimeout(() => {
+                if (done) return;
+                done = true;
+                window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+                const voices = window.speechSynthesis.getVoices();
+                if (!voices || voices.length === 0) {
+                    console.warn("[TTS] 音声(voice)が1つも見つかりませんでした。このブラウザ/OSには読み上げ用の音声が入っていない可能性があります。");
+                }
+                resolve(voices || []);
+            }, 3000);
+        });
+    }
+
+    async function pickJapaneseVoice() {
+        if (cachedJapaneseVoice) return cachedJapaneseVoice;
+        const voices = await waitForVoices();
+        // "ja-JP" / "ja_JP" / "ja" などlangが日本語のものを探す
+        const jaVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ja'));
+        if (jaVoice) {
+            cachedJapaneseVoice = jaVoice;
+            console.log("[TTS] 日本語音声を使用します:", jaVoice.name, jaVoice.lang);
+        } else {
+            console.warn("[TTS] 日本語音声が見つからなかったため、既定の音声で読み上げます。利用可能な音声:", voices.map(v => `${v.name}(${v.lang})`).join(', ') || '(なし)');
         }
-    });
+        return jaVoice || null;
+    }
+
+    // Chrome/OBS(Chromium)は「1回の発話が長い・無音区間が続く」と音声合成が
+    // 内部的に停止してしまう既知の不具合があるため、発話中は定期的に
+    // pause()→resume()を呼んで機能を維持する（読み上げ音声は途切れない）
+    function startTtsKeepAlive() {
+        stopTtsKeepAlive();
+        ttsKeepAliveTimer = setInterval(() => {
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.pause();
+                window.speechSynthesis.resume();
+            }
+        }, 5000);
+    }
+    function stopTtsKeepAlive() {
+        if (ttsKeepAliveTimer) { clearInterval(ttsKeepAliveTimer); ttsKeepAliveTimer = null; }
+    }
 
     function updateTtsStatus(data) {
         set(ref(db, 'broadcast/audio/tts_status'), data).catch(() => {});
     }
 
     function stopCurrentTtsPlayback() {
-        if (window.responsiveVoice && window.responsiveVoice.cancel) {
-            try { window.responsiveVoice.cancel(); } catch (e) {}
-        }
-    }
-
-    // ResponsiveVoice.jsのスクリプトを（APIキーが判明してから）1回だけ動的に読み込む
-    function ensureResponsiveVoiceLoaded() {
-        if (window.responsiveVoice) return Promise.resolve();
-        if (!responsiveVoiceConfig.apiKey) return Promise.reject(new Error('ResponsiveVoiceのAPIキーが設定されていません（admin画面で設定してください）'));
-        if (rvScriptLoadPromise) return rvScriptLoadPromise;
-
-        rvScriptLoadPromise = new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = `https://code.responsivevoice.org/responsivevoice.js?key=${encodeURIComponent(responsiveVoiceConfig.apiKey)}`;
-            script.onload = () => resolve();
-            script.onerror = () => { rvScriptLoadPromise = null; reject(new Error('ResponsiveVoiceスクリプトの読み込みに失敗しました')); };
-            document.head.appendChild(script);
-        });
-        return rvScriptLoadPromise;
-    }
-
-    function speakWithResponsiveVoice(text) {
-        return new Promise((resolve) => {
-            try {
-                window.responsiveVoice.speak(text, responsiveVoiceConfig.voice, {
-                    onend: () => resolve(),
-                    onerror: () => resolve() // 1チャンクが失敗しても後続の読み上げを止めない
-                });
-            } catch (e) {
-                console.error("[TTS] ResponsiveVoice speak失敗:", e);
-                resolve();
-            }
-        });
+        window.speechSynthesis.cancel();
+        stopTtsKeepAlive();
     }
 
     async function speakOneChunk(text, token) {
-        try {
-            await ensureResponsiveVoiceLoaded();
-            if (token !== ttsCurrentToken) return; // 待っている間に新しい要求が来ていたら再生しない
-            await speakWithResponsiveVoice(text);
-        } catch (err) {
-            console.error("[TTS] ResponsiveVoiceでの読み上げに失敗しました。APIキー設定(settings/responsivevoice)を確認してください:", err);
-        }
+        const jaVoice = await pickJapaneseVoice();
+        if (token !== ttsCurrentToken) return; // 待っている間に新しい要求が来ていたら再生しない
+
+        return new Promise((resolve) => {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ja-JP';
+            if (jaVoice) utterance.voice = jaVoice;
+            utterance.onend = resolve;
+            utterance.onerror = (e) => {
+                console.error("[TTS] speechSynthesisでの読み上げに失敗しました:", e.error || e);
+                resolve(); // 1チャンクが失敗しても後続の読み上げを止めない
+            };
+            window.speechSynthesis.speak(utterance);
+        });
     }
 
     async function speakTTSChunks(chunks, token) {
         const total = chunks.length;
+        startTtsKeepAlive();
 
         for (let i = 0; i < total; i++) {
-            if (token !== ttsCurrentToken) return; // 新しい要求 or キャンセルで中断
+            if (token !== ttsCurrentToken) { stopTtsKeepAlive(); return; } // 新しい要求 or キャンセルで中断
             const chunk = chunks[i];
             updateTtsStatus({
                 status: 'playing',
@@ -292,6 +323,7 @@
             await speakOneChunk(chunk, token);
         }
 
+        stopTtsKeepAlive();
         if (token === ttsCurrentToken) {
             updateTtsStatus({ status: 'idle', progress: 100, eta: 0, currentText: '完了' });
         }
@@ -345,17 +377,7 @@
 
         // トラック受信時にAudio要素にセット
         peerConnection.ontrack = (event) => {
-            console.log('[WebRTC/main] ontrack発火。トラック受信:', event.track.kind, event.track.readyState);
             micAudio.srcObject = event.streams[0];
-            micAudio.play().catch(e => console.warn('[WebRTC/main] mic-audio再生ブロック:', e));
-        };
-
-        // 接続状態を確認できるようログを出しておく（無音になった場合の切り分け用）
-        peerConnection.oniceconnectionstatechange = () => {
-            console.log('[WebRTC/main] ICE connection state:', peerConnection.iceConnectionState);
-        };
-        peerConnection.onconnectionstatechange = () => {
-            console.log('[WebRTC/main] Connection state:', peerConnection.connectionState);
         };
 
         // ICE Candidateの処理（Adminへ送信）
