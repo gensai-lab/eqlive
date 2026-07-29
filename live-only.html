@@ -182,9 +182,42 @@
     let hls = null;
     let imageRefreshInterval = null;
 
+    // kactuif.ikunocam.net/data を取得する。直接fetchがCORS等で失敗した場合は
+    // 公開CORSプロキシ経由で再試行する
+    async function fetchKactuifCameras() {
+        const targetUrl = "https://kactuif.ikunocam.net/data";
+        let kactuifData = null;
+
+        try {
+            const res = await fetch(targetUrl);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            kactuifData = await res.json();
+        } catch (e) {
+            console.warn("[camera] kactuif直接取得に失敗（CORS等の可能性）。プロキシ経由で再試行します:", e);
+            try {
+                const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl);
+                const res2 = await fetch(proxyUrl);
+                if (!res2.ok) throw new Error(`HTTP ${res2.status}`);
+                kactuifData = await res2.json();
+            } catch (e2) {
+                console.error("[camera] kactuif.ikunocam.netの取得に失敗しました（プロキシ経由も失敗）:", e2);
+                return [];
+            }
+        }
+
+        const streams = (kactuifData && Array.isArray(kactuifData.streams)) ? kactuifData.streams : [];
+        return streams.map(s => ({
+            id: s.id,
+            name: s.name,
+            area: "",
+            genre: "akki",
+            type: s.type || "youtube",
+            url: s.url
+        }));
+    }
+
     async function loadConfig() {
         let khLivecCams = [];
-        let kactuifCams = [];
 
         // ① 既存データ（kh-livec.json / HLS配信）
         try {
@@ -195,22 +228,7 @@
         }
 
         // ② メンバー提供データ（kactuif.ikunocam.net / YouTube配信）
-        // こちらはgenre・areaが無いため、genreは「akki」として補完する（表示・再生には影響しない）
-        try {
-            const response2 = await fetch('https://kactuif.ikunocam.net/data');
-            const kactuifData = await response2.json();
-            const streams = (kactuifData && Array.isArray(kactuifData.streams)) ? kactuifData.streams : [];
-            kactuifCams = streams.map(s => ({
-                id: s.id,
-                name: s.name,
-                area: "",
-                genre: "akki",
-                type: s.type || "youtube",
-                url: s.url
-            }));
-        } catch (e) {
-            console.error("[camera] kactuif.ikunocam.netの取得に失敗しました:", e);
-        }
+        const kactuifCams = await fetchKactuifCameras();
 
         cameraList = [...khLivecCams, ...kactuifCams];
         startSync();
