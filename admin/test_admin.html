@@ -1708,13 +1708,16 @@
             if (unsubMainCandidates) { unsubMainCandidates(); unsubMainCandidates = null; }
             if (unsubMicAnswer) { unsubMicAnswer(); unsubMicAnswer = null; }
 
-            // echoCancellation/noiseSuppression/autoGainControlを明示指定し、
-            // 音質のブレ（環境によってON/OFFが変わり音が歪む）を防ぐ
+            // noiseSuppression / autoGainControl は、ブラウザ内蔵の適応アルゴリズムが
+            // 無音〜有音を判定するたびにゲイン・抑制量を再計算するため、
+            // 「1秒おきにノイズキャンセルがON/OFFする（呼吸するような/ポンピングする）」
+            // ノイズとして聞こえることがある。配信音質を安定させるため、ここでは
+            // 明示的にOFFにする（ハウリング防止のためechoCancellationのみ有効のままにする）。
             localStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true,
+                    noiseSuppression: false,
+                    autoGainControl: false,
                     channelCount: 1
                 },
                 video: false
