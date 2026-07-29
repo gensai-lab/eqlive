@@ -154,6 +154,7 @@
         // 全オーディオ要素をアンロック
         eewAudio.play().then(() => { eewAudio.pause(); eewAudio.currentTime = 0; }).catch(()=>{});
         bgmAudio.play().then(() => { bgmAudio.pause(); }).catch(()=>{});
+        micAudio.play().catch(()=>{}); // マイク配信用要素も同じくアンロックしておく（自動再生ブロック対策）
 
         unlockOverlay.style.display = 'none';
         console.log("Audio Systems Unlocked!");
@@ -344,7 +345,17 @@
 
         // トラック受信時にAudio要素にセット
         peerConnection.ontrack = (event) => {
+            console.log('[WebRTC/main] ontrack発火。トラック受信:', event.track.kind, event.track.readyState);
             micAudio.srcObject = event.streams[0];
+            micAudio.play().catch(e => console.warn('[WebRTC/main] mic-audio再生ブロック:', e));
+        };
+
+        // 接続状態を確認できるようログを出しておく（無音になった場合の切り分け用）
+        peerConnection.oniceconnectionstatechange = () => {
+            console.log('[WebRTC/main] ICE connection state:', peerConnection.iceConnectionState);
+        };
+        peerConnection.onconnectionstatechange = () => {
+            console.log('[WebRTC/main] Connection state:', peerConnection.connectionState);
         };
 
         // ICE Candidateの処理（Adminへ送信）
