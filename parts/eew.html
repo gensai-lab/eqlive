@@ -163,10 +163,15 @@
 
         const mapFrame = document.getElementById("map-frame");
         const sendData = () => {
-            mapFrame.contentWindow.updateMapFromParent(eew);
-            setTimeout(() => {
-                document.getElementById("eew-container").style.display = "block";
-            }, 150);
+            // 先にコンテナを表示してから、レイアウトが確定するのを待って地図を更新する。
+            // （非表示＝display:noneのうちにLeafletのinvalidateSize/fitBoundsを呼ぶと
+            //   地図のサイズが正しく取得できず、正常に描画されなくなるため）
+            document.getElementById("eew-container").style.display = "block";
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    mapFrame.contentWindow.updateMapFromParent(eew);
+                });
+            });
         };
 
         if (mapFrame.contentWindow && typeof mapFrame.contentWindow.updateMapFromParent === 'function') {
