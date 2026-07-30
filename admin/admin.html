@@ -1884,7 +1884,8 @@
                     ※デフォルトで有効になっています。有効化中は担当者が内容を確認せずそのまま放送に出るため、誤報時は速やかに「順次送出を停止」してください。手動確認したい場合はチェックを外してください（外してもページ再読み込みで再びONに戻ります）。
                 </div>
 
-                <div id="eq-status" style="font-size:12px; color:var(--text-sub); margin-bottom:8px;">${connected ? '接続中。地震情報の受信を待機しています…' : '未接続です。「P2P受信を開始」を押してください。'}</div>
+                <div id="eq-status" style="font-size:12px; color:var(--text-sub); margin-bottom:4px;">${connected ? '接続中。地震情報の受信を待機しています…' : '未接続です。「P2P受信を開始」を押してください。'}</div>
+                <div style="font-size:11px; color:#666; margin-bottom:8px;">最終受信: ${p2pLastMessageAt ? new Date(p2pLastMessageAt).toLocaleString('ja-JP') : 'まだありません'}${connected ? '（P2P地震情報はテキストフレーム以外に定期的な生存確認は行いません。地震が発生しない限りメッセージは届きません）' : ''}</div>
 
                 <div id="eq-log" style="margin-bottom:10px;"></div>
 
@@ -1925,8 +1926,27 @@
             }).join('');
     }
 
+    let p2pReconnectTimer = null;
+    let p2pLastMessageAt = null;
+    let p2pManualDisconnect = false;
+
     window.startP2pQuakeWebSocket = () => {
-        if (p2pSocket) return;
+        console.log("[P2P] startP2pQuakeWebSocket() が呼び出されました。現在のp2pSocket:", p2pSocket, "readyState:", p2pSocket ? p2pSocket.readyState : "(なし)");
+
+        // 変数上は残っているが実際にはCLOSED/CLOSING状態になっているだけの
+        // "見せかけの接続中" を新規接続としてやり直せるようにする
+        if (p2pSocket) {
+            if (p2pSocket.readyState === WebSocket.OPEN || p2pSocket.readyState === WebSocket.CONNECTING) {
+                console.log("[P2P] 既に接続中/接続試行中のため何もしません。");
+                return;
+            } else {
+                console.warn("[P2P] p2pSocketが残っていましたが切断済みの状態でした。リセットして再接続します。");
+                p2pSocket = null;
+            }
+        }
+
+        if (p2pReconnectTimer) { clearTimeout(p2pReconnectTimer); p2pReconnectTimer = null; }
+        p2pManualDisconnect = false;
         const statusEl = document.getElementById('eq-status');
         if (statusEl) statusEl.textContent = "接続中...";
         try {
@@ -1934,21 +1954,41 @@
             p2pSocket = ws;
 
             ws.addEventListener('open', () => {
+                console.log("[P2P] WebSocket接続成功");
                 renderEarthquakePanel(document.getElementById('rss-news-list'));
             });
 
             ws.addEventListener('close', (ev) => {
+                // ev.code の代表例: 1000=正常終了, 1006=異常切断（サーバ側で拒否された場合など詳細不明なことが多い）
                 console.log("[P2P] WebSocket closed:", ev.code, ev.reason);
                 p2pSocket = null;
                 const container = document.getElementById('rss-news-list');
-                if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
+                if (container && currentRssCategory === 'earthquake') {
+                    renderEarthquakePanel(container);
+                    const statusEl2 = document.getElementById('eq-status');
+                    if (statusEl2 && !p2pManualDisconnect) {
+                        statusEl2.textContent = `接続が切断されました（code:${ev.code}${ev.reason ? ' / ' + ev.reason : ''}）。5秒後に自動で再接続します…`;
+                    }
+                }
+                // 手動切断でなければ、5秒後に自動再接続を試みる
+                // （P2P地震情報のWebSocket APIは同一IPからの同時接続数を2つまでに制限しているため、
+                //   即座に再接続を連発すると逆に接続できなくなる可能性がある点に注意）
+                if (!p2pManualDisconnect) {
+                    p2pReconnectTimer = setTimeout(() => {
+                        p2pReconnectTimer = null;
+                        startP2pQuakeWebSocket();
+                    }, 5000);
+                }
             });
 
             ws.addEventListener('error', (ev) => {
                 console.error("[P2P] WebSocket error:", ev);
+                const statusEl3 = document.getElementById('eq-status');
+                if (statusEl3) statusEl3.textContent = "接続エラーが発生しました（詳細はブラウザのコンソールをご確認ください）。まもなく自動で再接続を試みます…";
             });
 
             ws.addEventListener('message', (ev) => {
+                p2pLastMessageAt = Date.now();
                 let msg;
                 try { msg = JSON.parse(ev.data); } catch (e) { return; }
                 handleP2pMessage(msg);
@@ -1961,6 +2001,8 @@
     };
 
     window.stopP2pQuakeWebSocket = () => {
+        p2pManualDisconnect = true;
+        if (p2pReconnectTimer) { clearTimeout(p2pReconnectTimer); p2pReconnectTimer = null; }
         if (p2pSocket) {
             p2pSocket.close(1000, "manual close");
             p2pSocket = null;
@@ -1968,6 +2010,14 @@
         const container = document.getElementById('rss-news-list');
         if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
     };
+
+    // ページを閉じる/再読み込みする際は明示的に切断しておく
+    // （同一IPからの同時接続数が2つまでに制限されているため、接続を張りっぱなしにしないようにする）
+    window.addEventListener('beforeunload', () => {
+        if (p2pSocket) {
+            try { p2pSocket.close(1000, "page unload"); } catch (e) {}
+        }
+    });
 
     function handleP2pMessage(json) {
         // code: 551=地震情報, 552=津波予報, 554/556=緊急地震速報, 555=ピア数, 561/9611=地震感知情報
