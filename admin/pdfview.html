@@ -1,391 +1,444 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EQLive PDF Viewer</title>
-    <!-- PDF.js CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    </script>
-    <!-- PeerJS CDN -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            font-family: sans-serif;
-            background-color: #111;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-        }
-        header {
-            background-color: #222;
-            padding: 10px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #333;
-            flex-wrap: wrap;
-            gap: 10px;
-            z-index: 10;
-        }
-        .controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        button, input[type="file"], input[type="text"] {
-            padding: 6px 12px;
-            background-color: #444;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        button:hover {
-            background-color: #555;
-        }
-        input[type="text"] {
-            background-color: #222;
-            border: 1px solid #555;
-            cursor: text;
-        }
-        #viewer-container {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #000;
-            position: relative;
-            overflow: hidden;
-        }
-        .canvas-wrapper {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        canvas {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-            aspect-ratio: 16 / 9;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-        }
-        .status-badge {
-            font-size: 12px;
-            padding: 4px 8px;
-            border-radius: 3px;
-            background-color: #333;
-        }
-        .status-admin { background-color: #d9534f; }
-        .status-viewer { background-color: #5cb85c; }
-        #drop-zone {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: rgba(0,0,0,0.85);
-            z-index: 5;
-            flex-direction: column;
-            gap: 15px;
-            transition: opacity 0.3s;
-        }
-        #drop-zone.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-        .drop-box {
-            border: 2px dashed #666;
-            padding: 40px 60px;
-            border-radius: 8px;
-            text-align: center;
-            color: #aaa;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SyncScreen — PDF同期ビューア</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0c0e;
+    --panel:#15171b;
+    --panel-2:#1c1f24;
+    --line:#2a2d33;
+    --text:#e7e5e0;
+    --muted:#8b8d93;
+    --accent:#e8a33d;
+    --accent-dim:#8a611f;
+    --live:#4cae7d;
+    --danger:#c85c5c;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:radial-gradient(ellipse at 50% -10%, #1a1c20 0%, #0b0c0e 55%);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+  }
+  .mono{font-family:'JetBrains Mono',monospace;}
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 22px;border-bottom:1px solid var(--line);
+    background:rgba(21,23,27,.7);backdrop-filter:blur(6px);
+    position:sticky;top:0;z-index:20;
+  }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .mark{width:10px;height:10px;border-radius:2px;background:var(--accent);transform:rotate(45deg);}
+  .brand span{font-family:'Sora',sans-serif;font-weight:700;letter-spacing:.04em;font-size:15px;}
+  .status{display:flex;align-items:center;gap:18px;font-size:13px;color:var(--muted);}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--danger);display:inline-block;margin-right:6px;}
+  .dot.on{background:var(--live);box-shadow:0 0 8px var(--live);}
+  .role-tag{
+    font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;
+    padding:3px 8px;border:1px solid var(--line);border-radius:4px;color:var(--muted);
+  }
+  .role-tag.admin{color:var(--accent);border-color:var(--accent-dim);}
+
+  /* Setup screen */
+  #setup{
+    flex:1;display:flex;align-items:center;justify-content:center;padding:30px;
+  }
+  .card{
+    width:100%;max-width:520px;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:32px;
+  }
+  .card h1{font-family:'Sora',sans-serif;font-size:20px;margin:0 0 6px;}
+  .card p.sub{color:var(--muted);font-size:13px;margin:0 0 26px;line-height:1.6;}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;letter-spacing:.02em;}
+  .field input, .field select, .field textarea{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    padding:10px 12px;border-radius:6px;font-size:14px;font-family:inherit;
+  }
+  .field textarea{font-family:'JetBrains Mono',monospace;font-size:12px;min-height:90px;resize:vertical;}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent-dim);}
+  .row2{display:flex;gap:10px;}
+  .row2 .field{flex:1;}
+  .tabs{display:flex;gap:8px;margin-bottom:22px;}
+  .tab{
+    flex:1;text-align:center;padding:9px 0;border-radius:6px;border:1px solid var(--line);
+    color:var(--muted);font-size:13px;cursor:pointer;user-select:none;
+  }
+  .tab.active{border-color:var(--accent-dim);color:var(--accent);background:rgba(232,163,61,.06);}
+  .btn{
+    background:var(--accent);color:#1a1305;border:none;padding:11px 18px;border-radius:6px;
+    font-weight:600;font-size:14px;cursor:pointer;width:100%;
+  }
+  .btn:hover{filter:brightness(1.08);}
+  .btn.secondary{
+    background:transparent;border:1px solid var(--line);color:var(--text);
+  }
+  .hint{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.5;}
+  .adv{margin-top:18px;}
+  .adv summary{cursor:pointer;color:var(--muted);font-size:12.5px;}
+
+  /* Stage */
+  #stage-wrap{
+    flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;
+    padding:20px;gap:16px;position:relative;
+  }
+  #screen{
+    position:relative;width:100%;max-width:1200px;aspect-ratio:16/9;
+    background:#000;border-radius:6px;overflow:hidden;
+    box-shadow:0 0 0 1px var(--line), 0 30px 80px -20px rgba(0,0,0,.7), 0 0 120px -40px var(--accent-dim);
+  }
+  #screen canvas{width:100%;height:100%;object-fit:contain;display:block;}
+  .nav-zone{
+    position:absolute;top:0;bottom:0;width:20%;cursor:pointer;
+    display:flex;align-items:center;opacity:0;transition:opacity .15s;
+    background:linear-gradient(90deg, rgba(0,0,0,.35), transparent);
+  }
+  .nav-zone.right{right:0;justify-content:flex-end;background:linear-gradient(270deg, rgba(0,0,0,.35), transparent);}
+  .nav-zone:hover{opacity:1;}
+  .nav-zone svg{width:34px;height:34px;margin:0 14px;fill:var(--text);}
+  .empty-msg{color:var(--muted);font-size:14px;text-align:center;padding:0 20px;}
+
+  .controls{
+    display:flex;align-items:center;gap:14px;background:var(--panel);
+    border:1px solid var(--line);border-radius:30px;padding:8px 10px 8px 18px;
+  }
+  .icon-btn{
+    width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--panel-2);
+    color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .icon-btn:hover{border-color:var(--accent-dim);}
+  .icon-btn svg{width:16px;height:16px;fill:currentColor;}
+  .page-count{font-family:'JetBrains Mono',monospace;font-size:13px;min-width:74px;text-align:center;letter-spacing:.02em;}
+  .page-count b{color:var(--accent);}
+  .divider{width:1px;height:20px;background:var(--line);}
+
+  #topbar-links{display:flex;gap:8px;}
+  .link-btn{
+    font-size:12px;color:var(--muted);border:1px solid var(--line);background:var(--panel-2);
+    padding:6px 10px;border-radius:6px;cursor:pointer;
+  }
+  .link-btn:hover{color:var(--text);border-color:var(--accent-dim);}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--panel-2);border:1px solid var(--accent-dim);color:var(--text);
+    padding:9px 16px;border-radius:6px;font-size:13px;opacity:0;pointer-events:none;
+    transition:opacity .25s, transform .25s;z-index:50;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+</style>
 </head>
 <body>
 
-    <header>
-        <div class="controls" id="admin-controls" style="display: none;">
-            <input type="file" id="pdf-file-input" accept="application/pdf">
-            <button id="prev-btn">前のページ</button>
-            <span id="page-info">1 / 1</span>
-            <button id="next-btn">次のページ</button>
-            <span class="status-badge status-admin">管理者モード</span>
-        </div>
-        <div class="controls" id="viewer-controls" style="display: none;">
-            <span id="viewer-page-info">待機中...</span>
-            <span class="status-badge status-viewer">視聴者モード</span>
-        </div>
-        <div class="controls">
-            <span>接続ID: <input type="text" id="room-id-input" readonly style="width: 140px;"></span>
-            <button id="copy-url-btn">共有リンクコピー</button>
-            <button id="switch-mode-btn">モード切替</button>
-        </div>
-    </header>
+<header>
+  <div class="brand"><span class="mark"></span><span>SYNCSCREEN</span></div>
+  <div class="status">
+    <span id="roleTag" class="role-tag">未接続</span>
+    <span id="connStatus"><i class="dot" id="connDot"></i><span id="connText">未接続</span></span>
+    <div id="topbar-links" style="display:none;">
+      <button class="link-btn" id="copyViewerLink">視聴者用リンクをコピー</button>
+    </div>
+  </div>
+</header>
 
-    <div id="viewer-container">
-        <div id="drop-zone">
-            <div class="drop-box">
-                <h2>PDFファイルをここにドロップ</h2>
-                <p>または上のファイル選択から読み込んでください</p>
-            </div>
-        </div>
-        <div class="canvas-wrapper">
-            <canvas id="pdf-canvas"></canvas>
-        </div>
+<div id="setup">
+  <div class="card">
+    <h1>PDF同期ビューアを開始</h1>
+    <p class="sub">発表者(管理者)がページをめくると、同じリンクを開いた全員の画面が自動で追従します。PDFは16:9スライド向けです。</p>
+
+    <div class="tabs">
+      <div class="tab active" data-role="admin">発表者として開始</div>
+      <div class="tab" data-role="viewer">視聴者として参加</div>
     </div>
 
-    <script>
-        let pdfDoc = null;
-        let pageNum = 1;
-        let pageRendering = false;
-        let pageNumPending = null;
-        let scale = 2.0;
-        
-        let isAdmin = true;
-        let peer = null;
-        let connections = [];
-        let viewerConnection = null;
+    <div class="field">
+      <label>ルームコード(共有する合言葉)</label>
+      <input id="roomInput" placeholder="例: sales-kickoff-2026" class="mono">
+      <div class="hint">同じルームコードを使う人同士だけがページ移動を共有します。初めての場合は自由に決めてください。</div>
+    </div>
 
-        const canvas = document.getElementById('pdf-canvas');
-        const ctx = canvas.getContext('2d');
-        const dropZone = document.getElementById('drop-zone');
+    <div class="field" id="pdfUrlField">
+      <label>PDFのURL(このリポジトリに置いたファイルなど・全員に共通で読み込まれます)</label>
+      <input id="pdfUrlInput" placeholder="例: ./slides.pdf または https://example.com/slides.pdf" class="mono">
+      <div class="hint">全員が同じPDFを見られるようにするため、GitHub Pages上に置いたPDFのURLを指定するのがおすすめです。</div>
+    </div>
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomIdParam = urlParams.get('room');
+    <div class="field" id="pdfFileField" style="display:none;">
+      <label>PDFファイルを選択(自分の画面だけに表示・視聴者には配布されません)</label>
+      <input type="file" id="pdfFileInput" accept="application/pdf">
+    </div>
 
-        if (roomIdParam) {
-            isAdmin = false;
-        }
+    <details class="adv">
+      <summary>同期の接続設定(初回のみ・Firebase設定)</summary>
+      <div class="field" style="margin-top:12px;">
+        <label>Firebase Realtime Database 設定(JSON)</label>
+        <textarea id="fbConfig" placeholder='{"apiKey":"...","databaseURL":"https://xxxx.firebaseio.com","projectId":"..."}'></textarea>
+        <div class="hint">
+          無料のFirebaseプロジェクトを1つ作成し、Realtime Databaseを有効化して、その設定JSONをここに貼り付けてください(初回のみ)。設定は共有リンクに埋め込まれるので、次回以降・他の人はリンクを開くだけで自動設定されます。<br>
+          未設定の場合はこの端末だけで動作するローカルモードになります(他の人とは同期しません)。
+        </div>
+      </div>
+    </details>
 
-        updateModeUI();
+    <div style="margin-top:22px;">
+      <button class="btn" id="startBtn">開始する</button>
+    </div>
+    <div class="hint" id="setupError" style="color:var(--danger);margin-top:10px;"></div>
+  </div>
+</div>
 
-        function initPeer() {
-            const customId = isAdmin ? 'eqlive-pdf-' + Math.random().toString(36).substring(2, 9) : null;
-            peer = new Peer(customId);
+<div id="stage-wrap">
+  <div id="screen">
+    <div class="empty-msg" id="emptyMsg">PDFを読み込み中です…</div>
+    <div class="nav-zone left" id="navLeft"><svg viewBox="0 0 24 24"><path d="M15 4l-8 8 8 8"/></svg></div>
+    <div class="nav-zone right" id="navRight"><svg viewBox="0 0 24 24"><path d="M9 4l8 8-8 8"/></svg></div>
+  </div>
+  <div class="controls">
+    <div class="icon-btn" id="prevBtn" title="前のページ">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6v12z"/></svg>
+    </div>
+    <div class="page-count mono"><b id="curPage">0</b> / <span id="totalPage">0</span></div>
+    <div class="icon-btn" id="nextBtn" title="次のページ">
+      <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6V6z"/></svg>
+    </div>
+    <div class="divider"></div>
+    <div class="icon-btn" id="fsBtn" title="全画面表示">
+      <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+    </div>
+  </div>
+</div>
 
-            peer.on('open', (id) => {
-                const activeId = isAdmin ? id : roomIdParam;
-                document.getElementById('room-id-input').value = isAdmin ? id : roomIdParam;
+<div class="toast" id="toast"></div>
 
-                if (!isAdmin && roomIdParam) {
-                    connectToAdmin(roomIdParam);
-                }
-            });
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
 
-            if (isAdmin) {
-                peer.on('connection', (conn) => {
-                    connections.push(conn);
-                    conn.on('open', () => {
-                        if (pdfDoc && pdfDataArray) {
-                            conn.send({ type: 'init-pdf', data: pdfDataArray, page: pageNum });
-                        } else if (pdfDoc) {
-                            conn.send({ type: 'page', page: pageNum });
-                        }
-                    });
-                    conn.on('close', () => {
-                        connections = connections.filter(c => c !== conn);
-                    });
-                });
-            }
-        }
+  // ---------- Tabs (role selection on setup screen) ----------
+  let selectedRole = params.get('admin') === '1' ? 'admin' : 'viewer';
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      selectedRole = t.dataset.role;
+      $('pdfUrlField').style.display = 'block';
+      $('pdfFileField').style.display = selectedRole==='admin' ? 'block' : 'none';
+    });
+  });
+  document.querySelector(`.tab[data-role="${selectedRole}"]`).click();
 
-        function connectToAdmin(adminId) {
-            const conn = peer.connect(adminId);
-            viewerConnection = conn;
-            conn.on('open', () => {
-                document.getElementById('viewer-page-info').textContent = '管理者に接続しました。データ受信待ち...';
-            });
-            conn.on('data', (data) => {
-                if (data.type === 'init-pdf') {
-                    loadPdfFromArrayBuffer(data.data, () => {
-                        pageNum = data.page;
-                        renderPage(pageNum);
-                        document.getElementById('viewer-page-info').textContent = `ページ: ${pageNum} / ${pdfDoc.numPages}`;
-                    });
-                } else if (data.type === 'page') {
-                    if (pdfDoc) {
-                        pageNum = data.page;
-                        renderPage(pageNum);
-                        document.getElementById('viewer-page-info').textContent = `ページ: ${pageNum} / ${pdfDoc.numPages}`;
-                    }
-                }
-            });
-            conn.on('close', () => {
-                document.getElementById('viewer-page-info').textContent = '管理者との接続が切れました';
-            });
-        }
+  // ---------- Prefill from URL ----------
+  if (params.get('room')) $('roomInput').value = params.get('room');
+  if (params.get('pdf')) $('pdfUrlInput').value = params.get('pdf');
+  if (params.get('cfg')) {
+    try { $('fbConfig').value = JSON.stringify(JSON.parse(atob(params.get('cfg'))), null, 2); } catch(e){}
+  }
 
-        function updateModeUI() {
-            document.getElementById('admin-controls').style.display = isAdmin ? 'flex' : 'none';
-            document.getElementById('viewer-controls').style.display = isAdmin ? 'none' : 'flex';
-            if (!isAdmin) {
-                dropZone.style.display = 'none';
-            } else {
-                dropZone.style.display = 'flex';
-            }
-            if (peer) {
-                peer.destroy();
-            }
-            initPeer();
-        }
+  let pdfDoc = null, curPage = 1, totalPage = 0, rendering = false, pendingPage = null;
+  let role = 'viewer', roomCode = '', dbRef = null, isLocalOnly = true;
+  let localFileObjectUrl = null;
 
-        document.getElementById('switch-mode-btn').addEventListener('click', () => {
-            isAdmin = !isAdmin;
-            window.history.replaceState({}, document.title, window.location.pathname);
-            updateModeUI();
-        });
+  function toast(msg){
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 2200);
+  }
 
-        document.getElementById('copy-url-btn').addEventListener('click', () => {
-            const currentId = document.getElementById('room-id-input').value;
-            if (!currentId) {
-                alert('接続IDがまだ生成されていません。');
-                return;
-            }
-            const shareUrl = `${window.location.origin}${window.location.pathname}?room=${currentId}`;
-            navigator.clipboard.writeText(shareUrl).then(() => {
-                alert('視聴者用の共有リンクをコピーしました！');
-            });
-        });
+  // ---------- PDF.js render ----------
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        let pdfDataArray = null;
+  async function loadPdf(source){
+    $('emptyMsg').style.display = 'block';
+    $('emptyMsg').textContent = 'PDFを読み込み中です…';
+    try{
+      const task = typeof source === 'string' ? pdfjsLib.getDocument(source) : pdfjsLib.getDocument({data: source});
+      pdfDoc = await task.promise;
+      totalPage = pdfDoc.numPages;
+      $('totalPage').textContent = totalPage;
+      $('emptyMsg').style.display = 'none';
+      await renderPage(curPage);
+    }catch(e){
+      $('emptyMsg').textContent = 'PDFの読み込みに失敗しました。URLやファイルを確認してください。';
+      console.error(e);
+    }
+  }
 
-        function loadPdfFromArrayBuffer(arrayBuffer, callback) {
-            pdfDataArray = arrayBuffer;
-            const typedarray = new Uint8Array(arrayBuffer);
-            pdfjsLib.getDocument(typedarray).promise.then(function(pdfDoc_) {
-                pdfDoc = pdfDoc_;
-                if (callback) callback();
-            });
-        }
+  async function renderPage(num){
+    if (!pdfDoc) return;
+    num = Math.min(Math.max(1, num), totalPage);
+    if (rendering) { pendingPage = num; return; }
+    rendering = true;
+    curPage = num;
+    $('curPage').textContent = curPage;
 
-        function handleFile(file) {
-            if (file && file.type === 'application/pdf') {
-                const fileReader = new FileReader();
-                fileReader.onload = function() {
-                    loadPdfFromArrayBuffer(this.result, () => {
-                        pageNum = 1;
-                        document.getElementById('page-info').textContent = `${pageNum} / ${pdfDoc.numPages}`;
-                        renderPage(pageNum);
-                        dropZone.classList.add('hidden');
-                        broadcastInit();
-                    });
-                };
-                fileReader.readAsArrayBuffer(file);
-            }
-        }
+    const page = await pdfDoc.getPage(num);
+    const screenEl = $('screen');
+    const targetW = screenEl.clientWidth, targetH = screenEl.clientHeight;
+    const viewport0 = page.getViewport({scale:1});
+    const scale = Math.min(targetW/viewport0.width, targetH/viewport0.height) * (window.devicePixelRatio||1);
+    const viewport = page.getViewport({scale});
 
-        document.getElementById('pdf-file-input').addEventListener('change', function(e) {
-            handleFile(e.target.files[0]);
-        });
+    let canvas = screenEl.querySelector('canvas');
+    if (!canvas){ canvas = document.createElement('canvas'); screenEl.appendChild(canvas); }
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+    await page.render({canvasContext: ctx, viewport}).promise;
 
-        window.addEventListener('dragover', (e) => e.preventDefault());
-        window.addEventListener('drop', (e) => e.preventDefault());
+    rendering = false;
+    if (pendingPage !== null){ const p = pendingPage; pendingPage = null; renderPage(p); }
+  }
 
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-        });
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                handleFile(e.dataTransfer.files[0]);
-            }
-        });
+  function goTo(num, broadcast){
+    if (!pdfDoc) return;
+    num = Math.min(Math.max(1, num), totalPage);
+    renderPage(num);
+    if (broadcast && role === 'admin' && dbRef){
+      dbRef.set({page: num, ts: Date.now()});
+    }
+  }
 
-        function renderPage(num) {
-            pageRendering = true;
-            pdfDoc.getPage(num).then(function(page) {
-                const viewport = page.getViewport({ scale: scale });
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
+  // ---------- Firebase sync ----------
+  function initFirebase(cfg, room){
+    return new Promise((resolve, reject)=>{
+      const s1 = document.createElement('script');
+      s1.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
+      s1.onload = ()=>{
+        const s2 = document.createElement('script');
+        s2.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js';
+        s2.onload = ()=>{
+          try{
+            firebase.initializeApp(cfg);
+            const db = firebase.database();
+            dbRef = db.ref('syncscreen_rooms/' + encodeURIComponent(room));
+            resolve();
+          }catch(e){ reject(e); }
+        };
+        s2.onerror = reject;
+        document.head.appendChild(s2);
+      };
+      s1.onerror = reject;
+      document.head.appendChild(s1);
+    });
+  }
 
-                const renderContext = {
-                    canvasContext: ctx,
-                    viewport: viewport
-                };
-                const renderTask = page.render(renderContext);
+  function attachViewerListener(){
+    if (!dbRef) return;
+    setConn(true);
+    dbRef.on('value', snap=>{
+      const v = snap.val();
+      if (v && typeof v.page === 'number') goTo(v.page, false);
+    }, err=>{ setConn(false); console.error(err); });
+    dbRef.child('page').once('value')._x; // noop safety
+  }
 
-                renderTask.promise.then(function() {
-                    pageRendering = false;
-                    if (pageNumPending !== null) {
-                        renderPage(pageNumPending);
-                        pageNumPending = null;
-                    }
-                });
-            });
+  function setConn(on){
+    $('connDot').classList.toggle('on', on);
+    $('connText').textContent = on ? (role==='admin' ? '配信中' : '同期中') : (isLocalOnly ? 'ローカルのみ' : '未接続');
+  }
 
-            if (isAdmin && pdfDoc) {
-                document.getElementById('page-info').textContent = `${num} / ${pdfDoc.numPages}`;
-            }
-        }
+  // ---------- Start flow ----------
+  $('startBtn').addEventListener('click', async ()=>{
+    $('setupError').textContent = '';
+    roomCode = $('roomInput').value.trim();
+    role = selectedRole;
+    if (!roomCode){ $('setupError').textContent = 'ルームコードを入力してください。'; return; }
 
-        function queueRenderPage(num) {
-            if (pageRendering) {
-                pageNumPending = num;
-            } else {
-                renderPage(num);
-            }
-        }
+    let cfgObj = null;
+    const cfgRaw = $('fbConfig').value.trim();
+    if (cfgRaw){
+      try{ cfgObj = JSON.parse(cfgRaw); }
+      catch(e){ $('setupError').textContent = 'Firebase設定のJSONが正しくありません。'; return; }
+    }
 
-        function onPrevPage() {
-            if (pageNum <= 1) return;
-            pageNum--;
-            queueRenderPage(pageNum);
-            broadcastPage();
-        }
+    $('setup').style.display = 'none';
+    $('stage-wrap').style.display = 'flex';
+    $('roleTag').textContent = role === 'admin' ? '発表者' : '視聴者';
+    $('roleTag').classList.toggle('admin', role==='admin');
 
-        function onNextPage() {
-            if (!pdfDoc || pageNum >= pdfDoc.numPages) return;
-            pageNum++;
-            queueRenderPage(pageNum);
-            broadcastPage();
-        }
+    if (cfgObj){
+      isLocalOnly = false;
+      try{
+        await initFirebase(cfgObj, roomCode);
+        if (role === 'viewer') attachViewerListener();
+        else setConn(true);
+      }catch(e){
+        console.error(e);
+        toast('Firebaseへの接続に失敗しました。ローカルモードで続行します。');
+        isLocalOnly = true; setConn(false);
+      }
+    } else {
+      setConn(false);
+    }
 
-        function broadcastPage() {
-            if (isAdmin && connections.length > 0) {
-                connections.forEach(conn => {
-                    conn.send({ type: 'page', page: pageNum });
-                });
-            }
-        }
+    // Build shareable links now that we know the setup
+    const cfgB64 = cfgObj ? btoa(JSON.stringify(cfgObj)) : '';
+    const pdfUrlVal = $('pdfUrlInput').value.trim();
+    const baseUrl = location.origin + location.pathname;
+    function buildLink(asAdmin){
+      const p = new URLSearchParams();
+      p.set('room', roomCode);
+      if (pdfUrlVal) p.set('pdf', pdfUrlVal);
+      if (cfgB64) p.set('cfg', cfgB64);
+      if (asAdmin) p.set('admin','1');
+      return baseUrl + '?' + p.toString();
+    }
+    if (role === 'admin'){
+      $('topbar-links').style.display = 'flex';
+      $('copyViewerLink').addEventListener('click', ()=>{
+        navigator.clipboard.writeText(buildLink(false)).then(()=>toast('視聴者用リンクをコピーしました'));
+      });
+    }
 
-        function broadcastInit() {
-            if (isAdmin && connections.length > 0) {
-                connections.forEach(conn => {
-                    conn.send({ type: 'init-pdf', data: pdfDataArray, page: pageNum });
-                });
-            }
-        }
+    // Load the PDF
+    if (role === 'admin' && $('pdfFileInput').files[0] && !pdfUrlVal){
+      const file = $('pdfFileInput').files[0];
+      const buf = await file.arrayBuffer();
+      await loadPdf(new Uint8Array(buf));
+      toast('注意: ローカルファイルは自分の画面にのみ表示され、視聴者には配布されません。全員に見せるにはPDFのURLを指定してください。');
+    } else if (pdfUrlVal){
+      await loadPdf(pdfUrlVal);
+    } else {
+      $('emptyMsg').textContent = 'PDFが指定されていません。';
+    }
 
-        document.getElementById('prev-btn').addEventListener('click', onPrevPage);
-        document.getElementById('next-btn').addEventListener('click', onNextPage);
+    // If admin and firebase connected, push initial page state
+    if (role === 'admin' && dbRef){ dbRef.set({page: curPage, ts: Date.now()}); }
+  });
 
-        window.addEventListener('keydown', (e) => {
-            if (!isAdmin) return;
-            if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
-                e.preventDefault();
-                onNextPage();
-            } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
-                e.preventDefault();
-                onPrevPage();
-            }
-        });
-    </script>
+  // ---------- Nav controls ----------
+  function next(){ goTo(curPage+1, true); }
+  function prev(){ goTo(curPage-1, true); }
+  $('nextBtn').addEventListener('click', next);
+  $('prevBtn').addEventListener('click', prev);
+  $('navLeft').addEventListener('click', prev);
+  $('navRight').addEventListener('click', next);
+  document.addEventListener('keydown', e=>{
+    if ($('stage-wrap').style.display !== 'flex') return;
+    if (role !== 'admin') return; // viewers can't navigate, they follow
+    if (['ArrowRight','ArrowDown',' ','PageDown'].includes(e.key)) next();
+    if (['ArrowLeft','ArrowUp','PageUp'].includes(e.key)) prev();
+  });
+  $('fsBtn').addEventListener('click', ()=>{
+    const el = $('screen');
+    if (!document.fullscreenElement) el.requestFullscreen?.();
+    else document.exitFullscreen?.();
+  });
+  window.addEventListener('resize', ()=>{ if (pdfDoc) renderPage(curPage); });
+})();
+</script>
 </body>
 </html>
