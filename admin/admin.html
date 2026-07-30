@@ -582,6 +582,7 @@
 </div>
 
 <script src="https://www.youtube.com/iframe_api"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -795,6 +796,18 @@
     };
 
     // --- 自由配置メディア管理ロジック ---
+    window.selectFreeImageCamera = (id, camId) => {
+        if (!camId) return;
+        const cam = allCameras.find(c => c.id === camId);
+        if (!cam) return;
+        secureUpdate(ref(db, `broadcast/free_images/${id}`), {
+            cameraId: cam.id,
+            cameraName: cam.name,
+            cameraType: cam.type || 'hls',
+            url: cam.url
+        });
+    };
+
     window.addNewFreeImage = () => {
         const newId = "img_" + Date.now(); 
         const initialConfig = {
@@ -838,17 +851,47 @@
         reader.readAsDataURL(file);
     };
 
-    window.openImagePreviewModal = (title, url, mediaType) => {
+    let previewHlsInstance = null; // プレビュー内で使うhls.jsインスタンス（切り替え時に破棄するため保持）
+
+    window.openImagePreviewModal = (title, url, mediaType, cameraType) => {
         const modal = document.getElementById('image-preview-modal');
         const modalTitle = document.getElementById('preview-modal-title');
         const mediaContainer = document.getElementById('preview-modal-media-container');
         
         if (!modal || !mediaContainer) return;
+
+        if (previewHlsInstance) { previewHlsInstance.destroy(); previewHlsInstance = null; }
         
         modalTitle.innerText = `プレビュー : ${title || '名称未設定'}`;
         mediaContainer.innerHTML = '';
         
-        if (mediaType === 'video') {
+        if (mediaType === 'camera') {
+            if (cameraType === 'youtube') {
+                let vidId = "";
+                if (url.includes('watch?v=')) vidId = url.split('watch?v=')[1].split('&')[0];
+                else if (url.includes('youtu.be/')) vidId = url.split('youtu.be/')[1].split('?')[0];
+                else if (url.includes('embed/')) vidId = url.split('embed/')[1].split('?')[0];
+                else vidId = url;
+                const iframe = document.createElement('iframe');
+                iframe.src = `https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&controls=1&rel=0`;
+                iframe.className = 'preview-modal-img';
+                iframe.style.border = 'none';
+                iframe.allow = 'autoplay; encrypted-media';
+                mediaContainer.appendChild(iframe);
+            } else {
+                // hls（またはtype不明）はvideo + hls.jsで再生
+                const vid = document.createElement('video');
+                vid.className = 'preview-modal-img'; vid.controls = true; vid.autoplay = true; vid.muted = true;
+                mediaContainer.appendChild(vid);
+                if (Hls.isSupported()) {
+                    previewHlsInstance = new Hls();
+                    previewHlsInstance.loadSource(url);
+                    previewHlsInstance.attachMedia(vid);
+                } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+                    vid.src = url;
+                }
+            }
+        } else if (mediaType === 'video') {
             const vid = document.createElement('video');
             vid.src = url; vid.className = 'preview-modal-img'; vid.controls = true; vid.autoplay = true; vid.loop = true;
             mediaContainer.appendChild(vid);
@@ -866,6 +909,7 @@
         const modal = document.getElementById('image-preview-modal');
         if (modal) {
             modal.classList.remove('open');
+            if (previewHlsInstance) { previewHlsInstance.destroy(); previewHlsInstance = null; }
             const mediaContainer = document.getElementById('preview-modal-media-container');
             if(mediaContainer) mediaContainer.innerHTML = ''; 
         }
@@ -874,6 +918,7 @@
     function renderFreeImagesControls(imagesData) {
         const container = document.getElementById('free-images-control-container');
         if (!container) return;
+        try { container.dataset.lastData = JSON.stringify(imagesData || {}); } catch (e) {}
         container.innerHTML = "";
 
         if (!imagesData || Object.keys(imagesData).length === 0) {
@@ -899,7 +944,7 @@
             const escapedUrl = hasUrl ? conf.url.replace(/'/g, "\\'") : '';
             
             const previewBtnHtml = hasUrl 
-                ? `<button class="secondary" style="width:100%; margin-bottom:15px; background:#333; display:flex; align-items:center; justify-content:center; gap:8px;" onclick="openImagePreviewModal('${escapedName}', '${escapedUrl}', '${currentMediaType}')"><i class="material-icons" style="font-size:18px;">visibility</i>プレビュー</button>`
+                ? `<button class="secondary" style="width:100%; margin-bottom:15px; background:#333; display:flex; align-items:center; justify-content:center; gap:8px;" onclick="openImagePreviewModal('${escapedName}', '${escapedUrl}', '${currentMediaType}', '${conf.cameraType || ''}')"><i class="material-icons" style="font-size:18px;">visibility</i>プレビュー</button>`
                 : `<button class="secondary" style="width:100%; margin-bottom:15px; opacity:0.3; cursor:not-allowed; display:flex; align-items:center; justify-content:center; gap:8px;" disabled><i class="material-icons" style="font-size:18px;">visibility_off</i>プレビュー用メディアがありません</button>`;
 
             card.innerHTML = `
@@ -924,6 +969,7 @@
                 <select style="margin-bottom: 10px; padding: 10px; background: #000; color: #fff; border: 1px solid #444; border-radius: 6px; width: 100%; font-size: 14px; font-family: inherit;" onchange="updateImageProperty('${id}', 'mediaType', this.value)">
                     <option value="image" ${currentMediaType === 'image' ? 'selected' : ''}>画像 / GIF</option>
                     <option value="video" ${currentMediaType === 'video' ? 'selected' : ''}>動画 (MP4, WebM等)</option>
+                    <option value="camera" ${currentMediaType === 'camera' ? 'selected' : ''}>ライブカメラ</option>
                 </select>
 
                 <div style="display: ${currentMediaType === 'video' ? 'block' : 'none'}; margin-bottom: 10px;">
@@ -934,12 +980,25 @@
                     </select>
                 </div>
 
+                <div style="display: ${currentMediaType === 'camera' ? 'block' : 'none'}; margin-bottom: 10px;">
+                    <label>配置するライブカメラ</label>
+                    <select style="padding: 10px; background: #000; color: #fff; border: 1px solid #444; border-radius: 6px; width: 100%; font-size: 14px; font-family: inherit;" onchange="selectFreeImageCamera('${id}', this.value)">
+                        <option value="">-- カメラを選択 --</option>
+                        ${allCameras.map(cam => `<option value="${cam.id}" ${conf.cameraId === cam.id ? 'selected' : ''}>${cam.name}${cam.type === 'youtube' ? '（YouTube）' : '（HLS）'}</option>`).join('')}
+                    </select>
+                    <div style="font-size:11px; color:var(--text-sub); margin-top:6px;">
+                        「①ライブカメラ」タブの一覧（kh-livec.json + kactuifデータ）から選べます。選択すると自動的にURLと種別が設定されます。
+                    </div>
+                </div>
+
+                <div style="display: ${currentMediaType === 'camera' ? 'none' : 'block'};">
                 <label>メディア直リンクURL（画像/GIF/動画）</label>
                 <input type="text" id="url-${id}" value="${conf.url && !conf.url.startsWith('data:') ? conf.url : ''}" 
                        placeholder="https://..." onchange="updateImageProperty('${id}', 'url', this.value)">
                 
                 <label>ローカルファイルをアップロード (※ファイルサイズ注意)</label>
                 <input type="file" accept="image/*,video/*" style="padding:6px; font-size:12px;" onchange="handleImageFileSelect('${id}', event)">
+                </div>
 
                 <div style="margin-top:15px;">
                     <label>X座標 (px) <span style="float:right; color:var(--text-sub);" id="val-${id}-x">${conf.x || 0}px</span></label>
@@ -1390,6 +1449,12 @@
         applyCombinedFilter();
         buildTourCameraSelector();
         updatePreviewPlayer();
+
+        // カメラ一覧の読み込み完了後、自由配置タブの「配置するライブカメラ」選択肢にも反映する
+        const freeImagesContainer = document.getElementById('free-images-control-container');
+        if (freeImagesContainer && freeImagesContainer.dataset.lastData) {
+            try { renderFreeImagesControls(JSON.parse(freeImagesContainer.dataset.lastData)); } catch (e) {}
+        }
     }
 
     let isInitialLoad = true;
