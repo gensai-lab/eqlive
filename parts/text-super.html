@@ -121,6 +121,19 @@ body, html {
         console.error('[text-super] 効果音の読み込みに失敗しました:', audioEl.src);
     };
 
+    // 震度の強さ比較用（admin.html側と揃えたランク表）
+    const EQ_INT_ORDER = ["1", "2", "3", "4", "5-", "!5-", "5+", "6-", "6+", "7"];
+    function eqIntRank(v) {
+        return EQ_INT_ORDER.indexOf(v);
+    }
+
+    // 地震の速報音（震度3以上のみ）を鳴らすかどうかのON/OFF設定。admin画面と共有（既定はON）
+    let eqSoundEnabled = true;
+    onValue(ref(db, 'settings/eqSoundEnabled'), (snapshot) => {
+        const val = snapshot.val();
+        eqSoundEnabled = (val === null || val === undefined) ? true : !!val;
+    });
+
     // 画像の読み込み失敗を検知してコンソールに出す（動作確認用）
     imageEl.onerror = () => {
         console.error('[text-super] ジャンル画像の読み込みに失敗しました:', imageEl.src);
@@ -190,6 +203,7 @@ body, html {
 
         const cards = data.cards;
         const genre = data.genre;
+        const maxIntensity = data.maxIntensity;
 
         const validTexts = [];
         if (cards) {
@@ -216,9 +230,15 @@ body, html {
         const imgSrc = genreImageMap[genreKey];
         console.log('[text-super] 受信genre:', genre, '→ 判定キー:', genreKey, '→ 画像URL:', imgSrc || '(なし)');
 
-        // 送出時に、ジャンルに応じた効果音を1回再生する
+        // 送出時に、ジャンルに応じた効果音を1回再生する。
+        // ただし地震(quake)ジャンルは「震度3以上」かつ「速報音ON設定」の場合のみ鳴らす
         const sndSrc = genreAudioMap[genreKey];
-        if (sndSrc) {
+        let shouldPlaySound = !!sndSrc;
+        if (sndSrc && genreKey === 'quake') {
+            shouldPlaySound = eqSoundEnabled && eqIntRank(maxIntensity) >= eqIntRank('3');
+            console.log('[text-super] 地震速報音の判定: eqSoundEnabled=', eqSoundEnabled, ' maxIntensity=', maxIntensity, ' → 再生=', shouldPlaySound);
+        }
+        if (shouldPlaySound) {
             audioEl.src = sndSrc;
             audioEl.currentTime = 0;
             audioEl.play().catch(err => console.warn('[text-super] 効果音の再生に失敗しました（自動再生ブロックの可能性）:', err));
