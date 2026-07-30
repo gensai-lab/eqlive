@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>EQLive Sub-Switcher</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         body, html {
             margin: 0; padding: 0;
@@ -181,9 +182,23 @@
     });
 
     // --- 自由配置リストの同期反映 ---
+    let freeImageHlsInstances = {}; // id -> Hls インスタンス（切り替え時に破棄するため保持）
+
+    function extractYoutubeVideoId(url) {
+        if (url.includes('watch?v=')) return url.split('watch?v=')[1].split('&')[0];
+        if (url.includes('youtu.be/')) return url.split('youtu.be/')[1].split('?')[0];
+        if (url.includes('embed/')) return url.split('embed/')[1].split('?')[0];
+        return url;
+    }
+
     const freeImagesRef = ref(db, 'broadcast/free_images');
     onValue(freeImagesRef, (snapshot) => {
         const imagesData = snapshot.val();
+
+        // 前回分のhls.jsインスタンスを破棄してから作り直す
+        Object.values(freeImageHlsInstances).forEach(inst => { try { inst.destroy(); } catch (e) {} });
+        freeImageHlsInstances = {};
+
         imageLayer.innerHTML = ""; 
         if (imagesData) {
             Object.keys(imagesData).forEach(id => {
@@ -191,8 +206,34 @@
                 if (imgConf && imgConf.visible && imgConf.url) {
                     
                     let mediaEl;
-                    // mediaTypeがvideoなら自動再生・ミュートのvideoタグを生成、それ以外はimgタグを生成
-                    if (imgConf.mediaType === 'video') {
+                    if (imgConf.mediaType === 'camera') {
+                        if (imgConf.cameraType === 'youtube') {
+                            // YouTubeライブ配信はiframe埋め込みで再生（コントロール非表示）
+                            const vidId = extractYoutubeVideoId(imgConf.url);
+                            mediaEl = document.createElement('iframe');
+                            mediaEl.src = `https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&controls=0&rel=0&iv_load_policy=3&modestbranding=1`;
+                            mediaEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+                            mediaEl.style.border = 'none';
+                        } else {
+                            // HLS配信はvideo要素 + hls.jsで再生
+                            mediaEl = document.createElement('video');
+                            mediaEl.autoplay = true;
+                            mediaEl.muted = true;
+                            mediaEl.playsInline = true;
+                            if (Hls.isSupported()) {
+                                const hls = new Hls();
+                                hls.loadSource(imgConf.url);
+                                hls.attachMedia(mediaEl);
+                                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                                    mediaEl.play().catch(e => console.error("[free_images] カメラの自動再生に失敗:", e));
+                                });
+                                freeImageHlsInstances[id] = hls;
+                            } else if (mediaEl.canPlayType('application/vnd.apple.mpegurl')) {
+                                mediaEl.src = imgConf.url;
+                            }
+                        }
+                    } else if (imgConf.mediaType === 'video') {
+                        // mediaTypeがvideoなら自動再生・ミュートのvideoタグを生成、それ以外はimgタグを生成
                         mediaEl = document.createElement('video');
                         mediaEl.src = imgConf.url;
                         mediaEl.autoplay = true;
