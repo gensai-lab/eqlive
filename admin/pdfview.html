@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EQLive PDF Viewer</title>
+    <!-- PDF.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <!-- PeerJS CDN -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: sans-serif;
+            background-color: #111;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        header {
+            background-color: #222;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            flex-wrap: wrap;
+            gap: 10px;
+            z-index: 10;
+        }
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        button, input[type="file"], input[type="text"] {
+            padding: 6px 12px;
+            background-color: #444;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #555;
+        }
+        input[type="text"] {
+            background-color: #222;
+            border: 1px solid #555;
+            cursor: text;
+        }
+        #viewer-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000;
+            position: relative;
+            overflow: hidden;
+        }
+        .canvas-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            aspect-ratio: 16 / 9;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+        .status-badge {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 3px;
+            background-color: #333;
+        }
+        .status-admin { background-color: #d9534f; }
+        .status-viewer { background-color: #5cb85c; }
+        #drop-zone {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.85);
+            z-index: 5;
+            flex-direction: column;
+            gap: 15px;
+            transition: opacity 0.3s;
+        }
+        #drop-zone.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .drop-box {
+            border: 2px dashed #666;
+            padding: 40px 60px;
+            border-radius: 8px;
+            text-align: center;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="controls" id="admin-controls" style="display: none;">
+            <input type="file" id="pdf-file-input" accept="application/pdf">
+            <button id="prev-btn">前のページ</button>
+            <span id="page-info">1 / 1</span>
+            <button id="next-btn">次のページ</button>
+            <span class="status-badge status-admin">管理者モード</span>
+        </div>
+        <div class="controls" id="viewer-controls" style="display: none;">
+            <span id="viewer-page-info">待機中...</span>
+            <span class="status-badge status-viewer">視聴者モード</span>
+        </div>
+        <div class="controls">
+            <span>接続ID: <input type="text" id="room-id-input" readonly style="width: 140px;"></span>
+            <button id="copy-url-btn">共有リンクコピー</button>
+            <button id="switch-mode-btn">モード切替</button>
+        </div>
+    </header>
+
+    <div id="viewer-container">
+        <div id="drop-zone">
+            <div class="drop-box">
+                <h2>PDFファイルをここにドロップ</h2>
+                <p>または上のファイル選択から読み込んでください</p>
+            </div>
+        </div>
+        <div class="canvas-wrapper">
+            <canvas id="pdf-canvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let pdfDoc = null;
+        let pageNum = 1;
+        let pageRendering = false;
+        let pageNumPending = null;
+        let scale = 2.0;
+        
+        let isAdmin = true;
+        let peer = null;
+        let connections = [];
+        let viewerConnection = null;
+
+        const canvas = document.getElementById('pdf-canvas');
+        const ctx = canvas.getContext('2d');
+        const dropZone = document.getElementById('drop-zone');
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomIdParam = urlParams.get('room');
+
+        if (roomIdParam) {
+            isAdmin = false;
+        }
+
+        updateModeUI();
+
+        function initPeer() {
+            const customId = isAdmin ? 'eqlive-pdf-' + Math.random().toString(36).substring(2, 9) : null;
+            peer = new Peer(customId);
+
+            peer.on('open', (id) => {
+                const activeId = isAdmin ? id : roomIdParam;
+                document.getElementById('room-id-input').value = isAdmin ? id : roomIdParam;
+
+                if (!isAdmin && roomIdParam) {
+                    connectToAdmin(roomIdParam);
+                }
+            });
+
+            if (isAdmin) {
+                peer.on('connection', (conn) => {
+                    connections.push(conn);
+                    conn.on('open', () => {
+                        if (pdfDoc && pdfDataArray) {
+                            conn.send({ type: 'init-pdf', data: pdfDataArray, page: pageNum });
+                        } else if (pdfDoc) {
+                            conn.send({ type: 'page', page: pageNum });
+                        }
+                    });
+                    conn.on('close', () => {
+                        connections = connections.filter(c => c !== conn);
+                    });
+                });
+            }
+        }
+
+        function connectToAdmin(adminId) {
+            const conn = peer.connect(adminId);
+            viewerConnection = conn;
+            conn.on('open', () => {
+                document.getElementById('viewer-page-info').textContent = '管理者に接続しました。データ受信待ち...';
+            });
+            conn.on('data', (data) => {
+                if (data.type === 'init-pdf') {
+                    loadPdfFromArrayBuffer(data.data, () => {
+                        pageNum = data.page;
+                        renderPage(pageNum);
+                        document.getElementById('viewer-page-info').textContent = `ページ: ${pageNum} / ${pdfDoc.numPages}`;
+                    });
+                } else if (data.type === 'page') {
+                    if (pdfDoc) {
+                        pageNum = data.page;
+                        renderPage(pageNum);
+                        document.getElementById('viewer-page-info').textContent = `ページ: ${pageNum} / ${pdfDoc.numPages}`;
+                    }
+                }
+            });
+            conn.on('close', () => {
+                document.getElementById('viewer-page-info').textContent = '管理者との接続が切れました';
+            });
+        }
+
+        function updateModeUI() {
+            document.getElementById('admin-controls').style.display = isAdmin ? 'flex' : 'none';
+            document.getElementById('viewer-controls').style.display = isAdmin ? 'none' : 'flex';
+            if (!isAdmin) {
+                dropZone.style.display = 'none';
+            } else {
+                dropZone.style.display = 'flex';
+            }
+            if (peer) {
+                peer.destroy();
+            }
+            initPeer();
+        }
+
+        document.getElementById('switch-mode-btn').addEventListener('click', () => {
+            isAdmin = !isAdmin;
+            window.history.replaceState({}, document.title, window.location.pathname);
+            updateModeUI();
+        });
+
+        document.getElementById('copy-url-btn').addEventListener('click', () => {
+            const currentId = document.getElementById('room-id-input').value;
+            if (!currentId) {
+                alert('接続IDがまだ生成されていません。');
+                return;
+            }
+            const shareUrl = `${window.location.origin}${window.location.pathname}?room=${currentId}`;
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                alert('視聴者用の共有リンクをコピーしました！');
+            });
+        });
+
+        let pdfDataArray = null;
+
+        function loadPdfFromArrayBuffer(arrayBuffer, callback) {
+            pdfDataArray = arrayBuffer;
+            const typedarray = new Uint8Array(arrayBuffer);
+            pdfjsLib.getDocument(typedarray).promise.then(function(pdfDoc_) {
+                pdfDoc = pdfDoc_;
+                if (callback) callback();
+            });
+        }
+
+        function handleFile(file) {
+            if (file && file.type === 'application/pdf') {
+                const fileReader = new FileReader();
+                fileReader.onload = function() {
+                    loadPdfFromArrayBuffer(this.result, () => {
+                        pageNum = 1;
+                        document.getElementById('page-info').textContent = `${pageNum} / ${pdfDoc.numPages}`;
+                        renderPage(pageNum);
+                        dropZone.classList.add('hidden');
+                        broadcastInit();
+                    });
+                };
+                fileReader.readAsArrayBuffer(file);
+            }
+        }
+
+        document.getElementById('pdf-file-input').addEventListener('change', function(e) {
+            handleFile(e.target.files[0]);
+        });
+
+        window.addEventListener('dragover', (e) => e.preventDefault());
+        window.addEventListener('drop', (e) => e.preventDefault());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        function renderPage(num) {
+            pageRendering = true;
+            pdfDoc.getPage(num).then(function(page) {
+                const viewport = page.getViewport({ scale: scale });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                const renderContext = {
+                    canvasContext: ctx,
+                    viewport: viewport
+                };
+                const renderTask = page.render(renderContext);
+
+                renderTask.promise.then(function() {
+                    pageRendering = false;
+                    if (pageNumPending !== null) {
+                        renderPage(pageNumPending);
+                        pageNumPending = null;
+                    }
+                });
+            });
+
+            if (isAdmin && pdfDoc) {
+                document.getElementById('page-info').textContent = `${num} / ${pdfDoc.numPages}`;
+            }
+        }
+
+        function queueRenderPage(num) {
+            if (pageRendering) {
+                pageNumPending = num;
+            } else {
+                renderPage(num);
+            }
+        }
+
+        function onPrevPage() {
+            if (pageNum <= 1) return;
+            pageNum--;
+            queueRenderPage(pageNum);
+            broadcastPage();
+        }
+
+        function onNextPage() {
+            if (!pdfDoc || pageNum >= pdfDoc.numPages) return;
+            pageNum++;
+            queueRenderPage(pageNum);
+            broadcastPage();
+        }
+
+        function broadcastPage() {
+            if (isAdmin && connections.length > 0) {
+                connections.forEach(conn => {
+                    conn.send({ type: 'page', page: pageNum });
+                });
+            }
+        }
+
+        function broadcastInit() {
+            if (isAdmin && connections.length > 0) {
+                connections.forEach(conn => {
+                    conn.send({ type: 'init-pdf', data: pdfDataArray, page: pageNum });
+                });
+            }
+        }
+
+        document.getElementById('prev-btn').addEventListener('click', onPrevPage);
+        document.getElementById('next-btn').addEventListener('click', onNextPage);
+
+        window.addEventListener('keydown', (e) => {
+            if (!isAdmin) return;
+            if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+                e.preventDefault();
+                onNextPage();
+            } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                e.preventDefault();
+                onPrevPage();
+            }
+        });
+    </script>
+</body>
+</html>
