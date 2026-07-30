@@ -2,126 +2,140 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>EQLive Main Switcher</title>
+    <title>EQLive Sub-Switcher</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         body, html {
             margin: 0; padding: 0;
             width: 1920px; height: 1080px;
             background-color: black;
             overflow: hidden;
-            font-family: sans-serif;
-        }
-        #view-container {
-            width: 100%;
-            height: 100%;
-            position: relative;
         }
 
-        /* === ① L字の背景枠（文字情報・座布団など） === */
-        #frame-l-bg {
+        /* 背面のメインコンテンツエリア */
+        #bg-layer {
             position: absolute;
             top: 0; left: 0;
-            width: 1920px;
-            height: 1080px;
-            border: none;
+            width: 1920px; height: 1080px;
             z-index: 1;
-            
-            /* フェードによる余韻を残さないため、opacityのtransitionは削除 */
+        }
+
+        /* === ウォーターマーク配置用レイヤー === */
+        #watermark-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px; height: 1080px;
+            z-index: 20; /* テロップ等のオーバーレイ（z-index: 10）よりも手前 */
+            pointer-events: none;
+        }
+        #watermark-layer img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* === 自由配置画像用レイヤー === */
+        #free-image-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 1080px;
+            z-index: 8; /* 時間やタイトルなどのテロップ(10)より手前、または背後に配置されるように調整 */
+            pointer-events: none;
+        }
+        .custom-free-image {
+            position: absolute;
+            object-fit: contain;
+            pointer-events: none;
+        }
+
+        /* === 文字スーパー用レイヤー（最前面） === */
+        #text-super-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px; height: 1080px;
+            z-index: 30; /* ウォーターマークよりも手前の最前面 */
+            pointer-events: none;
+        }
+
+        /* 前面の共通パーツ（オーバーレイ） */
+        .overlay-part {
+            position: absolute;
+            z-index: 10;
+            pointer-events: none;
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+        }
+
+        /* 各パーツの配置 */
+        .top-left { top: 6px; left: 20px; width: 700px; height: 150px; }
+        .top-right { top: 40px; right: 40px; width: 600px; height: 145px; }
+        .bottom-left { bottom: 40px; left: 40px; width: 1250px; height: 185px; }
+
+        /* 右下: 津波地図 */
+        .bottom-right { 
+            bottom: 40px; 
+            right: 40px; 
+            width: 600px; 
+            height: 350px; 
+            background-color: rgba(0, 0, 0, 0.9);
+            border-radius: 8px;
+            overflow: hidden;
             opacity: 0;
-            display: none; /* 完全に描画・イベントをシャットアウト */
-            pointer-events: none;
+            transform: translateY(20px);
         }
-        #frame-l-bg.active {
+
+        .is-active {
             opacity: 1;
-            display: block;
-            pointer-events: auto;
+            transform: translateY(0);
         }
 
-        /* === ② 通常放送（sub-switcher）レイヤー === */
-        #frame-sub-switcher {
-            position: absolute;
-            border: none;
-            z-index: 10; /* L字背景より常に前面 */
-            
-            /* 初期状態：全画面（100%） */
-            top: 0px;
-            left: 0px;
-            width: 1920px;
-            height: 1080px;
-            transform: scale(1);
-            transform-origin: top left;
-            
-            /* 1.8秒の等速（linear）に統一 */
-            transition: 
-                top 1.0s linear,
-                left 1.0s linear,
-                width 1.0s linear,
-                height 1.0s linear,
-                transform 1.0s linear,
-                border-radius 1.0s linear;
-        }
-
-        /* === L字ON（l-screenモード）時の変形座標設定 === */
-        #frame-sub-switcher.l-mode {
-            top: 0px;
-            left: 182px;
-            width: 1920px;
-            height: 1080px;
-            transform: scale(0.905); /* 90.5% に縮小 */
-            border-bottom-left-radius: 8px;
-        }
-
-        /* === 緊急地震速報（最前面） === */
-        #frame-eew {
-            position: absolute;
-            bottom: 50px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 1300px;
-            height: 371px;
-            z-index: 999;
-            border: none;
+        iframe {
+            width: 100%; height: 100%;
+            border: none; display: block;
             background: transparent;
-            pointer-events: none;
-        }
-        #audio-unlock {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            color: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            cursor: pointer;
-            font-family: sans-serif;
-            font-size: 24px;
         }
     </style>
 </head>
 <body>
 
-    <div id="audio-unlock">
-        <div style="margin-bottom: 20px;">音声再生・マイク接続・読み上げ機能を有効にするにはここをクリック</div>
-        <div style="font-size: 16px; color: #ccc;">（OBSの場合は「対話」からクリックしてください）</div>
+    <div id="bg-layer">
+        <iframe id="switcher-iframe" src="main-screen.html"></iframe>
     </div>
 
-    <div id="view-container">
-        <iframe id="frame-l-bg" src="l-screen.html"></iframe>
-        <iframe id="frame-sub-switcher" src="sub-switcher.html"></iframe>
-        <iframe id="frame-eew" src="parts/eew.html"></iframe>
+    <!-- ウォーターマークレイヤー (z-index: 20) -->
+    <div id="watermark-layer">
+        <img src="assets/cover/watermark.png" alt="Watermark">
     </div>
 
-    <!-- 音声ソース要素 -->
-    <audio id="eew-audio" src="assets/eew-audio.mp3" preload="auto"></audio>
-    <audio id="bgm-audio" loop preload="auto"></audio>
-    <audio id="mic-audio" autoplay></audio> <!-- WebRTCマイク出力用 -->
+    <div id="free-image-layer"></div>
+
+    <div class="overlay-part top-left" id="area-top-left">
+        <iframe src="parts/time.html"></iframe>
+    </div>
+
+    <div class="overlay-part top-right">
+        <iframe src="parts/tsunami-yobikake.html"></iframe>
+    </div>
+
+    <div class="overlay-part bottom-left">
+        <iframe src="parts/title.html"></iframe>
+    </div>
+
+    <div id="tsunami-map-container" class="overlay-part bottom-right">
+        <iframe src="parts/tsunami-map.html"></iframe>
+    </div>
+
+    <!-- 文字スーパー用レイヤー (z-index: 30) -->
+    <div id="text-super-layer">
+        <iframe src="parts/text-super.html"></iframe>
+    </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+    // Firebase初期化
     const firebaseConfig = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
         authDomain: "mgl-eqlive.firebaseapp.com",
@@ -134,294 +148,163 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const frameLBg = document.getElementById('frame-l-bg');
-    const frameSub = document.getElementById('frame-sub-switcher');
-    const eewAudio = document.getElementById('eew-audio');
-    const bgmAudio = document.getElementById('bgm-audio');
-    const micAudio = document.getElementById('mic-audio');
-    const unlockOverlay = document.getElementById('audio-unlock');
-
-    // タイマー管理用変数
-    let offTimer = null;
-    let ttsLastTimestamp = null;
+    const switcherIframe = document.getElementById('switcher-iframe');
+    const tsunamiContainer = document.getElementById('tsunami-map-container');
+    const imageLayer = document.getElementById('free-image-layer');
+    const topLeftArea = document.getElementById('area-top-left');
     
-    // WebRTC用変数
-    let peerConnection = null;
-    const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    let currentLayout = "";
+    let apiTsunamiActive = false;
+    let manualTsunamiActive = false;
 
-    // 音声アンロック・初期化処理 (クリック時)
-    unlockOverlay.addEventListener('click', () => {
-        // 全オーディオ要素をアンロック
-        eewAudio.play().then(() => { eewAudio.pause(); eewAudio.currentTime = 0; }).catch(()=>{});
-        bgmAudio.play().then(() => { bgmAudio.pause(); }).catch(()=>{});
+    // --- レイアウト切り替え (Firebase) ---
+    onValue(ref(db, 'broadcast/current/layoutMode'), (snapshot) => {
+        const mode = snapshot.val() || 'live'; 
+        let target = (mode === 'emergency') ? 'emergency.html' : 'main-screen.html';
 
-        // Web Speech API の初期化ロック解除 (無音を発声)
-        const initUtterance = new SpeechSynthesisUtterance('');
-        window.speechSynthesis.speak(initUtterance);
-
-        unlockOverlay.style.display = 'none';
-        console.log("Audio Systems Unlocked!");
+        if (currentLayout !== target) {
+            switcherIframe.src = target;
+            currentLayout = target;
+            console.log("Layout switched to:", target);
+        }
     });
 
-    // === モード切り替えロジック ===
-    function applyLayoutMode(viewType) {
-        if (offTimer) { clearTimeout(offTimer); offTimer = null; }
-        if (viewType === 'l-screen') {
-            frameLBg.classList.add('active');   
-            frameSub.classList.add('l-mode');   
+    // --- 左上エリア（座布団・時計等）の表示/非表示同期 ---
+    onValue(ref(db, 'broadcast/current/timeVisible'), (snapshot) => {
+        const isVisible = snapshot.val();
+        if (isVisible === false) {
+            topLeftArea.style.opacity = "0";
+            topLeftArea.style.pointerEvents = "none";
         } else {
-            frameSub.classList.remove('l-mode'); 
-            offTimer = setTimeout(() => {
-                frameLBg.classList.remove('active');
-                offTimer = null;
-            }, 1800);
-        }
-    }
-
-    const modeRef = ref(db, 'broadcast/current_mode');
-    onValue(modeRef, (snapshot) => {
-        const mode = snapshot.val();
-        if (mode) applyLayoutMode(mode);
-        else applyLayoutMode('sub-switcher');
-    });
-
-    // 内部iFrameからのEEW音声発火指示
-    window.addEventListener('message', (event) => {
-        if (event.data === 'playEEWAudio') {
-            eewAudio.currentTime = 0; 
-            eewAudio.play().catch(e => console.warn("EEW音声の再生に失敗しました。"));
+            topLeftArea.style.opacity = "1";
+            topLeftArea.style.pointerEvents = "none";
         }
     });
 
-    // === 🎵 追加: BGM再生制御 ===
-    onValue(ref(db, 'broadcast/audio/bgm'), (snapshot) => {
-        const bgmConfig = snapshot.val();
-        if(!bgmConfig) return;
+    // --- 自由配置リストの同期反映 ---
+    let freeImageHlsInstances = {}; // id -> Hls インスタンス（切り替え時に破棄するため保持）
 
-        // URLが変更された場合は読み込み直す
-        if (bgmConfig.url && !bgmAudio.src.includes(bgmConfig.url)) {
-            bgmAudio.src = bgmConfig.url;
-        }
-
-        // 音量設定
-        bgmAudio.volume = bgmConfig.volume !== undefined ? bgmConfig.volume : 0.5;
-
-        // 再生・停止制御
-        if (bgmConfig.isPlaying) {
-            bgmAudio.play().catch(e => console.warn("BGM再生ブロック(クリック前): ", e));
-        } else {
-            bgmAudio.pause();
-        }
-    });
-
-    // === 🗣️ 追加: AI音声読み上げ制御 (Web Speech API・ブラウザ内蔵・APIキー不要) ===
-    let ttsCurrentToken = 0; // このトークンより新しい要求が来たら現在の読み上げを打ち切る
-    let ttsKeepAliveTimer = null;
-    let cachedJapaneseVoice = null; // 見つかった日本語音声をキャッシュ
-
-    // ブラウザによっては音声一覧(getVoices)が非同期に読み込まれるため、
-    // 'voiceschanged'イベント発火 or 一覧が埋まるまで待つ（最大3秒でタイムアウト）
-    function waitForVoices() {
-        return new Promise((resolve) => {
-            const existing = window.speechSynthesis.getVoices();
-            if (existing && existing.length > 0) { resolve(existing); return; }
-
-            let done = false;
-            const onVoicesChanged = () => {
-                if (done) return;
-                const voices = window.speechSynthesis.getVoices();
-                if (voices && voices.length > 0) {
-                    done = true;
-                    window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-                    resolve(voices);
-                }
-            };
-            window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
-
-            setTimeout(() => {
-                if (done) return;
-                done = true;
-                window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-                const voices = window.speechSynthesis.getVoices();
-                if (!voices || voices.length === 0) {
-                    console.warn("[TTS] 音声(voice)が1つも見つかりませんでした。このブラウザ/OSには読み上げ用の音声が入っていない可能性があります。");
-                }
-                resolve(voices || []);
-            }, 3000);
-        });
+    function extractYoutubeVideoId(url) {
+        if (url.includes('watch?v=')) return url.split('watch?v=')[1].split('&')[0];
+        if (url.includes('youtu.be/')) return url.split('youtu.be/')[1].split('?')[0];
+        if (url.includes('embed/')) return url.split('embed/')[1].split('?')[0];
+        return url;
     }
 
-    async function pickJapaneseVoice() {
-        if (cachedJapaneseVoice) return cachedJapaneseVoice;
-        const voices = await waitForVoices();
-        // "ja-JP" / "ja_JP" / "ja" などlangが日本語のものを探す
-        const jaVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ja'));
-        if (jaVoice) {
-            cachedJapaneseVoice = jaVoice;
-            console.log("[TTS] 日本語音声を使用します:", jaVoice.name, jaVoice.lang);
-        } else {
-            console.warn("[TTS] 日本語音声が見つからなかったため、既定の音声で読み上げます。利用可能な音声:", voices.map(v => `${v.name}(${v.lang})`).join(', ') || '(なし)');
-        }
-        return jaVoice || null;
-    }
+    const freeImagesRef = ref(db, 'broadcast/free_images');
+    onValue(freeImagesRef, (snapshot) => {
+        const imagesData = snapshot.val();
 
-    // Chrome/OBS(Chromium)は「1回の発話が長い・無音区間が続く」と音声合成が
-    // 内部的に停止してしまう既知の不具合があるため、発話中は定期的に
-    // pause()→resume()を呼んで機能を維持する（読み上げ音声は途切れない）
-    function startTtsKeepAlive() {
-        stopTtsKeepAlive();
-        ttsKeepAliveTimer = setInterval(() => {
-            if (window.speechSynthesis.speaking) {
-                window.speechSynthesis.pause();
-                window.speechSynthesis.resume();
-            }
-        }, 5000);
-    }
-    function stopTtsKeepAlive() {
-        if (ttsKeepAliveTimer) { clearInterval(ttsKeepAliveTimer); ttsKeepAliveTimer = null; }
-    }
+        // 前回分のhls.jsインスタンスを破棄してから作り直す
+        Object.values(freeImageHlsInstances).forEach(inst => { try { inst.destroy(); } catch (e) {} });
+        freeImageHlsInstances = {};
 
-    function updateTtsStatus(data) {
-        set(ref(db, 'broadcast/audio/tts_status'), data).catch(() => {});
-    }
+        imageLayer.innerHTML = ""; 
+        if (imagesData) {
+            Object.keys(imagesData).forEach(id => {
+                const imgConf = imagesData[id];
+                if (imgConf && imgConf.visible && imgConf.url) {
+                    
+                    let mediaEl;
+                    if (imgConf.mediaType === 'camera') {
+                        if (imgConf.cameraType === 'youtube') {
+                            // YouTubeライブ配信はiframe埋め込みで再生（コントロール非表示）
+                            const vidId = extractYoutubeVideoId(imgConf.url);
+                            mediaEl = document.createElement('iframe');
+                            mediaEl.src = `https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&controls=0&rel=0&iv_load_policy=3&modestbranding=1`;
+                            mediaEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+                            mediaEl.style.border = 'none';
+                        } else {
+                            // HLS配信はvideo要素 + hls.jsで再生
+                            mediaEl = document.createElement('video');
+                            mediaEl.autoplay = true;
+                            mediaEl.muted = true;
+                            mediaEl.playsInline = true;
+                            if (Hls.isSupported()) {
+                                const hls = new Hls();
+                                hls.loadSource(imgConf.url);
+                                hls.attachMedia(mediaEl);
+                                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                                    mediaEl.play().catch(e => console.error("[free_images] カメラの自動再生に失敗:", e));
+                                });
+                                freeImageHlsInstances[id] = hls;
+                            } else if (mediaEl.canPlayType('application/vnd.apple.mpegurl')) {
+                                mediaEl.src = imgConf.url;
+                            }
+                        }
+                    } else if (imgConf.mediaType === 'video') {
+                        // mediaTypeがvideoなら自動再生・ミュートのvideoタグを生成、それ以外はimgタグを生成
+                        mediaEl = document.createElement('video');
+                        mediaEl.src = imgConf.url;
+                        mediaEl.autoplay = true;
+                        mediaEl.muted = true; // ブラウザの自動再生ポリシー対策
+                        mediaEl.playsInline = true;
+                        mediaEl.loop = (imgConf.loop !== undefined) ? imgConf.loop : true;
+                    } else {
+                        mediaEl = document.createElement('img');
+                        mediaEl.src = imgConf.url;
+                    }
 
-    function stopCurrentTtsPlayback() {
-        window.speechSynthesis.cancel();
-        stopTtsKeepAlive();
-    }
+                    mediaEl.id = `sub-img-node-${id}`;
+                    mediaEl.className = 'custom-free-image';
+                    mediaEl.style.left = `${imgConf.x !== undefined ? imgConf.x : 0}px`;
+                    mediaEl.style.top = `${imgConf.y !== undefined ? imgConf.y : 0}px`;
+                    mediaEl.style.width = `${imgConf.width !== undefined ? imgConf.width : 300}px`;
+                    mediaEl.style.height = `${imgConf.height !== undefined ? imgConf.height : 'auto'}`;
+                    mediaEl.style.opacity = (imgConf.opacity !== undefined) ? imgConf.opacity : 1;
+                    mediaEl.style.zIndex = (imgConf.zIndex !== undefined) ? imgConf.zIndex : 1;
 
-    async function speakOneChunk(text, token) {
-        const jaVoice = await pickJapaneseVoice();
-        if (token !== ttsCurrentToken) return; // 待っている間に新しい要求が来ていたら再生しない
-
-        return new Promise((resolve) => {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'ja-JP';
-            if (jaVoice) utterance.voice = jaVoice;
-            utterance.onend = resolve;
-            utterance.onerror = (e) => {
-                console.error("[TTS] speechSynthesisでの読み上げに失敗しました:", e.error || e);
-                resolve(); // 1チャンクが失敗しても後続の読み上げを止めない
-            };
-            window.speechSynthesis.speak(utterance);
-        });
-    }
-
-    async function speakTTSChunks(chunks, token) {
-        const total = chunks.length;
-        startTtsKeepAlive();
-
-        for (let i = 0; i < total; i++) {
-            if (token !== ttsCurrentToken) { stopTtsKeepAlive(); return; } // 新しい要求 or キャンセルで中断
-            const chunk = chunks[i];
-            updateTtsStatus({
-                status: 'playing',
-                progress: Math.round((i / total) * 100),
-                eta: Math.max(0, Math.round((total - i) * 4)), // 簡易目安（1チャンクあたり約4秒）
-                currentText: chunk
-            });
-            await speakOneChunk(chunk, token);
-        }
-
-        stopTtsKeepAlive();
-        if (token === ttsCurrentToken) {
-            updateTtsStatus({ status: 'idle', progress: 100, eta: 0, currentText: '完了' });
-        }
-    }
-
-    onValue(ref(db, 'broadcast/audio/tts'), (snapshot) => {
-        const ttsData = snapshot.val();
-        if (!ttsData || ttsData.timestamp === ttsLastTimestamp) return;
-        ttsLastTimestamp = ttsData.timestamp;
-
-        // 新しい要求が来たら、進行中の読み上げは無条件に打ち切る
-        ttsCurrentToken++;
-        stopCurrentTtsPlayback();
-
-        if (ttsData.action === 'cancel') {
-            updateTtsStatus({ status: 'idle', progress: 0, eta: 0, currentText: '待機中' });
-            return;
-        }
-
-        // chunks（分割済み）があれば優先使用。無い場合はtextを1チャンクとして扱う（後方互換）
-        const chunks = (Array.isArray(ttsData.chunks) && ttsData.chunks.length > 0)
-            ? ttsData.chunks
-            : (ttsData.text ? [ttsData.text] : []);
-        if (chunks.length === 0) return;
-
-        speakTTSChunks(chunks, ttsCurrentToken);
-    });
-
-    // === 🎤 追加: WebRTC マイク受信制御 ===
-    let pendingAdminIceCandidates = []; // setRemoteDescription完了前に届いたcandidateを一時保管
-    let unsubAdminCandidates = null; // 前回のリスナーを確実に解除するため保持
-
-    onValue(ref(db, 'broadcast/audio/webrtc/offer'), async (snapshot) => {
-        const offerData = snapshot.val();
-
-        // 新しいオファーが来る／Admin側で停止された場合、前回の接続とリスナーは必ず片付ける
-        if (unsubAdminCandidates) { unsubAdminCandidates(); unsubAdminCandidates = null; }
-        if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-        }
-        pendingAdminIceCandidates = [];
-
-        if (!offerData) {
-            micAudio.srcObject = null;
-            return;
-        }
-
-        // 新しいオファーを受信したら接続構築
-        peerConnection = new RTCPeerConnection(servers);
-
-        // トラック受信時にAudio要素にセット
-        peerConnection.ontrack = (event) => {
-            micAudio.srcObject = event.streams[0];
-        };
-
-        // ICE Candidateの処理（Adminへ送信）
-        peerConnection.onicecandidate = event => {
-            if(event.candidate) {
-                set(ref(db, `broadcast/audio/webrtc/candidates/main/${Date.now()}`), event.candidate.toJSON());
-            }
-        };
-
-        // AdminからのICE Candidateを受信。setRemoteDescriptionが完了するまでは
-        // addIceCandidateできない（失敗して音声が繋がらない/途切れる原因になる）ため、
-        // 完了前に届いた分は一旦キューに貯めておき、完了後にまとめて追加する
-        unsubAdminCandidates = onValue(ref(db, 'broadcast/audio/webrtc/candidates/admin'), (iceSnapshot) => {
-            iceSnapshot.forEach((childSnapshot) => {
-                const candidate = new RTCIceCandidate(childSnapshot.val());
-                if (peerConnection && peerConnection.remoteDescription) {
-                    peerConnection.addIceCandidate(candidate).catch(e => console.error("[WebRTC] addIceCandidate失敗:", e));
-                } else {
-                    pendingAdminIceCandidates.push(candidate);
+                    imageLayer.appendChild(mediaEl);
                 }
             });
-        });
-
-        // 相手(Admin)の情報をセット
-        const offerDescription = new RTCSessionDescription(offerData);
-        await peerConnection.setRemoteDescription(offerDescription);
-
-        // キューに貯まっていたcandidateをここでまとめて追加する
-        const queued = pendingAdminIceCandidates;
-        pendingAdminIceCandidates = [];
-        for (const c of queued) {
-            try { await peerConnection.addIceCandidate(c); } catch (e) { console.error("[WebRTC] addIceCandidate失敗:", e); }
         }
-
-        // 返答(Answer)を作成してFirebase経由で送り返す
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-
-        const answerData = {
-            type: answer.type,
-            sdp: answer.sdp
-        };
-        await set(ref(db, 'broadcast/audio/webrtc/answer'), answerData);
     });
+
+    // --- 津波表示制御 ---
+    function updateTsunamiVisibility() {
+        if (apiTsunamiActive || manualTsunamiActive) {
+            tsunamiContainer.classList.add('is-active');
+        } else {
+            tsunamiContainer.classList.remove('is-active');
+        }
+    }
+
+    // --- 津波情報監視 (Firebase制御) ---
+    onValue(ref(db, 'broadcast/tsunami_config'), (snapshot) => {
+        const config = snapshot.val();
+        if (config) {
+            if (config.autoPage === false) {
+                manualTsunamiActive = (config.manualTrigger && config.manualTrigger.direction) ? true : false;
+            } else {
+                manualTsunamiActive = false;
+            }
+        } else {
+            manualTsunamiActive = false;
+        }
+        updateTsunamiVisibility();
+    });
+
+    // --- 津波情報監視 (P2P地震情報 API) ---
+    async function checkTsunamiStatus() {
+        try {
+            const response = await fetch("https://api.p2pquake.net/v2/history?codes=552&limit=1");
+            const history = await response.json();
+            
+            if (history && history.length > 0) {
+                const latest = history[0];
+                apiTsunamiActive = (latest.cancelled === false);
+            } else {
+                apiTsunamiActive = false;
+            }
+        } catch (e) {
+            console.error("Tsunami status check failed:", e);
+            apiTsunamiActive = false;
+        }
+        updateTsunamiVisibility();
+    }
+
+    checkTsunamiStatus();
+    setInterval(checkTsunamiStatus, 10000);
 
 </script>
 </body>
