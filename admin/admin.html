@@ -1847,8 +1847,13 @@
         }
     };
 
-    // --- 🌏 P2P地震情報パネル（文字スーパータブ内・地震タブ／WebSocketでリアルタイム受信・APIキー不要） ---
-    let p2pSocket = null;
+    // --- 🌏 P2P地震情報パネル（文字スーパータブ内・地震タブ／履歴APIを定期ポーリングして受信・APIキー不要） ---
+    let p2pPollTimer = null;
+    let p2pPollActive = false;
+    let p2pLastSeenId = null; // 直近で処理済みの最新の地震情報ID（重複処理防止の基準）
+    let p2pLastMessageAt = null;
+    const P2P_POLL_INTERVAL_MS = 5000; // 5秒間隔（/history は1分間に60回まで許容）
+
     let eqEventCache = {}; // p2p:<id> -> { P2PQUAKE, lastReceived }
     let eqEventOrder = []; // 受信順（新しい順）のイベントキー一覧
     let eqAutoSendEnabled = true; // trueの間は地震情報受信時に確認なしで自動送出する（デフォルトON）
@@ -1856,18 +1861,18 @@
     function renderEarthquakePanel(container) {
         container.style.background = 'transparent';
         container.style.border = 'none';
-        const connected = !!p2pSocket;
+        const connected = p2pPollActive;
         container.innerHTML = `
             <div style="background:#000; border:1px solid #333; border-radius:8px; padding:14px;">
-                <label style="margin-top:0; font-size:13px;">🌐 P2P地震情報（APIキー不要）</label>
+                <label style="margin-top:0; font-size:13px;">🌐 P2P地震情報（履歴API・APIキー不要）</label>
                 <div style="font-size:11px; color:var(--text-sub); margin-bottom:10px;">
                     <a href="https://www.p2pquake.net/develop/json_api_v2/" target="_blank" style="color:var(--accent-blue);">P2P地震情報 JSON API v2</a>
-                    のWebSocketにAPIキーなしで接続します。
+                    の履歴API（/history）を5秒おきに定期取得します（WebSocketは使用しません）。
                 </div>
 
                 <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
-                    <button id="btn-eq-connect" class="primary" style="width:auto; padding:8px 14px; font-size:13px; flex:none; ${connected ? 'background:var(--accent-red, #d33);' : ''}" onclick="${connected ? 'stopP2pQuakeWebSocket()' : 'startP2pQuakeWebSocket()'}">
-                        <i class="material-icons" style="font-size:16px; vertical-align:middle;">${connected ? 'stop' : 'sensors'}</i> ${connected ? 'P2P受信を停止' : 'P2P受信を開始'}
+                    <button id="btn-eq-connect" class="primary" style="width:auto; padding:8px 14px; font-size:13px; flex:none; ${connected ? 'background:var(--accent-red, #d33);' : ''}" onclick="${connected ? 'stopP2pPolling()' : 'startP2pPolling()'}">
+                        <i class="material-icons" style="font-size:16px; vertical-align:middle;">${connected ? 'stop' : 'sensors'}</i> ${connected ? '監視を停止' : '監視を開始'}
                     </button>
                     <label style="font-size:12px; color:var(--text-sub); display:flex; align-items:center; gap:5px; margin:0;">
                         <input type="checkbox" id="chk-eq-include-places" checked style="width:auto; margin:0;"> 市区町村・地域別の震度カードも含める
@@ -1884,8 +1889,8 @@
                     ※デフォルトで有効になっています。有効化中は担当者が内容を確認せずそのまま放送に出るため、誤報時は速やかに「順次送出を停止」してください。手動確認したい場合はチェックを外してください（外してもページ再読み込みで再びONに戻ります）。
                 </div>
 
-                <div id="eq-status" style="font-size:12px; color:var(--text-sub); margin-bottom:4px;">${connected ? '接続中。地震情報の受信を待機しています…' : '未接続です。「P2P受信を開始」を押してください。'}</div>
-                <div style="font-size:11px; color:#666; margin-bottom:8px;">最終受信: ${p2pLastMessageAt ? new Date(p2pLastMessageAt).toLocaleString('ja-JP') : 'まだありません'}${connected ? '（P2P地震情報はテキストフレーム以外に定期的な生存確認は行いません。地震が発生しない限りメッセージは届きません）' : ''}</div>
+                <div id="eq-status" style="font-size:12px; color:var(--text-sub); margin-bottom:4px;">${connected ? '監視中。5秒おきに新着を確認しています…' : '未起動です。「監視を開始」を押してください。'}</div>
+                <div style="font-size:11px; color:#666; margin-bottom:8px;">最終受信: ${p2pLastMessageAt ? new Date(p2pLastMessageAt).toLocaleString('ja-JP') : 'まだありません'}${connected ? '（地震が発生しない限り新着はありません）' : ''}</div>
 
                 <div id="eq-log" style="margin-bottom:10px;"></div>
 
@@ -1926,103 +1931,62 @@
             }).join('');
     }
 
-    let p2pReconnectTimer = null;
-    let p2pLastMessageAt = null;
-    let p2pManualDisconnect = false;
-
-    window.startP2pQuakeWebSocket = () => {
-        console.log("[P2P] startP2pQuakeWebSocket() が呼び出されました。現在のp2pSocket:", p2pSocket, "readyState:", p2pSocket ? p2pSocket.readyState : "(なし)");
-
-        // 変数上は残っているが実際にはCLOSED/CLOSING状態になっているだけの
-        // "見せかけの接続中" を新規接続としてやり直せるようにする
-        if (p2pSocket) {
-            if (p2pSocket.readyState === WebSocket.OPEN || p2pSocket.readyState === WebSocket.CONNECTING) {
-                console.log("[P2P] 既に接続中/接続試行中のため何もしません。");
-                return;
-            } else {
-                console.warn("[P2P] p2pSocketが残っていましたが切断済みの状態でした。リセットして再接続します。");
-                p2pSocket = null;
-            }
-        }
-
-        if (p2pReconnectTimer) { clearTimeout(p2pReconnectTimer); p2pReconnectTimer = null; }
-        p2pManualDisconnect = false;
-        const statusEl = document.getElementById('eq-status');
-        if (statusEl) statusEl.textContent = "接続中...";
+    async function p2pPollOnce() {
         try {
-            const ws = new WebSocket('wss://api.p2pquake.net/v2/ws');
-            p2pSocket = ws;
+            const res = await fetch('https://api.p2pquake.net/v2/history?codes=551&limit=5');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const items = await res.json(); // 新しい順（降順）で返る
+            if (!Array.isArray(items) || items.length === 0) return;
 
-            ws.addEventListener('open', () => {
-                console.log("[P2P] WebSocket接続成功");
-                renderEarthquakePanel(document.getElementById('rss-news-list'));
-            });
+            if (p2pLastSeenId === null) {
+                // 起動直後の初回は、既存の情報を過去分まで遡って処理しないよう
+                // 最新のIDを基準として覚えるだけにする
+                p2pLastSeenId = items[0].id;
+                return;
+            }
 
-            ws.addEventListener('close', (ev) => {
-                // ev.code の代表例: 1000=正常終了, 1006=異常切断（サーバ側で拒否された場合など詳細不明なことが多い）
-                console.log("[P2P] WebSocket closed:", ev.code, ev.reason);
-                p2pSocket = null;
-                const container = document.getElementById('rss-news-list');
-                if (container && currentRssCategory === 'earthquake') {
-                    renderEarthquakePanel(container);
-                    const statusEl2 = document.getElementById('eq-status');
-                    if (statusEl2 && !p2pManualDisconnect) {
-                        statusEl2.textContent = `接続が切断されました（code:${ev.code}${ev.reason ? ' / ' + ev.reason : ''}）。5秒後に自動で再接続します…`;
-                    }
-                }
-                // 手動切断でなければ、5秒後に自動再接続を試みる
-                // （P2P地震情報のWebSocket APIは同一IPからの同時接続数を2つまでに制限しているため、
-                //   即座に再接続を連発すると逆に接続できなくなる可能性がある点に注意）
-                if (!p2pManualDisconnect) {
-                    p2pReconnectTimer = setTimeout(() => {
-                        p2pReconnectTimer = null;
-                        startP2pQuakeWebSocket();
-                    }, 5000);
-                }
-            });
+            // 前回チェック時より新しいものだけを抜き出す
+            const newOnes = [];
+            for (const item of items) {
+                if (item.id === p2pLastSeenId) break;
+                newOnes.push(item);
+            }
+            if (newOnes.length === 0) return;
 
-            ws.addEventListener('error', (ev) => {
-                console.error("[P2P] WebSocket error:", ev);
-                const statusEl3 = document.getElementById('eq-status');
-                if (statusEl3) statusEl3.textContent = "接続エラーが発生しました（詳細はブラウザのコンソールをご確認ください）。まもなく自動で再接続を試みます…";
-            });
-
-            ws.addEventListener('message', (ev) => {
-                p2pLastMessageAt = Date.now();
-                let msg;
-                try { msg = JSON.parse(ev.data); } catch (e) { return; }
-                handleP2pMessage(msg);
-            });
-        } catch (err) {
-            console.error("[P2P] connect error:", err);
-            p2pSocket = null;
-            if (statusEl) statusEl.textContent = `接続に失敗しました: ${err.message}`;
+            newOnes.reverse(); // 古い順に処理する
+            newOnes.forEach(item => handleP2pMessage(item));
+            p2pLastSeenId = items[0].id;
+        } catch (e) {
+            console.error("[P2P] 履歴取得に失敗しました:", e);
+            const statusEl = document.getElementById('eq-status');
+            if (statusEl && p2pPollActive) statusEl.textContent = `履歴の取得に失敗しました: ${e.message}（5秒後に再試行します）`;
         }
-    };
+    }
 
-    window.stopP2pQuakeWebSocket = () => {
-        p2pManualDisconnect = true;
-        if (p2pReconnectTimer) { clearTimeout(p2pReconnectTimer); p2pReconnectTimer = null; }
-        if (p2pSocket) {
-            p2pSocket.close(1000, "manual close");
-            p2pSocket = null;
-        }
+    window.startP2pPolling = () => {
+        if (p2pPollActive) return;
+        console.log("[P2P] startP2pPolling() 開始");
+        p2pPollActive = true;
+        p2pLastSeenId = null; // 起動するたびに基準をリセットする
+        p2pPollOnce();
+        p2pPollTimer = setInterval(p2pPollOnce, P2P_POLL_INTERVAL_MS);
         const container = document.getElementById('rss-news-list');
         if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
     };
 
-    // ページを閉じる/再読み込みする際は明示的に切断しておく
-    // （同一IPからの同時接続数が2つまでに制限されているため、接続を張りっぱなしにしないようにする）
-    window.addEventListener('beforeunload', () => {
-        if (p2pSocket) {
-            try { p2pSocket.close(1000, "page unload"); } catch (e) {}
-        }
-    });
+    window.stopP2pPolling = () => {
+        p2pPollActive = false;
+        if (p2pPollTimer) { clearInterval(p2pPollTimer); p2pPollTimer = null; }
+        const container = document.getElementById('rss-news-list');
+        if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
+    };
 
     function handleP2pMessage(json) {
         // code: 551=地震情報, 552=津波予報, 554/556=緊急地震速報, 555=ピア数, 561/9611=地震感知情報
         if (json.code !== 551) return; // 現状は地震情報(551)のみ字幕スーパーに連携
         if (!json.id) return;
+
+        p2pLastMessageAt = Date.now();
 
         const eid = 'p2p:' + json.id;
         eqEventCache[eid] = {
