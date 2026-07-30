@@ -800,12 +800,17 @@
         if (!camId) return;
         const cam = allCameras.find(c => c.id === camId);
         if (!cam) return;
-        secureUpdate(ref(db, `broadcast/free_images/${id}`), {
+        const update = {
             cameraId: cam.id,
             cameraName: cam.name,
             cameraType: cam.type || 'hls',
             url: cam.url
-        });
+        };
+        // YouTubeは画像と違い高さが自動で決まらないため、未設定なら初期値を入れておく
+        if (cam.type === 'youtube') {
+            update.height = 300;
+        }
+        secureUpdate(ref(db, `broadcast/free_images/${id}`), update);
     };
 
     window.addNewFreeImage = () => {
@@ -1014,6 +1019,13 @@
                     <label>横幅サイズ (px) <span style="float:right; color:var(--text-sub);" id="val-${id}-w">${conf.width !== undefined ? conf.width : 1920}px</span></label>
                     <div class="range-group">
                         <input type="range" min="50" max="1920" value="${conf.width !== undefined ? conf.width : 1920}" id="range-${id}-w" oninput="document.getElementById('val-${id}-w').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'width', this.value)">
+                    </div>
+
+                    <div style="display: ${(currentMediaType === 'camera' && conf.cameraType === 'youtube') ? 'block' : 'none'};">
+                        <label>縦幅サイズ (px)　<span style="color:#888;">※YouTube配信は画像と違い自動で縦横比が決まらないため、高さも指定してください</span> <span style="float:right; color:var(--text-sub);" id="val-${id}-h">${conf.height !== undefined ? conf.height : 300}px</span></label>
+                        <div class="range-group">
+                            <input type="range" min="50" max="1080" value="${conf.height !== undefined ? conf.height : 300}" id="range-${id}-h" oninput="document.getElementById('val-${id}-h').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'height', this.value)">
+                        </div>
                     </div>
 
                     <label>レイヤー順序 (z-index 1〜10)</label>
