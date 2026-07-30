@@ -643,6 +643,7 @@
 
     // --- 🌏 地震情報（文字スーパー連携／P2P地震情報）用の状態 ---
     let eqGeneratedCards = [];
+    let eqGeneratedMaxIntensity = ""; // 直近に生成した地震カードの最大震度（"3","5-"など）。速報音の震度3以上判定に使用
 
     // --- 🔐 Firebase Authentication ログイン制御ロジック ---
     onAuthStateChanged(auth, (user) => {
@@ -658,6 +659,7 @@
             renderTextSuperGenreSelector();
             fetchRssNews();
             startFirebaseSync();
+            loadEqSoundSetting();
         } else {
             loginScreen.style.display = 'flex';
             adminApp.style.display = 'none';
@@ -1857,6 +1859,23 @@
     let eqEventCache = {}; // p2p:<id> -> { P2PQUAKE, lastReceived }
     let eqEventOrder = []; // 受信順（新しい順）のイベントキー一覧
     let eqAutoSendEnabled = true; // trueの間は地震情報受信時に確認なしで自動送出する（デフォルトON）
+    let eqSoundEnabled = true; // 地震の速報音（震度3以上の場合のみ）を鳴らすかどうか。Firebase経由で文字スーパー側にも共有する
+
+    // 地震速報音のON/OFF設定はFirebaseで共有し、text-super.html側でも同じ値を参照して
+    // 「震度3以上のみ・かつこの設定がONの時だけ」速報音を鳴らすかどうかを判定する
+    function loadEqSoundSetting() {
+        onValue(ref(db, 'settings/eqSoundEnabled'), (snap) => {
+            const val = snap.val();
+            eqSoundEnabled = (val === null || val === undefined) ? true : !!val;
+            const container = document.getElementById('rss-news-list');
+            if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
+        });
+    }
+
+    window.setEqSoundEnabled = (checked) => {
+        eqSoundEnabled = checked;
+        secureSet(ref(db, 'settings/eqSoundEnabled'), checked);
+    };
 
     function renderEarthquakePanel(container) {
         container.style.background = 'transparent';
@@ -1887,6 +1906,13 @@
                 </div>
                 <div style="font-size:11px; color:var(--text-sub); margin-bottom:10px;">
                     ※デフォルトで有効になっています。有効化中は担当者が内容を確認せずそのまま放送に出るため、誤報時は速やかに「順次送出を停止」してください。手動確認したい場合はチェックを外してください（外してもページ再読み込みで再びONに戻ります）。
+                </div>
+
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; padding:10px 12px; background:#111; border:1px solid #333; border-radius:6px;">
+                    <input type="checkbox" id="chk-eq-sound" ${eqSoundEnabled ? 'checked' : ''} style="width:auto; margin:0;" onchange="setEqSoundEnabled(this.checked)">
+                    <label for="chk-eq-sound" style="font-size:12px; color:var(--text-sub); margin:0; cursor:pointer;">
+                        🔊 地震の速報音を鳴らす（震度3以上の場合のみ・文字スーパー側の設定と連動）
+                    </label>
                 </div>
 
                 <div id="eq-status" style="font-size:12px; color:var(--text-sub); margin-bottom:4px;">${connected ? '監視中。5秒おきに新着を確認しています…' : '未起動です。「監視を開始」を押してください。'}</div>
@@ -2024,10 +2050,12 @@
             Foreign: "遠地地震に関する情報",
             Other: "地震情報"
         };
-        const cards = buildP2pQuakeCards(d, includePlaces);
+        const result = buildP2pQuakeCards(d, includePlaces);
+        const cards = result.cards;
         const sourceLabel = `${typeLabelMap[issueType] || "地震情報"} (P2P地震情報)`;
 
         eqGeneratedCards = cards;
+        eqGeneratedMaxIntensity = result.maxIntensity || "";
         if (statusEl) statusEl.textContent = `カード生成: ${sourceLabel}（${cards.length}枚）`;
 
         if (previewEl) {
@@ -2129,19 +2157,67 @@
         return groups;
     }
 
-    // グループを「震度X　〇〇　〇〇　〇〇 / 　　　　〇〇　〇〇　〇〇」形式のカードに変換（6件ごと・1行3件）
+    // P2Pの観測点名（例:「大町市」「大阪市中央区」）から市区町村名を取り出す。
+    // 「市区町村」のうち最後に出てくる文字までを市区町村名とみなすことで、
+    // 「大町市」のような、末尾以外にも市区町村を表す漢字を含む地名を誤って
+    // 途中で区切ってしまう（例:「大町」）ことを防ぐ。
+    function eqExtractMunicipalityName(addr) {
+        if (!addr) return addr;
+        const m = addr.match(/^(.*[市区町村])/);
+        return m ? m[1] : addr;
+    }
+
+    // 同じ市区町村に複数の観測点が対応する場合、最も高い震度を採用して1件にまとめる
+    function eqMergeDuplicateMunicipalities(places) {
+        const map = new Map(); // name -> maxInt
+        places.forEach(p => {
+            const existing = map.get(p.name);
+            if (!existing || eqIntRank(p.maxInt) > eqIntRank(existing)) {
+                map.set(p.name, p.maxInt);
+            }
+        });
+        return Array.from(map.entries()).map(([name, maxInt]) => ({ name, maxInt }));
+    }
+
+    // 文字スーパーの1行あたりの上限は全角20文字。
+    // 「震度X」ラベル（または2行目用の同幅の空白）が4文字分を占めるため、
+    // 地点名を並べられるのは1行あたり最大16文字。
+    const EQ_PLACE_LINE_CHAR_MAX = 16;
+    const EQ_PLACE_LINES_PER_CARD = 2; // 1カード(ページ)あたり最大2行、超えたら次のカードへ
+
+    // グループを「震度X　〇〇　〇〇 / 　　　　〇〇　〇〇」形式のカードに変換。
+    // 1行あたり全角16文字以内に収まるよう地点名を詰め、2行を超えたら次のカードに送る。
+    // ページが複数枚にまたがる場合も、各カードの1行目には必ず「震度X」ラベルを付ける
+    // （震度ラベルの無いページが単独で表示され、何の震度か分からなくなるのを防ぐため）。
     function eqCardsFromGroups(groups) {
         const cards = [];
         groups.forEach(([level, names]) => {
             const label = EQ_INT_LABEL[level] || level;
-            for (let i = 0; i < names.length; i += 6) {
-                const chunk = names.slice(i, i + 6);
-                const row1 = chunk.slice(0, 3);
-                const row2 = chunk.slice(3, 6);
-                const prefix1 = (i === 0) ? `<font color="#ffff00">震度${label}</font>　` : "　　　　";
-                const lines = [prefix1 + row1.join("　")];
-                if (row2.length) lines.push("　　　　" + row2.join("　"));
-                cards.push(lines.join("\n"));
+            const labelHtml = `<font color="#ffff00">震度${label}</font>`;
+
+            // 地点名を、1行が全角16文字を超えないように行分けする
+            const lines = [];
+            let currentLine = "";
+            names.forEach(name => {
+                const sep = currentLine === "" ? "" : "　";
+                const candidate = currentLine + sep + name;
+                if (currentLine !== "" && candidate.length > EQ_PLACE_LINE_CHAR_MAX) {
+                    lines.push(currentLine);
+                    currentLine = name;
+                } else {
+                    currentLine = candidate;
+                }
+            });
+            if (currentLine) lines.push(currentLine);
+
+            // 2行ごとに1枚のカード(ページ)に分割する
+            for (let i = 0; i < lines.length; i += EQ_PLACE_LINES_PER_CARD) {
+                const chunk = lines.slice(i, i + EQ_PLACE_LINES_PER_CARD);
+                const prefixed = chunk.map((line, idx) => {
+                    const prefix = (idx === 0) ? `${labelHtml}　` : "　　　　";
+                    return prefix + line;
+                });
+                cards.push(prefixed.join("\n"));
             }
         });
         return cards;
@@ -2231,13 +2307,14 @@
                 if (cityPts.length) pts = cityPts;
             }
             const places = pts
-                .map(p => ({ name: p.addr, maxInt: P2P_SCALE_TO_INT[p.scale] || null }))
+                .map(p => ({ name: eqExtractMunicipalityName(p.addr), maxInt: P2P_SCALE_TO_INT[p.scale] || null }))
                 .filter(p => p.maxInt);
-            const groups = eqGroupPlaces(places);
+            const mergedPlaces = eqMergeDuplicateMunicipalities(places);
+            const groups = eqGroupPlaces(mergedPlaces);
             cards.push(...eqCardsFromGroups(groups));
         }
 
-        return cards;
+        return { cards, maxIntensity: scaleKey };
     }
 
     window.insertNewsToActiveCard = (newsText) => {
@@ -2466,6 +2543,9 @@
 
     window.selectTextSuperGenre = (genreKey) => {
         selectedTextSuperGenre = genreKey;
+        if (genreKey !== 'quake') {
+            eqGeneratedMaxIntensity = ""; // 古い地震カードの震度が別ジャンルの送出に紛れ込まないようにリセット
+        }
         renderTextSuperGenreSelector();
     };
 
@@ -2479,6 +2559,8 @@
         secureSet(ref(db, 'broadcast/text_super_sequence'), {
             cards: validCards,
             genre: selectedTextSuperGenre || null,
+            // ジャンルが「地震」の場合のみ最大震度を付与する（文字スーパー側で震度3以上の時だけ速報音を鳴らす判定に使用）
+            maxIntensity: (selectedTextSuperGenre === 'quake') ? (eqGeneratedMaxIntensity || null) : null,
             currentIndex: 0,
             interval: TEXT_SUPER_INTERVAL_SEC,
             status: 'playing',
