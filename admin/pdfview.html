@@ -138,8 +138,24 @@
   }
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
 
-  ::-webkit-scrollbar{width:8px;}
-  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+  /* Viewer auto-open mode: no header, no controls, PDF fills the viewport */
+  body.viewer-auto header{display:none;}
+  body.viewer-auto #stage-wrap{padding:0;gap:0;}
+  body.viewer-auto #screen{
+    max-width:none;width:100vw;height:100vh;max-height:100vh;
+    aspect-ratio:auto;border-radius:0;box-shadow:none;
+  }
+  body.viewer-auto .controls{display:none;}
+  body.viewer-auto .nav-zone{cursor:default;pointer-events:none;}
+  .viewer-fs-btn{
+    position:fixed;bottom:18px;right:18px;z-index:30;
+    width:38px;height:38px;border-radius:50%;border:1px solid var(--line);
+    background:rgba(21,23,27,.75);color:var(--text);display:flex;align-items:center;justify-content:center;
+    cursor:pointer;opacity:.35;transition:opacity .2s;
+  }
+  .viewer-fs-btn:hover{opacity:1;}
+  .viewer-fs-btn svg{width:16px;height:16px;fill:currentColor;}
+  body:not(.viewer-auto) .viewer-fs-btn{display:none;}
 </style>
 </head>
 <body>
@@ -207,6 +223,9 @@
     <div class="nav-zone left" id="navLeft"><svg viewBox="0 0 24 24"><path d="M15 4l-8 8 8 8"/></svg></div>
     <div class="nav-zone right" id="navRight"><svg viewBox="0 0 24 24"><path d="M9 4l8 8-8 8"/></svg></div>
   </div>
+  <div class="viewer-fs-btn" id="viewerFsBtn" title="全画面表示">
+    <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+  </div>
   <div class="controls">
     <div class="icon-btn" id="prevBtn" title="前のページ">
       <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6v12z"/></svg>
@@ -242,6 +261,18 @@
   });
   document.querySelector(`.tab[data-role="${selectedRole}"]`).click();
 
+  // ---------- Auto-start for viewer links ----------
+  // A "viewer link" carries room + pdf but no admin=1: open it and go
+  // straight to a full-screen PDF display, no form, no button to press.
+  const autoRoom = params.get('room');
+  const autoPdf = params.get('pdf');
+  const isAdminLink = params.get('admin') === '1';
+
+  $('viewerFsBtn').addEventListener('click', ()=>{
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+    else document.exitFullscreen?.();
+  });
+
   // ---------- Prefill from URL ----------
   if (params.get('room')) $('roomInput').value = params.get('room');
   if (params.get('pdf')) $('pdfUrlInput').value = params.get('pdf');
@@ -252,6 +283,24 @@
   let pdfDoc = null, curPage = 1, totalPage = 0, rendering = false, pendingPage = null;
   let role = 'viewer', roomCode = '', dbRef = null, isLocalOnly = true;
   let localFileObjectUrl = null;
+
+  // Accepts pure JSON, a JS object literal (unquoted keys), or the full
+  // Firebase snippet (import lines / const firebaseConfig = {...} / comments)
+  // and extracts a usable config object from it.
+  function parseFirebaseConfig(raw){
+    // 1) try strict JSON first
+    try{ return JSON.parse(raw); }catch(e){}
+    // 2) pull out the {...} object literal (handles the full official snippet)
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start === -1 || end === -1 || end <= start) return null;
+    const objText = raw.slice(start, end+1);
+    try{
+      const obj = Function('"use strict"; return (' + objText + ');')();
+      if (obj && typeof obj === 'object' && obj.apiKey) return obj;
+      return obj && typeof obj === 'object' ? obj : null;
+    }catch(e){ return null; }
+  }
 
   function toast(msg){
     const t = $('toast'); t.textContent = msg; t.classList.add('show');
@@ -351,23 +400,28 @@
   }
 
   // ---------- Start flow ----------
-  $('startBtn').addEventListener('click', async ()=>{
+  async function startSession(opts, viewerAuto){
+    // opts: {role, room, pdfUrl, cfgRaw, localFile}
     $('setupError').textContent = '';
-    roomCode = $('roomInput').value.trim();
-    role = selectedRole;
+    roomCode = (opts.room || '').trim();
+    role = opts.role;
     if (!roomCode){ $('setupError').textContent = 'ルームコードを入力してください。'; return; }
 
     let cfgObj = null;
-    const cfgRaw = $('fbConfig').value.trim();
+    const cfgRaw = (opts.cfgRaw || '').trim();
     if (cfgRaw){
-      try{ cfgObj = JSON.parse(cfgRaw); }
-      catch(e){ $('setupError').textContent = 'Firebase設定のJSONが正しくありません。'; return; }
+      cfgObj = parseFirebaseConfig(cfgRaw);
+      if (!cfgObj){
+        if (viewerAuto){ console.error('viewer auto-start: bad firebase config in link'); }
+        else { $('setupError').textContent = 'Firebase設定を読み取れませんでした。公式サイトからコピーした設定オブジェクトを貼り付けてください。'; return; }
+      }
     }
 
     $('setup').style.display = 'none';
     $('stage-wrap').style.display = 'flex';
     $('roleTag').textContent = role === 'admin' ? '発表者' : '視聴者';
     $('roleTag').classList.toggle('admin', role==='admin');
+    if (viewerAuto) document.body.classList.add('viewer-auto');
 
     if (cfgObj){
       isLocalOnly = false;
@@ -377,16 +431,15 @@
         else setConn(true);
       }catch(e){
         console.error(e);
-        toast('Firebaseへの接続に失敗しました。ローカルモードで続行します。');
+        if (!viewerAuto) toast('Firebaseへの接続に失敗しました。ローカルモードで続行します。');
         isLocalOnly = true; setConn(false);
       }
     } else {
       setConn(false);
     }
 
-    // Build shareable links now that we know the setup
     const cfgB64 = cfgObj ? btoa(JSON.stringify(cfgObj)) : '';
-    const pdfUrlVal = $('pdfUrlInput').value.trim();
+    const pdfUrlVal = (opts.pdfUrl || '').trim();
     const baseUrl = location.origin + location.pathname;
     function buildLink(asAdmin){
       const p = new URLSearchParams();
@@ -404,9 +457,8 @@
     }
 
     // Load the PDF
-    if (role === 'admin' && $('pdfFileInput').files[0] && !pdfUrlVal){
-      const file = $('pdfFileInput').files[0];
-      const buf = await file.arrayBuffer();
+    if (role === 'admin' && opts.localFile && !pdfUrlVal){
+      const buf = await opts.localFile.arrayBuffer();
       await loadPdf(new Uint8Array(buf));
       toast('注意: ローカルファイルは自分の画面にのみ表示され、視聴者には配布されません。全員に見せるにはPDFのURLを指定してください。');
     } else if (pdfUrlVal){
@@ -415,8 +467,17 @@
       $('emptyMsg').textContent = 'PDFが指定されていません。';
     }
 
-    // If admin and firebase connected, push initial page state
     if (role === 'admin' && dbRef){ dbRef.set({page: curPage, ts: Date.now()}); }
+  }
+
+  $('startBtn').addEventListener('click', ()=>{
+    startSession({
+      role: selectedRole,
+      room: $('roomInput').value,
+      pdfUrl: $('pdfUrlInput').value,
+      cfgRaw: $('fbConfig').value,
+      localFile: $('pdfFileInput').files[0] || null
+    }, false);
   });
 
   // ---------- Nav controls ----------
@@ -438,6 +499,16 @@
     else document.exitFullscreen?.();
   });
   window.addEventListener('resize', ()=>{ if (pdfDoc) renderPage(curPage); });
+
+  // ---------- Trigger viewer auto-start (after all declarations above) ----------
+  if (autoRoom && autoPdf && !isAdminLink){
+    startSession({
+      role: 'viewer',
+      room: autoRoom,
+      pdfUrl: autoPdf,
+      cfgRaw: params.get('cfg') ? atob(params.get('cfg')) : ''
+    }, /*viewerAuto*/ true);
+  }
 })();
 </script>
 </body>
