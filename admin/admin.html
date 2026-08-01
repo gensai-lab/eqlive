@@ -103,6 +103,21 @@
             background: var(--accent-blue); border-color: var(--accent-blue);
         }
 
+        /* 🔘 トグルスイッチ（ジャンル別効果音ON/OFFなどに使用） */
+        .toggle-switch { position: relative; display: inline-block; width: 38px; height: 21px; cursor: pointer; flex-shrink: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .toggle-slider {
+            position: absolute; inset: 0; background: #444; border-radius: 21px;
+            transition: background-color 0.2s ease; border: 1px solid #555;
+        }
+        .toggle-slider::before {
+            content: ""; position: absolute; height: 15px; width: 15px; left: 2px; top: 2px;
+            background: white; border-radius: 50%; transition: transform 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        .toggle-switch input:checked + .toggle-slider { background: var(--accent-blue); border-color: var(--accent-blue); }
+        .toggle-switch input:checked + .toggle-slider::before { transform: translateX(17px); }
+        .toggle-switch input:focus-visible + .toggle-slider { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+
         /* 巡回設定用スタイル */
         .tour-cam-item {
             display: flex; align-items: center; justify-content: space-between;
@@ -157,6 +172,54 @@
             nav.open { transform: translateX(0); box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
             .nav-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1400; }
             .nav-overlay.active { display: block; }
+
+            .content { padding: 16px; }
+            .tab-content { max-width: 100%; }
+            .card { padding: 16px; }
+            h2 { font-size: 16px; margin-bottom: 14px; }
+        }
+
+        /* 📱 スマートフォン向けの細かい調整（縦持ち想定） */
+        @media (max-width: 560px) {
+            :root { --header-height: 52px; }
+            .content { padding: 12px; }
+            .card { padding: 14px; border-radius: 10px; margin-bottom: 14px; }
+            .header-logo img { height: 22px; }
+            h2 { font-size: 15px; gap: 6px; }
+            label { font-size: 11px; margin-bottom: 6px; }
+            input, select, textarea { padding: 12px; font-size: 15px; margin-bottom: 12px; }
+            button { padding: 12px; font-size: 13px; }
+            .nav-item { padding: 12px 16px; font-size: 13px; }
+            .nav-item i { font-size: 18px; }
+
+            /* ボタン群は横幅が足りない場合、無理に横並びにせず縦積みにする */
+            .btn-group { gap: 8px; }
+            .btn-group button { min-width: 100%; }
+
+            /* 複数の入力欄を横並びにしていた箇所は、幅が足りない画面では縦積みにする */
+            .range-group { flex-wrap: wrap; gap: 8px; }
+            .range-group span { width: auto; }
+
+            .filter-container { padding: 8px; gap: 6px; }
+            .filter-btn { padding: 5px 12px; font-size: 11px; }
+            .rss-tab-btn { padding: 7px 12px; font-size: 12px; }
+
+            /* プレビューモーダルは画面いっぱいまで使えるようにする */
+            .preview-modal { padding: 10px; }
+            .preview-modal-content { max-width: 100%; max-height: 95%; padding: 14px; }
+            .preview-modal-img { max-height: 55vh; }
+
+            .login-card { padding: 22px; }
+        }
+
+        /* 横幅が足りない画面では、flex-wrapしているボタン・入力行を1列に積む
+           （自由配置パネルのURL+ファイル選択行や、地震パネルの複数ボタン行など） */
+        @media (max-width: 480px) {
+            div[style*="display:flex"][style*="flex-wrap:wrap"] > input,
+            div[style*="display: flex"][style*="flex-wrap: wrap"] > input,
+            div[style*="display:flex"][style*="flex-wrap:wrap"] > select {
+                min-width: 100% !important;
+            }
         }
     </style>
 </head>
@@ -524,9 +587,10 @@
                     <!-- 🏷️ ジャンル選択（送出時に表示するロゴ画像の種類） -->
                     <div class="card" style="background:#111; border:1px solid #333; padding:15px; margin-bottom:15px;">
                         <label style="margin-bottom:8px;">ジャンル（送出前に表示するロゴ）</label>
-                        <div id="text-super-genre-selector" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+                        <div id="text-super-genre-selector" style="display:flex; gap:14px; flex-wrap:wrap;"></div>
                         <p style="font-size:11px; color:var(--text-sub); margin:8px 0 0;">
-                            ※「地震」は⚠️地震（P2P地震情報）タブから反映すると自動で選択されます（手動選択不要）。
+                            ※「地震」は⚠️地震（P2P地震情報）タブから反映すると自動で選択されます（手動選択不要）。<br>
+                            ※各ボタン下のトグルで、そのジャンルの効果音ON/OFFを切り替えられます（地震の速報音は震度3以上の場合のみで、別途「地震」タブに設定があります）。
                         </p>
                     </div>
 
@@ -558,7 +622,7 @@
                     <div style="display:flex; gap:8px; margin-bottom:12px; overflow-x:auto; padding-bottom:4px;">
                         <button id="btn-rss-news" class="rss-tab-btn active" onclick="switchRssCategory('news')">📰 ニュース (NHK速報)</button>
                         <button id="btn-rss-earthquake" class="rss-tab-btn" onclick="switchRssCategory('earthquake')">⚠️ 地震（P2P地震情報）</button>
-                        <button id="btn-rss-tsunami" class="rss-tab-btn" onclick="switchRssCategory('tsunami')">🌊 津波 (準備中)</button>
+                        <button id="btn-rss-tsunami" class="rss-tab-btn" onclick="switchRssCategory('tsunami')">🌊 津波（P2P地震情報）</button>
                     </div>
 
                     <!-- RSSリスト表示枠 -->
@@ -661,6 +725,8 @@
             fetchRssNews();
             startFirebaseSync();
             loadEqSoundSetting();
+            loadGenreSoundSettings();
+            startP2pPolling(); // 手動で「監視を開始」を押さなくても、ログイン時点で自動的に受信を始める
         } else {
             loginScreen.style.display = 'flex';
             adminApp.style.display = 'none';
@@ -1332,9 +1398,9 @@
             const genreTag = c.genre ? c.genre : '未分類';
             const typeTag = c.type === 'youtube' ? '<span style="font-size:10px; background:#4A1D1D; color:#FFAB91; padding:2px 8px; border-radius:4px;">YouTube</span>' : '';
             d.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div><div style="font-weight:bold;">${c.name}</div><small style="color:#777;">ID: ${c.id}</small></div>
-                    <div style="display:flex; gap:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <div style="min-width:0; flex:1;"><div style="font-weight:bold; overflow-wrap:break-word;">${c.name}</div><small style="color:#777;">ID: ${c.id}</small></div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
                         ${typeTag}
                         <span style="font-size:10px; background:#1A365D; color:#90CDF4; padding:2px 8px; border-radius:4px;">${genreTag}</span>
                         <span style="font-size:10px; background:#333; padding:2px 8px; border-radius:4px;">${c.area || '未設定'}</span>
@@ -1868,6 +1934,10 @@
             renderEarthquakePanel(listContainer);
             return;
         }
+        if (currentRssCategory === 'tsunami') {
+            renderTsunamiPanel(listContainer);
+            return;
+        }
 
         const url = RSS_URLS[currentRssCategory];
         if (!url) {
@@ -1926,17 +1996,22 @@
         }
     };
 
-    // --- 🌏 P2P地震情報パネル（文字スーパータブ内・地震タブ／履歴APIを定期ポーリングして受信・APIキー不要） ---
+    // --- 🌏 P2P地震情報パネル（文字スーパータブ内・地震/津波タブ／履歴APIを定期ポーリングして受信・APIキー不要） ---
     let p2pPollTimer = null;
     let p2pPollActive = false;
-    let p2pLastSeenId = null; // 直近で処理済みの最新の地震情報ID（重複処理防止の基準）
+    let p2pLastSeenIdByCode = { 551: null, 552: null }; // 直近で処理済みの最新ID（コード別・重複処理防止の基準）
     let p2pLastMessageAt = null;
     const P2P_POLL_INTERVAL_MS = 5000; // 5秒間隔（/history は1分間に60回まで許容）
 
     let eqEventCache = {}; // p2p:<id> -> { P2PQUAKE, lastReceived }
     let eqEventOrder = []; // 受信順（新しい順）のイベントキー一覧
-    let eqAutoSendEnabled = true; // trueの間は地震情報受信時に確認なしで自動送出する（デフォルトON）
+    let eqAutoSendEnabled = true; // trueの間は地震情報受信時に確認なしで自動送出する（デフォルトON、地震・津波共通）
     let eqSoundEnabled = true; // 地震の速報音（震度3以上の場合のみ）を鳴らすかどうか。Firebase経由で文字スーパー側にも共有する
+
+    let tsEventCache = {}; // p2p-ts:<id> -> { P2PTSUNAMI, lastReceived }
+    let tsEventOrder = []; // 受信順（新しい順）のイベントキー一覧
+    let tsLastMessageAt = null;
+    let tsunamiActiveGrades = []; // 現在発表中の警報レベル一覧（解除メッセージ生成に使用。例: ['Warning','Watch']）
 
     // 地震速報音のON/OFF設定はFirebaseで共有し、text-super.html側でも同じ値を参照して
     // 「震度3以上のみ・かつこの設定がONの時だけ」速報音を鳴らすかどうかを判定する
@@ -1952,6 +2027,25 @@
     window.setEqSoundEnabled = (checked) => {
         eqSoundEnabled = checked;
         secureSet(ref(db, 'settings/eqSoundEnabled'), checked);
+    };
+
+    // --- 🔊 ジャンル別（速報・気象・噴火・津波）効果音のON/OFF設定 ---
+    // 地震(quake)は震度3以上の判定と別枠で管理しているためここには含めない
+    let genreSoundEnabled = { sokuho: true, weather: true, funka: true, tsunami: true };
+
+    function loadGenreSoundSettings() {
+        onValue(ref(db, 'settings/genreSoundEnabled'), (snap) => {
+            const val = snap.val() || {};
+            Object.keys(genreSoundEnabled).forEach(key => {
+                genreSoundEnabled[key] = (val[key] === undefined || val[key] === null) ? true : !!val[key];
+            });
+            renderTextSuperGenreSelector(); // ジャンルボタンの下のトグルに反映するため再描画
+        });
+    }
+
+    window.setGenreSoundEnabled = (key, checked) => {
+        genreSoundEnabled[key] = checked;
+        secureSet(ref(db, `settings/genreSoundEnabled/${key}`), checked);
     };
 
     function renderEarthquakePanel(container) {
@@ -1976,7 +2070,7 @@
                 </div>
 
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; padding:10px 12px; background:#1a0000; border:1px solid #522; border-radius:6px;">
-                    <input type="checkbox" id="chk-eq-auto-send" ${eqAutoSendEnabled ? 'checked' : ''} style="width:auto; margin:0;" onchange="eqAutoSendEnabled = this.checked;">
+                    <input type="checkbox" id="chk-eq-auto-send" ${eqAutoSendEnabled ? 'checked' : ''} style="width:auto; margin:0;" onchange="eqAutoSendEnabled = this.checked; document.getElementById('chk-ts-auto-send') && (document.getElementById('chk-ts-auto-send').checked = this.checked);">
                     <label for="chk-eq-auto-send" style="font-size:12px; color:#f88; margin:0; cursor:pointer;">
                         ⚠️ 地震情報を人の確認なしで自動送出する（受信時に即座に字幕スーパーへ反映・送出します）
                     </label>
@@ -2034,35 +2128,132 @@
             }).join('');
     }
 
+    // --- 🌊 P2P津波予報パネル（文字スーパータブ内・津波タブ） ---
+    const TSUNAMI_GRADE_INFO = {
+        MajorWarning: { label: '大津波警報', color: '#ff00ff' },
+        Warning: { label: '津波警報', color: '#ff0000' },
+        Watch: { label: '津波注意報', color: '#ffff00' }
+        // Unknown（不明）は対象外（カードに含めない）
+    };
+    const TSUNAMI_GRADE_ORDER = ['MajorWarning', 'Warning', 'Watch']; // 重篤度順
+
+    function renderTsunamiPanel(container) {
+        container.style.background = 'transparent';
+        container.style.border = 'none';
+        const connected = p2pPollActive;
+        container.innerHTML = `
+            <div style="background:#000; border:1px solid #333; border-radius:8px; padding:14px;">
+                <label style="margin-top:0; font-size:13px;">🌊 P2P地震情報（津波予報・履歴API・APIキー不要）</label>
+                <div style="font-size:11px; color:var(--text-sub); margin-bottom:10px;">
+                    地震タブと共通の5秒おきポーリングで、津波予報（code:552）も同時に監視しています。
+                </div>
+
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+                    <button id="btn-ts-connect" class="primary" style="width:auto; padding:8px 14px; font-size:13px; flex:none; ${connected ? 'background:var(--accent-red, #d33);' : ''}" onclick="${connected ? 'stopP2pPolling()' : 'startP2pPolling()'}">
+                        <i class="material-icons" style="font-size:16px; vertical-align:middle;">${connected ? 'stop' : 'sensors'}</i> ${connected ? '監視を停止' : '監視を開始'}
+                    </button>
+                    <div style="font-size:11px; color:var(--text-sub);">※このボタンは「地震」タブと共通です（同じポーリングで両方監視しています）。</div>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; padding:10px 12px; background:#1a0000; border:1px solid #522; border-radius:6px;">
+                    <input type="checkbox" id="chk-ts-auto-send" ${eqAutoSendEnabled ? 'checked' : ''} style="width:auto; margin:0;" onchange="eqAutoSendEnabled = this.checked; document.getElementById('chk-eq-auto-send') && (document.getElementById('chk-eq-auto-send').checked = this.checked);">
+                    <label for="chk-ts-auto-send" style="font-size:12px; color:#f88; margin:0; cursor:pointer;">
+                        ⚠️ 津波予報を人の確認なしで自動送出する（地震タブの設定と共通）
+                    </label>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; padding:10px 12px; background:#111; border:1px solid #333; border-radius:6px;">
+                    <input type="checkbox" id="chk-tsunami-sound" ${genreSoundEnabled.tsunami ? 'checked' : ''} style="width:auto; margin:0;" onchange="setGenreSoundEnabled('tsunami', this.checked)">
+                    <label for="chk-tsunami-sound" style="font-size:12px; color:var(--text-sub); margin:0; cursor:pointer;">
+                        🔊 津波の効果音を鳴らす（文字スーパータブの設定と共通）
+                    </label>
+                </div>
+
+                <div id="ts-status" style="font-size:12px; color:var(--text-sub); margin-bottom:4px;">${connected ? '監視中。5秒おきに新着を確認しています…' : '未起動です。「監視を開始」を押してください。'}</div>
+                <div style="font-size:11px; color:#666; margin-bottom:8px;">最終受信: ${tsLastMessageAt ? new Date(tsLastMessageAt).toLocaleString('ja-JP') : 'まだありません'}${connected ? '（津波予報が発表されない限り新着はありません）' : ''}</div>
+
+                <div id="ts-log" style="margin-bottom:10px;"></div>
+
+                <div id="ts-preview" style="background:#111; border:1px solid #333; border-radius:8px; max-height:260px; overflow-y:auto; display:none;"></div>
+                <div id="ts-actions" style="margin-top:10px; display:none;">
+                    <button class="primary" style="background:var(--accent-green); width:auto; padding:8px 14px; font-size:13px;" onclick="applyTsunamiCardsToTextSuper()">
+                        <i class="material-icons" style="font-size:16px; vertical-align:middle;">playlist_add</i> 字幕カードに反映（既存カードを置き換え）
+                    </button>
+                </div>
+            </div>
+        `;
+        renderTsunamiLog();
+    }
+
+    function renderTsunamiLog() {
+        const logEl = document.getElementById('ts-log');
+        if (!logEl) return;
+        if (tsEventOrder.length === 0) {
+            logEl.innerHTML = "";
+            return;
+        }
+        logEl.innerHTML = `<div style="font-size:12px; color:var(--text-sub); margin-bottom:6px;">受信した津波予報（新しい順）</div>` +
+            tsEventOrder.slice(0, 10).map(eid => {
+                const ev = tsEventCache[eid];
+                const d = ev.P2PTSUNAMI;
+                let headline, type;
+                if (d.cancelled) {
+                    headline = '津波予報の解除';
+                    type = '解除';
+                } else {
+                    const grades = (d.areas || []).map(a => a.grade).filter(g => TSUNAMI_GRADE_INFO[g]);
+                    const topGrade = TSUNAMI_GRADE_ORDER.find(g => grades.includes(g));
+                    headline = topGrade ? TSUNAMI_GRADE_INFO[topGrade].label : '津波予報';
+                    type = `予報区 ${(d.areas || []).length}件`;
+                }
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:#111; border:1px solid #333; border-radius:6px; margin-bottom:6px;">
+                        <div style="font-size:12px; color:#ddd; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${headline.replace(/</g, '&lt;')}<br/><span style="color:#777; font-size:10px;">${type}</span></div>
+                        <button class="secondary" style="width:auto; padding:6px 10px; font-size:11px; flex:none;" onclick="buildAndPreviewFromTsunamiEvent('${eid}')">カードを作成</button>
+                    </div>
+                `;
+            }).join('');
+    }
+
     async function p2pPollOnce() {
         try {
-            const res = await fetch('https://api.p2pquake.net/v2/history?codes=551&limit=5');
+            const res = await fetch('https://api.p2pquake.net/v2/history?codes=551&codes=552&limit=10');
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const items = await res.json(); // 新しい順（降順）で返る
+            const items = await res.json(); // 新しい順（降順）・複数コード混在で返る
             if (!Array.isArray(items) || items.length === 0) return;
 
-            if (p2pLastSeenId === null) {
-                // 起動直後の初回は、既存の情報を過去分まで遡って処理しないよう
-                // 最新のIDを基準として覚えるだけにする
-                p2pLastSeenId = items[0].id;
-                return;
-            }
+            [551, 552].forEach(code => {
+                const codeItems = items.filter(it => it.code === code);
+                if (codeItems.length === 0) return;
 
-            // 前回チェック時より新しいものだけを抜き出す
-            const newOnes = [];
-            for (const item of items) {
-                if (item.id === p2pLastSeenId) break;
-                newOnes.push(item);
-            }
-            if (newOnes.length === 0) return;
+                if (p2pLastSeenIdByCode[code] === null) {
+                    // 起動直後の初回は、既存の情報を過去分まで遡って処理しないよう
+                    // 最新のIDを基準として覚えるだけにする
+                    p2pLastSeenIdByCode[code] = codeItems[0].id;
+                    return;
+                }
 
-            newOnes.reverse(); // 古い順に処理する
-            newOnes.forEach(item => handleP2pMessage(item));
-            p2pLastSeenId = items[0].id;
+                // 前回チェック時より新しいものだけを抜き出す
+                const newOnes = [];
+                for (const item of codeItems) {
+                    if (item.id === p2pLastSeenIdByCode[code]) break;
+                    newOnes.push(item);
+                }
+                if (newOnes.length === 0) return;
+
+                newOnes.reverse(); // 古い順に処理する
+                newOnes.forEach(item => {
+                    if (code === 551) handleP2pMessage(item);
+                    else handleP2pTsunamiMessage(item);
+                });
+                p2pLastSeenIdByCode[code] = codeItems[0].id;
+            });
         } catch (e) {
             console.error("[P2P] 履歴取得に失敗しました:", e);
             const statusEl = document.getElementById('eq-status');
-            if (statusEl && p2pPollActive) statusEl.textContent = `履歴の取得に失敗しました: ${e.message}（5秒後に再試行します）`;
+            if (statusEl && p2pPollActive && currentRssCategory === 'earthquake') statusEl.textContent = `履歴の取得に失敗しました: ${e.message}（5秒後に再試行します）`;
+            const tsStatusEl = document.getElementById('ts-status');
+            if (tsStatusEl && p2pPollActive && currentRssCategory === 'tsunami') tsStatusEl.textContent = `履歴の取得に失敗しました: ${e.message}（5秒後に再試行します）`;
         }
     }
 
@@ -2070,11 +2261,12 @@
         if (p2pPollActive) return;
         console.log("[P2P] startP2pPolling() 開始");
         p2pPollActive = true;
-        p2pLastSeenId = null; // 起動するたびに基準をリセットする
+        p2pLastSeenIdByCode = { 551: null, 552: null }; // 起動するたびに基準をリセットする
         p2pPollOnce();
         p2pPollTimer = setInterval(p2pPollOnce, P2P_POLL_INTERVAL_MS);
         const container = document.getElementById('rss-news-list');
         if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
+        if (container && currentRssCategory === 'tsunami') renderTsunamiPanel(container);
     };
 
     window.stopP2pPolling = () => {
@@ -2082,6 +2274,7 @@
         if (p2pPollTimer) { clearInterval(p2pPollTimer); p2pPollTimer = null; }
         const container = document.getElementById('rss-news-list');
         if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
+        if (container && currentRssCategory === 'tsunami') renderTsunamiPanel(container);
     };
 
     function handleP2pMessage(json) {
@@ -2106,6 +2299,29 @@
 
         renderEqLog();
         buildAndPreviewFromEvent(eid);
+    }
+
+    function handleP2pTsunamiMessage(json) {
+        if (json.code !== 552) return;
+        if (!json.id) return;
+
+        tsLastMessageAt = Date.now();
+
+        const eid = 'p2p-ts:' + json.id;
+        tsEventCache[eid] = {
+            P2PTSUNAMI: json,
+            lastReceived: Date.now()
+        };
+
+        tsEventOrder = tsEventOrder.filter(x => x !== eid);
+        tsEventOrder.unshift(eid);
+        if (tsEventOrder.length > 20) {
+            const removed = tsEventOrder.splice(20);
+            removed.forEach(x => delete tsEventCache[x]);
+        }
+
+        renderTsunamiLog();
+        buildAndPreviewFromTsunamiEvent(eid);
     }
 
 
@@ -2176,6 +2392,166 @@
         }
     };
 
+    window.buildAndPreviewFromTsunamiEvent = (eventId) => {
+        const ev = tsEventCache[eventId];
+        const statusEl = document.getElementById('ts-status');
+        const previewEl = document.getElementById('ts-preview');
+        const actionsEl = document.getElementById('ts-actions');
+        if (!ev) return;
+
+        const d = ev.P2PTSUNAMI;
+        const { cards, activeGrades } = buildP2pTsunamiCards(d);
+
+        if (cards.length === 0) {
+            if (statusEl) statusEl.textContent = "対象の予報区が無いため、カードは生成されませんでした。";
+            return;
+        }
+
+        eqGeneratedCards = cards;
+        eqGeneratedMaxIntensity = ""; // 津波カードには震度の概念が無いためクリアしておく
+
+        const label = d.cancelled ? "津波予報の解除" : "津波予報";
+        if (statusEl) statusEl.textContent = `カード生成: ${label}（${cards.length}枚）`;
+
+        if (previewEl) {
+            previewEl.innerHTML = cards.map((c, i) => `
+                <div style="padding:10px 12px; border-bottom:1px solid #222;">
+                    <div style="font-size:10px; color:#666; margin-bottom:3px;">カード${i + 1}</div>
+                    <div style="font-size:13px; white-space:pre-wrap; color:#fff;">${c.replace(/</g, '&lt;')}</div>
+                </div>
+            `).join('');
+            previewEl.style.display = 'block';
+        }
+        if (actionsEl) actionsEl.style.display = 'block';
+
+        // 発表中の警報レベルを記録しておく（解除メッセージの生成に使用）。解除の場合はここでクリアする
+        if (!d.cancelled) {
+            tsunamiActiveGrades = activeGrades;
+        } else {
+            tsunamiActiveGrades = [];
+        }
+
+        // 🚨 自動送出が有効な場合は、確認を挟まず即座に字幕カードへ反映して送出する
+        if (eqAutoSendEnabled) {
+            applyTsunamiCardsToTextSuper({ silent: true, autoStart: true });
+            if (statusEl) statusEl.textContent = `自動送出しました: ${label}（${cards.length}枚）`;
+        }
+    };
+
+    window.applyTsunamiCardsToTextSuper = (opts) => {
+        const { silent = false, autoStart = false } = opts || {};
+        if (!eqGeneratedCards || eqGeneratedCards.length === 0) return;
+        if (!silent) {
+            if (!confirm(`現在の字幕カード（${localTextSuperCards.length}枚）を、取得した津波情報カード（${eqGeneratedCards.length}枚）に置き換えます。よろしいですか？`)) return;
+        }
+        localTextSuperCards = eqGeneratedCards.map(text => ({
+            id: "card_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
+            text
+        }));
+        selectedTextSuperGenre = "tsunami"; // 津波情報反映時はジャンルを自動で「津波」に設定
+        renderTextSuperCards();
+        renderTextSuperGenreSelector();
+
+        if (autoStart) {
+            startTextSuperSequence();
+        } else {
+            switchTab('text-super');
+            alert("字幕カードに反映し、ジャンルを「津波」に設定しました。内容を確認のうえ送出してください。");
+        }
+    };
+
+    // 到達予想時刻の表示テキストを組み立てる（conditionがあればそのまま、なければ時刻を整形、どちらも無ければプレースホルダー）
+    function eqTsunamiArrivalText(firstHeight) {
+        if (!firstHeight) return "情報なし";
+        if (firstHeight.condition) return firstHeight.condition; // 「ただちに津波来襲と予測」等はそのまま使用
+        if (firstHeight.arrivalTime) return eqFmtHourMinuteP2p(firstHeight.arrivalTime);
+        return "情報なし";
+    }
+
+    // 予想される津波の高さの表示テキストを組み立てる
+    function eqTsunamiHeightText(maxHeight) {
+        if (!maxHeight || !maxHeight.description) return "情報なし";
+        return maxHeight.description; // 「３ｍ」等はそのまま使用
+    }
+
+    // P2P地震情報(JSON API v2, code:552 JMATsunami) → 字幕カード変換ロジック
+    function buildP2pTsunamiCards(d) {
+        const cards = [];
+        const activeGrades = [];
+
+        if (d.cancelled) {
+            // 解除：直前に発表されていた警報レベルごとに解除メッセージを作る。
+            // 発表中のレベルが分からない場合は汎用メッセージにする
+            if (tsunamiActiveGrades && tsunamiActiveGrades.length > 0) {
+                tsunamiActiveGrades.forEach(grade => {
+                    const info = TSUNAMI_GRADE_INFO[grade];
+                    if (!info) return;
+                    cards.push(`<font color="${info.color}">${info.label}</font>は解除されました`);
+                });
+            } else {
+                cards.push("津波の警報・注意報は解除されました");
+            }
+            return { cards, activeGrades: [] };
+        }
+
+        const issueTime = d.issue && d.issue.time;
+        const dt = eqFmtHourMinuteP2p(issueTime);
+
+        // grade別にareasをグループ化（Unknown等の未対応gradeは無視する）
+        const areasByGrade = {};
+        (d.areas || []).forEach(a => {
+            if (!TSUNAMI_GRADE_INFO[a.grade]) return;
+            if (!areasByGrade[a.grade]) areasByGrade[a.grade] = [];
+            areasByGrade[a.grade].push(a);
+        });
+
+        TSUNAMI_GRADE_ORDER.forEach(grade => {
+            const areas = areasByGrade[grade];
+            if (!areas || areas.length === 0) return;
+            activeGrades.push(grade);
+
+            const info = TSUNAMI_GRADE_INFO[grade];
+            const labelHtml = `<font color="${info.color}">${info.label}</font>`;
+            const prefixVisibleWidth = info.label.length + 1; // ラベルの文字数 + 全角スペース1つ分
+
+            // ページ1：発表
+            cards.push(`${dt}の地震で\n${labelHtml}が発表されました`);
+
+            // ページ2以降：予報区の一覧（1行あたり全角20文字以内。地点名の途中改行はしない）
+            const lines = [];
+            let currentLine = "";
+            areas.forEach(a => {
+                const sep = currentLine === "" ? "" : "　";
+                const candidate = currentLine + sep + a.name;
+                if (currentLine !== "" && (prefixVisibleWidth + candidate.length) > 20) {
+                    lines.push(currentLine);
+                    currentLine = a.name;
+                } else {
+                    currentLine = candidate;
+                }
+            });
+            if (currentLine) lines.push(currentLine);
+
+            for (let i = 0; i < lines.length; i += 2) {
+                const chunk = lines.slice(i, i + 2);
+                const prefixed = chunk.map((line, idx) => {
+                    const prefix = (idx === 0) ? `${labelHtml}　` : "　".repeat(prefixVisibleWidth);
+                    return prefix + line;
+                });
+                cards.push(prefixed.join("\n"));
+            }
+
+            // ページ3以降：予報区ごとの予想（到達時刻・高さ）。1予報区につき1ページ
+            areas.forEach(a => {
+                const arrivalText = eqTsunamiArrivalText(a.firstHeight);
+                const heightText = eqTsunamiHeightText(a.maxHeight);
+                cards.push(`${labelHtml}　${a.name}\n<font color="#00ffff">予想</font>　${arrivalText}　${heightText}`);
+            });
+        });
+
+        return { cards, activeGrades };
+    }
+
     // --- 🌏 P2P地震情報(JSON API v2, code:551 JMAQuake) → 字幕カード変換ロジック ---
 
     const EQ_PREF_CHIHOU = {
@@ -2234,14 +2610,45 @@
         return groups;
     }
 
-    // P2Pの観測点名（例:「大町市」「大阪市中央区」）から市区町村名を取り出す。
-    // 「市区町村」のうち最後に出てくる文字までを市区町村名とみなすことで、
-    // 「大町市」のような、末尾以外にも市区町村を表す漢字を含む地名を誤って
-    // 途中で区切ってしまう（例:「大町」）ことを防ぐ。
+    // 政令指定都市（「市」の後ろに「区」が続く）の一覧。この場合は区名まで含める
+    const EQ_DESIGNATED_CITIES = [
+        "札幌市", "仙台市", "さいたま市", "千葉市", "横浜市", "川崎市", "相模原市", "新潟市",
+        "静岡市", "浜松市", "名古屋市", "京都市", "大阪市", "堺市", "神戸市", "岡山市",
+        "広島市", "北九州市", "福岡市", "熊本市"
+    ];
+    // 「市」が2回続く等、通常の規則では正しく抽出できない例外的な正式名称
+    const EQ_MUNICIPALITY_EXCEPTIONS = ["野々市市"];
+
+    // P2Pの観測点名（例:「熊本市中央区」「薩摩川内市樋脇町塔之原」）から市区町村名を取り出す。
+    // 観測点名には、市区町村名の後ろに旧町名や大字などの詳細な地名が続くことがあるため
+    // （例:「薩摩川内市樋脇町塔之原」）、それらは切り落として市区町村名だけを残す。
+    // ただし「大町市」のように、末尾以外にも市区町村を表す漢字を地名自体に含むケースは
+    // 誤って途中で区切らないよう考慮している。
     function eqExtractMunicipalityName(addr) {
         if (!addr) return addr;
-        const m = addr.match(/^(.*[市区町村])/);
-        return m ? m[1] : addr;
+
+        for (const name of EQ_MUNICIPALITY_EXCEPTIONS) {
+            if (addr.startsWith(name)) return name;
+        }
+
+        // 「市」または「村」が最初に出てくる位置までを市区町村名の候補とする。
+        // 地名そのものの一部に「市」「村」が含まれることは基本的に無いため、
+        // 最初の出現位置で区切って問題ない（「大町市」も「町」はこの対象外なので正しく残る）。
+        const cityOrVillageMatch = addr.match(/^(.*?[市村])/);
+        if (cityOrVillageMatch) {
+            let base = cityOrVillageMatch[1];
+            // 政令指定都市の場合のみ、続く区名まで含める
+            if (EQ_DESIGNATED_CITIES.includes(base)) {
+                const rest = addr.slice(base.length);
+                const wardMatch = rest.match(/^(.*?区)/);
+                if (wardMatch) base += wardMatch[1];
+            }
+            return base;
+        }
+
+        // 「市」「村」が無い場合（町のみ等）は、最後に出てくる「町」までを市区町村名とみなす
+        const townMatch = addr.match(/^(.*[町村])/);
+        return townMatch ? townMatch[1] : addr;
     }
 
     // 同じ市区町村に複数の観測点が対応する場合、最も高い震度を採用して1件にまとめる
@@ -2612,10 +3019,22 @@
     function renderTextSuperGenreSelector() {
         const el = document.getElementById('text-super-genre-selector');
         if (!el) return;
-        el.innerHTML = TEXT_SUPER_GENRE_OPTIONS.map(opt => `
-            <button type="button" class="filter-btn ${selectedTextSuperGenre === opt.key ? 'active' : ''}"
-                onclick="selectTextSuperGenre('${opt.key}')">${opt.label}</button>
-        `).join('');
+        el.innerHTML = TEXT_SUPER_GENRE_OPTIONS.map(opt => {
+            // 「なし」には効果音の概念が無いため、高さを揃えるための空スペースだけ入れる
+            const toggleHtml = opt.key
+                ? `<label class="toggle-switch" title="${opt.label}の効果音 ON/OFF">
+                       <input type="checkbox" ${genreSoundEnabled[opt.key] ? 'checked' : ''} onchange="setGenreSoundEnabled('${opt.key}', this.checked)">
+                       <span class="toggle-slider"></span>
+                   </label>`
+                : `<div style="height:22px;"></div>`;
+            return `
+                <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+                    <button type="button" class="filter-btn ${selectedTextSuperGenre === opt.key ? 'active' : ''}"
+                        onclick="selectTextSuperGenre('${opt.key}')">${opt.label}</button>
+                    ${toggleHtml}
+                </div>
+            `;
+        }).join('');
     }
 
     window.selectTextSuperGenre = (genreKey) => {
