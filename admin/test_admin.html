@@ -157,6 +157,54 @@
             nav.open { transform: translateX(0); box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
             .nav-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1400; }
             .nav-overlay.active { display: block; }
+
+            .content { padding: 16px; }
+            .tab-content { max-width: 100%; }
+            .card { padding: 16px; }
+            h2 { font-size: 16px; margin-bottom: 14px; }
+        }
+
+        /* 📱 スマートフォン向けの細かい調整（縦持ち想定） */
+        @media (max-width: 560px) {
+            :root { --header-height: 52px; }
+            .content { padding: 12px; }
+            .card { padding: 14px; border-radius: 10px; margin-bottom: 14px; }
+            .header-logo img { height: 22px; }
+            h2 { font-size: 15px; gap: 6px; }
+            label { font-size: 11px; margin-bottom: 6px; }
+            input, select, textarea { padding: 12px; font-size: 15px; margin-bottom: 12px; }
+            button { padding: 12px; font-size: 13px; }
+            .nav-item { padding: 12px 16px; font-size: 13px; }
+            .nav-item i { font-size: 18px; }
+
+            /* ボタン群は横幅が足りない場合、無理に横並びにせず縦積みにする */
+            .btn-group { gap: 8px; }
+            .btn-group button { min-width: 100%; }
+
+            /* 複数の入力欄を横並びにしていた箇所は、幅が足りない画面では縦積みにする */
+            .range-group { flex-wrap: wrap; gap: 8px; }
+            .range-group span { width: auto; }
+
+            .filter-container { padding: 8px; gap: 6px; }
+            .filter-btn { padding: 5px 12px; font-size: 11px; }
+            .rss-tab-btn { padding: 7px 12px; font-size: 12px; }
+
+            /* プレビューモーダルは画面いっぱいまで使えるようにする */
+            .preview-modal { padding: 10px; }
+            .preview-modal-content { max-width: 100%; max-height: 95%; padding: 14px; }
+            .preview-modal-img { max-height: 55vh; }
+
+            .login-card { padding: 22px; }
+        }
+
+        /* 横幅が足りない画面では、flex-wrapしているボタン・入力行を1列に積む
+           （自由配置パネルのURL+ファイル選択行や、地震パネルの複数ボタン行など） */
+        @media (max-width: 480px) {
+            div[style*="display:flex"][style*="flex-wrap:wrap"] > input,
+            div[style*="display: flex"][style*="flex-wrap: wrap"] > input,
+            div[style*="display:flex"][style*="flex-wrap:wrap"] > select {
+                min-width: 100% !important;
+            }
         }
     </style>
 </head>
@@ -1343,9 +1391,9 @@
             const genreTag = c.genre ? c.genre : '未分類';
             const typeTag = c.type === 'youtube' ? '<span style="font-size:10px; background:#4A1D1D; color:#FFAB91; padding:2px 8px; border-radius:4px;">YouTube</span>' : '';
             d.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div><div style="font-weight:bold;">${c.name}</div><small style="color:#777;">ID: ${c.id}</small></div>
-                    <div style="display:flex; gap:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <div style="min-width:0; flex:1;"><div style="font-weight:bold; overflow-wrap:break-word;">${c.name}</div><small style="color:#777;">ID: ${c.id}</small></div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
                         ${typeTag}
                         <span style="font-size:10px; background:#1A365D; color:#90CDF4; padding:2px 8px; border-radius:4px;">${genreTag}</span>
                         <span style="font-size:10px; background:#333; padding:2px 8px; border-radius:4px;">${c.area || '未設定'}</span>
