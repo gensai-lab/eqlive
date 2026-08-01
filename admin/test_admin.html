@@ -103,6 +103,21 @@
             background: var(--accent-blue); border-color: var(--accent-blue);
         }
 
+        /* 🔘 トグルスイッチ（ジャンル別効果音ON/OFFなどに使用） */
+        .toggle-switch { position: relative; display: inline-block; width: 38px; height: 21px; cursor: pointer; flex-shrink: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .toggle-slider {
+            position: absolute; inset: 0; background: #444; border-radius: 21px;
+            transition: background-color 0.2s ease; border: 1px solid #555;
+        }
+        .toggle-slider::before {
+            content: ""; position: absolute; height: 15px; width: 15px; left: 2px; top: 2px;
+            background: white; border-radius: 50%; transition: transform 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        .toggle-switch input:checked + .toggle-slider { background: var(--accent-blue); border-color: var(--accent-blue); }
+        .toggle-switch input:checked + .toggle-slider::before { transform: translateX(17px); }
+        .toggle-switch input:focus-visible + .toggle-slider { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+
         /* 巡回設定用スタイル */
         .tour-cam-item {
             display: flex; align-items: center; justify-content: space-between;
@@ -572,18 +587,10 @@
                     <!-- 🏷️ ジャンル選択（送出時に表示するロゴ画像の種類） -->
                     <div class="card" style="background:#111; border:1px solid #333; padding:15px; margin-bottom:15px;">
                         <label style="margin-bottom:8px;">ジャンル（送出前に表示するロゴ）</label>
-                        <div id="text-super-genre-selector" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+                        <div id="text-super-genre-selector" style="display:flex; gap:14px; flex-wrap:wrap;"></div>
                         <p style="font-size:11px; color:var(--text-sub); margin:8px 0 0;">
-                            ※「地震」は⚠️地震（P2P地震情報）タブから反映すると自動で選択されます（手動選択不要）。
-                        </p>
-                    </div>
-
-                    <!-- 🔊 ジャンル別 効果音ON/OFF -->
-                    <div class="card" style="background:#111; border:1px solid #333; padding:15px; margin-bottom:15px;">
-                        <label style="margin-bottom:8px;">🔊 ジャンル別 効果音のON/OFF</label>
-                        <div id="genre-sound-toggles" style="display:flex; flex-direction:column; gap:8px;"></div>
-                        <p style="font-size:11px; color:var(--text-sub); margin:8px 0 0;">
-                            ※地震（quake）の速報音は震度3以上の場合のみで別途「地震」タブに設定があります。
+                            ※「地震」は⚠️地震（P2P地震情報）タブから反映すると自動で選択されます（手動選択不要）。<br>
+                            ※各ボタン下のトグルで、そのジャンルの効果音ON/OFFを切り替えられます（地震の速報音は震度3以上の場合のみで、別途「地震」タブに設定があります）。
                         </p>
                     </div>
 
@@ -2024,33 +2031,16 @@
 
     // --- 🔊 ジャンル別（速報・気象・噴火・津波）効果音のON/OFF設定 ---
     // 地震(quake)は震度3以上の判定と別枠で管理しているためここには含めない
-    const GENRE_SOUND_TOGGLE_LIST = [
-        { key: 'sokuho', label: '🚨 速報' },
-        { key: 'weather', label: '☔ 気象' },
-        { key: 'funka', label: '🌋 噴火' },
-        { key: 'tsunami', label: '🌊 津波' }
-    ];
     let genreSoundEnabled = { sokuho: true, weather: true, funka: true, tsunami: true };
 
     function loadGenreSoundSettings() {
         onValue(ref(db, 'settings/genreSoundEnabled'), (snap) => {
             const val = snap.val() || {};
-            GENRE_SOUND_TOGGLE_LIST.forEach(g => {
-                genreSoundEnabled[g.key] = (val[g.key] === undefined || val[g.key] === null) ? true : !!val[g.key];
+            Object.keys(genreSoundEnabled).forEach(key => {
+                genreSoundEnabled[key] = (val[key] === undefined || val[key] === null) ? true : !!val[key];
             });
-            renderGenreSoundToggles();
+            renderTextSuperGenreSelector(); // ジャンルボタンの下のトグルに反映するため再描画
         });
-    }
-
-    function renderGenreSoundToggles() {
-        const el = document.getElementById('genre-sound-toggles');
-        if (!el) return;
-        el.innerHTML = GENRE_SOUND_TOGGLE_LIST.map(g => `
-            <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-sub); cursor:pointer;">
-                <input type="checkbox" ${genreSoundEnabled[g.key] ? 'checked' : ''} style="width:auto; margin:0;" onchange="setGenreSoundEnabled('${g.key}', this.checked)">
-                ${g.label}の効果音
-            </label>
-        `).join('');
     }
 
     window.setGenreSoundEnabled = (key, checked) => {
@@ -2998,10 +2988,22 @@
     function renderTextSuperGenreSelector() {
         const el = document.getElementById('text-super-genre-selector');
         if (!el) return;
-        el.innerHTML = TEXT_SUPER_GENRE_OPTIONS.map(opt => `
-            <button type="button" class="filter-btn ${selectedTextSuperGenre === opt.key ? 'active' : ''}"
-                onclick="selectTextSuperGenre('${opt.key}')">${opt.label}</button>
-        `).join('');
+        el.innerHTML = TEXT_SUPER_GENRE_OPTIONS.map(opt => {
+            // 「なし」には効果音の概念が無いため、高さを揃えるための空スペースだけ入れる
+            const toggleHtml = opt.key
+                ? `<label class="toggle-switch" title="${opt.label}の効果音 ON/OFF">
+                       <input type="checkbox" ${genreSoundEnabled[opt.key] ? 'checked' : ''} onchange="setGenreSoundEnabled('${opt.key}', this.checked)">
+                       <span class="toggle-slider"></span>
+                   </label>`
+                : `<div style="height:22px;"></div>`;
+            return `
+                <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+                    <button type="button" class="filter-btn ${selectedTextSuperGenre === opt.key ? 'active' : ''}"
+                        onclick="selectTextSuperGenre('${opt.key}')">${opt.label}</button>
+                    ${toggleHtml}
+                </div>
+            `;
+        }).join('');
     }
 
     window.selectTextSuperGenre = (genreKey) => {
