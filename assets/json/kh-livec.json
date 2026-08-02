@@ -184,6 +184,14 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/honmoku_vtss-live.m3u8"
     },
     {
+        "id":  "marunouchi",
+        "name":  "東京 丸の内",
+        "area":  "関東",
+        "genre":  "駅",
+        "type":  "youtube",
+        "url":  "https://www.youtube.com/embed/ZN4gh5IOowM"
+    },
+    {
         "id":  "tokyo_suginami",
         "name":  "東京 杉並区",
         "area":  "関東",
