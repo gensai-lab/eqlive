@@ -134,6 +134,15 @@ body, html {
         eqSoundEnabled = (val === null || val === undefined) ? true : !!val;
     });
 
+    // 速報・気象・噴火・津波の効果音ON/OFF設定（手動）。admin画面と共有（既定はON）
+    let genreSoundEnabled = { sokuho: true, weather: true, funka: true, tsunami: true };
+    onValue(ref(db, 'settings/genreSoundEnabled'), (snapshot) => {
+        const val = snapshot.val() || {};
+        Object.keys(genreSoundEnabled).forEach(key => {
+            genreSoundEnabled[key] = (val[key] === undefined || val[key] === null) ? true : !!val[key];
+        });
+    });
+
     // 画像の読み込み失敗を検知してコンソールに出す（動作確認用）
     imageEl.onerror = () => {
         console.error('[text-super] ジャンル画像の読み込みに失敗しました:', imageEl.src);
@@ -231,12 +240,15 @@ body, html {
         console.log('[text-super] 受信genre:', genre, '→ 判定キー:', genreKey, '→ 画像URL:', imgSrc || '(なし)');
 
         // 送出時に、ジャンルに応じた効果音を1回再生する。
-        // ただし地震(quake)ジャンルは「震度3以上」かつ「速報音ON設定」の場合のみ鳴らす
+        // 地震(quake)は「震度3以上」かつ「速報音ON設定」の場合のみ、
+        // それ以外（速報・気象・噴火・津波）は手動のON/OFF設定に従って鳴らす
         const sndSrc = genreAudioMap[genreKey];
         let shouldPlaySound = !!sndSrc;
         if (sndSrc && genreKey === 'quake') {
             shouldPlaySound = eqSoundEnabled && eqIntRank(maxIntensity) >= eqIntRank('3');
             console.log('[text-super] 地震速報音の判定: eqSoundEnabled=', eqSoundEnabled, ' maxIntensity=', maxIntensity, ' → 再生=', shouldPlaySound);
+        } else if (sndSrc && genreSoundEnabled.hasOwnProperty(genreKey)) {
+            shouldPlaySound = genreSoundEnabled[genreKey];
         }
         if (shouldPlaySound) {
             audioEl.src = sndSrc;
