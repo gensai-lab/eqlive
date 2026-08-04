@@ -584,7 +584,7 @@
         "url":  "https://kactuif-proxy.jridpm.workers.dev/https://camera.mics.kaiho.mlit.go.jp/realmovie/toimisaki_lt-live.m3u8"
     },
     {
-        "id":  "omarugawa",
+        "id":  "omarukawa",
         "name":  "小丸川",
         "area":  "九州",
         "genre":  "河川",
@@ -592,7 +592,7 @@
         "url":  "https://www.youtube.com/embed/4DbsHMixQW4"
     },
     {
-        "id":  "oyodogawa",
+        "id":  "oyodokawa",
         "name":  "大淀川",
         "area":  "九州",
         "genre":  "河川",
@@ -606,6 +606,14 @@
         "genre":  "河川",
         "type":  "youtube",
         "url":  "https://www.youtube.com/embed/SflPu7L6HII"
+    },
+    {
+        "id":  "midorikawa",
+        "name":  "緑川",
+        "area":  "九州",
+        "genre":  "河川",
+        "type":  "youtube",
+        "url":  "https://www.youtube.com/embed/5bB8k5p6cNM"
     },
     {
         "id":  "satamisaki_lt",
