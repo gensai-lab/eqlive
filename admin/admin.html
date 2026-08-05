@@ -357,9 +357,21 @@
                             </select>
                         </div>
 
-                        <label>オーバーレイ・タイトル</label>
+                        <div id="screenshare-options" style="display:none; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                            <p style="font-size:12px; color:var(--text-sub); margin-top:0;">
+                                このPC（Adminを開いているPC）の画面を、ブラウザの画面共有機能でそのまま配信画面へ送ります。<br>
+                                <span style="color:#ffb300;">※音声は送れません（映像のみ）。</span>
+                            </p>
+                            <div id="screenshare-status" style="font-size:13px; color:#ffb300; margin-bottom:12px; display:none;">🖥️ 画面共有中...</div>
+                            <div class="btn-group" style="margin:0;">
+                                <button id="btn-screenshare-start" class="primary" onclick="startScreenShare()">画面共有を開始</button>
+                                <button id="btn-screenshare-stop" class="danger" style="display:none;" onclick="stopScreenShare()">画面共有を停止</button>
+                            </div>
+                        </div>
+
+                        <label id="label-screen-title">オーバーレイ・タイトル</label>
                         <input type="text" id="input-screen-title">
-                        <label>URL (画像/映像/YouTube/Web)</label>
+                        <label id="label-screen-url">URL (画像/映像/YouTube/Web)</label>
                         <input type="text" id="input-screen-url" placeholder="https://...">
                         
                         <div class="btn-group" style="margin-top: 10px;">
@@ -732,6 +744,7 @@
             adminApp.style.display = 'none';
             stopLocalTourTimer(); 
             stopMicStreaming();
+            stopScreenShare();
             stopTextSuperTimers();
         }
     });
@@ -806,6 +819,16 @@
     window.toggleVideoOptions = (type) => {
         const vOpts = document.getElementById('video-extra-options');
         if(vOpts) { vOpts.style.display = (type === 'video') ? 'block' : 'none'; }
+
+        const ssOpts = document.getElementById('screenshare-options');
+        if (ssOpts) { ssOpts.style.display = (type === 'screenshare') ? 'block' : 'none'; }
+
+        // 画面共有はURL入力が不要（映像は直接WebRTCで送るため）なので隠す
+        const isScreenshare = (type === 'screenshare');
+        ['label-screen-url', 'input-screen-url'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = isScreenshare ? 'none' : 'block';
+        });
     };
 
     window.saveScreenProgram = () => {
@@ -1915,6 +1938,113 @@
         setElDisplay('btn-mic-start', 'block');
         setElDisplay('btn-mic-stop', 'none');
         setElDisplay('mic-status', 'none');
+    };
+
+    // 4. PC画面共有 (WebRTC・映像のみ)
+    let screenStream = null;
+    let screenPeerConnection = null;
+    let pendingScreenIceCandidates = [];
+    let unsubScreenCandidates = null;
+    let unsubScreenAnswer = null;
+
+    window.startScreenShare = async () => {
+        try {
+            if (unsubScreenCandidates) { unsubScreenCandidates(); unsubScreenCandidates = null; }
+            if (unsubScreenAnswer) { unsubScreenAnswer(); unsubScreenAnswer = null; }
+
+            // 音声は送らない（映像のみ）
+            screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+
+            setElDisplay('btn-screenshare-start', 'none');
+            setElDisplay('btn-screenshare-stop', 'block');
+            setElDisplay('screenshare-status', 'block');
+
+            // ブラウザ側の共有停止ボタン（画面共有バーの「共有を停止」）が押された場合にも追従して片付ける
+            screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+                stopScreenShare();
+            });
+
+            pendingScreenIceCandidates = [];
+            screenPeerConnection = new RTCPeerConnection(servers);
+            screenStream.getTracks().forEach(track => screenPeerConnection.addTrack(track, screenStream));
+
+            screenPeerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    set(ref(db, `broadcast/screen/webrtc/candidates/admin/${Date.now()}`), event.candidate.toJSON());
+                }
+            };
+
+            // 相手（配信画面側）からのICE candidateは、setRemoteDescriptionが完了するまで
+            // 追加できないため、完了前に届いた分は一旦キューに貯めておく
+            unsubScreenCandidates = onValue(ref(db, 'broadcast/screen/webrtc/candidates/main'), (snapshot) => {
+                snapshot.forEach((childSnapshot) => {
+                    const candidate = new RTCIceCandidate(childSnapshot.val());
+                    if (screenPeerConnection && screenPeerConnection.remoteDescription) {
+                        screenPeerConnection.addIceCandidate(candidate).catch(e => console.error("[WebRTC:screen] addIceCandidate失敗:", e));
+                    } else {
+                        pendingScreenIceCandidates.push(candidate);
+                    }
+                });
+            });
+
+            const offer = await screenPeerConnection.createOffer();
+            await screenPeerConnection.setLocalDescription(offer);
+
+            await remove(ref(db, 'broadcast/screen/webrtc'));
+            await secureSet(ref(db, 'broadcast/screen/webrtc/offer'), {
+                type: offer.type,
+                sdp: offer.sdp,
+                timestamp: Date.now()
+            });
+
+            unsubScreenAnswer = onValue(ref(db, 'broadcast/screen/webrtc/answer'), async (snapshot) => {
+                const data = snapshot.val();
+                if (data && screenPeerConnection && !screenPeerConnection.currentRemoteDescription) {
+                    const answerDescription = new RTCSessionDescription(data);
+                    await screenPeerConnection.setRemoteDescription(answerDescription);
+                    const queued = pendingScreenIceCandidates;
+                    pendingScreenIceCandidates = [];
+                    for (const c of queued) {
+                        try { await screenPeerConnection.addIceCandidate(c); } catch (e) { console.error("[WebRTC:screen] addIceCandidate失敗:", e); }
+                    }
+                }
+            });
+
+            // 配信画面側を「画面投影 → PC画面共有」に自動で切り替える
+            secureSet(ref(db, 'broadcast/screen_program'), {
+                type: 'screenshare',
+                title: document.getElementById('input-screen-title')?.value || "",
+                url: ""
+            });
+            secureSet(ref(db, 'broadcast/current/mainSource'), 'screen');
+
+        } catch (error) {
+            console.error("画面共有の開始に失敗しました: ", error);
+            if (error.name !== 'NotAllowedError') {
+                alert("画面共有を開始できませんでした。");
+            }
+            // NotAllowedErrorはユーザーが共有ダイアログをキャンセルした場合なので、アラートは出さない
+        }
+    };
+
+    window.stopScreenShare = () => {
+        if (screenStream) {
+            screenStream.getTracks().forEach(track => track.stop());
+            screenStream = null;
+        }
+        if (screenPeerConnection) {
+            screenPeerConnection.close();
+            screenPeerConnection = null;
+        }
+        if (unsubScreenCandidates) { unsubScreenCandidates(); unsubScreenCandidates = null; }
+        if (unsubScreenAnswer) { unsubScreenAnswer(); unsubScreenAnswer = null; }
+        pendingScreenIceCandidates = [];
+
+        remove(ref(db, 'broadcast/screen/webrtc'));
+
+        setElDisplay('btn-screenshare-start', 'block');
+        setElDisplay('btn-screenshare-stop', 'none');
+        setElDisplay('screenshare-status', 'none');
     };
 
     // --- 📰 速報ニュース取得 & 挿入ロジック (3枠対応) ---
