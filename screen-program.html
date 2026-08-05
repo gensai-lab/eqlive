@@ -46,7 +46,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
@@ -69,23 +69,80 @@
     const overlay = document.getElementById('program-overlay');
     const titleElement = document.getElementById('target-title');
 
-    // 映像を適用する関数（再利用）
-    function applyStreamToVideo() {
-        const v = document.getElementById('shared-video');
-        if (!v) return;
+    // === 🖥️ PC画面共有 (WebRTC受信・Admin側から送られてくる映像を受け取って表示) ===
+    const screenServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    let screenPeerConnection = null;
+    let pendingScreenAdminIceCandidates = []; // setRemoteDescription完了前に届いたcandidateを一時保管
+    let unsubScreenAdminCandidates = null; // 前回のリスナーを確実に解除するため保持
+    let pendingScreenStream = null; // <video>要素がまだ無いタイミングでトラックが届いた場合に一時保持する
 
-        try {
-            // 親のメモリを確認
-            if (window.top && window.top._eqlive_shared_stream) {
-                v.srcObject = window.top._eqlive_shared_stream;
-                console.log("Stream applied successfully.");
-            } else {
-                console.log("No stream found in top window memory yet.");
-            }
-        } catch (e) {
-            console.error("Access to top window denied. Check if all files are on the same domain/port.", e);
+    onValue(ref(db, 'broadcast/screen/webrtc/offer'), async (snapshot) => {
+        const offerData = snapshot.val();
+
+        // 新しいオファーが来る／Admin側で共有が止められた場合、前回の接続とリスナーは必ず片付ける
+        if (unsubScreenAdminCandidates) { unsubScreenAdminCandidates(); unsubScreenAdminCandidates = null; }
+        if (screenPeerConnection) {
+            screenPeerConnection.close();
+            screenPeerConnection = null;
         }
-    }
+        pendingScreenAdminIceCandidates = [];
+        pendingScreenStream = null;
+
+        const v = document.getElementById('shared-video');
+        if (!offerData) {
+            if (v) v.srcObject = null;
+            return;
+        }
+
+        screenPeerConnection = new RTCPeerConnection(screenServers);
+
+        screenPeerConnection.ontrack = (event) => {
+            const videoEl = document.getElementById('shared-video');
+            if (videoEl) {
+                videoEl.srcObject = event.streams[0];
+            } else {
+                // まだ「PC画面共有」表示に切り替わっていない（<video>要素が無い）場合は
+                // 一時的に保持しておき、updateMedia側で要素が作られた時に適用する
+                pendingScreenStream = event.streams[0];
+            }
+        };
+
+        screenPeerConnection.onicecandidate = event => {
+            if (event.candidate) {
+                set(ref(db, `broadcast/screen/webrtc/candidates/main/${Date.now()}`), event.candidate.toJSON());
+            }
+        };
+
+        // AdminからのICE Candidateを受信。setRemoteDescriptionが完了するまでは
+        // addIceCandidateできないため、完了前に届いた分は一旦キューに貯めておく
+        unsubScreenAdminCandidates = onValue(ref(db, 'broadcast/screen/webrtc/candidates/admin'), (iceSnapshot) => {
+            iceSnapshot.forEach((childSnapshot) => {
+                const candidate = new RTCIceCandidate(childSnapshot.val());
+                if (screenPeerConnection && screenPeerConnection.remoteDescription) {
+                    screenPeerConnection.addIceCandidate(candidate).catch(e => console.error("[WebRTC:screen] addIceCandidate失敗:", e));
+                } else {
+                    pendingScreenAdminIceCandidates.push(candidate);
+                }
+            });
+        });
+
+        const offerDescription = new RTCSessionDescription(offerData);
+        await screenPeerConnection.setRemoteDescription(offerDescription);
+
+        const queued = pendingScreenAdminIceCandidates;
+        pendingScreenAdminIceCandidates = [];
+        for (const c of queued) {
+            try { await screenPeerConnection.addIceCandidate(c); } catch (e) { console.error("[WebRTC:screen] addIceCandidate失敗:", e); }
+        }
+
+        const answer = await screenPeerConnection.createAnswer();
+        await screenPeerConnection.setLocalDescription(answer);
+
+        await set(ref(db, 'broadcast/screen/webrtc/answer'), {
+            type: answer.type,
+            sdp: answer.sdp
+        });
+    });
 
     function startSync() {
         onValue(ref(db, 'broadcast/screen_program'), (snapshot) => {
@@ -119,9 +176,11 @@
                 v.className = "content-media";
                 v.autoplay = true; v.muted = true; v.playsInline = true;
                 container.appendChild(v);
-                
-                // 読み込み完了後に適用
-                setTimeout(applyStreamToVideo, 100);
+                // WebRTCのontrackがこの要素の生成より先に発火していた場合は、保持しておいたストリームを適用する
+                if (pendingScreenStream) {
+                    v.srcObject = pendingScreenStream;
+                    pendingScreenStream = null;
+                }
                 break;
             case 'web':
                 container.innerHTML = `<iframe src="${data.url}" class="content-media" style="background:#fff"></iframe>`;
@@ -143,39 +202,6 @@
                 break;
         }
     }
-
-    async function startCapture() {
-        try {
-            const stream = await navigator.mediaDevices.getDisplayMedia({ 
-                video: { width: 1920, height: 1080 },
-                audio: false
-            });
-            
-            if (window.top) {
-                window.top._eqlive_shared_stream = stream;
-                // 他のiframeにも通知するためにカスタムイベントを飛ばす（同一ドメイン前提）
-                window.top.dispatchEvent(new CustomEvent('eqlive_stream_updated'));
-            }
-
-            applyStreamToVideo();
-        } catch (err) { console.error("Capture failed:", err); }
-    }
-
-    // 他の画面でキャプチャが開始されたことを検知する
-    if (window.top) {
-        window.top.addEventListener('eqlive_stream_updated', () => {
-            if (currentType === 'screenshare') {
-                console.log("Global stream update detected.");
-                applyStreamToVideo();
-            }
-        });
-    }
-
-    window.addEventListener('keydown', (e) => {
-        if (e.shiftKey && e.key.toUpperCase() === 'S') {
-            startCapture();
-        }
-    });
 
     window.onload = startSync;
 </script>
