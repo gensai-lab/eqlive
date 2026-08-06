@@ -1966,6 +1966,13 @@
 
             pendingScreenIceCandidates = [];
             screenPeerConnection = new RTCPeerConnection(servers);
+
+            screenPeerConnection.oniceconnectionstatechange = () => {
+                console.log("[WebRTC:screen][admin] ICE connection state:", screenPeerConnection.iceConnectionState);
+            };
+            screenPeerConnection.onconnectionstatechange = () => {
+                console.log("[WebRTC:screen][admin] connection state:", screenPeerConnection.connectionState);
+            };
             screenStream.getTracks().forEach(track => screenPeerConnection.addTrack(track, screenStream));
 
             screenPeerConnection.onicecandidate = event => {
