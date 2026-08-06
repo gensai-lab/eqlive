@@ -75,9 +75,18 @@
     let pendingScreenAdminIceCandidates = []; // setRemoteDescription完了前に届いたcandidateを一時保管
     let unsubScreenAdminCandidates = null; // 前回のリスナーを確実に解除するため保持
     let pendingScreenStream = null; // <video>要素がまだ無いタイミングでトラックが届いた場合に一時保持する
+    let currentScreenOfferTimestamp = null; // 同じofferに対して二重に接続処理を行わないためのガード
 
     onValue(ref(db, 'broadcast/screen/webrtc/offer'), async (snapshot) => {
         const offerData = snapshot.val();
+
+        // 全く同じofferに対して既に接続済み／接続処理中の場合は何もしない
+        // （onValueが短時間に複数回発火しても、二重にRTCPeerConnectionを作らないようにするための保険）
+        if (offerData && offerData.timestamp && offerData.timestamp === currentScreenOfferTimestamp) {
+            console.log("[WebRTC:screen][receiver] 同一offerのため接続処理をスキップします");
+            return;
+        }
+        currentScreenOfferTimestamp = offerData ? offerData.timestamp : null;
 
         // 新しいオファーが来る／Admin側で共有が止められた場合、前回の接続とリスナーは必ず片付ける
         if (unsubScreenAdminCandidates) { unsubScreenAdminCandidates(); unsubScreenAdminCandidates = null; }
