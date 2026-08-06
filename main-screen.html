@@ -33,11 +33,11 @@
     onValue(ref(db, 'broadcast/current/mainSource'), (snapshot) => {
         const mode = snapshot.val();
         if (!mode || mode === currentSource) return;
+        currentSource = mode; // ガードをここで即座に確定させる（短時間に複数回発火しても二重読み込みしないようにするため）
         viewport.classList.add('switching');
         setTimeout(() => {
             viewport.src = (mode === 'camera') ? "live-only.html" : "screen-program.html";
             viewport.onload = () => viewport.classList.remove('switching');
-            currentSource = mode;
         }, 500);
     });
 </script>
