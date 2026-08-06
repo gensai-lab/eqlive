@@ -96,10 +96,19 @@
 
         screenPeerConnection = new RTCPeerConnection(screenServers);
 
+        screenPeerConnection.oniceconnectionstatechange = () => {
+            console.log("[WebRTC:screen][receiver] ICE connection state:", screenPeerConnection.iceConnectionState);
+        };
+        screenPeerConnection.onconnectionstatechange = () => {
+            console.log("[WebRTC:screen][receiver] connection state:", screenPeerConnection.connectionState);
+        };
+
         screenPeerConnection.ontrack = (event) => {
+            console.log("[WebRTC:screen][receiver] ontrack発火。トラック数:", event.streams[0] ? event.streams[0].getTracks().length : 0);
             const videoEl = document.getElementById('shared-video');
             if (videoEl) {
                 videoEl.srcObject = event.streams[0];
+                videoEl.play().catch(e => console.warn("[WebRTC:screen][receiver] 自動再生に失敗:", e));
             } else {
                 // まだ「PC画面共有」表示に切り替わっていない（<video>要素が無い）場合は
                 // 一時的に保持しておき、updateMedia側で要素が作られた時に適用する
@@ -180,6 +189,7 @@
                 if (pendingScreenStream) {
                     v.srcObject = pendingScreenStream;
                     pendingScreenStream = null;
+                    v.play().catch(e => console.warn("[WebRTC:screen][receiver] 自動再生に失敗:", e));
                 }
                 break;
             case 'web':
