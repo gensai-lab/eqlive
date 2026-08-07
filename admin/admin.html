@@ -1946,8 +1946,16 @@
     let pendingScreenIceCandidates = [];
     let unsubScreenCandidates = null;
     let unsubScreenAnswer = null;
+    let screenShareStarting = false; // 二重クリック等による多重起動防止フラグ
 
     window.startScreenShare = async () => {
+        // 既に共有中／開始処理の途中であれば何もしない
+        // （ボタンの二重クリック等で複数のofferを送ってしまうと、受信側で接続が競合してしまうため）
+        if (screenShareStarting || screenPeerConnection) {
+            console.warn("[WebRTC:screen][admin] 既に画面共有中、または開始処理中のため無視しました。");
+            return;
+        }
+        screenShareStarting = true;
         try {
             if (unsubScreenCandidates) { unsubScreenCandidates(); unsubScreenCandidates = null; }
             if (unsubScreenAnswer) { unsubScreenAnswer(); unsubScreenAnswer = null; }
@@ -2031,10 +2039,13 @@
                 alert("画面共有を開始できませんでした。");
             }
             // NotAllowedErrorはユーザーが共有ダイアログをキャンセルした場合なので、アラートは出さない
+        } finally {
+            screenShareStarting = false;
         }
     };
 
     window.stopScreenShare = () => {
+        screenShareStarting = false;
         if (screenStream) {
             screenStream.getTracks().forEach(track => track.stop());
             screenStream = null;
