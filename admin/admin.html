@@ -2758,45 +2758,16 @@
         return groups;
     }
 
-    // 政令指定都市（「市」の後ろに「区」が続く）の一覧。この場合は区名まで含める
-    const EQ_DESIGNATED_CITIES = [
-        "札幌市", "仙台市", "さいたま市", "千葉市", "横浜市", "川崎市", "相模原市", "新潟市",
-        "静岡市", "浜松市", "名古屋市", "京都市", "大阪市", "堺市", "神戸市", "岡山市",
-        "広島市", "北九州市", "福岡市", "熊本市"
-    ];
-    // 「市」が2回続く等、通常の規則では正しく抽出できない例外的な正式名称
-    const EQ_MUNICIPALITY_EXCEPTIONS = ["野々市市"];
-
-    // P2Pの観測点名（例:「熊本市中央区」「薩摩川内市樋脇町塔之原」）から市区町村名を取り出す。
-    // 観測点名には、市区町村名の後ろに旧町名や大字などの詳細な地名が続くことがあるため
-    // （例:「薩摩川内市樋脇町塔之原」）、それらは切り落として市区町村名だけを残す。
-    // ただし「大町市」のように、末尾以外にも市区町村を表す漢字を地名自体に含むケースは
-    // 誤って途中で区切らないよう考慮している。
+    // P2Pの観測点名（例:「熊本市中央区」「大町市」「市川市」）から市区町村名を取り出す。
+    // 「市」「区」「町」「村」のうち最後に出てくる文字までを市区町村名とみなす。
+    // 余市町・市貝町・市川市・東村山市・野々市市・四日市市・廿日市市のように、
+    // 地名の途中にも市区町村を表す漢字を含む実在の自治体名が数多くあるため、
+    // 最後の出現位置で区切ることで、それらを正しく（途中で切らずに）扱える。
+    // 政令指定都市の「区」も、この規則だけで自然に正しく残る（例:「熊本市中央区」）。
     function eqExtractMunicipalityName(addr) {
         if (!addr) return addr;
-
-        for (const name of EQ_MUNICIPALITY_EXCEPTIONS) {
-            if (addr.startsWith(name)) return name;
-        }
-
-        // 「市」または「村」が最初に出てくる位置までを市区町村名の候補とする。
-        // 地名そのものの一部に「市」「村」が含まれることは基本的に無いため、
-        // 最初の出現位置で区切って問題ない（「大町市」も「町」はこの対象外なので正しく残る）。
-        const cityOrVillageMatch = addr.match(/^(.*?[市村])/);
-        if (cityOrVillageMatch) {
-            let base = cityOrVillageMatch[1];
-            // 政令指定都市の場合のみ、続く区名まで含める
-            if (EQ_DESIGNATED_CITIES.includes(base)) {
-                const rest = addr.slice(base.length);
-                const wardMatch = rest.match(/^(.*?区)/);
-                if (wardMatch) base += wardMatch[1];
-            }
-            return base;
-        }
-
-        // 「市」「村」が無い場合（町のみ等）は、最後に出てくる「町」までを市区町村名とみなす
-        const townMatch = addr.match(/^(.*[町村])/);
-        return townMatch ? townMatch[1] : addr;
+        const m = addr.match(/^(.*[市区町村])/);
+        return m ? m[1] : addr;
     }
 
     // 同じ市区町村に複数の観測点が対応する場合、最も高い震度を採用して1件にまとめる
