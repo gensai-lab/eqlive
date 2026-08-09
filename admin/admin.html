@@ -1440,7 +1440,15 @@
         });
     }
 
+    let previewRetryCount = 0;
+    const PREVIEW_MAX_RETRIES = 3; // 一時的なエラーで即座に「配信なし」と誤判定しないためのリトライ回数
+
     function updatePreviewPlayer() {
+        previewRetryCount = 0;
+        renderPreviewPlayerFrame();
+    }
+
+    function renderPreviewPlayerFrame() {
         const container = document.getElementById('preview-player-container');
         if (!container) return;
         container.innerHTML = `
@@ -1459,13 +1467,41 @@
             playerVars: { 'listType': 'live_stream', 'list': 'UCyHkyNB0U0kqW7Zyap2sJFA', 'autoplay': 1, 'mute': 1, 'controls': 1, 'rel': 0 },
             events: {
                 'onReady': () => {
-                    document.getElementById('loading-message-layer').style.display = 'none';
-                    document.getElementById('yt-live-check-player').style.visibility = 'visible';
+                    previewRetryCount = 0; // 正常に読み込めたのでリトライ回数をリセット
+                    const loadingEl = document.getElementById('loading-message-layer');
+                    const offlineEl = document.getElementById('offline-message-layer');
+                    const playerEl = document.getElementById('yt-live-check-player');
+                    if (loadingEl) loadingEl.style.display = 'none';
+                    if (offlineEl) offlineEl.style.display = 'none';
+                    if (playerEl) { playerEl.style.display = 'block'; playerEl.style.visibility = 'visible'; }
+                },
+                'onStateChange': (event) => {
+                    // 実際に再生（1）またはバッファリング（3）が始まったら、確実にライブ中と判断できる。
+                    // 「配信なし」表示が誤って出ていた場合はここで取り消す
+                    if (event.data === 1 || event.data === 3) {
+                        const offlineEl = document.getElementById('offline-message-layer');
+                        const loadingEl = document.getElementById('loading-message-layer');
+                        const playerEl = document.getElementById('yt-live-check-player');
+                        if (offlineEl) offlineEl.style.display = 'none';
+                        if (loadingEl) loadingEl.style.display = 'none';
+                        if (playerEl) { playerEl.style.display = 'block'; playerEl.style.visibility = 'visible'; }
+                    }
                 },
                 'onError': () => {
-                    document.getElementById('loading-message-layer').style.display = 'none';
-                    document.getElementById('yt-live-check-player').style.display = 'none';
-                    document.getElementById('offline-message-layer').style.display = 'block';
+                    // 一時的な取得エラーの可能性があるため、即座に「配信なし」と表示せず、
+                    // 数回リトライしてから最終的に判断する
+                    if (previewRetryCount < PREVIEW_MAX_RETRIES) {
+                        previewRetryCount++;
+                        console.warn(`[preview] YouTubeライブ判定でエラー発生。リトライします (${previewRetryCount}/${PREVIEW_MAX_RETRIES})`);
+                        setTimeout(renderPreviewPlayerFrame, 3000);
+                        return;
+                    }
+                    const loadingEl = document.getElementById('loading-message-layer');
+                    const playerEl = document.getElementById('yt-live-check-player');
+                    const offlineEl = document.getElementById('offline-message-layer');
+                    if (loadingEl) loadingEl.style.display = 'none';
+                    if (playerEl) playerEl.style.display = 'none';
+                    if (offlineEl) offlineEl.style.display = 'block';
                 }
             }
         });
@@ -1654,7 +1690,13 @@
 
             if (intervalEl && document.activeElement.id !== 'input-tour-interval') intervalEl.value = tourConf.interval || 30;
             if (unitEl && document.activeElement.id !== 'select-tour-unit') unitEl.value = tourConf.unit || 60;
-            if (tourConf.selectedIds && Array.isArray(tourConf.selectedIds)) { selectedTourIds = tourConf.selectedIds; buildTourCameraSelector(); }
+            // 巡回モード実行中は、この同期処理がselectedTourIdsを再代入すると
+            // 実行中のindexとズレて「表示中のカメラ名」がずれる原因になるため、
+            // 巡回中は選択リストの再代入・再描画を行わない
+            if (tourConf.selectedIds && Array.isArray(tourConf.selectedIds) && !tourActiveLocal) {
+                selectedTourIds = tourConf.selectedIds;
+                buildTourCameraSelector();
+            }
 
             if (tourConf.running && tourConf.enabled) {
                 const totalSec = (tourConf.interval || 30) * (tourConf.unit || 60);
@@ -2758,15 +2800,22 @@
         return groups;
     }
 
-    // P2Pの観測点名（例:「熊本市中央区」「大町市」「市川市」）から市区町村名を取り出す。
-    // 「市」「区」「町」「村」のうち最後に出てくる文字までを市区町村名とみなす。
-    // 余市町・市貝町・市川市・東村山市・野々市市・四日市市・廿日市市のように、
-    // 地名の途中にも市区町村を表す漢字を含む実在の自治体名が数多くあるため、
-    // 最後の出現位置で区切ることで、それらを正しく（途中で切らずに）扱える。
-    // 政令指定都市の「区」も、この規則だけで自然に正しく残る（例:「熊本市中央区」）。
+    // P2Pの観測点名（例:「熊本市中央区南本町」「大町市」「市川市」）から市区町村名を取り出す。
+    //
+    // ① 「区」を含む場合（政令指定都市の区・東京都特別区）は、そこで必ず区切る。
+    //    「区」がその自治体の正式な末尾であり、その後に大字・町名などの詳細地名が
+    //    続くことがあるため（例:「熊本市中央区南本町」→「熊本市中央区」までに留める）。
+    // ② 「区」を含まない場合は、「市」「町」「村」のうち最後に出てくる文字までを
+    //    市区町村名とみなす。余市町・市貝町・市川市・東村山市・野々市市・四日市市・
+    //    廿日市市のように、地名の途中にも市区町村を表す漢字を含む実在の自治体名が
+    //    数多くあるため、最後の出現位置で区切ることで、それらを正しく扱える。
     function eqExtractMunicipalityName(addr) {
         if (!addr) return addr;
-        const m = addr.match(/^(.*[市区町村])/);
+
+        const wardMatch = addr.match(/^(.*区)/);
+        if (wardMatch) return wardMatch[1];
+
+        const m = addr.match(/^(.*[市町村])/);
         return m ? m[1] : addr;
     }
 
