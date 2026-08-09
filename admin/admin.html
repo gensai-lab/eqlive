@@ -282,12 +282,6 @@
                         <div>カメラソース: <span id="stat-cam">--</span></div>
                     </div>
                 </div>
-                <div class="card">
-                    <label>プレビュー（EQLive YouTubeライブ自動判定）</label>
-                    <div id="preview-player-container" style="aspect-ratio: 16/9; background:#000; display:flex; align-items:center; justify-content:center; color:#fff; border-radius:8px; overflow:hidden; position:relative;">
-                        YouTube Liveの配信ステータスを確認中...
-                    </div>
-                </div>
             </div>
 
             <div id="tab-mode" class="tab-content">
@@ -657,7 +651,6 @@
     </div>
 </div>
 
-<script src="https://www.youtube.com/iframe_api"></script>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
 <script type="module">
@@ -1440,73 +1433,6 @@
         });
     }
 
-    let previewRetryCount = 0;
-    const PREVIEW_MAX_RETRIES = 3; // 一時的なエラーで即座に「配信なし」と誤判定しないためのリトライ回数
-
-    function updatePreviewPlayer() {
-        previewRetryCount = 0;
-        renderPreviewPlayerFrame();
-    }
-
-    function renderPreviewPlayerFrame() {
-        const container = document.getElementById('preview-player-container');
-        if (!container) return;
-        container.innerHTML = `
-            <div id="yt-live-check-player" style="width:100%; height:100%; position:absolute; top:0; left:0; visibility:hidden;"></div>
-            <div id="offline-message-layer" style="text-align:center; z-index:10; padding:20px; display:none;">
-                <i class="material-icons" style="font-size:48px; color:var(--text-sub); margin-bottom:10px;">videocam_off</i>
-                <div style="font-weight:bold; font-size:15px; margin-bottom:4px;">現在、YouTubeライブ配信は行われていません</div>
-                <div style="font-size:12px; color:var(--text-sub);">EQLiveプロジェクトが稼働するとここに自動で映像が投影されます</div>
-            </div>
-            <div id="loading-message-layer" style="text-align:center; z-index:5;">
-                <div style="font-size:13px; color:var(--text-sub);">配信ステータスを取得しています...</div>
-            </div>
-        `;
-        new YT.Player('yt-live-check-player', {
-            width: '100%', height: '100%', videoId: '', 
-            playerVars: { 'listType': 'live_stream', 'list': 'UCyHkyNB0U0kqW7Zyap2sJFA', 'autoplay': 1, 'mute': 1, 'controls': 1, 'rel': 0 },
-            events: {
-                'onReady': () => {
-                    previewRetryCount = 0; // 正常に読み込めたのでリトライ回数をリセット
-                    const loadingEl = document.getElementById('loading-message-layer');
-                    const offlineEl = document.getElementById('offline-message-layer');
-                    const playerEl = document.getElementById('yt-live-check-player');
-                    if (loadingEl) loadingEl.style.display = 'none';
-                    if (offlineEl) offlineEl.style.display = 'none';
-                    if (playerEl) { playerEl.style.display = 'block'; playerEl.style.visibility = 'visible'; }
-                },
-                'onStateChange': (event) => {
-                    // 実際に再生（1）またはバッファリング（3）が始まったら、確実にライブ中と判断できる。
-                    // 「配信なし」表示が誤って出ていた場合はここで取り消す
-                    if (event.data === 1 || event.data === 3) {
-                        const offlineEl = document.getElementById('offline-message-layer');
-                        const loadingEl = document.getElementById('loading-message-layer');
-                        const playerEl = document.getElementById('yt-live-check-player');
-                        if (offlineEl) offlineEl.style.display = 'none';
-                        if (loadingEl) loadingEl.style.display = 'none';
-                        if (playerEl) { playerEl.style.display = 'block'; playerEl.style.visibility = 'visible'; }
-                    }
-                },
-                'onError': () => {
-                    // 一時的な取得エラーの可能性があるため、即座に「配信なし」と表示せず、
-                    // 数回リトライしてから最終的に判断する
-                    if (previewRetryCount < PREVIEW_MAX_RETRIES) {
-                        previewRetryCount++;
-                        console.warn(`[preview] YouTubeライブ判定でエラー発生。リトライします (${previewRetryCount}/${PREVIEW_MAX_RETRIES})`);
-                        setTimeout(renderPreviewPlayerFrame, 3000);
-                        return;
-                    }
-                    const loadingEl = document.getElementById('loading-message-layer');
-                    const playerEl = document.getElementById('yt-live-check-player');
-                    const offlineEl = document.getElementById('offline-message-layer');
-                    if (loadingEl) loadingEl.style.display = 'none';
-                    if (playerEl) playerEl.style.display = 'none';
-                    if (offlineEl) offlineEl.style.display = 'block';
-                }
-            }
-        });
-    }
-
     async function initPresets() {
         const container = document.getElementById('preset-buttons-container');
         if (!container) return;
@@ -1585,7 +1511,6 @@
         buildGenreFilterButtons(allCameras);
         applyCombinedFilter();
         buildTourCameraSelector();
-        updatePreviewPlayer();
 
         // カメラ一覧の読み込み完了後、自由配置タブの「配置するライブカメラ」選択肢にも反映する
         const freeImagesContainer = document.getElementById('free-images-control-container');
