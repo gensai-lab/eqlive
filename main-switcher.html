@@ -71,6 +71,26 @@
             border-bottom-left-radius: 8px;
         }
 
+        /* === News-Screen（報道モード用のクリーンな映像レイヤー） ===
+           Sub-Switcher（時計・津波マップ等のオーバーレイ一式）と
+           News-Screen（映像のみ）をクロスフェードで切り替える。
+           表示の選択は broadcast/current/mainSource（news-admin.htmlの
+           モード選択と同じ値）に連動させている。 */
+        #frame-news-screen {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px; height: 1080px;
+            border: none;
+            z-index: 20; /* Sub-Switcher(10)より前面、EEW(999)より背面 */
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.6s ease;
+        }
+        #frame-news-screen.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
         /* === 緊急地震速報（最前面） === */
         #frame-eew {
             position: absolute;
@@ -110,6 +130,7 @@
     <div id="view-container">
         <iframe id="frame-l-bg" src="l-screen.html"></iframe>
         <iframe id="frame-sub-switcher" src="sub-switcher.html"></iframe>
+        <iframe id="frame-news-screen" src="news-screen.html"></iframe>
         <iframe id="frame-eew" src="parts/eew.html"></iframe>
     </div>
 
@@ -136,6 +157,7 @@
 
     const frameLBg = document.getElementById('frame-l-bg');
     const frameSub = document.getElementById('frame-sub-switcher');
+    const frameNewsScreen = document.getElementById('frame-news-screen');
     const eewAudio = document.getElementById('eew-audio');
     const bgmAudio = document.getElementById('bgm-audio');
     const micAudio = document.getElementById('mic-audio');
@@ -183,6 +205,15 @@
         const mode = snapshot.val();
         if (mode) applyLayoutMode(mode);
         else applyLayoutMode('sub-switcher');
+    });
+
+    // === Sub-Switcher ⇔ News-Screen のクロスフェード切り替え ===
+    // news-admin.html の「モード選択」（mainSource）と連動する。
+    //   camera → Sub-Switcher（時計・津波マップ等のオーバーレイ一式を表示）
+    //   screen → News-Screen（オーバーレイなし・映像のみのクリーンな画面）
+    onValue(ref(db, 'broadcast/current/mainSource'), (snapshot) => {
+        const source = snapshot.val();
+        frameNewsScreen.classList.toggle('active', source === 'screen');
     });
 
     // 内部iFrameからのEEW音声発火指示
