@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>EQLive 報道画面（送出）</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<style>
+/* =========================================================================
+   Fonts — Main-Switcher系（l-screen.html / sub-switcher.html）と同じ命名規則
+   ========================================================================= */
+@font-face{font-family:'UDKakugo-B';src:url('assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');}
+@font-face{font-family:'UDKakugo-DB';src:url('assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');}
+@font-face{font-family:'UDKakugo-M';src:url('assets/fonts/FOT-UDKakugo_LargePr6-M.otf') format('opentype');}
+
+/* =========================================================================
+   Canvas — 他の送出ページと同じ 1920x1080 固定キャンバス
+   (OBSブラウザソース側で 1920x1080 に設定して使用する)
+   ========================================================================= */
+body,html{
+  margin:0;padding:0;width:1920px;height:1080px;
+  background-color:#000;overflow:hidden;
+  font-family:'UDKakugo-DB',sans-serif;
+  -webkit-font-smoothing:antialiased;
+  font-feature-settings:"palt";
+}
+*{box-sizing:border-box}
+
+/* =========================================================================
+   L字背景（current_mode = 'l-screen' の間だけ表示）
+   ========================================================================= */
+#l-bg{
+  position:absolute;top:0;left:0;width:1920px;height:1080px;
+  z-index:1;opacity:0;display:none;pointer-events:none;
+}
+#l-bg.active{opacity:1;display:block}
+
+/* =========================================================================
+   メインコンテンツ（カメラ or 画面送出プログラム）
+   L字ONのとき main-switcher.html と同じ座標・スケールに変形する
+   ========================================================================= */
+#main-wrap{
+  position:absolute;top:0;left:0;width:1920px;height:1080px;
+  transform-origin:top left;transform:scale(1);
+  z-index:10;overflow:hidden;background:#000;
+  transition:left 1s linear,transform 1s linear,border-bottom-left-radius 1s linear;
+}
+#main-wrap.l-mode{
+  left:182px;
+  transform:scale(0.905);
+  border-bottom-left-radius:8px;
+}
+#main-wrap video,#main-wrap iframe,#main-wrap img{
+  position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:contain;background:#000;
+}
+#main-wrap.mode-camera video,#main-wrap.mode-camera img{object-fit:cover}
+
+/* =========================================================================
+   見出し・サブタイトル（メインタイトルテロップ）
+   ========================================================================= */
+#title-bar{
+  position:absolute;left:60px;bottom:64px;max-width:1700px;
+  z-index:40;padding:18px 30px;border-radius:6px;
+  background:linear-gradient(90deg,rgba(0,0,0,.86),rgba(0,0,0,.5));
+  opacity:0;transform:translateY(12px);
+  transition:opacity .35s ease,transform .35s ease;
+  pointer-events:none;
+}
+#title-bar.active{opacity:1;transform:translateY(0)}
+#title-bar .main-title{
+  font-family:'UDKakugo-B',sans-serif;font-weight:normal;color:#fff;
+  font-size:56px;line-height:1.25;text-shadow:0 2px 6px rgba(0,0,0,.6);
+}
+#title-bar .sub-title{
+  font-family:'UDKakugo-DB',sans-serif;color:#dfe4ea;
+  font-size:28px;margin-top:6px;text-shadow:0 1px 4px rgba(0,0,0,.6);
+}
+
+/* =========================================================================
+   Ticker（ジャンル + 2行）
+   ========================================================================= */
+#ticker-box{
+  position:absolute;top:40px;right:40px;width:520px;
+  z-index:40;background:#fff;border-radius:8px;overflow:hidden;
+  box-shadow:0 10px 30px rgba(0,0,0,.4);
+  opacity:0;transform:translateY(-12px);
+  transition:opacity .35s ease,transform .35s ease;
+}
+#ticker-box.active{opacity:1;transform:translateY(0)}
+#ticker-genre{
+  background:#005AFF;color:#fff;font-family:'UDKakugo-DB',sans-serif;
+  font-size:20px;padding:8px 16px;letter-spacing:.04em;
+}
+#ticker-body{padding:12px 16px 16px;color:#111}
+#ticker-line1{font-family:'UDKakugo-B',sans-serif;font-size:26px;line-height:1.35}
+#ticker-line2{font-family:'UDKakugo-DB',sans-serif;font-size:20px;color:#333;margin-top:4px;line-height:1.35}
+
+/* =========================================================================
+   文字スーパー（画面下・全幅の速報テロップ）
+   ========================================================================= */
+#text-super{
+  position:absolute;left:0;right:0;bottom:0;z-index:50;
+  padding:22px 60px;background:rgba(10,12,16,.92);
+  border-top:4px solid #005AFF;
+  opacity:0;transform:translateY(100%);
+  transition:opacity .4s ease,transform .4s ease;
+}
+#text-super.active{opacity:1;transform:translateY(0)}
+#text-super-text{
+  font-family:'UDKakugo-B',sans-serif;color:#fff;font-size:40px;
+  line-height:1.4;text-shadow:0 2px 6px rgba(0,0,0,.6);
+}
+
+/* =========================================================================
+   時計
+   ========================================================================= */
+#clock{
+  position:absolute;top:36px;left:52px;z-index:40;
+  font-family:'UDKakugo-DB',sans-serif;color:#fff;font-size:30px;
+  letter-spacing:.03em;text-shadow:0 2px 6px rgba(0,0,0,.7);
+  background:rgba(0,0,0,.45);padding:8px 16px;border-radius:6px;
+  opacity:0;transition:opacity .3s ease;
+}
+#clock.active{opacity:1}
+
+.preview-placeholder{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:#02035e;color:#fff;font-size:56px;font-family:'UDKakugo-B',sans-serif;
+  text-align:center;padding:0 40px;
+}
+</style>
+</head>
+<body>
+
+<img id="l-bg" src="assets/cover/Lscreen.png" alt="">
+
+<div id="main-wrap"><div id="main-target"></div></div>
+
+<div id="title-bar">
+  <div class="main-title" id="title-main"></div>
+  <div class="sub-title" id="title-sub"></div>
+</div>
+
+<div id="ticker-box">
+  <div id="ticker-genre"></div>
+  <div id="ticker-body">
+    <div id="ticker-line1"></div>
+    <div id="ticker-line2"></div>
+  </div>
+</div>
+
+<div id="text-super"><div id="text-super-text"></div></div>
+
+<div id="clock"></div>
+
+<script type="module">
+/* =========================================================================
+   Firebase — news-admin.html と同一プロジェクト・同一パスを参照する
+   ========================================================================= */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+  authDomain: "mgl-eqlive.firebaseapp.com",
+  databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+  projectId: "mgl-eqlive",
+  storageBucket: "mgl-eqlive.firebasestorage.app",
+  messagingSenderId: "1060231327645",
+  appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+/* =========================================================================
+   State
+   ========================================================================= */
+let cameras = [];
+let hls = null;
+let currentMediaKey = '';       // 直近に描画したメディアの識別キー（不要な再読込を防ぐ）
+let superTimer = null;
+let superCards = [];
+let superIndex = 0;
+
+const mainWrap = document.getElementById('main-wrap');
+const mainTarget = document.getElementById('main-target');
+const lBg = document.getElementById('l-bg');
+const titleBar = document.getElementById('title-bar');
+const titleMain = document.getElementById('title-main');
+const titleSub = document.getElementById('title-sub');
+const tickerBox = document.getElementById('ticker-box');
+const tickerGenre = document.getElementById('ticker-genre');
+const tickerLine1 = document.getElementById('ticker-line1');
+const tickerLine2 = document.getElementById('ticker-line2');
+const textSuper = document.getElementById('text-super');
+const textSuperText = document.getElementById('text-super-text');
+const clockEl = document.getElementById('clock');
+
+/* =========================================================================
+   カメラ一覧の取得（live-only.html と同じソース・同じフォールバック手順）
+   ========================================================================= */
+async function fetchKactuifCameras() {
+  const targetUrl = 'https://kactuif.ikunocam.net/data';
+  try {
+    const r = await fetch(targetUrl);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    return (d.streams || []).map(s => ({ id: s.id, name: s.name, area: '', genre: 'akki', type: s.type || 'youtube', url: s.url }));
+  } catch (e) {
+    try {
+      const r2 = await fetch('https://corsproxy.io/?url=' + encodeURIComponent(targetUrl));
+      if (!r2.ok) throw new Error(`HTTP ${r2.status}`);
+      const d2 = await r2.json();
+      return (d2.streams || []).map(s => ({ id: s.id, name: s.name, area: '', genre: 'akki', type: s.type || 'youtube', url: s.url }));
+    } catch (_) { return []; }
+  }
+}
+async function loadCameras() {
+  let kh = [];
+  try {
+    const r = await fetch('https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json');
+    if (r.ok) kh = await r.json();
+  } catch (e) { console.warn('[news-screen] kh-livec.json 取得失敗:', e); }
+  const extra = await fetchKactuifCameras();
+  cameras = [...kh, ...extra];
+}
+
+function extractYoutubeId(url) {
+  if (!url) return '';
+  if (url.includes('embed/')) return url.split('embed/')[1].split(/[?&]/)[0];
+  if (url.includes('watch?v=')) return url.split('watch?v=')[1].split('&')[0];
+  if (url.includes('youtu.be/')) return url.split('youtu.be/')[1].split(/[?&]/)[0];
+  return url.trim();
+}
+
+/* =========================================================================
+   メインコンテンツの描画（カメラ / 画面送出プログラム 共通）
+   ========================================================================= */
+function stopMedia() {
+  if (hls) { try { hls.destroy(); } catch (_) {} hls = null; }
+  mainTarget.innerHTML = '';
+}
+
+function renderCamera(camId) {
+  const key = 'camera:' + camId;
+  if (key === currentMediaKey) return;
+  currentMediaKey = key;
+  stopMedia();
+  mainWrap.classList.add('mode-camera');
+
+  const cam = cameras.find(c => c.id === camId);
+  if (!cam) { mainTarget.innerHTML = '<div class="preview-placeholder">ライブカメラ未選択</div>'; return; }
+
+  if (cam.type === 'youtube' || (cam.url || '').includes('youtube.com') || (cam.url || '').includes('youtu.be')) {
+    const id = extractYoutubeId(cam.url);
+    mainTarget.innerHTML = id
+      ? `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1&mute=1&controls=0&rel=0&iv_load_policy=3&modestbranding=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>`
+      : '<div class="preview-placeholder">YouTube URLを確認してください</div>';
+  } else if (cam.type === 'hls' || (cam.url || '').includes('.m3u8')) {
+    const v = document.createElement('video');
+    v.autoplay = true; v.muted = true; v.playsInline = true;
+    mainTarget.appendChild(v);
+    if (window.Hls && Hls.isSupported()) {
+      hls = new Hls(); hls.loadSource(cam.url); hls.attachMedia(v);
+    } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+      v.src = cam.url;
+    }
+  } else if (cam.type === 'web' || (cam.url || '').match(/\.(jpg|jpeg|png)$/i)) {
+    mainTarget.innerHTML = `<img src="${cam.url}">`;
+  } else {
+    mainTarget.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+  }
+}
+
+function renderScreenProgram(sp) {
+  const key = 'screen:' + (sp.type || '') + ':' + (sp.url || '');
+  if (key === currentMediaKey) return;
+  currentMediaKey = key;
+  stopMedia();
+  mainWrap.classList.remove('mode-camera');
+
+  const type = sp.type || 'image';
+  if (!sp.url) { mainTarget.innerHTML = '<div class="preview-placeholder">送出準備中</div>'; return; }
+
+  if (type === 'youtube') {
+    const id = extractYoutubeId(sp.url);
+    mainTarget.innerHTML = id
+      ? `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1&mute=1&controls=0&rel=0" allow="autoplay; encrypted-media"></iframe>`
+      : '<div class="preview-placeholder">YouTube URLを確認してください</div>';
+  } else if (type === 'web') {
+    mainTarget.innerHTML = `<iframe src="${sp.url}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style="background:#fff"></iframe>`;
+  } else if (type === 'video') {
+    const v = document.createElement('video');
+    v.autoplay = true; v.muted = sp.muted !== false; v.loop = !!sp.loop; v.playsInline = true;
+    mainTarget.appendChild(v);
+    if (sp.url.includes('.m3u8')) {
+      if (window.Hls && Hls.isSupported()) { hls = new Hls(); hls.loadSource(sp.url); hls.attachMedia(v); }
+      else v.src = sp.url;
+    } else {
+      v.src = sp.url;
+    }
+  } else {
+    mainTarget.innerHTML = `<img src="${sp.url}">`;
+  }
+}
+
+/* =========================================================================
+   broadcast/current — メインソース切替・見出し・レイアウト・時計表示
+   ========================================================================= */
+let latestScreenProgram = {};
+
+onValue(ref(db, 'broadcast/current'), snap => {
+  const cur = snap.val() || {};
+
+  if (cur.mainSource === 'camera') {
+    renderCamera(cur.cameraSource);
+  } else {
+    renderScreenProgram(latestScreenProgram);
+  }
+
+  if (cur.mainTitle || cur.subtitle) {
+    titleMain.textContent = cur.mainTitle || '';
+    titleSub.textContent = cur.subtitle || '';
+    titleBar.classList.add('active');
+  } else {
+    titleBar.classList.remove('active');
+  }
+
+  clockEl.classList.toggle('active', cur.timeVisible !== false);
+});
+
+onValue(ref(db, 'broadcast/screen_program'), snap => {
+  latestScreenProgram = snap.val() || {};
+  // 現在カメラ表示中でなければ即時反映（mainSourceの状態は都度読みに行かず、
+  // 直近のmode-cameraクラスで簡易判定する）
+  if (!mainWrap.classList.contains('mode-camera')) {
+    renderScreenProgram(latestScreenProgram);
+  }
+});
+
+/* =========================================================================
+   broadcast/current_mode — L字 ON / OFF
+   ========================================================================= */
+onValue(ref(db, 'broadcast/current_mode'), snap => {
+  const mode = snap.val() || 'sub-switcher';
+  const isL = mode === 'l-screen';
+  mainWrap.classList.toggle('l-mode', isL);
+  lBg.classList.toggle('active', isL);
+});
+
+/* =========================================================================
+   broadcast/ticker
+   ========================================================================= */
+onValue(ref(db, 'broadcast/ticker'), snap => {
+  const t = snap.val() || {};
+  if (t.active && (t.line1 || t.line2)) {
+    tickerGenre.textContent = t.genre || '';
+    tickerGenre.style.display = t.genre ? 'block' : 'none';
+    tickerLine1.textContent = t.line1 || '';
+    tickerLine2.textContent = t.line2 || '';
+    tickerBox.classList.add('active');
+  } else {
+    tickerBox.classList.remove('active');
+  }
+});
+
+/* =========================================================================
+   broadcast/text_super_sequence — 文字スーパー（複数カード対応、interval秒でループ）
+   ========================================================================= */
+onValue(ref(db, 'broadcast/text_super_sequence'), snap => {
+  const seq = snap.val() || {};
+  clearTimeout(superTimer);
+  superTimer = null;
+  superCards = Array.isArray(seq.cards) ? seq.cards.filter(c => c && c.text) : [];
+  superIndex = 0;
+
+  if (seq.status === 'playing' && superCards.length > 0) {
+    showSuperCard();
+    if (superCards.length > 1) {
+      const interval = Math.max(3, Number(seq.interval) || 10) * 1000;
+      superTimer = setInterval(() => {
+        superIndex = (superIndex + 1) % superCards.length;
+        showSuperCard();
+      }, interval);
+    }
+  } else {
+    textSuper.classList.remove('active');
+  }
+});
+function showSuperCard() {
+  const card = superCards[superIndex];
+  if (!card) { textSuper.classList.remove('active'); return; }
+  textSuperText.textContent = card.text;
+  textSuper.classList.add('active');
+}
+
+/* =========================================================================
+   時計
+   ========================================================================= */
+function nowString() {
+  return new Date().toLocaleString('ja-JP', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  });
+}
+setInterval(() => { clockEl.textContent = nowString(); }, 1000);
+clockEl.textContent = nowString();
+
+/* =========================================================================
+   起動
+   ========================================================================= */
+loadCameras();
+</script>
+</body>
+</html>
