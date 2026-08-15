@@ -104,7 +104,7 @@ textarea{min-height:96px;resize:vertical}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, onValue, set, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
@@ -298,103 +298,82 @@ function renderMaterial(){
 function renderMaterialPreview(m){const p=$('mat-preview');if(!p)return;p.innerHTML='';const temp={...m};if(temp.type==='title')p.innerHTML=`<img src="${buildTitleSvgData(temp)}">`;else if(temp.type==='youtube'){const id=extractYoutubeId(temp.url);p.innerHTML=id?`<iframe src="https://www.youtube.com/embed/${esc(id)}?mute=1&controls=1&rel=0"></iframe>`:'<div class="preview-placeholder small">YouTube</div>'}else if(temp.type==='web'){p.innerHTML=temp.url?`<iframe src="${esc(temp.url)}"></iframe>`:'<div class="preview-placeholder small">Web</div>'}else if(temp.type==='video'){p.innerHTML=temp.url?`<video src="${esc(temp.url)}" controls ${temp.loop?'loop':''} ${temp.muted?'muted':''}></video>`:'<div class="preview-placeholder small">VIDEO</div>'}else p.innerHTML=temp.url?`<img src="${esc(temp.url)}">`:'<div class="preview-placeholder small">IMAGE</div>'}
 }
 
+function updateClock(){ const el=$('program-clock'); if(el) el.textContent=nowString(); }
 function renderAll(){renderMode();renderScene();renderOutput();renderMaterial();renderPreview();updateClock();}
 function armSchedule(){clearTimeout(scheduleTimer);scheduleTimer=null;preloadedSceneId=null; if(!switcher.schedule?.enabled) return; const s=scenes().find(x=>x.id===switcher.schedule.sceneId);if(!s)return;const ts=Number(switcher.schedule.triggerAt);if(ts<=Date.now()){return} const prep=ts-(switcher.schedule.preload!==false?10000:0); if(switcher.schedule.preload!==false){setTimeout(()=>preloadScene(s),Math.max(0,prep-Date.now()))} scheduleTimer=setTimeout(()=>{sendScene(s);switcher.schedule.lastTriggeredAt=Date.now();writeSwitcher();},Math.max(0,ts-Date.now()));}
 function preloadScene(scene){const m=activeMaterialForScene(scene);if(!m)return;preloadedSceneId=scene.id; if(m.type==='image'||m.type==='title'){preloader=new Image();preloader.src=m.type==='title'?buildTitleSvgData(m):m.url||''} else if(m.type==='video'){preloader=document.createElement('video');preloader.preload='auto';preloader.muted=true;preloader.src=m.url||'';preloader.load()} setStatus(`「${scene.name}」を事前読み込み中`,`schedule preloading → ${scene.id}`)}
 
-onAuthStateChanged(auth, async (user) => {
-  const login = $('login');
-  const appEl = $('app');
-  if (user) {
-    login.style.display = 'none';
-    appEl.classList.add('visible');
-    $('auth-state').textContent = user.email || user.uid || '接続中';
-    try {
+onAuthStateChanged(auth,async user=>{
+  const err=$('login-error');
+  if(user){
+    $('login').style.display='none';$('app').classList.add('visible');$('auth-state').textContent=user.email||'接続中';
+    try{
       await loadCameras();
-      onValue(ref(db, 'broadcast'), snap => {
-        broadcast = snap.val() || {};
-        if (activeTab === 'output' || activeTab === 'mode') renderAll();
-        else renderPreview();
+      onValue(ref(db,'broadcast'),snap=>{
+        broadcast=snap.val()||{};
+        try{ if(activeTab==='output'||activeTab==='mode')renderAll();else renderPreview(); }
+        catch(e){ console.error('[EQLive Reporter Switcher] render error:',e); setStatus('画面初期化エラー',e?.message||String(e)); }
+      }, error=>{
+        console.error('[EQLive Reporter Switcher] broadcast read error:',error);
+        const msg=error?.code==='PERMISSION_DENIED'?'Firebase Realtime Databaseの読み取り権限がありません。Rulesを確認してください。':`Firebase読み取りエラー: ${error?.message||error}`;
+        setStatus(msg,'broadcast');
       });
-      onValue(ref(db, SWITCHER_PATH), snap => {
-        switcher = snap.val() || {};
+      onValue(ref(db,SWITCHER_PATH),snap=>{
+        switcher=snap.val()||{};
         ensureSeed();
-        if (!switcher.scenes || Object.keys(switcher.scenes).length === 0) writeSwitcher();
+        if(!snap.exists() || !switcher.scenes || Object.keys(switcher.scenes).length===0){
+          writeSwitcher();
+        }
         armSchedule();
-        renderAll();
+        try{renderAll()}catch(e){console.error('[EQLive Reporter Switcher] switcher render error:',e);setStatus('画面初期化エラー',e?.message||String(e));}
+      }, error=>{
+        console.error('[EQLive Reporter Switcher] switcher read error:',error);
+        const msg=error?.code==='PERMISSION_DENIED'?'Firebase Realtime Databaseの読み取り権限がありません。broadcast/reporter_switcher のRulesを確認してください。':`Firebase読み取りエラー: ${error?.message||error}`;
+        setStatus(msg,SWITCHER_PATH);
       });
-    } catch (e) {
-      console.error('[EQLive Reporter Switcher] 初期化エラー:', e);
-      const err = $('login-error');
-      err.textContent = `ログイン後の初期化に失敗しました。(${e?.code || e?.message || 'unknown-error'})`;
-      err.style.display = 'block';
+    }catch(e){
+      console.error('[EQLive Reporter Switcher] startup error:',e);
+      $('auth-state').textContent='初期化エラー';
+      setStatus('ログインは成功しましたが、初期化に失敗しました',e?.message||String(e));
     }
-  } else {
-    login.style.display = 'flex';
-    appEl.classList.remove('visible');
-    $('auth-state').textContent = '未ログイン';
+  }else{
+    $('login').style.display='flex';$('app').classList.remove('visible');$('auth-state').textContent='未ログイン';
   }
 });
-
-async function doReporterLogin() {
-  const rawId = $('login-id').value.trim();
-  const pw = $('login-pass').value;
-  const err = $('login-error');
-  err.style.display = 'none';
-  err.textContent = '';
-
-  if (!rawId || !pw) {
-    err.textContent = 'Firebase Authenticationに登録されているメールアドレス（または既存Adminと同じユーザーID）とパスワードを入力してください。';
-    err.style.display = 'block';
+$('login-btn').onclick=async()=>{
+  const rawId=$('login-id').value.trim();
+  const pw=$('login-pass').value;
+  const err=$('login-error');
+  if(!rawId||!pw){
+    err.textContent='メールアドレス（またはユーザーID）とパスワードを入力してください。';
+    err.style.display='block';
     return;
   }
 
-  // 既存のEQLive Adminと同じFirebaseプロジェクト・同じ認証方式を使用。
-  // @を含む場合はAuthenticationに登録されているメールアドレスをそのまま使用。
-  // @がない場合のみ、既存Adminと同じ内部ドメインを付与する。
-  const email = rawId.includes('@') ? rawId : `${rawId}@kactuif.internal`;
+  // Firebase Authentication に登録されているメールアドレスをそのまま使用。
+  // 従来のEQLive管理画面と同じ「ユーザーID」形式（@なし）にも対応する。
+  const email=rawId.includes('@')?rawId:`${rawId}@kactuif.internal`;
+  err.style.display='none';
 
-  const btn = $('login-btn');
-  btn.disabled = true;
-  btn.textContent = 'ログイン中…';
-
-  try {
-    await setPersistence(auth, browserLocalPersistence);
-    await signInWithEmailAndPassword(auth, email, pw);
-  } catch (e) {
-    console.error('[EQLive Reporter Switcher] Firebase Auth error:', e);
-    const code = e?.code || 'unknown-error';
-    const messages = {
-      'auth/invalid-credential': 'メールアドレスまたはパスワードが正しくありません。',
-      'auth/invalid-login-credentials': 'メールアドレスまたはパスワードが正しくありません。',
-      'auth/user-not-found': 'Firebase Authenticationにそのメールアドレスのユーザーがありません。',
-      'auth/wrong-password': 'パスワードが正しくありません。',
-      'auth/too-many-requests': 'ログイン試行回数が多すぎます。しばらく待ってください。',
-      'auth/network-request-failed': 'Firebaseに接続できません。ネットワークを確認してください。',
-      'auth/operation-not-allowed': 'Firebase Authenticationでメール/パスワード認証が有効ではありません。',
-      'auth/invalid-email': 'Firebase Authenticationのメールアドレス形式が不正です。',
-      'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'FirebaseのAPIキーが無効です。',
-      'auth/app-not-authorized': 'このWebアプリがFirebase Authenticationで許可されていません。',
-      'auth/internal-error': 'Firebase Authenticationで内部エラーが発生しました。'
+  try{
+    await signInWithEmailAndPassword(auth,email,pw);
+  }catch(e){
+    console.error('[EQLive Reporter Switcher] Firebase Auth error:',e);
+    const messages={
+      'auth/invalid-credential':'メールアドレスまたはパスワードが正しくありません。',
+      'auth/invalid-login-credentials':'メールアドレスまたはパスワードが正しくありません。',
+      'auth/user-not-found':'Firebase Authenticationに登録されているユーザーが見つかりません。',
+      'auth/wrong-password':'パスワードが正しくありません。',
+      'auth/too-many-requests':'ログイン試行回数が多すぎます。しばらく待ってから再試行してください。',
+      'auth/network-request-failed':'Firebaseへの接続に失敗しました。ネットワーク接続を確認してください。',
+      'auth/operation-not-allowed':'Firebase Authenticationの「メール/パスワード」ログインが有効になっていません。',
+      'auth/invalid-email':'メールアドレスの形式が正しくありません。'
     };
-    err.innerHTML = `${esc(messages[code] || `Firebase Authenticationエラー: ${code}`)}<br><span style="font-size:10px;color:#9ea5ad">使用したメール: ${esc(email)}</span>`;
-    err.style.display = 'block';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'ログイン';
+    err.textContent=messages[e?.code]||`ログインに失敗しました。(${e?.code||'unknown-error'})`;
+    err.style.display='block';
   }
-}
-
-$('login-btn').onclick = doReporterLogin;
-$('login-id').addEventListener('keydown', e => { if (e.key === 'Enter') doReporterLogin(); });
-$('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doReporterLogin(); });
-
-$('admin-back').onclick = () => {
-  window.location.href = 'admin.html';
 };
-
-$('refresh-preview').onclick = () => renderPreview();
-
+$('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')$('login-btn').click()});
 setInterval(()=>{$('program-clock').textContent=nowString()},1000);
 window.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;if(activeTab==='scene'){if(e.key==='ArrowLeft'){e.preventDefault();moveScene(-1)} if(e.key==='ArrowRight'){e.preventDefault();moveScene(1)}}});
 window.addEventListener('beforeunload',()=>{if(hls)try{hls.destroy()}catch(_){} });
