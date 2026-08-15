@@ -57,8 +57,8 @@ textarea{min-height:96px;resize:vertical}
   <div class="login-box">
     <h1>EQLive 報道スイッチャー</h1>
     <p>EQLive の報道番組制作・送出を行う管理ツール</p>
-    <label class="label">ユーザーID</label>
-    <input id="login-id" type="text" autocomplete="username" placeholder="ユーザーID">
+    <label class="label">メールアドレス / ユーザーID</label>
+    <input id="login-id" type="text" autocomplete="username" placeholder="Firebase Authenticationのメールアドレス（またはユーザーID）">
     <label class="label" style="margin-top:12px">パスワード</label>
     <input id="login-pass" type="password" autocomplete="current-password" placeholder="パスワード">
     <button id="login-btn" class="btn primary big" style="width:100%;margin-top:14px">ログイン</button>
@@ -303,7 +303,39 @@ function armSchedule(){clearTimeout(scheduleTimer);scheduleTimer=null;preloadedS
 function preloadScene(scene){const m=activeMaterialForScene(scene);if(!m)return;preloadedSceneId=scene.id; if(m.type==='image'||m.type==='title'){preloader=new Image();preloader.src=m.type==='title'?buildTitleSvgData(m):m.url||''} else if(m.type==='video'){preloader=document.createElement('video');preloader.preload='auto';preloader.muted=true;preloader.src=m.url||'';preloader.load()} setStatus(`「${scene.name}」を事前読み込み中`,`schedule preloading → ${scene.id}`)}
 
 onAuthStateChanged(auth,async user=>{if(user){$('login').style.display='none';$('app').classList.add('visible');$('auth-state').textContent=user.email||'接続中';await loadCameras(); onValue(ref(db,'broadcast'),snap=>{broadcast=snap.val()||{};if(activeTab==='output'||activeTab==='mode')renderAll();else renderPreview()}); onValue(ref(db,SWITCHER_PATH),snap=>{switcher=snap.val()||{};ensureSeed();if(!switcher.scenes||Object.keys(switcher.scenes).length===0){writeSwitcher()}armSchedule();renderAll()});}else{$('login').style.display='flex';$('app').classList.remove('visible')}});
-$('login-btn').onclick=()=>{const id=$('login-id').value.trim(),pw=$('login-pass').value;const err=$('login-error');if(!id||!pw){err.textContent='ユーザーIDとパスワードを入力してください。';err.style.display='block';return}signInWithEmailAndPassword(auth,`${id}@kactuif.internal`,pw).catch(e=>{console.error(e);err.textContent='ログインに失敗しました。ユーザーIDまたはパスワードを確認してください。';err.style.display='block'})};
+$('login-btn').onclick=async()=>{
+  const rawId=$('login-id').value.trim();
+  const pw=$('login-pass').value;
+  const err=$('login-error');
+  if(!rawId||!pw){
+    err.textContent='メールアドレス（またはユーザーID）とパスワードを入力してください。';
+    err.style.display='block';
+    return;
+  }
+
+  // Firebase Authentication に登録されているメールアドレスをそのまま使用。
+  // 従来のEQLive管理画面と同じ「ユーザーID」形式（@なし）にも対応する。
+  const email=rawId.includes('@')?rawId:`${rawId}@kactuif.internal`;
+  err.style.display='none';
+
+  try{
+    await signInWithEmailAndPassword(auth,email,pw);
+  }catch(e){
+    console.error('[EQLive Reporter Switcher] Firebase Auth error:',e);
+    const messages={
+      'auth/invalid-credential':'メールアドレスまたはパスワードが正しくありません。',
+      'auth/invalid-login-credentials':'メールアドレスまたはパスワードが正しくありません。',
+      'auth/user-not-found':'Firebase Authenticationに登録されているユーザーが見つかりません。',
+      'auth/wrong-password':'パスワードが正しくありません。',
+      'auth/too-many-requests':'ログイン試行回数が多すぎます。しばらく待ってから再試行してください。',
+      'auth/network-request-failed':'Firebaseへの接続に失敗しました。ネットワーク接続を確認してください。',
+      'auth/operation-not-allowed':'Firebase Authenticationの「メール/パスワード」ログインが有効になっていません。',
+      'auth/invalid-email':'メールアドレスの形式が正しくありません。'
+    };
+    err.textContent=messages[e?.code]||`ログインに失敗しました。(${e?.code||'unknown-error'})`;
+    err.style.display='block';
+  }
+};
 $('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')$('login-btn').click()});
 setInterval(()=>{$('program-clock').textContent=nowString()},1000);
 window.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;if(activeTab==='scene'){if(e.key==='ArrowLeft'){e.preventDefault();moveScene(-1)} if(e.key==='ArrowRight'){e.preventDefault();moveScene(1)}}});
