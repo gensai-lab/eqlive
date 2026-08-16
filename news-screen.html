@@ -53,7 +53,7 @@ body,html{
    Firebase — news-admin.html と同一プロジェクト・同一パスを参照する
    ========================================================================= */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
@@ -78,6 +78,13 @@ const hlsMap = { a: null, b: null };
 let activeKey = 'a';
 let currentMediaKey = '';
 let cameras = [];
+
+// ChromaKey Studio（chromakey_studio.html）から配信される映像の受信用state
+const STUDIO_PATH = 'broadcast/studio/webrtc';
+let studioPeerConnection = null;
+let studioStream = null;
+let studioVideoEl = null;
+let studioPlaceholderEl = null;
 
 function clearLayer(key) {
   if (hlsMap[key]) { try { hlsMap[key].destroy(); } catch (_) {} hlsMap[key] = null; }
@@ -218,9 +225,78 @@ function renderScreenProgram(sp) {
       }
       return null;
     }
+    if (type === 'studio') {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'preview-placeholder';
+      placeholder.textContent = 'スタジオ映像 接続中…';
+      const v = document.createElement('video');
+      v.autoplay = true; v.muted = true; v.playsInline = true;
+      v.style.display = 'none';
+      container.appendChild(placeholder);
+      container.appendChild(v);
+      studioVideoEl = v;
+      studioPlaceholderEl = placeholder;
+      if (studioStream) {
+        v.srcObject = studioStream;
+        v.play().catch(() => {});
+        v.style.display = 'block';
+        placeholder.style.display = 'none';
+      }
+      return null;
+    }
     container.innerHTML = `<img src="${sp.url}">`;
     return null;
   }, false);
+}
+
+/* =========================================================================
+   broadcast/studio/webrtc — ChromaKey Studio からの映像受信（WebRTC）
+   type=='studio' が選択されているかどうかに関わらず、配信側(offer)の
+   有無を常時監視しておき、切り替わった瞬間に即座に表示できるようにする。
+   ========================================================================= */
+function setupStudioReceiver() {
+  onValue(ref(db, `${STUDIO_PATH}/offer`), async snap => {
+    const offerData = snap.val();
+
+    if (studioPeerConnection) { try { studioPeerConnection.close(); } catch (_) {} studioPeerConnection = null; }
+    studioStream = null;
+    if (studioVideoEl) { studioVideoEl.style.display = 'none'; studioVideoEl.srcObject = null; }
+    if (studioPlaceholderEl) { studioPlaceholderEl.style.display = 'flex'; studioPlaceholderEl.textContent = 'スタジオ映像 接続中…'; }
+
+    if (!offerData) return;
+
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    studioPeerConnection = pc;
+
+    pc.ontrack = event => {
+      studioStream = event.streams[0];
+      if (studioVideoEl) {
+        studioVideoEl.srcObject = studioStream;
+        studioVideoEl.play().catch(() => {});
+        studioVideoEl.style.display = 'block';
+        if (studioPlaceholderEl) studioPlaceholderEl.style.display = 'none';
+      }
+    };
+    pc.onicecandidate = event => {
+      if (event.candidate) set(ref(db, `${STUDIO_PATH}/candidates/main/${Date.now()}`), event.candidate.toJSON());
+    };
+    onValue(ref(db, `${STUDIO_PATH}/candidates/admin`), iceSnap => {
+      iceSnap.forEach(child => {
+        const candidate = new RTCIceCandidate(child.val());
+        if (pc.remoteDescription) pc.addIceCandidate(candidate).catch(() => {});
+      });
+    });
+
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(offerData));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      await set(ref(db, `${STUDIO_PATH}/answer`), { type: answer.type, sdp: answer.sdp });
+    } catch (e) {
+      console.error('[news-screen] Studio受信の接続に失敗:', e);
+      if (studioPlaceholderEl) studioPlaceholderEl.textContent = 'スタジオ映像の接続に失敗しました';
+    }
+  });
 }
 
 /* =========================================================================
@@ -248,6 +324,7 @@ onValue(ref(db, 'broadcast/screen_program'), snap => {
    起動
    ========================================================================= */
 loadCameras();
+setupStudioReceiver();
 </script>
 </body>
 </html>
