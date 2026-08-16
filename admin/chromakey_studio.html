@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChromaKey Studio - リアルタイム背景合成</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- MediaPipe Selfie Segmentation (AI人物自動検出用) -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+  
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(51, 65, 85, 0.8);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(71, 85, 105, 1);
+    }
+    .eyedropper-active {
+      cursor: crosshair !important;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col overflow-hidden select-none">
+
+  <!-- ヘッダー -->
+  <header class="bg-slate-900/80 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center justify-between z-20">
+    <div class="flex items-center gap-3">
+      <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-500/20">
+        <i data-lucide="video" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-lg leading-none text-slate-100">ChromaKey Studio</h1>
+        <p class="text-xs text-slate-400 mt-0.5">リアルタイム背景合成・クロマキー透過ツール</p>
+      </div>
+    </div>
+
+    <!-- ステータス ＆ クイックアクション -->
+    <div class="flex items-center gap-3">
+      <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/50 text-xs text-slate-300">
+        <span id="fpsDisplay" class="font-mono text-emerald-400 font-bold">0</span> FPS
+      </div>
+      
+      <button id="vcamGuideBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/50 text-indigo-200 font-medium text-xs transition active:scale-95">
+        <i data-lucide="help-circle" class="w-4 h-4 text-indigo-400"></i>
+        <span>仮想カメラ化ガイド</span>
+      </button>
+
+      <button id="studioBroadcastBtn" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-medium text-sm transition shadow-lg shadow-sky-600/20 active:scale-95">
+        <i data-lucide="cast" class="w-4 h-4"></i>
+        <span id="studioBroadcastText">NewsScreenへ配信</span>
+      </button>
+
+      <button id="snapBtn" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition shadow-lg shadow-emerald-600/20 active:scale-95">
+        <i data-lucide="camera" class="w-4 h-4"></i>
+        <span>撮影</span>
+      </button>
+
+      <button id="recordBtn" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-medium text-sm transition shadow-lg shadow-rose-600/20 active:scale-95">
+        <i data-lucide="disc" class="w-4 h-4" id="recordIcon"></i>
+        <span id="recordText">録画</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ領域 -->
+  <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+    
+    <!-- 左側: ビューポート / Canvasエリア -->
+    <section class="flex-1 bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden group">
+      
+      <!-- 非表示のビデオ（Webcam受信用） -->
+      <video id="webcam" class="hidden" autoplay playsinline muted></video>
+
+      <!-- 合成画面出力用 Canvas -->
+      <div class="relative w-full h-full flex items-center justify-center max-w-5xl max-h-[calc(100vh-6rem)]">
+        <canvas id="outputCanvas" class="max-w-full max-h-full aspect-video rounded-2xl shadow-2xl bg-slate-900 border border-slate-800/80 object-contain transition-all"></canvas>
+
+        <!-- カメラ停止中メッセージ -->
+        <div id="noCameraOverlay" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 rounded-2xl border border-slate-800 p-6 text-center z-10">
+          <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-slate-500 mb-4">
+            <i data-lucide="video-off" class="w-8 h-8"></i>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-200 mb-1">カメラがオフになっています</h3>
+          <p class="text-sm text-slate-400 max-w-xs mb-6">カメラのアクセス許可を確認し、「カメラを開始」ボタンを押してください。</p>
+          <button id="startCamOverlayBtn" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm shadow-lg shadow-indigo-600/30 transition flex items-center gap-2">
+            <i data-lucide="power" class="w-4 h-4"></i>
+            <span>カメラを開始</span>
+          </button>
+        </div>
+
+        <!-- スポイト機能ガイド (アクティブ時表示) -->
+        <div id="eyedropperGuide" class="hidden absolute top-4 left-1/2 -translate-x-1/2 bg-amber-500/90 text-slate-950 px-4 py-2 rounded-full font-semibold text-xs shadow-xl backdrop-blur flex items-center gap-2 z-20 pointer-events-none animate-pulse">
+          <i data-lucide="pipette" class="w-4 h-4"></i>
+          <span>映像内の抜きたい色をクリックしてください</span>
+        </div>
+      </div>
+
+      <!-- 下部フローティング コントロールバー -->
+      <div class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md border border-slate-800/80 px-4 py-2 rounded-2xl shadow-2xl flex items-center gap-3 z-10">
+        <button id="toggleCamBtn" title="カメラON/OFF" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
+          <i data-lucide="video" class="w-5 h-5"></i>
+        </button>
+        <button id="mirrorCamBtn" title="左右反転" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
+          <i data-lucide="flip-horizontal" class="w-5 h-5"></i>
+        </button>
+        <div class="w-px h-6 bg-slate-800"></div>
+        <button id="eyedropperBtn" title="画面から色を取得 (スポイト)" class="p-2.5 rounded-xl bg-slate-800 hover:bg-amber-500/20 hover:text-amber-400 text-slate-200 transition">
+          <i data-lucide="pipette" class="w-5 h-5"></i>
+        </button>
+        <button id="pipBtn" title="PiP (最前面小窓表示)" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
+          <i data-lucide="picture-in-picture-2" class="w-5 h-5"></i>
+        </button>
+        <button id="fullscreenBtn" title="全画面表示" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
+          <i data-lucide="maximize" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </section>
+
+    <!-- 右側: コントロールパネル -->
+    <aside class="w-full md:w-96 bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col h-auto md:h-full z-10">
+      
+      <!-- タブ切替ヘッダー -->
+      <div class="flex border-b border-slate-800 bg-slate-950/40">
+        <button id="tabKeyingBtn" class="flex-1 py-3 px-4 text-xs font-semibold text-indigo-400 border-b-2 border-indigo-500 flex items-center justify-center gap-2 transition">
+          <i data-lucide="sliders" class="w-4 h-4"></i>
+          <span>人物切り抜き</span>
+        </button>
+        <button id="tabBgBtn" class="flex-1 py-3 px-4 text-xs font-semibold text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-2 transition">
+          <i data-lucide="image" class="w-4 h-4"></i>
+          <span>背景設定</span>
+        </button>
+      </div>
+
+      <!-- パネルコンテンツ -->
+      <div class="flex-1 overflow-y-auto p-5 space-y-6">
+        
+        <!-- タブ 1: 透過切り抜き設定 -->
+        <div id="tabKeyingContent" class="space-y-6">
+          
+          <!-- モード切替（クロマキー / AI自動くり抜き） -->
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-2 flex items-center gap-1.5">
+              <i data-lucide="cpu" class="w-3.5 h-3.5"></i> 透過モード切替
+            </label>
+            <div class="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <button id="modeChromaBtn" class="py-2 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition bg-indigo-600 text-white shadow-md">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                クロマキー
+              </button>
+              <button id="modeAiBtn" class="py-2 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition text-slate-400 hover:text-slate-200">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i>
+                AI人物検出
+              </button>
+            </div>
+            <p id="modeDesc" class="text-[11px] text-slate-500 mt-2">
+              ※ グリーンバック等の特定の色を指定して高精度に背景を抜きます。
+            </p>
+          </div>
+
+          <!-- カメラデバイス選択 -->
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-2 flex items-center gap-1.5">
+              <i data-lucide="webcam" class="w-3.5 h-3.5"></i> カメラ選択
+            </label>
+            <select id="cameraSelect" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition">
+              <option value="">カメラを読み込み中...</option>
+            </select>
+          </div>
+
+          <!-- クロマキー専用設定領域 -->
+          <div id="chromaSettings" class="space-y-6">
+            <!-- 透過色（キーカラー）設定 -->
+            <div class="space-y-3">
+              <label class="block text-xs font-medium text-slate-400 flex items-center justify-between">
+                <span class="flex items-center gap-1.5"><i data-lucide="palette" class="w-3.5 h-3.5"></i> 透過キーカラー</span>
+                <span id="keyColorHex" class="font-mono text-slate-400 uppercase">#00FF00</span>
+              </label>
+
+              <!-- プリセットカラーボタン -->
+              <div class="grid grid-cols-4 gap-2">
+                <button class="preset-color-btn p-2 rounded-xl border border-slate-700 bg-slate-800 hover:border-emerald-500 flex flex-col items-center gap-1 transition" data-color="#00FF00">
+                  <span class="w-6 h-6 rounded-full bg-[#00FF00] border border-slate-600 shadow-inner"></span>
+                  <span class="text-[10px] text-slate-300 font-medium">グリーン</span>
+                </button>
+                <button class="preset-color-btn p-2 rounded-xl border border-slate-700 bg-slate-800 hover:border-blue-500 flex flex-col items-center gap-1 transition" data-color="#0000FF">
+                  <span class="w-6 h-6 rounded-full bg-[#0000FF] border border-slate-600 shadow-inner"></span>
+                  <span class="text-[10px] text-slate-300 font-medium">ブルー</span>
+                </button>
+                <button class="preset-color-btn p-2 rounded-xl border border-slate-700 bg-slate-800 hover:border-pink-500 flex flex-col items-center gap-1 transition" data-color="#FF00FF">
+                  <span class="w-6 h-6 rounded-full bg-[#FF00FF] border border-slate-600 shadow-inner"></span>
+                  <span class="text-[10px] text-slate-300 font-medium">マゼンタ</span>
+                </button>
+                
+                <!-- カスタムカラーピッカー -->
+                <label class="p-2 rounded-xl border border-slate-700 bg-slate-800 hover:border-slate-500 flex flex-col items-center gap-1 cursor-pointer transition relative overflow-hidden">
+                  <span id="customColorPreview" class="w-6 h-6 rounded-full bg-[#00FF00] border border-slate-600 shadow-inner"></span>
+                  <span class="text-[10px] text-slate-300 font-medium">カスタム</span>
+                  <input type="color" id="keyColorInput" value="#00FF00" class="absolute opacity-0 inset-0 cursor-pointer">
+                </label>
+              </div>
+            </div>
+
+            <div class="w-full h-px bg-slate-800"></div>
+
+            <!-- 精密調整パラメータ -->
+            <div class="space-y-4">
+              <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">クロマキー微調整</h4>
+
+              <!-- 許容度 / 距離スライダー (Similarity) -->
+              <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                  <span class="text-slate-400">感度 (許容幅)</span>
+                  <span id="similarityVal" class="font-mono text-indigo-400 font-semibold">0.40</span>
+                </div>
+                <input type="range" id="similarityInput" min="0.05" max="0.9" step="0.01" value="0.40" 
+                  class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+              </div>
+
+              <!-- スムージングスライダー (Smoothness) -->
+              <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                  <span class="text-slate-400">滑らかさ (ぼかし)</span>
+                  <span id="smoothnessVal" class="font-mono text-indigo-400 font-semibold">0.10</span>
+                </div>
+                <input type="range" id="smoothnessInput" min="0.0" max="0.5" step="0.01" value="0.10" 
+                  class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+              </div>
+
+              <!-- スピル抑制スライダー (Spill Suppression) -->
+              <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                  <span class="text-slate-400">緑反射除去 (スピル)</span>
+                  <span id="spillVal" class="font-mono text-indigo-400 font-semibold">0.30</span>
+                </div>
+                <input type="range" id="spillInput" min="0.0" max="1.0" step="0.05" value="0.30" 
+                  class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+              </div>
+            </div>
+          </div>
+
+          <!-- AI人物切り抜き専用設定領域 -->
+          <div id="aiSettings" class="space-y-4 hidden">
+            <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">AI人物認識微調整</h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1.5">
+                <span class="text-slate-400">人物判定感度</span>
+                <span id="aiThresholdVal" class="font-mono text-indigo-400 font-semibold">0.50</span>
+              </div>
+              <input type="range" id="aiThresholdInput" min="0.1" max="0.9" step="0.05" value="0.50" 
+                class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1.5">
+                <span class="text-slate-400">境界線の滑らかさ</span>
+                <span id="aiEdgeBlurVal" class="font-mono text-indigo-400 font-semibold">2px</span>
+              </div>
+              <input type="range" id="aiEdgeBlurInput" min="0" max="10" step="1" value="2" 
+                class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+            </div>
+          </div>
+
+        </div>
+
+        <!-- タブ 2: 背景設定 -->
+        <div id="tabBgContent" class="space-y-6 hidden">
+          
+          <!-- 背景タイプ選択 -->
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-2">背景タイプ</label>
+            <div class="grid grid-cols-3 gap-2">
+              <button id="bgTypeImgBtn" class="bg-type-btn p-2 rounded-xl bg-indigo-600 text-white font-medium text-xs transition shadow">画像</button>
+              <button id="bgTypeColorBtn" class="bg-type-btn p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 font-medium text-xs transition">単色/グラデ</button>
+              <button id="bgTypeTransBtn" class="bg-type-btn p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 font-medium text-xs transition">透過 (PNG)</button>
+            </div>
+          </div>
+
+          <!-- 画像背景セクション -->
+          <div id="bgImageSection" class="space-y-4">
+            <!-- カスタム画像アップロード -->
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-2">自分の画像をアップロード</label>
+              <label class="border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition bg-slate-800/40 hover:bg-slate-800/80">
+                <i data-lucide="upload-cloud" class="w-6 h-6 text-slate-400 mb-1"></i>
+                <span class="text-xs text-slate-300 font-medium">画像を選択またはドロップ</span>
+                <span class="text-[10px] text-slate-500 mt-1">JPG, PNG, WebP に対応</span>
+                <input type="file" id="bgUploadInput" accept="image/*" class="hidden">
+              </label>
+            </div>
+
+            <!-- プリセット画像ライブラリ -->
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-2">プリセット画像</label>
+              <div class="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1" id="presetGallery">
+                <!-- JavaScriptで動的生成 -->
+              </div>
+            </div>
+          </div>
+
+          <!-- カラー背景セクション -->
+          <div id="bgColorSection" class="space-y-4 hidden">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-2">背景カラー選択</label>
+              <div class="flex items-center gap-3 bg-slate-800 p-3 rounded-xl border border-slate-700">
+                <input type="color" id="bgColorPicker" value="#1e293b" class="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-0">
+                <span id="bgColorHex" class="font-mono text-sm text-slate-200">#1E293B</span>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-2">クイックカラー</label>
+              <div class="flex gap-2">
+                <button class="bg-quick-color w-8 h-8 rounded-lg bg-white border border-slate-600" data-color="#ffffff"></button>
+                <button class="bg-quick-color w-8 h-8 rounded-lg bg-black border border-slate-600" data-color="#000000"></button>
+                <button class="bg-quick-color w-8 h-8 rounded-lg bg-slate-800 border border-slate-600" data-color="#1e293b"></button>
+                <button class="bg-quick-color w-8 h-8 rounded-lg bg-amber-500 border border-slate-600" data-color="#f59e0b"></button>
+                <button class="bg-quick-color w-8 h-8 rounded-lg bg-emerald-500 border border-slate-600" data-color="#10b981"></button>
+                <button class="bg-quick-color w-8 h-8 rounded-lg bg-indigo-600 border border-slate-600" data-color="#4f46e5"></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 背景調整 (Blur / Brightness) -->
+          <div class="space-y-4 pt-2 border-t border-slate-800">
+            <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">背景エフェクト</h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1.5">
+                <span class="text-slate-400">背景ぼかし (Blur)</span>
+                <span id="bgBlurVal" class="font-mono text-indigo-400 font-semibold">0px</span>
+              </div>
+              <input type="range" id="bgBlurInput" min="0" max="20" step="1" value="0" 
+                class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- トースト通知エリア -->
+      <div id="toast" class="hidden fixed bottom-4 right-4 bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-xl font-medium text-xs flex items-center gap-2 z-50 animate-bounce">
+        <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+        <span id="toastMsg">撮影しました</span>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- 仮想カメラ化モーダルモーダルガイド -->
+  <div id="guideModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <button id="closeGuideBtn" class="absolute top-4 right-4 text-slate-400 hover:text-slate-100 p-1">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-4">
+        <div class="bg-indigo-600/20 text-indigo-400 p-2.5 rounded-xl border border-indigo-500/30">
+          <i data-lucide="cast" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-lg text-slate-100">Zoom / Teams等でカメラとして使う方法</h3>
+          <p class="text-xs text-slate-400">合成後の映像をシステムVirtual Cameraとして使う手順</p>
+        </div>
+      </div>
+
+      <div class="space-y-4 text-xs text-slate-300 leading-relaxed">
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div class="font-bold text-indigo-400 flex items-center gap-1.5 text-sm">
+            <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs">1</span>
+            OBS Studioを使う方法 (推奨・高画質)
+          </div>
+          <ol class="list-decimal list-inside space-y-1.5 pl-1 text-slate-300">
+            <li>無料配信ソフト <strong class="text-white">OBS Studio</strong> をインストールして起動。</li>
+            <li>OBSの「ソース」欄の <strong class="text-white">＋</strong> ボタン → <strong class="text-indigo-300">「ウィンドウキャプチャ」</strong> または <strong class="text-indigo-300">「ブラウザ」</strong> を選択。</li>
+            <li>このChromaKey Studioのブラウザ画面を指定して配置。</li>
+            <li>OBS画面右下の <strong class="text-emerald-400">「仮想カメラ開始 (Start Virtual Camera)」</strong> をクリック。</li>
+            <li>Zoom, Teams, Google Meet, Discordなどのカメラ設定で <strong class="text-white">「OBS Virtual Camera」</strong> を選択！</li>
+          </ol>
+        </div>
+
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div class="font-bold text-emerald-400 flex items-center gap-1.5 text-sm">
+            <span class="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">2</span>
+            Google MeetやTeamsの「画面共有」を使う方法
+          </div>
+          <p class="text-slate-400">
+            カメラ切り替えではなく、ミーティングツールの「画面共有」→「Chromeタブ」から本ツールを選択することでも、背景合成した映像を他参加者に見せることができます。
+          </p>
+        </div>
+
+        <div class="bg-indigo-950/40 p-3 rounded-xl border border-indigo-800/40 text-indigo-300 flex items-start gap-2 text-[11px]">
+          <i data-lucide="info" class="w-4 h-4 shrink-0 mt-0.5"></i>
+          <span>下部バーの <strong>PiP（Picture-in-Picture）</strong> ボタンを押すと、映像を画面の最前面に常に小窓表示させてキャプチャしやすくできます。</span>
+        </div>
+      </div>
+
+      <button id="modalOkBtn" class="mt-6 w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition shadow-lg shadow-indigo-600/30">
+        了解しました
+      </button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // Firebase — news-admin.html / news-screen.html と同一プロジェクトを参照する
+    const firebaseConfig = {
+      apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
+      authDomain: "mgl-eqlive.firebaseapp.com",
+      databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
+      projectId: "mgl-eqlive",
+      storageBucket: "mgl-eqlive.firebasestorage.app",
+      messagingSenderId: "1060231327645",
+      appId: "1:1060231327645:web:642684f4640bbc21d5c974"
+    };
+    const fbApp = initializeApp(firebaseConfig);
+    const db = getDatabase(fbApp);
+
+    // Lucide アイコン初期化
+    lucide.createIcons();
+
+    // DOM 要素の取得
+    const webcam = document.getElementById('webcam');
+    const canvas = document.getElementById('outputCanvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    
+    // UI 要素の取得
+    const cameraSelect = document.getElementById('cameraSelect');
+    const toggleCamBtn = document.getElementById('toggleCamBtn');
+    const mirrorCamBtn = document.getElementById('mirrorCamBtn');
+    const startCamOverlayBtn = document.getElementById('startCamOverlayBtn');
+    const noCameraOverlay = document.getElementById('noCameraOverlay');
+    const fpsDisplay = document.getElementById('fpsDisplay');
+    const snapBtn = document.getElementById('snapBtn');
+    const recordBtn = document.getElementById('recordBtn');
+    const recordText = document.getElementById('recordText');
+    const recordIcon = document.getElementById('recordIcon');
+    const eyedropperBtn = document.getElementById('eyedropperBtn');
+    const eyedropperGuide = document.getElementById('eyedropperGuide');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const pipBtn = document.getElementById('pipBtn');
+
+    // ガイドモーダル要素
+    const vcamGuideBtn = document.getElementById('vcamGuideBtn');
+    const guideModal = document.getElementById('guideModal');
+    const closeGuideBtn = document.getElementById('closeGuideBtn');
+    const modalOkBtn = document.getElementById('modalOkBtn');
+
+    // モード制御要素
+    const modeChromaBtn = document.getElementById('modeChromaBtn');
+    const modeAiBtn = document.getElementById('modeAiBtn');
+    const modeDesc = document.getElementById('modeDesc');
+    const chromaSettings = document.getElementById('chromaSettings');
+    const aiSettings = document.getElementById('aiSettings');
+
+    // AI モードコントロール要素
+    const aiThresholdInput = document.getElementById('aiThresholdInput');
+    const aiThresholdVal = document.getElementById('aiThresholdVal');
+    const aiEdgeBlurInput = document.getElementById('aiEdgeBlurInput');
+    const aiEdgeBlurVal = document.getElementById('aiEdgeBlurVal');
+
+    // Keying コントロール要素
+    const keyColorInput = document.getElementById('keyColorInput');
+    const keyColorHex = document.getElementById('keyColorHex');
+    const customColorPreview = document.getElementById('customColorPreview');
+    const similarityInput = document.getElementById('similarityInput');
+    const similarityVal = document.getElementById('similarityVal');
+    const smoothnessInput = document.getElementById('smoothnessInput');
+    const smoothnessVal = document.getElementById('smoothnessVal');
+    const spillInput = document.getElementById('spillInput');
+    const spillVal = document.getElementById('spillVal');
+
+    // Background コントロール要素
+    const tabKeyingBtn = document.getElementById('tabKeyingBtn');
+    const tabBgBtn = document.getElementById('tabBgBtn');
+    const tabKeyingContent = document.getElementById('tabKeyingContent');
+    const tabBgContent = document.getElementById('tabBgContent');
+    const bgTypeImgBtn = document.getElementById('bgTypeImgBtn');
+    const bgTypeColorBtn = document.getElementById('bgTypeColorBtn');
+    const bgTypeTransBtn = document.getElementById('bgTypeTransBtn');
+    const bgImageSection = document.getElementById('bgImageSection');
+    const bgColorSection = document.getElementById('bgColorSection');
+    const bgUploadInput = document.getElementById('bgUploadInput');
+    const presetGallery = document.getElementById('presetGallery');
+    const bgColorPicker = document.getElementById('bgColorPicker');
+    const bgColorHex = document.getElementById('bgColorHex');
+    const bgBlurInput = document.getElementById('bgBlurInput');
+    const bgBlurVal = document.getElementById('bgBlurVal');
+
+    // アプリケーション状態変数
+    let isCameraRunning = false;
+    let isMirrored = false;
+    let currentStream = null;
+    let isEyedropperActive = false;
+    let processMode = 'chroma'; // 'chroma' | 'ai'
+
+    // クロマキー設定
+    let keyColor = { r: 0, g: 255, b: 0 }; // デフォルト: グリーン
+    let similarity = 0.40;
+    let smoothness = 0.10;
+    let spillSuppression = 0.30;
+
+    // AI セグメンテーション設定
+    let aiThreshold = 0.50;
+    let aiEdgeBlur = 2;
+    let latestAiResults = null;
+    let isProcessingAi = false;
+
+    // 背景設定
+    let bgMode = 'image'; // 'image' | 'color' | 'transparent'
+    let bgImage = new Image();
+    bgImage.crossOrigin = "anonymous";
+    let bgColor = '#1e293b';
+    let bgBlur = 0;
+
+    // 録画機能用
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecording = false;
+
+    // FPS 計算
+    let lastFrameTime = performance.now();
+    let frameCount = 0;
+
+    // MediaPipe SelfieSegmentation 初期化
+    let selfieSegmentation = null;
+    if (window.SelfieSegmentation) {
+      selfieSegmentation = new SelfieSegmentation({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
+      });
+      selfieSegmentation.setOptions({
+        modelSelection: 1 // 1: Landscape (Webcam推奨)
+      });
+      selfieSegmentation.onResults((results) => {
+        latestAiResults = results;
+        isProcessingAi = false;
+      });
+    }
+
+    // 高解像度プリセット画像リスト (Unsplash)
+    const PRESET_IMAGES = [
+      { name: 'モダンオフィス', url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80' },
+      { name: 'サイバーパンク', url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80' },
+      { name: 'ビーチリゾート', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80' },
+      { name: '深宇宙・銀河', url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1200&q=80' },
+      { name: '温かみのあるカフェ', url: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80' },
+      { name: '北欧インテリア', url: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80' }
+    ];
+
+    bgImage.src = PRESET_IMAGES[0].url;
+
+    // 初期化関数
+    async function init() {
+      setupPresetGallery();
+      await getCameraDevices();
+      setupEventListeners();
+      startCamera();
+    }
+
+    // カメラデバイス一覧の取得
+    async function getCameraDevices() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        
+        cameraSelect.innerHTML = '';
+        if (videoDevices.length === 0) {
+          cameraSelect.innerHTML = '<option value="">カメラが見つかりません</option>';
+          return;
+        }
+
+        videoDevices.forEach((device, index) => {
+          const option = document.createElement('option');
+          option.value = device.deviceId;
+          option.textContent = device.label || `カメラ ${index + 1}`;
+          cameraSelect.appendChild(option);
+        });
+      } catch (err) {
+        console.error("デバイス取得エラー:", err);
+        cameraSelect.innerHTML = '<option value="">カメラリスト取得失敗</option>';
+      }
+    }
+
+    // カメラ起動
+    async function startCamera(deviceId = null) {
+      stopCamera();
+
+      const videoConstraints = {
+        aspectRatio: { ideal: 16 / 9 },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      };
+      if (deviceId) {
+        videoConstraints.deviceId = { exact: deviceId };
+      }
+
+      const constraints = {
+        video: videoConstraints,
+        audio: false
+      };
+
+      try {
+        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        webcam.srcObject = currentStream;
+        await webcam.play();
+
+        isCameraRunning = true;
+        noCameraOverlay.classList.add('hidden');
+        toggleCamBtn.classList.remove('text-rose-400', 'bg-rose-500/10');
+
+        await getCameraDevices();
+        if (deviceId) {
+          cameraSelect.value = deviceId;
+        }
+
+        requestAnimationFrame(processFrame);
+      } catch (err) {
+        console.error("カメラ起動エラー:", err);
+        isCameraRunning = false;
+        noCameraOverlay.classList.remove('hidden');
+        showToast("カメラの起動に失敗しました", true);
+      }
+    }
+
+    // カメラ停止
+    function stopCamera() {
+      isCameraRunning = false;
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+      }
+      webcam.srcObject = null;
+      noCameraOverlay.classList.remove('hidden');
+    }
+
+    // RGBからHEXへ変換
+    function rgbToHex(r, g, b) {
+      return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+    }
+
+    // HEXからRGBへ
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 0, g: 255, b: 0 };
+    }
+
+    // メインのフレーム処理ループ
+    async function processFrame() {
+      if (!isCameraRunning) return;
+
+      // FPS計算
+      const now = performance.now();
+      frameCount++;
+      if (now - lastFrameTime >= 1000) {
+        fpsDisplay.textContent = frameCount;
+        frameCount = 0;
+        lastFrameTime = now;
+      }
+
+      // 16:9 アスペクト比のターゲット解像度を計算
+      const targetH = webcam.videoHeight || 720;
+      const targetW = Math.round(targetH * (16 / 9));
+
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+
+      const w = canvas.width;
+      const h = canvas.height;
+
+      if (w === 0 || h === 0) {
+        requestAnimationFrame(processFrame);
+        return;
+      }
+
+      // 一時用Canvas作成
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = w;
+      tempCanvas.height = h;
+      const tempCtx = tempCanvas.getContext('2d');
+
+      // 左右反転処理
+      if (isMirrored) {
+        tempCtx.translate(w, 0);
+        tempCtx.scale(-1, 1);
+      }
+
+      // カメラ解像度が16:9と異なる場合はセンタークロップ
+      const camW = webcam.videoWidth || w;
+      const camH = webcam.videoHeight || h;
+      const webcamRatio = camW / camH;
+      const targetRatio = 16 / 9;
+      let sx = 0, sy = 0, sw = camW, sh = camH;
+
+      if (webcamRatio > targetRatio) {
+        sw = camH * targetRatio;
+        sx = (camW - sw) / 2;
+      } else if (webcamRatio < targetRatio) {
+        sh = camW / targetRatio;
+        sy = (camH - sh) / 2;
+      }
+
+      tempCtx.drawImage(webcam, sx, sy, sw, sh, 0, 0, w, h);
+
+      // --- AI人物くり抜きモードの場合 ---
+      if (processMode === 'ai' && selfieSegmentation) {
+        if (!isProcessingAi) {
+          isProcessingAi = true;
+          selfieSegmentation.send({ image: webcam }).catch(err => {
+            console.error("AI処理エラー:", err);
+            isProcessingAi = false;
+          });
+        }
+
+        renderBackground(ctx, w, h);
+
+        if (latestAiResults && latestAiResults.segmentationMask) {
+          const maskCanvas = document.createElement('canvas');
+          maskCanvas.width = w;
+          maskCanvas.height = h;
+          const maskCtx = maskCanvas.getContext('2d');
+
+          if (isMirrored) {
+            maskCtx.translate(w, 0);
+            maskCtx.scale(-1, 1);
+          }
+
+          if (aiEdgeBlur > 0) {
+            maskCtx.filter = `blur(${aiEdgeBlur}px)`;
+          }
+          maskCtx.drawImage(latestAiResults.segmentationMask, 0, 0, w, h);
+
+          const fgCanvas = document.createElement('canvas');
+          fgCanvas.width = w;
+          fgCanvas.height = h;
+          const fgCtx = fgCanvas.getContext('2d');
+
+          fgCtx.drawImage(tempCanvas, 0, 0);
+          fgCtx.globalCompositeOperation = 'destination-in';
+          fgCtx.drawImage(maskCanvas, 0, 0);
+
+          ctx.drawImage(fgCanvas, 0, 0);
+        } else {
+          ctx.drawImage(tempCanvas, 0, 0);
+        }
+
+      } else {
+        // --- クロマキー（色判定）モード ---
+        const frameImageData = tempCtx.getImageData(0, 0, w, h);
+        const data = frameImageData.data;
+
+        const kr = keyColor.r;
+        const kg = keyColor.g;
+        const kb = keyColor.b;
+
+        const maxDist = 441.67;
+        const simDist = similarity * maxDist;
+        const smoothDist = smoothness * maxDist;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+
+          const dist = Math.sqrt((r - kr) ** 2 + (g - kg) ** 2 + (b - kb) ** 2);
+
+          if (dist < simDist) {
+            if (dist < simDist - smoothDist) {
+              data[i + 3] = 0;
+            } else {
+              const alpha = (dist - (simDist - smoothDist)) / smoothDist;
+              data[i + 3] = Math.min(255, Math.max(0, alpha * 255));
+            }
+          }
+
+          // スピル除去
+          if (data[i + 3] > 0 && spillSuppression > 0) {
+            if (kg > kr && kg > kb) {
+              const maxRB = Math.max(r, b);
+              if (g > maxRB) {
+                const extraGreen = (g - maxRB) * spillSuppression;
+                data[i + 1] = Math.max(0, g - extraGreen);
+              }
+            }
+          }
+        }
+
+        renderBackground(ctx, w, h);
+        tempCtx.putImageData(frameImageData, 0, 0);
+        ctx.drawImage(tempCanvas, 0, 0);
+      }
+
+      requestAnimationFrame(processFrame);
+    }
+
+    // 背景描画ヘルパー関数
+    function renderBackground(targetCtx, w, h) {
+      targetCtx.clearRect(0, 0, w, h);
+
+      if (bgMode === 'image' && bgImage.complete && bgImage.naturalWidth !== 0) {
+        targetCtx.save();
+        if (bgBlur > 0) {
+          targetCtx.filter = `blur(${bgBlur}px)`;
+        }
+        const imgRatio = bgImage.naturalWidth / bgImage.naturalHeight;
+        const canvasRatio = w / h;
+        let renderW, renderH, offsetX, offsetY;
+
+        if (canvasRatio > imgRatio) {
+          renderW = w;
+          renderH = w / imgRatio;
+          offsetX = 0;
+          offsetY = (h - renderH) / 2;
+        } else {
+          renderW = h * imgRatio;
+          renderH = h;
+          offsetX = (w - renderW) / 2;
+          offsetY = 0;
+        }
+
+        targetCtx.drawImage(bgImage, offsetX, offsetY, renderW, renderH);
+        targetCtx.restore();
+
+      } else if (bgMode === 'color') {
+        targetCtx.save();
+        targetCtx.fillStyle = bgColor;
+        targetCtx.fillRect(0, 0, w, h);
+        targetCtx.restore();
+      }
+    }
+
+    // プリセットギャラリー構築
+    function setupPresetGallery() {
+      presetGallery.innerHTML = '';
+      PRESET_IMAGES.forEach((preset, index) => {
+        const card = document.createElement('button');
+        card.className = `preset-card relative rounded-xl overflow-hidden border-2 transition ${index === 0 ? 'border-indigo-500' : 'border-slate-800 hover:border-slate-600'}`;
+        card.innerHTML = `
+          <img src="${preset.url}" alt="${preset.name}" class="w-full h-20 object-cover pointer-events-none">
+          <span class="absolute bottom-0 inset-x-0 bg-slate-950/80 text-[10px] py-1 px-1.5 text-center text-slate-200 truncate">${preset.name}</span>
+        `;
+        card.addEventListener('click', () => {
+          document.querySelectorAll('.preset-card').forEach(c => c.classList.replace('border-indigo-500', 'border-slate-800'));
+          card.classList.replace('border-slate-800', 'border-indigo-500');
+          bgImage = new Image();
+          bgImage.crossOrigin = "anonymous";
+          bgImage.src = preset.url;
+          setBgMode('image');
+        });
+        presetGallery.appendChild(card);
+      });
+    }
+
+    // 背景モード設定
+    function setBgMode(mode) {
+      bgMode = mode;
+      bgTypeImgBtn.className = mode === 'image' 
+        ? "bg-type-btn p-2 rounded-xl bg-indigo-600 text-white font-medium text-xs transition shadow" 
+        : "bg-type-btn p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 font-medium text-xs transition";
+      
+      bgTypeColorBtn.className = mode === 'color' 
+        ? "bg-type-btn p-2 rounded-xl bg-indigo-600 text-white font-medium text-xs transition shadow" 
+        : "bg-type-btn p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 font-medium text-xs transition";
+
+      bgTypeTransBtn.className = mode === 'transparent' 
+        ? "bg-type-btn p-2 rounded-xl bg-indigo-600 text-white font-medium text-xs transition shadow" 
+        : "bg-type-btn p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 font-medium text-xs transition";
+
+      if (mode === 'image') {
+        bgImageSection.classList.remove('hidden');
+        bgColorSection.classList.add('hidden');
+      } else if (mode === 'color') {
+        bgImageSection.classList.add('hidden');
+        bgColorSection.classList.remove('hidden');
+      } else {
+        bgImageSection.classList.add('hidden');
+        bgColorSection.classList.add('hidden');
+      }
+    }
+
+    // トースト表示関数
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      toastMsg.textContent = message;
+
+      if (isError) {
+        toast.className = 'fixed bottom-4 right-4 bg-rose-600 text-white px-4 py-2.5 rounded-xl shadow-xl font-medium text-xs flex items-center gap-2 z-50 animate-bounce';
+      } else {
+        toast.className = 'fixed bottom-4 right-4 bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-xl font-medium text-xs flex items-center gap-2 z-50 animate-bounce';
+      }
+
+      toast.classList.remove('hidden');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3000);
+    }
+
+    // イベントリスナーのセットアップ
+    function setupEventListeners() {
+      // モード切替（クロマキー / AI）
+      modeChromaBtn.addEventListener('click', () => {
+        processMode = 'chroma';
+        modeChromaBtn.className = "py-2 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition bg-indigo-600 text-white shadow-md";
+        modeAiBtn.className = "py-2 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition text-slate-400 hover:text-slate-200";
+        chromaSettings.classList.remove('hidden');
+        aiSettings.classList.add('hidden');
+        eyedropperBtn.parentElement.classList.remove('opacity-40', 'pointer-events-none');
+        modeDesc.textContent = "※ グリーンバック等の特定の色を指定して高精度に背景を抜きます。";
+      });
+
+      modeAiBtn.addEventListener('click', () => {
+        processMode = 'ai';
+        modeAiBtn.className = "py-2 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition bg-indigo-600 text-white shadow-md";
+        modeChromaBtn.className = "py-2 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition text-slate-400 hover:text-slate-200";
+        aiSettings.classList.remove('hidden');
+        chromaSettings.classList.add('hidden');
+        eyedropperBtn.parentElement.classList.add('opacity-40', 'pointer-events-none');
+        modeDesc.textContent = "※ グリーンバック不要！AIが自動で人物を識別して背景をくり抜きます。";
+      });
+
+      // AI調整パラメータ
+      aiThresholdInput.addEventListener('input', (e) => {
+        aiThreshold = parseFloat(e.target.value);
+        aiThresholdVal.textContent = aiThreshold.toFixed(2);
+      });
+
+      aiEdgeBlurInput.addEventListener('input', (e) => {
+        aiEdgeBlur = parseInt(e.target.value, 10);
+        aiEdgeBlurVal.textContent = `${aiEdgeBlur}px`;
+      });
+
+      // カメラデバイス選択
+      cameraSelect.addEventListener('change', (e) => {
+        if (e.target.value) startCamera(e.target.value);
+      });
+
+      // ON/OFF ボタン
+      toggleCamBtn.addEventListener('click', () => {
+        if (isCameraRunning) {
+          stopCamera();
+          toggleCamBtn.classList.add('text-rose-400', 'bg-rose-500/10');
+        } else {
+          startCamera(cameraSelect.value);
+          toggleCamBtn.classList.remove('text-rose-400', 'bg-rose-500/10');
+        }
+      });
+      startCamOverlayBtn.addEventListener('click', () => startCamera());
+
+      // ミラー反転ボタン
+      mirrorCamBtn.addEventListener('click', () => {
+        isMirrored = !isMirrored;
+        mirrorCamBtn.classList.toggle('text-indigo-400');
+        mirrorCamBtn.classList.toggle('bg-indigo-500/20');
+      });
+
+      // スポイト（色選択）機能
+      eyedropperBtn.addEventListener('click', () => {
+        isEyedropperActive = !isEyedropperActive;
+        if (isEyedropperActive) {
+          eyedropperBtn.classList.add('text-amber-400', 'bg-amber-500/20');
+          canvas.classList.add('eyedropper-active');
+          eyedropperGuide.classList.remove('hidden');
+        } else {
+          eyedropperBtn.classList.remove('text-amber-400', 'bg-amber-500/20');
+          canvas.classList.remove('eyedropper-active');
+          eyedropperGuide.classList.add('hidden');
+        }
+      });
+
+      // Canvas 上でのスポイトクリック
+      canvas.addEventListener('click', (e) => {
+        if (!isEyedropperActive) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        const x = Math.floor((e.clientX - rect.left) * scaleX);
+        const y = Math.floor((e.clientY - rect.top) * scaleY);
+
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (isMirrored) {
+          tempCtx.translate(canvas.width, 0);
+          tempCtx.scale(-1, 1);
+        }
+        tempCtx.drawImage(webcam, 0, 0, canvas.width, canvas.height);
+
+        const pixel = tempCtx.getImageData(x, y, 1, 1).data;
+        keyColor = { r: pixel[0], g: pixel[1], b: pixel[2] };
+
+        const hex = rgbToHex(pixel[0], pixel[1], pixel[2]);
+        keyColorHex.textContent = hex;
+        keyColorInput.value = hex;
+        customColorPreview.style.backgroundColor = hex;
+
+        isEyedropperActive = false;
+        eyedropperBtn.classList.remove('text-amber-400', 'bg-amber-500/20');
+        canvas.classList.remove('eyedropper-active');
+        eyedropperGuide.classList.add('hidden');
+
+        showToast(`キーカラーを [${hex}] に設定しました`);
+      });
+
+      // キーカラープリセットボタン
+      document.querySelectorAll('.preset-color-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const hex = btn.getAttribute('data-color');
+          keyColor = hexToRgb(hex);
+          keyColorHex.textContent = hex;
+          keyColorInput.value = hex;
+          customColorPreview.style.backgroundColor = hex;
+        });
+      });
+
+      // カスタムカラーピッカー
+      keyColorInput.addEventListener('input', (e) => {
+        const hex = e.target.value;
+        keyColor = hexToRgb(hex);
+        keyColorHex.textContent = hex;
+        customColorPreview.style.backgroundColor = hex;
+      });
+
+      // パラメータスライダー
+      similarityInput.addEventListener('input', (e) => {
+        similarity = parseFloat(e.target.value);
+        similarityVal.textContent = similarity.toFixed(2);
+      });
+
+      smoothnessInput.addEventListener('input', (e) => {
+        smoothness = parseFloat(e.target.value);
+        smoothnessVal.textContent = smoothness.toFixed(2);
+      });
+
+      spillInput.addEventListener('input', (e) => {
+        spillSuppression = parseFloat(e.target.value);
+        spillVal.textContent = spillSuppression.toFixed(2);
+      });
+
+      // タブ切り替え
+      tabKeyingBtn.addEventListener('click', () => {
+        tabKeyingBtn.className = "flex-1 py-3 px-4 text-xs font-semibold text-indigo-400 border-b-2 border-indigo-500 flex items-center justify-center gap-2 transition";
+        tabBgBtn.className = "flex-1 py-3 px-4 text-xs font-semibold text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-2 transition";
+        tabKeyingContent.classList.remove('hidden');
+        tabBgContent.classList.add('hidden');
+      });
+
+      tabBgBtn.addEventListener('click', () => {
+        tabBgBtn.className = "flex-1 py-3 px-4 text-xs font-semibold text-indigo-400 border-b-2 border-indigo-500 flex items-center justify-center gap-2 transition";
+        tabKeyingBtn.className = "flex-1 py-3 px-4 text-xs font-semibold text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-2 transition";
+        tabBgContent.classList.remove('hidden');
+        tabKeyingContent.classList.add('hidden');
+      });
+
+      // 背景タイプボタン
+      bgTypeImgBtn.addEventListener('click', () => setBgMode('image'));
+      bgTypeColorBtn.addEventListener('click', () => setBgMode('color'));
+      bgTypeTransBtn.addEventListener('click', () => setBgMode('transparent'));
+
+      // カスタム画像アップロード
+      bgUploadInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            bgImage = new Image();
+            bgImage.src = event.target.result;
+            setBgMode('image');
+            showToast("カスタム背景をロードしました");
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      // 単色背景ピッカー
+      bgColorPicker.addEventListener('input', (e) => {
+        bgColor = e.target.value;
+        bgColorHex.textContent = bgColor.toUpperCase();
+        setBgMode('color');
+      });
+
+      document.querySelectorAll('.bg-quick-color').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const color = btn.getAttribute('data-color');
+          bgColor = color;
+          bgColorPicker.value = color;
+          bgColorHex.textContent = color.toUpperCase();
+          setBgMode('color');
+        });
+      });
+
+      // 背景ぼかしスライダー
+      bgBlurInput.addEventListener('input', (e) => {
+        bgBlur = parseInt(e.target.value, 10);
+        bgBlurVal.textContent = `${bgBlur}px`;
+      });
+
+      // 全画面表示
+      fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          canvas.requestFullscreen().catch(err => {
+            console.error("フルスクリーンエラー:", err);
+          });
+        } else {
+          document.exitFullscreen();
+        }
+      });
+
+      // Picture-in-Picture (PiP) 表示機能
+      pipBtn.addEventListener('click', async () => {
+        try {
+          if (document.pictureInPictureElement) {
+            await document.exitPictureInPicture();
+          } else {
+            // Canvasのライブストリームから隠しVideoエレメントを作成してPiP起動
+            const pipVideo = document.createElement('video');
+            pipVideo.srcObject = canvas.captureStream(30);
+            pipVideo.muted = true;
+            await pipVideo.play();
+            await pipVideo.requestPictureInPicture();
+          }
+        } catch (err) {
+          console.error("PiP表示エラー:", err);
+          showToast("Picture-in-Pictureの起動に失敗しました", true);
+        }
+      });
+
+      // 仮想カメラガイドモーダル
+      vcamGuideBtn.addEventListener('click', () => guideModal.classList.remove('hidden'));
+      closeGuideBtn.addEventListener('click', () => guideModal.classList.add('hidden'));
+      modalOkBtn.addEventListener('click', () => guideModal.classList.add('hidden'));
+
+      // 写真スナップショット撮影
+      snapBtn.addEventListener('click', () => {
+        const dataURL = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = dataURL;
+        a.download = `chromakey-snap-${Date.now()}.png`;
+        a.click();
+        showToast("写真を保存しました");
+      });
+
+      // 動画録画機能
+      recordBtn.addEventListener('click', () => {
+        if (!isRecording) {
+          recordedChunks = [];
+          const canvasStream = canvas.captureStream(30);
+
+          try {
+            mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm;codecs=vp9' });
+          } catch (e) {
+            mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
+          }
+
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) recordedChunks.push(e.data);
+          };
+
+          mediaRecorder.onstop = () => {
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `chromakey-rec-${Date.now()}.webm`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast("動画ファイルをダウンロードしました");
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+
+          recordText.textContent = "停止";
+          recordBtn.classList.remove('bg-rose-600', 'hover:bg-rose-500');
+          recordBtn.classList.add('bg-amber-600', 'hover:bg-amber-500', 'animate-pulse');
+          recordIcon.setAttribute('data-lucide', 'square');
+          lucide.createIcons();
+
+        } else {
+          mediaRecorder.stop();
+          isRecording = false;
+
+          recordText.textContent = "録画";
+          recordBtn.classList.remove('bg-amber-600', 'hover:bg-amber-500', 'animate-pulse');
+          recordBtn.classList.add('bg-rose-600', 'hover:bg-rose-500');
+          recordIcon.setAttribute('data-lucide', 'disc');
+          lucide.createIcons();
+        }
+      });
+    }
+
+    // ==========================================================================
+    // NewsScreen（報道画面）へのスタジオ映像配信
+    // outputCanvas（合成後の映像）を captureStream() で取得し、WebRTC経由で
+    // news-screen.html（受信側）へ配信する。シグナリングはFirebaseで行う。
+    // ==========================================================================
+    const STUDIO_PATH = 'broadcast/studio/webrtc';
+    const studioBroadcastBtn = document.getElementById('studioBroadcastBtn');
+    const studioBroadcastText = document.getElementById('studioBroadcastText');
+    let studioPeerConnection = null;
+    let studioBroadcasting = false;
+    let unsubStudioAnswer = null;
+    let unsubStudioCandidates = null;
+
+    async function startStudioBroadcast() {
+      const stream = canvas.captureStream(30);
+      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      studioPeerConnection = pc;
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          set(ref(db, `${STUDIO_PATH}/candidates/admin/${Date.now()}`), event.candidate.toJSON());
+        }
+      };
+
+      // NewsScreen側が作成したanswerを受信する
+      unsubStudioAnswer = onValue(ref(db, `${STUDIO_PATH}/answer`), async (snap) => {
+        const answer = snap.val();
+        if (answer && pc.signalingState === 'have-local-offer') {
+          try { await pc.setRemoteDescription(new RTCSessionDescription(answer)); }
+          catch (e) { console.error('[Studio配信] setRemoteDescription失敗:', e); }
+        }
+      });
+
+      // NewsScreen側のICE candidateを受信する
+      unsubStudioCandidates = onValue(ref(db, `${STUDIO_PATH}/candidates/main`), (snap) => {
+        snap.forEach((child) => {
+          const candidate = new RTCIceCandidate(child.val());
+          if (pc.remoteDescription) pc.addIceCandidate(candidate).catch(() => {});
+        });
+      });
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await set(ref(db, `${STUDIO_PATH}/offer`), { type: offer.type, sdp: offer.sdp, timestamp: Date.now() });
+
+      studioBroadcasting = true;
+      studioBroadcastBtn.classList.remove('bg-sky-600', 'hover:bg-sky-500');
+      studioBroadcastBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'animate-pulse');
+      studioBroadcastText.textContent = '配信中（クリックで停止）';
+      showToast('NewsScreenへの配信を開始しました');
+    }
+
+    async function stopStudioBroadcast() {
+      if (unsubStudioAnswer) { unsubStudioAnswer(); unsubStudioAnswer = null; }
+      if (unsubStudioCandidates) { unsubStudioCandidates(); unsubStudioCandidates = null; }
+      if (studioPeerConnection) { studioPeerConnection.close(); studioPeerConnection = null; }
+      try {
+        await remove(ref(db, `${STUDIO_PATH}/offer`));
+        await remove(ref(db, `${STUDIO_PATH}/candidates`));
+        await remove(ref(db, `${STUDIO_PATH}/answer`));
+      } catch (e) { console.warn('[Studio配信] 停止時のクリーンアップに失敗:', e); }
+
+      studioBroadcasting = false;
+      studioBroadcastBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500', 'animate-pulse');
+      studioBroadcastBtn.classList.add('bg-sky-600', 'hover:bg-sky-500');
+      studioBroadcastText.textContent = 'NewsScreenへ配信';
+      showToast('配信を停止しました');
+    }
+
+    studioBroadcastBtn.addEventListener('click', () => {
+      if (studioBroadcasting) stopStudioBroadcast();
+      else startStudioBroadcast();
+    });
+    window.addEventListener('beforeunload', () => { if (studioBroadcasting) stopStudioBroadcast(); });
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
