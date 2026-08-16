@@ -255,9 +255,12 @@ function renderScreenProgram(sp) {
    有無を常時監視しておき、切り替わった瞬間に即座に表示できるようにする。
    ========================================================================= */
 function setupStudioReceiver() {
+  let unsubStudioAdminCandidates = null;
+
   onValue(ref(db, `${STUDIO_PATH}/offer`), async snap => {
     const offerData = snap.val();
 
+    if (unsubStudioAdminCandidates) { unsubStudioAdminCandidates(); unsubStudioAdminCandidates = null; }
     if (studioPeerConnection) { try { studioPeerConnection.close(); } catch (_) {} studioPeerConnection = null; }
     studioStream = null;
     if (studioVideoEl) { studioVideoEl.style.display = 'none'; studioVideoEl.srcObject = null; }
@@ -267,6 +270,7 @@ function setupStudioReceiver() {
 
     const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
     studioPeerConnection = pc;
+    let pendingAdminCandidates = []; // setRemoteDescription完了前に届いたcandidateを一時保管する
 
     pc.ontrack = event => {
       studioStream = event.streams[0];
@@ -280,15 +284,24 @@ function setupStudioReceiver() {
     pc.onicecandidate = event => {
       if (event.candidate) set(ref(db, `${STUDIO_PATH}/candidates/main/${Date.now()}`), event.candidate.toJSON());
     };
-    onValue(ref(db, `${STUDIO_PATH}/candidates/admin`), iceSnap => {
+    unsubStudioAdminCandidates = onValue(ref(db, `${STUDIO_PATH}/candidates/admin`), iceSnap => {
       iceSnap.forEach(child => {
         const candidate = new RTCIceCandidate(child.val());
-        if (pc.remoteDescription) pc.addIceCandidate(candidate).catch(() => {});
+        if (pc.remoteDescription) {
+          pc.addIceCandidate(candidate).catch(e => console.error('[news-screen] Studio addIceCandidate失敗:', e));
+        } else {
+          pendingAdminCandidates.push(candidate);
+        }
       });
     });
 
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(offerData));
+      const queued = pendingAdminCandidates;
+      pendingAdminCandidates = [];
+      for (const c of queued) {
+        try { await pc.addIceCandidate(c); } catch (e) { console.error('[news-screen] Studio addIceCandidate失敗:', e); }
+      }
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       await set(ref(db, `${STUDIO_PATH}/answer`), { type: answer.type, sdp: answer.sdp });
