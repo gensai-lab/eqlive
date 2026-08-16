@@ -781,6 +781,12 @@ function renderOutput() {
     </div>` : ''}
 
     <div class="panel">
+      <h3><i class="material-icons">cast</i>ChromaKey Studio</h3>
+      <div class="subtle" style="margin-bottom:9px">ChromaKey Studioで配信中のスタジオ映像を送出します（配信側でONにしている必要があります）</div>
+      <button class="btn primary" style="width:100%" id="output-studio-send">スタジオ映像を送出</button>
+    </div>
+
+    <div class="panel">
       <div class="row" style="justify-content:space-between">
         <div><h3 style="margin:0"><i class="material-icons">perm_media</i>素材（画像・動画）</h3><div class="tiny" style="margin-top:3px">送出する画像・動画を登録しておけます</div></div>
         <button class="btn primary small" id="mat-add">＋追加</button>
@@ -821,6 +827,11 @@ function renderOutput() {
 
   document.querySelectorAll('[data-send-scene]').forEach(b => b.onclick = () => { const s = ss.find(x => x.id === b.dataset.sendScene); if (s) { sceneIndex = ss.indexOf(s); sendScene(s); renderOutput(); } });
   if (opMaterial) $('output-op-send').onclick = () => outputMaterial(opMaterial);
+  $('output-studio-send').onclick = () => {
+    dbUpdate('broadcast/current', { mainSource: 'screen' });
+    dbSet('broadcast/screen_program', { type: 'studio' });
+    setStatus('ChromaKey Studioの映像を送出', 'broadcast/screen_program (studio)');
+  };
 
   $('mat-add').onclick = () => {
     const id = uid('mat');
