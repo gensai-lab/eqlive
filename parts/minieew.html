@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Mini EEW</title>
+<style>
+    html, body {
+        margin: 0; padding: 0;
+        width: 500px; height: 140px;
+        background: transparent;
+        overflow: visible;
+        font-family: "Hiragino Sans", "Noto Sans JP", sans-serif;
+        font-weight: bold;
+    }
+
+    #group {
+        position: relative;
+        width: 500px;
+        height: 140px;
+        display: none; /* 初期状態は非表示 */
+    }
+
+    /* 色付きベース */
+    #color-base {
+        position: absolute;
+        top: 0; left: 0;
+        width: 500px; height: 36px;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    /* 情報ベース */
+    #info-base {
+        position: absolute;
+        top: 36px; left: 0;
+        width: 500px; height: 104px;
+        border-radius: 0 0 8px 8px;
+        background-color: #111111;
+    }
+
+    /* 震度アイコン */
+    #shindo-icon {
+        position: absolute;
+        top: 10px; right: 11px;
+        width: 84px; height: 84px;
+        display: none;
+    }
+
+    /* 震源地名 */
+    #hypocenter-name {
+        position: absolute;
+        top: 16px; right: 112px;
+        font-size: 36px;
+        line-height: 1;
+        color: #FFFFFF;
+        text-align: left;
+        white-space: nowrap;
+        transform-origin: right center;
+        max-width: 240px;
+    }
+    #hypocenter-name .suffix {
+        font-size: 24px;
+    }
+
+    /* 震源情報ボックス */
+    #eq-info-box {
+        position: absolute;
+        top: 64px; right: 112px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    #eq-info-box div {
+        font-size: 24px;
+        line-height: 1;
+        color: #FFFFFF;
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    /* その他情報ボックス（速報回数・最終報） */
+    #misc-box {
+        position: absolute;
+        top: 10px; left: 13px;
+        display: flex;
+        flex-direction: row;
+        gap: 4px;
+    }
+    #misc-box span {
+        padding: 0 4px;
+        font-size: 18px;
+        line-height: 1;
+        border-radius: 4px;
+        color: #FFFFFF;
+        display: inline-flex;
+        align-items: center;
+        height: 22px;
+        white-space: nowrap;
+    }
+    #final-badge {
+        background-color: #FF4B00;
+        display: none;
+    }
+    #serial-badge {
+        background-color: #333333;
+    }
+
+    /* PLUM法バッジ */
+    #plum-badge {
+        position: absolute;
+        top: 37px; right: 13px;
+        padding: 0 4px;
+        font-size: 15px;
+        line-height: 1;
+        border-radius: 4px;
+        background-color: #005AFF;
+        color: #FFFFFF;
+        display: none;
+        white-space: nowrap;
+        height: 20px;
+        align-items: center;
+        justify-content: center;
+        flex-direction: row;
+    }
+    #plum-badge {
+        display: none;
+    }
+    #plum-badge.show {
+        display: flex;
+    }
+
+    /* キャンセルオーバーレイ */
+    #cancel-overlay {
+        position: absolute;
+        top: 0; left: 0;
+        width: 500px; height: 140px;
+        display: none;
+        z-index: 5;
+    }
+    #cancel-overlay img {
+        width: 100%; height: 100%;
+    }
+
+    /* タイトルフラッシュ画像 */
+    #title-flash {
+        position: absolute;
+        top: 0; left: 0;
+        width: 500px; height: 140px;
+        z-index: 6;
+        opacity: 0;
+        transition: opacity 0.3s ease-out;
+        pointer-events: none;
+    }
+    #title-flash img {
+        width: 100%; height: 100%;
+    }
+</style>
+</head>
+<body>
+
+<div id="group">
+    <div id="color-base">
+        <span id="warn-text"></span>
+    </div>
+    <div id="info-base">
+        <img id="shindo-icon" src="" alt="震度">
+        <div id="hypocenter-name"></div>
+        <div id="eq-info-box">
+            <div id="magnitude-text"></div>
+            <div id="depth-text"></div>
+            <div id="time-text"></div>
+        </div>
+        <div id="misc-box">
+            <span id="final-badge">最終</span>
+            <span id="serial-badge"></span>
+        </div>
+        <div id="plum-badge">PLUM法</div>
+    </div>
+    <div id="cancel-overlay"><img src="https://gensai-lab.github.io/eqlive/assets/image/cancel.png" alt="キャンセル"></div>
+    <div id="title-flash"><img id="title-flash-img" src="" alt=""></div>
+</div>
+
+<script>
+    const API_URL = "https://api.wolfx.jp/jma_eew.json";
+    const POLL_INTERVAL = 3000; // 3秒間隔でポーリング
+    const AUTO_HIDE_MS = 60 * 1000;   // 通常表示は1分で自動非表示
+    const CANCEL_HIDE_MS = 10 * 1000; // キャンセル表示は10秒で非表示
+
+    const groupEl = document.getElementById('group');
+    const colorBaseEl = document.getElementById('color-base');
+    const warnTextEl = document.getElementById('warn-text');
+    const shindoIconEl = document.getElementById('shindo-icon');
+    const hypocenterNameEl = document.getElementById('hypocenter-name');
+    const magnitudeTextEl = document.getElementById('magnitude-text');
+    const depthTextEl = document.getElementById('depth-text');
+    const timeTextEl = document.getElementById('time-text');
+    const finalBadgeEl = document.getElementById('final-badge');
+    const serialBadgeEl = document.getElementById('serial-badge');
+    const plumBadgeEl = document.getElementById('plum-badge');
+    const cancelOverlayEl = document.getElementById('cancel-overlay');
+    const titleFlashEl = document.getElementById('title-flash');
+    const titleFlashImgEl = document.getElementById('title-flash-img');
+
+    let lastKey = null;
+    let autoHideTimer = null;
+    let cancelHideTimer = null;
+    let titleFlashTimer1 = null;
+    let titleFlashTimer2 = null;
+
+    const SHINDO_ICON_MAP = {
+        "1": "https://gensai-lab.github.io/eqlive/assets/image/shindo/1.png",
+        "2": "https://gensai-lab.github.io/eqlive/assets/image/shindo/2.png",
+        "3": "https://gensai-lab.github.io/eqlive/assets/image/shindo/3.png",
+        "4": "https://gensai-lab.github.io/eqlive/assets/image/shindo/4.png",
+        "5-": "https://gensai-lab.github.io/eqlive/assets/image/shindo/5-.png",
+        "5+": "https://gensai-lab.github.io/eqlive/assets/image/shindo/5+.png",
+        "6-": "https://gensai-lab.github.io/eqlive/assets/image/shindo/6-.png",
+        "6+": "https://gensai-lab.github.io/eqlive/assets/image/shindo/6+.png",
+        "7": "https://gensai-lab.github.io/eqlive/assets/image/shindo/7.png"
+    };
+
+    function clearAllTimers() {
+        if (autoHideTimer) { clearTimeout(autoHideTimer); autoHideTimer = null; }
+        if (cancelHideTimer) { clearTimeout(cancelHideTimer); cancelHideTimer = null; }
+        if (titleFlashTimer1) { clearTimeout(titleFlashTimer1); titleFlashTimer1 = null; }
+        if (titleFlashTimer2) { clearTimeout(titleFlashTimer2); titleFlashTimer2 = null; }
+    }
+
+    function hideGroup() {
+        groupEl.style.display = 'none';
+        cancelOverlayEl.style.display = 'none';
+        titleFlashEl.style.opacity = '0';
+    }
+
+    function formatMagnitude(m) {
+        const num = Number(m);
+        if (isNaN(num)) return 'M--';
+        return 'M' + num.toFixed(1);
+    }
+
+    function formatDepth(d) {
+        const num = Number(d);
+        if (isNaN(num)) return '';
+        if (num === 0) return 'ごく浅い';
+        return '約' + num + 'km';
+    }
+
+    function formatTime(originTime) {
+        // "2026/08/16 13:37:32" -> "13:37ごろ"
+        if (!originTime) return '';
+        const parts = originTime.split(' ');
+        if (parts.length < 2) return '';
+        const hm = parts[1].split(':');
+        if (hm.length < 2) return '';
+        return hm[0] + ':' + hm[1] + 'ごろ';
+    }
+
+    function formatSerial(serial) {
+        return '第' + serial + '報';
+    }
+
+    function fitHypocenterName() {
+        // 一旦スケールをリセットして実サイズを測定
+        hypocenterNameEl.style.transform = 'none';
+        const actualWidth = hypocenterNameEl.scrollWidth;
+        if (actualWidth > 240) {
+            const scale = 240 / actualWidth;
+            hypocenterNameEl.style.transform = 'scaleX(' + scale + ')';
+        }
+    }
+
+    function showTitleFlash(isWarn) {
+        titleFlashImgEl.src = isWarn
+            ? 'https://gensai-lab.github.io/eqlive/assets/image/iwt.png'
+            : 'https://gensai-lab.github.io/eqlive/assets/image/iwf.png';
+        titleFlashEl.style.transition = 'none';
+        titleFlashEl.style.opacity = '1';
+        // 強制リフローしてtransitionを有効化
+        void titleFlashEl.offsetWidth;
+        titleFlashEl.style.transition = 'opacity 0.3s ease-out';
+
+        titleFlashTimer1 = setTimeout(() => {
+            titleFlashEl.style.opacity = '0';
+        }, 500);
+    }
+
+    function renderCancel() {
+        clearAllTimers();
+        groupEl.style.display = 'block';
+        cancelOverlayEl.style.display = 'block';
+        cancelHideTimer = setTimeout(() => {
+            hideGroup();
+        }, CANCEL_HIDE_MS);
+    }
+
+    function renderReport(data) {
+        clearAllTimers();
+        cancelOverlayEl.style.display = 'none';
+
+        const isWarn = !!data.isWarn;
+
+        // 色付きベース
+        colorBaseEl.style.backgroundColor = isWarn ? '#BB0000' : '#FFF000';
+        warnTextEl.style.color = isWarn ? '#FFFFFF' : '#111111';
+        warnTextEl.textContent = isWarn ? '強い揺れに警戒' : '揺れに注意';
+
+        // 震度アイコン
+        const iconUrl = SHINDO_ICON_MAP[data.MaxIntensity];
+        if (iconUrl) {
+            shindoIconEl.src = iconUrl;
+            shindoIconEl.style.display = 'block';
+        } else {
+            shindoIconEl.style.display = 'none';
+        }
+
+        // 震源地名
+        hypocenterNameEl.innerHTML = (data.Hypocenter || '') + '<span class="suffix">で地震</span>';
+        fitHypocenterName();
+
+        // 震源情報
+        magnitudeTextEl.textContent = formatMagnitude(data.Magunitude);
+        depthTextEl.textContent = formatDepth(data.Depth);
+        timeTextEl.textContent = formatTime(data.OriginTime);
+
+        // 速報回数・最終報
+        serialBadgeEl.textContent = formatSerial(data.Serial);
+        finalBadgeEl.style.display = data.isFinal ? 'inline-flex' : 'none';
+
+        // PLUM法バッジ
+        if (data.isAssumption) {
+            plumBadgeEl.classList.add('show');
+        } else {
+            plumBadgeEl.classList.remove('show');
+        }
+
+        groupEl.style.display = 'block';
+        showTitleFlash(isWarn);
+
+        autoHideTimer = setTimeout(() => {
+            hideGroup();
+        }, AUTO_HIDE_MS);
+    }
+
+    async function poll() {
+        try {
+            const res = await fetch(API_URL, { cache: 'no-store' });
+            const data = await res.json();
+
+            // 訓練報は完全に無視する
+            if (data.isTraining) {
+                return;
+            }
+
+            const key = (data.EventID || '') + '-' + data.Serial;
+            if (key === lastKey) {
+                return; // 変化なし
+            }
+            lastKey = key;
+
+            if (data.isCancel) {
+                renderCancel();
+            } else {
+                renderReport(data);
+            }
+        } catch (e) {
+            console.error('[minieew] APIの取得に失敗:', e);
+        }
+    }
+
+    poll();
+    setInterval(poll, POLL_INTERVAL);
+</script>
+
+</body>
+</html>
