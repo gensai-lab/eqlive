@@ -40,13 +40,13 @@
         top: 36px; left: 0;
         width: 500px; height: 104px;
         border-radius: 0 0 8px 8px;
-        background-color: #111111;
+        background-color: rgba(17, 17, 17, 0.9);
     }
 
     /* 震度アイコン */
     #shindo-icon {
         position: absolute;
-        top: 10px; right: 11px;
+        top: 10px; left: 11px;
         width: 84px; height: 84px;
         display: none;
     }
@@ -54,13 +54,13 @@
     /* 震源地名 */
     #hypocenter-name {
         position: absolute;
-        top: 16px; right: 112px;
+        top: 16px; left: 112px;
         font-size: 36px;
         line-height: 1;
         color: #FFFFFF;
         text-align: left;
         white-space: nowrap;
-        transform-origin: right center;
+        transform-origin: left center;
         max-width: 240px;
     }
     #hypocenter-name .suffix {
@@ -70,9 +70,9 @@
     /* 震源情報ボックス */
     #eq-info-box {
         position: absolute;
-        top: 64px; right: 112px;
+        top: 64px; left: 112px;
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         gap: 14px;
     }
     #eq-info-box div {
@@ -86,7 +86,7 @@
     /* その他情報ボックス（速報回数・最終報） */
     #misc-box {
         position: absolute;
-        top: 10px; left: 13px;
+        top: 10px; right: 13px;
         display: flex;
         flex-direction: row;
         gap: 4px;
