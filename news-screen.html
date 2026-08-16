@@ -19,12 +19,20 @@ body,html{
    メインコンテンツ（カメラ or 画面送出プログラム）
    このファイルは映像のみを担当する。見出し・Ticker・文字スーパー・時計・
    L字の枠合わせは Sub-Switcher 側（既存の parts/*.html・l-screen.html）に任せる。
+
+   シーン切り替え・素材送出・クリア時にフェードするよう、2枚のレイヤーを
+   常時重ねておき、新しいコンテンツを裏に描画してからクロスフェードする。
    ========================================================================= */
 #main-target{position:absolute;inset:0;width:100%;height:100%;background:#000}
-#main-target video,#main-target iframe,#main-target img{
+.media-layer{
+  position:absolute;inset:0;width:100%;height:100%;background:#000;
+  opacity:0;transition:opacity .7s ease;
+}
+.media-layer.visible{opacity:1}
+.media-layer video,.media-layer iframe,.media-layer img{
   position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:contain;background:#000;
 }
-#main-target.mode-camera video,#main-target.mode-camera img{object-fit:cover}
+#main-target.mode-camera .media-layer video,#main-target.mode-camera .media-layer img{object-fit:cover}
 
 .preview-placeholder{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
@@ -35,7 +43,10 @@ body,html{
 </head>
 <body>
 
-<div id="main-target"></div>
+<div id="main-target">
+  <div class="media-layer" id="layer-a"></div>
+  <div class="media-layer" id="layer-b"></div>
+</div>
 
 <script type="module">
 /* =========================================================================
@@ -57,13 +68,43 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 /* =========================================================================
-   State
+   State — 2枚のレイヤー(a/b)を交互に使ってクロスフェードする
    ========================================================================= */
-let cameras = [];
-let hls = null;
-let currentMediaKey = ''; // 直近に描画したメディアの識別キー（不要な再読込を防ぐ）
+const FADE_MS = 700; // CSSのtransition時間と合わせる
 
 const mainTarget = document.getElementById('main-target');
+const layers = { a: document.getElementById('layer-a'), b: document.getElementById('layer-b') };
+const hlsMap = { a: null, b: null };
+let activeKey = 'a';
+let currentMediaKey = '';
+let cameras = [];
+
+function clearLayer(key) {
+  if (hlsMap[key]) { try { hlsMap[key].destroy(); } catch (_) {} hlsMap[key] = null; }
+  layers[key].innerHTML = '';
+}
+
+// buildFn(container) がその中にメディアを組み立てる。
+// hls.Hls インスタンスを作った場合は返り値として返すと、フェードアウト後に
+// 自動で破棄される。
+function swapTo(buildFn, isCamera) {
+  const nextKey = activeKey === 'a' ? 'b' : 'a';
+  const prevKey = activeKey;
+
+  clearLayer(nextKey);
+  const hlsInstance = buildFn(layers[nextKey]);
+  if (hlsInstance) hlsMap[nextKey] = hlsInstance;
+  mainTarget.classList.toggle('mode-camera', isCamera);
+
+  // 1フレーム待ってからクラスを切り替えることで、確実にtransitionが発火するようにする
+  requestAnimationFrame(() => {
+    layers[nextKey].classList.add('visible');
+    layers[prevKey].classList.remove('visible');
+  });
+
+  activeKey = nextKey;
+  setTimeout(() => clearLayer(prevKey), FADE_MS + 100);
+}
 
 /* =========================================================================
    カメラ一覧の取得（live-only.html と同じソース・同じフォールバック手順）
@@ -105,72 +146,81 @@ function extractYoutubeId(url) {
 /* =========================================================================
    メインコンテンツの描画（カメラ / 画面送出プログラム 共通）
    ========================================================================= */
-function stopMedia() {
-  if (hls) { try { hls.destroy(); } catch (_) {} hls = null; }
-  mainTarget.innerHTML = '';
-}
-
 function renderCamera(camId) {
   const key = 'camera:' + camId;
   if (key === currentMediaKey) return;
   currentMediaKey = key;
-  stopMedia();
-  mainTarget.classList.add('mode-camera');
 
   const cam = cameras.find(c => c.id === camId);
-  if (!cam) { mainTarget.innerHTML = '<div class="preview-placeholder">ライブカメラ未選択</div>'; return; }
+  swapTo(container => {
+    if (!cam) { container.innerHTML = '<div class="preview-placeholder">ライブカメラ未選択</div>'; return null; }
 
-  if (cam.type === 'youtube' || (cam.url || '').includes('youtube.com') || (cam.url || '').includes('youtu.be')) {
-    const id = extractYoutubeId(cam.url);
-    mainTarget.innerHTML = id
-      ? `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1&mute=1&controls=0&rel=0&iv_load_policy=3&modestbranding=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>`
-      : '<div class="preview-placeholder">YouTube URLを確認してください</div>';
-  } else if (cam.type === 'hls' || (cam.url || '').includes('.m3u8')) {
-    const v = document.createElement('video');
-    v.autoplay = true; v.muted = true; v.playsInline = true;
-    mainTarget.appendChild(v);
-    if (window.Hls && Hls.isSupported()) {
-      hls = new Hls(); hls.loadSource(cam.url); hls.attachMedia(v);
-    } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
-      v.src = cam.url;
+    if (cam.type === 'youtube' || (cam.url || '').includes('youtube.com') || (cam.url || '').includes('youtu.be')) {
+      const id = extractYoutubeId(cam.url);
+      container.innerHTML = id
+        ? `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1&mute=1&controls=0&rel=0&iv_load_policy=3&modestbranding=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>`
+        : '<div class="preview-placeholder">YouTube URLを確認してください</div>';
+      return null;
     }
-  } else if (cam.type === 'web' || (cam.url || '').match(/\.(jpg|jpeg|png)$/i)) {
-    mainTarget.innerHTML = `<img src="${cam.url}">`;
-  } else {
-    mainTarget.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-  }
+    if (cam.type === 'hls' || (cam.url || '').includes('.m3u8')) {
+      const v = document.createElement('video');
+      v.autoplay = true; v.muted = true; v.playsInline = true;
+      container.appendChild(v);
+      if (window.Hls && Hls.isSupported()) {
+        const h = new Hls(); h.loadSource(cam.url); h.attachMedia(v);
+        return h;
+      } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+        v.src = cam.url;
+      }
+      return null;
+    }
+    if (cam.type === 'web' || (cam.url || '').match(/\.(jpg|jpeg|png)$/i)) {
+      container.innerHTML = `<img src="${cam.url}">`;
+      return null;
+    }
+    container.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+    return null;
+  }, true);
 }
 
 function renderScreenProgram(sp) {
   const key = 'screen:' + (sp.type || '') + ':' + (sp.url || '');
   if (key === currentMediaKey) return;
   currentMediaKey = key;
-  stopMedia();
-  mainTarget.classList.remove('mode-camera');
 
-  const type = sp.type || 'image';
-  if (!sp.url) { mainTarget.innerHTML = '<div class="preview-placeholder">送出準備中</div>'; return; }
+  swapTo(container => {
+    const type = sp.type || 'image';
+    if (!sp.url) { container.innerHTML = '<div class="preview-placeholder">送出準備中</div>'; return null; }
 
-  if (type === 'youtube') {
-    const id = extractYoutubeId(sp.url);
-    mainTarget.innerHTML = id
-      ? `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1&mute=1&controls=0&rel=0" allow="autoplay; encrypted-media"></iframe>`
-      : '<div class="preview-placeholder">YouTube URLを確認してください</div>';
-  } else if (type === 'web') {
-    mainTarget.innerHTML = `<iframe src="${sp.url}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style="background:#fff"></iframe>`;
-  } else if (type === 'video') {
-    const v = document.createElement('video');
-    v.autoplay = true; v.muted = sp.muted !== false; v.loop = !!sp.loop; v.playsInline = true;
-    mainTarget.appendChild(v);
-    if (sp.url.includes('.m3u8')) {
-      if (window.Hls && Hls.isSupported()) { hls = new Hls(); hls.loadSource(sp.url); hls.attachMedia(v); }
-      else v.src = sp.url;
-    } else {
-      v.src = sp.url;
+    if (type === 'youtube') {
+      const id = extractYoutubeId(sp.url);
+      container.innerHTML = id
+        ? `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1&mute=1&controls=0&rel=0" allow="autoplay; encrypted-media"></iframe>`
+        : '<div class="preview-placeholder">YouTube URLを確認してください</div>';
+      return null;
     }
-  } else {
-    mainTarget.innerHTML = `<img src="${sp.url}">`;
-  }
+    if (type === 'web') {
+      container.innerHTML = `<iframe src="${sp.url}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style="background:#fff"></iframe>`;
+      return null;
+    }
+    if (type === 'video') {
+      const v = document.createElement('video');
+      v.autoplay = true; v.muted = sp.muted !== false; v.loop = !!sp.loop; v.playsInline = true;
+      container.appendChild(v);
+      if (sp.url.includes('.m3u8')) {
+        if (window.Hls && Hls.isSupported()) {
+          const h = new Hls(); h.loadSource(sp.url); h.attachMedia(v);
+          return h;
+        }
+        v.src = sp.url;
+      } else {
+        v.src = sp.url;
+      }
+      return null;
+    }
+    container.innerHTML = `<img src="${sp.url}">`;
+    return null;
+  }, false);
 }
 
 /* =========================================================================
