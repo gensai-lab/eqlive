@@ -1236,6 +1236,7 @@
       const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
       studioPeerConnection = pc;
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      let pendingMainCandidates = []; // setRemoteDescription完了前に届いたcandidateを一時保管する
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
@@ -1247,8 +1248,14 @@
       unsubStudioAnswer = onValue(ref(db, `${STUDIO_PATH}/answer`), async (snap) => {
         const answer = snap.val();
         if (answer && pc.signalingState === 'have-local-offer') {
-          try { await pc.setRemoteDescription(new RTCSessionDescription(answer)); }
-          catch (e) { console.error('[Studio配信] setRemoteDescription失敗:', e); }
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(answer));
+            const queued = pendingMainCandidates;
+            pendingMainCandidates = [];
+            for (const c of queued) {
+              try { await pc.addIceCandidate(c); } catch (e) { console.error('[Studio配信] addIceCandidate失敗:', e); }
+            }
+          } catch (e) { console.error('[Studio配信] setRemoteDescription失敗:', e); }
         }
       });
 
@@ -1256,7 +1263,11 @@
       unsubStudioCandidates = onValue(ref(db, `${STUDIO_PATH}/candidates/main`), (snap) => {
         snap.forEach((child) => {
           const candidate = new RTCIceCandidate(child.val());
-          if (pc.remoteDescription) pc.addIceCandidate(candidate).catch(() => {});
+          if (pc.remoteDescription) {
+            pc.addIceCandidate(candidate).catch(e => console.error('[Studio配信] addIceCandidate失敗:', e));
+          } else {
+            pendingMainCandidates.push(candidate);
+          }
         });
       });
 
