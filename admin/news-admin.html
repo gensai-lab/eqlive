@@ -531,6 +531,10 @@ function ensureSeed() {
     switcher.materials[OP_MATERIAL_ID] = { name: 'ニュースOP', type: 'video', url: OP_VIDEO_URL, loop: false, muted: false };
     changed = true;
   }
+  // 過去に作成された「OP」タイプのシーンで、素材が紐づいていないものを自動修復する
+  Object.values(switcher.scenes || {}).forEach(sc => {
+    if (sc.type === 'op' && !sc.materialId) { sc.materialId = OP_MATERIAL_ID; changed = true; }
+  });
   return changed;
 }
 function writeSwitcher() { return dbSet(SWITCHER_PATH, switcher); }
@@ -618,55 +622,72 @@ function buildTitleSvgData(m) {
 /* =========================================================================
    Live preview (stage)
    ========================================================================= */
+let previewMediaKey = '';
 function renderPreview() {
   const p = $('preview');
-  if (hls) { try { hls.destroy(); } catch (_) {} hls = null; }
   const cur = broadcast.current || {};
   const sp = broadcast.screen_program || {};
   const cam = activeCamera();
+  const isCamera = cur.mainSource === 'camera';
 
-  $('mode-badge').textContent = cur.mainSource === 'screen' ? '報道画面' : 'ライブカメラ';
-  $('stage-title').textContent = cur.mainSource === 'screen' ? (sp.title || '報道画面プレビュー') : `ライブカメラ：${cam?.name || '未選択'}`;
-  p.innerHTML = '';
+  $('mode-badge').textContent = isCamera ? 'ライブカメラ' : '報道画面';
+  $('stage-title').textContent = isCamera ? `ライブカメラ：${cam?.name || '未選択'}` : (sp.title || '報道画面プレビュー');
 
-  if (cur.mainSource === 'camera') {
-    if (!cam) { p.innerHTML = '<div class="preview-placeholder small">ライブカメラを選択してください</div>'; return; }
-    if (cam.type === 'youtube') {
-      const id = extractYoutubeId(cam.url);
-      p.innerHTML = id
-        ? `<iframe src="https://www.youtube.com/embed/${esc(id)}?autoplay=1&mute=1&controls=1&rel=0" allow="autoplay; encrypted-media"></iframe>`
-        : '<div class="preview-placeholder small">YouTube URLを確認してください</div>';
+  // 実際に表示するメディアが変わっていない場合は、タブ切り替えや他のFirebase更新
+  // (ticker等)のたびにvideo/iframeを作り直して音や再生位置がリセットされないようにする
+  const key = isCamera ? `camera:${cur.cameraSource || ''}` : `screen:${sp.type || ''}:${sp.url || ''}`;
+  if (key !== previewMediaKey) {
+    previewMediaKey = key;
+    if (hls) { try { hls.destroy(); } catch (_) {} hls = null; }
+    p.innerHTML = '';
+
+    if (isCamera) {
+      if (!cam) {
+        p.innerHTML = '<div class="preview-placeholder small">ライブカメラを選択してください</div>';
+      } else if (cam.type === 'youtube') {
+        const id = extractYoutubeId(cam.url);
+        p.innerHTML = id
+          ? `<iframe src="https://www.youtube.com/embed/${esc(id)}?autoplay=1&mute=1&controls=1&rel=0" allow="autoplay; encrypted-media"></iframe>`
+          : '<div class="preview-placeholder small">YouTube URLを確認してください</div>';
+      } else {
+        const v = document.createElement('video');
+        v.autoplay = true; v.muted = true; v.playsInline = true; v.controls = false;
+        p.appendChild(v);
+        if (window.Hls && Hls.isSupported() && cam.url) {
+          hls = new Hls(); hls.loadSource(cam.url); hls.attachMedia(v);
+        } else if (cam.url) {
+          v.src = cam.url;
+          v.addEventListener('error', () => { p.innerHTML = '<div class="preview-placeholder small">カメラ映像を読み込めませんでした</div>'; });
+        }
+      }
     } else {
-      const v = document.createElement('video');
-      v.autoplay = true; v.muted = true; v.playsInline = true; v.controls = false;
-      p.appendChild(v);
-      if (window.Hls && Hls.isSupported() && cam.url) {
-        hls = new Hls(); hls.loadSource(cam.url); hls.attachMedia(v);
-      } else if (cam.url) {
-        v.src = cam.url;
-        v.addEventListener('error', () => { p.innerHTML = '<div class="preview-placeholder small">カメラ映像を読み込めませんでした</div>'; });
+      const type = sp.type || 'image';
+      if (type === 'studio') {
+        p.innerHTML = '<div class="preview-placeholder small">ChromaKey Studio映像<br><span style="font-size:11px;opacity:.7">実際の映像はNews-Screen側でご確認ください</span></div>';
+      } else if (type === 'youtube') {
+        const id = extractYoutubeId(sp.url);
+        p.innerHTML = id
+          ? `<iframe src="https://www.youtube.com/embed/${esc(id)}?autoplay=1&mute=1&controls=1&rel=0" allow="autoplay; encrypted-media"></iframe>`
+          : '<div class="preview-placeholder small">YouTube URLを確認してください</div>';
+      } else if (type === 'web') {
+        p.innerHTML = sp.url ? `<iframe src="${esc(sp.url)}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>` : '<div class="preview-placeholder">プレビュー画面</div>';
+      } else if (type === 'video') {
+        // 管理画面のプレビューは常にミュートする（実際の送出音声はNews-Screen側で鳴る）
+        p.innerHTML = sp.url ? `<video src="${esc(sp.url)}" autoplay ${sp.loop ? 'loop' : ''} muted playsinline controls></video>` : '<div class="preview-placeholder">プレビュー画面</div>';
+      } else {
+        p.innerHTML = sp.url ? `<img src="${esc(sp.url)}" alt="">` : '<div class="preview-placeholder">プレビュー画面</div>';
       }
     }
-  } else {
-    const type = sp.type || 'image';
-    if (type === 'youtube') {
-      const id = extractYoutubeId(sp.url);
-      p.innerHTML = id
-        ? `<iframe src="https://www.youtube.com/embed/${esc(id)}?autoplay=1&mute=1&controls=1&rel=0" allow="autoplay; encrypted-media"></iframe>`
-        : '<div class="preview-placeholder small">YouTube URLを確認してください</div>';
-    } else if (type === 'web') {
-      p.innerHTML = sp.url ? `<iframe src="${esc(sp.url)}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>` : '<div class="preview-placeholder">プレビュー画面</div>';
-    } else if (type === 'video') {
-      p.innerHTML = sp.url ? `<video src="${esc(sp.url)}" autoplay ${sp.loop ? 'loop' : ''} ${sp.muted !== false ? 'muted' : ''} playsinline controls></video>` : '<div class="preview-placeholder">プレビュー画面</div>';
-    } else {
-      p.innerHTML = sp.url ? `<img src="${esc(sp.url)}" alt="">` : '<div class="preview-placeholder">プレビュー画面</div>';
-    }
-    if (cur.mainTitle || cur.subtitle) {
-      const o = document.createElement('div');
-      o.className = 'preview-overlay';
-      o.innerHTML = `<div class="main-title">${esc(cur.mainTitle || '')}</div><div class="sub">${esc(cur.subtitle || '')}</div>`;
-      p.appendChild(o);
-    }
+  }
+
+  // タイトルオーバーレイは軽い操作なので毎回更新して問題ない
+  const existingOverlay = p.querySelector('.preview-overlay');
+  if (existingOverlay) existingOverlay.remove();
+  if (!isCamera && (cur.mainTitle || cur.subtitle)) {
+    const o = document.createElement('div');
+    o.className = 'preview-overlay';
+    o.innerHTML = `<div class="main-title">${esc(cur.mainTitle || '')}</div><div class="sub">${esc(cur.subtitle || '')}</div>`;
+    p.appendChild(o);
   }
 }
 function extractYoutubeId(url) {
@@ -928,7 +949,7 @@ function renderMaterialPreview(m) {
   p.innerHTML = '';
   const temp = { ...m };
   if (temp.type === 'video') {
-    p.innerHTML = temp.url ? `<video src="${esc(temp.url)}" controls ${temp.loop ? 'loop' : ''} ${temp.muted ? 'muted' : ''}></video>` : '<div class="preview-placeholder small">VIDEO</div>';
+    p.innerHTML = temp.url ? `<video src="${esc(temp.url)}" controls muted ${temp.loop ? 'loop' : ''}></video>` : '<div class="preview-placeholder small">VIDEO</div>';
   } else {
     p.innerHTML = temp.url ? `<img src="${esc(temp.url)}">` : '<div class="preview-placeholder small">IMAGE</div>';
   }
