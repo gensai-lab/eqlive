@@ -25,7 +25,7 @@
 <br>Admin : https://gensai-lab.github.io/eqlive/admin/admin.html</br>
 <br>Manuscript : https://gensai-lab.github.io/eqlive/admin/manuscript.html</br>
 
-<br>**Beta**</br>
+<br>**Beta【使用厳禁】**</br>
 <br>News Admin : https://gensai-lab.github.io/eqlive/admin/news-admin.html</br>
 <br>Chromakey Studio : https://gensai-lab.github.io/eqlive/admin/chromakey_studio.html</br>
 <br>PDF Viewer : https://gensai-lab.github.io/eqlive/admin/pdfview.html</br>
