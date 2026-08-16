@@ -266,6 +266,29 @@ textarea{min-height:88px;resize:vertical}
 .field-group-title{font-size:10.5px;font-weight:700;color:var(--muted-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
 
 /* =========================================================================
+   Modal（シーン追加）
+   ========================================================================= */
+.modal-overlay{
+  display:none;position:fixed;inset:0;z-index:500;
+  background:rgba(4,5,7,.72);align-items:center;justify-content:center;padding:20px;
+}
+.modal-box{
+  width:min(420px,100%);background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:22px;
+}
+.modal-box h3{margin:0 0 4px;font-size:17px}
+.modal-options{display:flex;flex-direction:column;gap:8px}
+.modal-option{
+  display:flex;align-items:center;gap:12px;text-align:left;
+  background:#0f1114;border:1px solid var(--border);border-radius:var(--radius-md);
+  padding:12px 14px;transition:border-color .12s,background .12s;
+}
+.modal-option:hover{border-color:var(--blue);background:var(--blue-soft)}
+.modal-option .material-icons{font-size:22px;color:var(--muted)}
+.modal-option strong{display:block;font-size:14px}
+.modal-option span{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+
+/* =========================================================================
    Responsive
    ========================================================================= */
 @media(max-width:1000px){:root{--sidebar:360px}.stage-body{padding:14px}}
@@ -339,6 +362,24 @@ textarea{min-height:88px;resize:vertical}
         <div class="path" id="status-path">broadcast/current</div>
       </div>
     </section>
+  </div>
+</div>
+
+<!-- =========================================================================
+     シーン追加モーダル（app再描画の対象外＝静的に1度だけ配置）
+     ========================================================================= -->
+<div id="scene-add-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>シーンを追加</h3>
+    <p class="subtle" style="margin:-4px 0 14px">テンプレートを選んでください。あとから並び替えや削除ができます。</p>
+    <div class="modal-options">
+      <button class="modal-option" data-scene-template="op"><i class="material-icons">movie</i><div><strong>OP</strong><span>ニュースOP動画を自動再生</span></div></button>
+      <button class="modal-option" data-scene-template="studio"><i class="material-icons">cast</i><div><strong>スタジオ</strong><span>ChromaKey Studioの映像を表示</span></div></button>
+      <button class="modal-option" data-scene-template="news"><i class="material-icons">newspaper</i><div><strong>ニュース</strong><span>素材は後で設定します</span></div></button>
+      <button class="modal-option" data-scene-template="weather"><i class="material-icons">partly_cloudy_day</i><div><strong>天気予報</strong><span>素材は後で設定します</span></div></button>
+      <button class="modal-option" data-scene-template="blank"><i class="material-icons">add_box</i><div><strong>空白のシーン</strong><span>名前だけ決めて追加する</span></div></button>
+    </div>
+    <button class="btn ghost" style="width:100%;margin-top:14px" id="scene-add-cancel">キャンセル</button>
   </div>
 </div>
 
@@ -510,8 +551,7 @@ function setMode(type) {
   }
 }
 function sendScene(scene) {
-  const m = activeMaterialForScene(scene);
-  const p = materialToScreenProgram(m);
+  const p = scene.type === 'studio' ? { type: 'studio' } : materialToScreenProgram(activeMaterialForScene(scene));
   dbUpdate('broadcast/current', { mainSource: 'screen' });
   dbSet('broadcast/screen_program', p);
   setStatus(`「${scene.name}」を送出しました`, `broadcast/screen_program (${p.type})`);
@@ -721,17 +761,28 @@ function renderScene() {
     </div>`;
 
   document.querySelectorAll('[data-si]').forEach(b => b.onclick = () => { sceneIndex = Number(b.dataset.si); renderScene(); renderPreview(); });
-  $('scene-add').onclick = addScene;
+  $('scene-add').onclick = openSceneAddModal;
   $('scene-delete').onclick = deleteScene;
   $('scene-prev').onclick = () => { if (sceneIndex > 0) { sceneIndex--; renderScene(); renderPreview(); } };
   $('scene-next').onclick = () => { if (sceneIndex < ss.length - 1) { sceneIndex++; renderScene(); renderPreview(); } };
 }
-function addScene() {
+const SCENE_TEMPLATES = [
+  { key: 'op', name: 'OP', type: 'op', icon: 'movie', desc: 'ニュースOP動画を自動再生', materialId: OP_MATERIAL_ID },
+  { key: 'studio', name: 'スタジオ', type: 'studio', icon: 'cast', desc: 'ChromaKey Studioの映像を表示', materialId: null },
+  { key: 'news', name: 'ニュース', type: 'news', icon: 'newspaper', desc: '素材は後で「画面送出」タブから設定', materialId: null },
+  { key: 'weather', name: '天気予報', type: 'weather', icon: 'partly_cloudy_day', desc: '素材は後で「画面送出」タブから設定', materialId: null },
+  { key: 'blank', name: '空白のシーン', type: 'other', icon: 'add_box', desc: '名前だけ決めて追加する', materialId: null }
+];
+function openSceneAddModal() { $('scene-add-modal').style.display = 'flex'; }
+function closeSceneAddModal() { $('scene-add-modal').style.display = 'none'; }
+function addSceneFromTemplate(key) {
+  const t = SCENE_TEMPLATES.find(x => x.key === key) || SCENE_TEMPLATES[SCENE_TEMPLATES.length - 1];
   const ss = scenes();
   const id = uid('scene');
-  switcher.scenes[id] = { name: '新しいシーン', type: 'news', order: ss.length + 1, materialId: null, title: '', subtitle: '' };
+  switcher.scenes[id] = { name: t.name, type: t.type, order: ss.length + 1, materialId: t.materialId };
   sceneIndex = ss.length;
   writeSwitcher().then(renderAll);
+  closeSceneAddModal();
 }
 function deleteScene() {
   const s = activeScene();
@@ -1007,6 +1058,15 @@ $('login-btn').onclick = async () => {
   }
 };
 $('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('login-btn').click(); });
+
+/* =========================================================================
+   シーン追加モーダル
+   ========================================================================= */
+document.querySelectorAll('[data-scene-template]').forEach(b => {
+  b.onclick = () => addSceneFromTemplate(b.dataset.sceneTemplate);
+});
+$('scene-add-cancel').onclick = closeSceneAddModal;
+$('scene-add-modal').addEventListener('click', e => { if (e.target.id === 'scene-add-modal') closeSceneAddModal(); });
 
 /* =========================================================================
    Boot
