@@ -81,6 +81,22 @@ let cameras = [];
 
 // ChromaKey Studio（chromakey_studio.html）から配信される映像の受信用state
 const STUDIO_PATH = 'broadcast/studio/webrtc';
+// STUNのみだと、別ネットワーク間（NATを跨ぐ場合）で接続できないことがあるため、
+// 中継用のTURNサーバーも併用する。
+// ※ ここでは無料の公開TURN(openrelay.metered.ca)を暫定的に使用している。
+//    安定運用したい場合は、自前のTURNサーバーや有料サービスへの切り替えを推奨。
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  {
+    urls: [
+      'turn:openrelay.metered.ca:80',
+      'turn:openrelay.metered.ca:443',
+      'turn:openrelay.metered.ca:443?transport=tcp'
+    ],
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
+];
 let studioPeerConnection = null;
 let studioStream = null;
 let studioVideoEl = null;
@@ -270,9 +286,12 @@ function setupStudioReceiver() {
 
     if (!offerData) return;
 
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     studioPeerConnection = pc;
     let pendingAdminCandidates = []; // setRemoteDescription完了前に届いたcandidateを一時保管する
+
+    pc.oniceconnectionstatechange = () => console.log('[news-screen] Studio ICE connection state:', pc.iceConnectionState);
+    pc.onconnectionstatechange = () => console.log('[news-screen] Studio connection state:', pc.connectionState);
 
     pc.ontrack = event => {
       studioStream = event.streams[0];
