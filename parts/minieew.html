@@ -67,7 +67,6 @@
         text-align: left;
         white-space: nowrap;
         transform-origin: left center;
-        max-width: 240px;
     }
     #hypocenter-name .suffix {
         font-size: 24px;
@@ -228,7 +227,7 @@
         "6-": "https://gensai-lab.github.io/eqlive/assets/image/shindo/6-.png",
         "6+": "https://gensai-lab.github.io/eqlive/assets/image/shindo/6+.png",
         "7": "https://gensai-lab.github.io/eqlive/assets/image/shindo/7.png",
-        "不明": "https://gensai-lab.github.io/eqlive/assets/image/shindo/unknown.png"
+        "不明": "https://gensai-lab.github.io/eqlive/assets/image/shindo/%E4%B8%8D%E6%98%8E.png"
     };
 
     function clearAllTimers() {
@@ -272,13 +271,17 @@
     }
 
     function fitHypocenterName() {
+        const MAX_WIDTH = 240;
         // 一旦スケールをリセットして実サイズを測定
         hypocenterNameEl.style.transform = 'none';
-        const actualWidth = hypocenterNameEl.scrollWidth;
-        if (actualWidth > 240) {
-            const scale = 240 / actualWidth;
-            hypocenterNameEl.style.transform = 'scaleX(' + scale + ')';
-        }
+        // レイアウト確定後に測定するため、次フレームで判定する
+        requestAnimationFrame(() => {
+            const actualWidth = hypocenterNameEl.getBoundingClientRect().width;
+            if (actualWidth > MAX_WIDTH) {
+                const scale = MAX_WIDTH / actualWidth;
+                hypocenterNameEl.style.transform = 'scaleX(' + scale + ')';
+            }
+        });
     }
 
     function showTitleFlash(isWarn) {
