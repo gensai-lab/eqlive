@@ -2,58 +2,395 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>EQLive 報道画面（送出・映像のみ）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>EQLive 報道スイッチャー</title>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
 /* =========================================================================
-   Canvas — 他の送出ページと同じ 1920x1080 固定キャンバス
-   (main-switcher.html から iframe で読み込まれる前提。単体で開いても動作する)
+   Design tokens
    ========================================================================= */
-body,html{
-  margin:0;padding:0;width:1920px;height:1080px;
-  background-color:#000;overflow:hidden;
+@font-face{font-family:EQLiveUD;src:url('https://gensai-lab.github.io/eqlive/assets/fonts/FOT-UDKakugo_LargePr6-M.otf') format('opentype');font-weight:500;font-display:swap}
+@font-face{font-family:EQLiveUD;src:url('https://gensai-lab.github.io/eqlive/assets/fonts/FOT-UDKakugo_LargePr6-DB.otf') format('opentype');font-weight:700;font-display:swap}
+@font-face{font-family:EQLiveUD;src:url('https://gensai-lab.github.io/eqlive/assets/fonts/FOT-UDKakugo_LargePr6-B.otf') format('opentype');font-weight:800;font-display:swap}
+
+:root{
+  /* surfaces */
+  --bg:#0a0b0d;
+  --panel:#16181c;
+  --panel-2:#1e2126;
+  --panel-3:#25282e;
+  --border:#2c2f35;
+  --border-soft:#22252a;
+
+  /* text */
+  --text:#f2f4f7;
+  --muted:#9aa1ab;
+  --muted-2:#6b7178;
+
+  /* brand */
+  --blue:#005AFF;
+  --blue-soft:rgba(0,90,255,.16);
+  --green:#1fae5f;
+  --red:#e2453f;
+  --amber:#f0a400;
+
+  /* metrics */
+  --radius-sm:6px;
+  --radius-md:10px;
+  --radius-lg:14px;
+  --shadow-sm:0 2px 8px rgba(0,0,0,.25);
+  --shadow-lg:0 16px 40px rgba(0,0,0,.35);
+  --header:64px;
+  --sidebar:420px;
+  --gap:10px;
 }
-*{box-sizing:border-box}
 
 /* =========================================================================
-   メインコンテンツ（カメラ or 画面送出プログラム）
-   このファイルは映像のみを担当する。見出し・Ticker・文字スーパー・時計・
-   L字の枠合わせは Sub-Switcher 側（既存の parts/*.html・l-screen.html）に任せる。
-
-   シーン切り替え・素材送出・クリア時にフェードするよう、2枚のレイヤーを
-   常時重ねておき、新しいコンテンツを裏に描画してからクロスフェードする。
+   Base / reset
    ========================================================================= */
-#main-target{position:absolute;inset:0;width:100%;height:100%;background:#000}
-.media-layer{
-  position:absolute;inset:0;width:100%;height:100%;background:#000;
-  opacity:0;transition:opacity .7s ease;
-}
-.media-layer.visible{opacity:1}
-.media-layer video,.media-layer iframe,.media-layer img{
-  position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:contain;background:#000;
-}
-#main-target.mode-camera .media-layer video,#main-target.mode-camera .media-layer img{object-fit:cover}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'BIZ UDPGothic',sans-serif;height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+::selection{background:var(--blue-soft)}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#32363c;border-radius:99px}
+::-webkit-scrollbar-track{background:transparent}
 
-.preview-placeholder{
-  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  background:#02035e;color:#fff;font-size:48px;font-family:sans-serif;
-  text-align:center;padding:0 40px;
+input,select,textarea{
+  width:100%;background:#0e0f12;color:var(--text);
+  border:1px solid #363b42;border-radius:var(--radius-sm);
+  padding:9px 10px;outline:none;transition:border-color .12s,box-shadow .12s;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+textarea{min-height:88px;resize:vertical}
+.label{display:block;color:var(--muted);font-size:11.5px;margin:0 0 6px;font-weight:700;letter-spacing:.01em}
+
+/* =========================================================================
+   Login screen
+   ========================================================================= */
+#login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 20%,#101318,#07080a 60%);z-index:9999;padding:20px}
+.login-box{width:min(420px,100%);background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:30px}
+.login-box h1{margin:0 0 6px;font-size:22px;letter-spacing:.01em}
+.login-box p{margin:0 0 24px;color:var(--muted);font-size:13px;line-height:1.6}
+#login-btn{width:100%;margin-top:16px}
+#login-error{color:#ff8484;margin-top:12px;display:none;font-size:12px;line-height:1.6}
+
+/* =========================================================================
+   App shell / layout
+   ========================================================================= */
+.app{display:none;height:100vh;flex-direction:column}
+.app.visible{display:flex}
+
+.header{
+  height:var(--header);flex:0 0 auto;background:#08090b;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 20px;
+}
+.header-title{display:flex;align-items:center;gap:14px}
+.header-title .brand{font-weight:800;font-size:22px;letter-spacing:.01em}
+.header-title .tag{padding:6px 10px;border-radius:var(--radius-sm);background:var(--panel-2);color:#cfd5db;font-size:13px;font-variant-numeric:tabular-nums}
+.header-right{display:flex;align-items:center;gap:10px}
+.live-dot{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--border);border-radius:999px;font-size:12px;color:var(--muted)}
+.live-dot i{font-size:10px;color:#35d46b}
+
+.main{display:flex;flex:1;min-height:0}
+
+/* =========================================================================
+   Sidebar / tabs
+   ========================================================================= */
+.sidebar{width:var(--sidebar);background:#111316;border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;flex:0 0 50px;border-bottom:1px solid var(--border);background:#0d0f11}
+.tab{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+  background:transparent;color:var(--muted);border:0;border-right:1px solid var(--border-soft);
+  font-size:13px;font-weight:700;position:relative;transition:color .12s,background .12s;
+}
+.tab .material-icons{font-size:17px}
+.tab:last-child{border-right:0}
+.tab:hover{color:#d7dbe0;background:#141619}
+.tab.active{color:#fff;background:var(--panel)}
+.tab.active::after{content:'';position:absolute;left:14%;right:14%;bottom:0;height:2px;background:var(--blue);border-radius:2px 2px 0 0}
+
+.side-scroll{overflow:auto;padding:14px 16px 28px}
+
+/* =========================================================================
+   Panels & common building blocks
+   ========================================================================= */
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-md);padding:15px;margin-bottom:12px}
+.panel h3{font-size:13px;margin:0 0 12px;display:flex;align-items:center;gap:7px;color:#e7eaee}
+.panel h3 .material-icons{font-size:16px;color:var(--muted)}
+.subtle{color:var(--muted);font-size:11.5px;line-height:1.65}
+.tiny{font-size:10.5px;color:var(--muted-2)}
+.hr{height:1px;background:var(--border);margin:13px 0}
+.empty{padding:28px 10px;text-align:center;color:var(--muted-2);font-size:12px;border:1px dashed var(--border);border-radius:var(--radius-md)}
+
+.section-title{font-size:11.5px;color:#c6cbd2;font-weight:700;margin-bottom:9px;display:flex;align-items:center;justify-content:space-between}
+
+.row{display:flex;gap:8px;align-items:center}
+.row>*{min-width:0}
+.row.wrap{flex-wrap:wrap}
+.row.wrap>*{flex:1 1 160px}
+.col{display:flex;flex-direction:column;gap:8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+.badge{display:inline-block;font-size:10px;border-radius:999px;padding:3px 8px;border:1px solid #3a3f46;color:#cbd1d8;background:#111318;font-weight:700}
+.badge.blue{border-color:#204a96;background:var(--blue-soft);color:#bcd2ff}
+.badge.green{border-color:#1d6b41;background:rgba(31,174,95,.15);color:#a4ecc4}
+.badge.red{border-color:#7b2d2d;background:rgba(226,54,54,.14);color:#ffb4b0}
+
+/* =========================================================================
+   Buttons
+   ========================================================================= */
+.btn{
+  border:1px solid #40454c;border-radius:var(--radius-sm);background:var(--panel-3);color:#fff;
+  padding:10px 13px;font-weight:700;font-size:13px;transition:filter .12s,border-color .12s,background .12s;
+}
+.btn:hover{filter:brightness(1.1)}
+.btn:active{filter:brightness(.95)}
+.btn.primary{background:var(--blue);border-color:var(--blue)}
+.btn.green{background:var(--green);border-color:var(--green)}
+.btn.red{background:var(--red);border-color:var(--red)}
+.btn.ghost{background:transparent}
+.btn.ghost:hover{background:var(--panel-2)}
+.btn.small{padding:7px 9px;font-size:11.5px}
+.btn.big{padding:13px 14px;font-size:15px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* =========================================================================
+   Mode cards
+   ========================================================================= */
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mode-card{border:1px solid var(--border);border-radius:var(--radius-md);background:#0f1114;padding:14px;text-align:left;transition:border-color .12s,box-shadow .12s}
+.mode-card:hover{border-color:#454b53}
+.mode-card.active{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+.mode-card .material-icons{font-size:22px;margin-bottom:9px;color:var(--muted)}
+.mode-card.active .material-icons{color:var(--blue)}
+.mode-card strong{display:block;font-size:14.5px}
+.mode-card span{display:block;color:var(--muted);font-size:11px;margin-top:5px;line-height:1.5}
+
+/* =========================================================================
+   Scene sequence strip
+   ========================================================================= */
+.scene-line{display:flex;align-items:center;gap:6px;overflow:auto;padding-bottom:3px}
+.scene-node{flex:0 0 auto}
+.scene-node button{max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seq-arrow{color:#6b7178;font-size:15px}
+
+/* =========================================================================
+   Lists
+   ========================================================================= */
+.list{display:flex;flex-direction:column;gap:6px}
+.list-item{background:#0f1114;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;transition:border-color .12s,background .12s}
+.list-item:hover{border-color:#454b53}
+.list-item.active{border-color:var(--blue);background:var(--blue-soft)}
+.list-main{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.list-main strong{font-size:13px}
+.list-main span{font-size:10px;color:var(--muted)}
+
+/* =========================================================================
+   Stage / live preview
+   ========================================================================= */
+.stage{flex:1;min-width:0;display:flex;flex-direction:column;background:#3a3d41}
+.stage-top{padding:13px 18px;border-bottom:1px solid #52565b;background:#2c2f33;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.stage-top .title{font-size:13px;color:#fff}
+.stage-actions{display:flex;gap:8px;align-items:center}
+.stage-body{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;min-height:0;overflow:auto}
+.preview-frame{position:relative;width:min(100%,1100px);aspect-ratio:16/9;background:#000;box-shadow:var(--shadow-lg);border-radius:4px;overflow:hidden}
+.preview-frame iframe,.preview-frame video,.preview-frame img{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:contain;background:#000}
+.preview-overlay{position:absolute;left:0;right:0;bottom:0;padding:14px 18px;background:linear-gradient(transparent,rgba(0,0,0,.86));pointer-events:none}
+.preview-overlay .main-title{font-family:EQLiveUD,'BIZ UDPGothic',sans-serif;font-weight:800;font-size:clamp(16px,2.1vw,29px);text-shadow:0 2px 5px #000}
+.preview-overlay .sub{font-family:EQLiveUD,'BIZ UDPGothic',sans-serif;font-size:clamp(11px,1.2vw,17px);margin-top:4px;color:#e7ebef;text-shadow:0 1px 4px #000}
+.preview-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#02035e;color:#fff;font-size:clamp(28px,4vw,62px);font-family:EQLiveUD,'BIZ UDPGothic',sans-serif;text-align:center;padding:0 20px}
+.preview-placeholder.small{font-size:clamp(19px,2.5vw,36px)}
+
+.statusbar{padding:9px 18px;background:#17191c;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px}
+.statusbar .state{color:#8fe1ad}
+.statusbar .path{color:#8a9098;font-family:ui-monospace,monospace}
+
+.material-preview{border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;background:#08090a;aspect-ratio:16/9;position:relative}
+.material-preview iframe,.material-preview video,.material-preview img{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:contain}
+
+.detail-title{font-size:17px;margin:0 0 3px}
+.detail-sub{color:var(--muted);font-size:11px;margin-bottom:16px}
+.drag-note{font-size:10px;color:var(--muted-2);margin-top:7px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* =========================================================================
+   Figma-style controls: slider, color swatch, switch
+   ========================================================================= */
+.field{margin-bottom:11px}
+.field-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.field-head .label{margin:0}
+.field-value{
+  font-variant-numeric:tabular-nums;font-size:11.5px;color:#d7dbe0;background:#0e0f12;
+  border:1px solid #363b42;border-radius:var(--radius-sm);padding:3px 8px;min-width:44px;text-align:center;
+}
+
+.slider-row{display:flex;align-items:center;gap:10px}
+.slider-row input[type=range]{
+  -webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:99px;
+  background:linear-gradient(90deg,var(--blue) var(--fill,50%),#33383f var(--fill,50%));outline:none;
+}
+.slider-row input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#fff;
+  border:3px solid var(--blue);box-shadow:0 1px 4px rgba(0,0,0,.5);cursor:pointer;margin-top:0;
+}
+.slider-row input[type=range]::-moz-range-thumb{
+  width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--blue);cursor:pointer;
+}
+.slider-row input[type=range]::-moz-range-track{height:4px;border-radius:99px;background:#33383f}
+.slider-num{width:56px;flex:0 0 auto;text-align:center;padding:7px 4px;font-variant-numeric:tabular-nums}
+
+.color-field{display:flex;align-items:center;gap:9px}
+.color-field input[type=color]{
+  -webkit-appearance:none;appearance:none;width:36px;height:36px;padding:0;border-radius:9px;
+  border:1px solid #3a3f46;background:none;cursor:pointer;flex:0 0 auto;
+}
+.color-field input[type=color]::-webkit-color-swatch-wrapper{padding:3px}
+.color-field input[type=color]::-webkit-color-swatch{border:0;border-radius:6px}
+.color-field .hex{font-family:ui-monospace,monospace;font-size:11.5px;color:var(--muted);letter-spacing:.02em}
+
+.switch-row{display:flex;align-items:center;gap:10px;padding:2px 0}
+.switch{position:relative;display:inline-flex;flex:0 0 auto;width:38px;height:22px}
+.switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1}
+.switch .track{position:absolute;inset:0;background:#33383f;border-radius:999px;transition:background .15s}
+.switch .track::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .15s;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.switch input:checked~.track{background:var(--blue)}
+.switch input:checked~.track::after{transform:translateX(16px)}
+.switch-label{font-size:12.5px;color:#dfe3e8}
+
+.field-group{border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;background:rgba(255,255,255,.012)}
+.field-group-title{font-size:10.5px;font-weight:700;color:var(--muted-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+
+/* =========================================================================
+   Modal（シーン追加）
+   ========================================================================= */
+.modal-overlay{
+  display:none;position:fixed;inset:0;z-index:500;
+  background:rgba(4,5,7,.72);align-items:center;justify-content:center;padding:20px;
+}
+.modal-box{
+  width:min(420px,100%);background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:22px;
+}
+.modal-box h3{margin:0 0 4px;font-size:17px}
+.modal-options{display:flex;flex-direction:column;gap:8px}
+.modal-option{
+  display:flex;align-items:center;gap:12px;text-align:left;
+  background:#0f1114;border:1px solid var(--border);border-radius:var(--radius-md);
+  padding:12px 14px;transition:border-color .12s,background .12s;
+}
+.modal-option:hover{border-color:var(--blue);background:var(--blue-soft)}
+.modal-option .material-icons{font-size:22px;color:var(--muted)}
+.modal-option strong{display:block;font-size:14px}
+.modal-option span{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+
+/* =========================================================================
+   Responsive
+   ========================================================================= */
+@media(max-width:1000px){:root{--sidebar:360px}.stage-body{padding:14px}}
+@media(max-width:800px){
+  :root{--sidebar:100%}
+  .main{flex-direction:column}
+  .sidebar{width:100%;height:56%;border-right:0;border-bottom:1px solid var(--border)}
+  .stage{height:44%}
+  .header-title .brand{font-size:17px}
+  .header-title .tag{font-size:11px}
+  .stage-body{padding:8px}
 }
 </style>
 </head>
 <body>
 
-<div id="main-target">
-  <div class="media-layer" id="layer-a"></div>
-  <div class="media-layer" id="layer-b"></div>
+<!-- =========================================================================
+     Login screen
+     ========================================================================= -->
+<div id="login">
+  <div class="login-box">
+    <h1>EQLive 報道スイッチャー</h1>
+    <p>EQLive の報道番組制作・送出を行う管理ツール</p>
+    <label class="label">メールアドレス / ユーザーID</label>
+    <input id="login-id" type="text" autocomplete="username" placeholder="Firebase Authenticationのメールアドレス（またはユーザーID）">
+    <label class="label" style="margin-top:12px">パスワード</label>
+    <input id="login-pass" type="password" autocomplete="current-password" placeholder="パスワード">
+    <button id="login-btn" class="btn primary big">ログイン</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- =========================================================================
+     App shell
+     ========================================================================= -->
+<div id="app" class="app">
+  <div class="header">
+    <div class="header-title">
+      <div class="brand">EQLive 報道スイッチャー</div>
+      <div class="tag" id="program-clock">--.--.-- --:--:--</div>
+    </div>
+    <div class="header-right">
+      <div class="live-dot"><i class="material-icons">fiber_manual_record</i><span id="auth-state">接続中</span></div>
+      <button class="btn small" id="admin-back">Adminに戻る</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <aside class="sidebar">
+      <div class="tabs">
+        <button class="tab active" data-tab="mode"><i class="material-icons">tune</i>モード</button>
+        <button class="tab" data-tab="scene"><i class="material-icons">view_carousel</i>シーン</button>
+        <button class="tab" data-tab="output"><i class="material-icons">cast</i>画面送出</button>
+        <button class="tab" data-tab="materials"><i class="material-icons">perm_media</i>素材送出</button>
+      </div>
+      <div id="side-mode" class="side-scroll"></div>
+      <div id="side-scene" class="side-scroll" style="display:none"></div>
+      <div id="side-output" class="side-scroll" style="display:none"></div>
+      <div id="side-materials" class="side-scroll" style="display:none"></div>
+    </aside>
+
+    <section class="stage">
+      <div class="stage-top">
+        <div class="title" id="stage-title">送出プレビュー</div>
+        <div class="stage-actions">
+          <span class="badge blue" id="mode-badge">ライブカメラ</span>
+          <button class="btn small" id="refresh-preview">プレビュー更新</button>
+        </div>
+      </div>
+      <div class="stage-body"><div class="preview-frame" id="preview"></div></div>
+      <div class="statusbar">
+        <div class="state" id="status-text">待機中</div>
+        <div class="path" id="status-path">broadcast/current</div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- =========================================================================
+     シーン追加モーダル（app再描画の対象外＝静的に1度だけ配置）
+     ========================================================================= -->
+<div id="scene-add-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>シーンを追加</h3>
+    <p class="subtle" style="margin:-4px 0 14px">テンプレートを選んでください。あとから並び替えや削除ができます。</p>
+    <div class="modal-options">
+      <button class="modal-option" data-scene-template="op"><i class="material-icons">movie</i><div><strong>OP</strong><span>ニュースOP動画を自動再生</span></div></button>
+      <button class="modal-option" data-scene-template="news"><i class="material-icons">newspaper</i><div><strong>ニュース</strong><span>素材は後で設定します</span></div></button>
+      <button class="modal-option" data-scene-template="weather"><i class="material-icons">partly_cloudy_day</i><div><strong>天気予報</strong><span>素材は後で設定します</span></div></button>
+      <button class="modal-option" data-scene-template="blank"><i class="material-icons">add_box</i><div><strong>空白のシーン</strong><span>名前だけ決めて追加する</span></div></button>
+    </div>
+    <button class="btn ghost" style="width:100%;margin-top:14px" id="scene-add-cancel">キャンセル</button>
+  </div>
 </div>
 
 <script type="module">
 /* =========================================================================
-   Firebase — news-admin.html と同一プロジェクト・同一パスを参照する
+   Firebase setup
    ========================================================================= */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getDatabase, ref, onValue, set, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
@@ -66,98 +403,292 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const auth = getAuth(app);
 
 /* =========================================================================
-   State — 2枚のレイヤー(a/b)を交互に使ってクロスフェードする
+   Constants / global state
    ========================================================================= */
-const FADE_MS = 700; // CSSのtransition時間と合わせる
+const FONT_URLS = {
+  B:  'https://gensai-lab.github.io/eqlive/assets/fonts/FOT-UDKakugo_LargePr6-B.otf',
+  DB: 'https://gensai-lab.github.io/eqlive/assets/fonts/FOT-UDKakugo_LargePr6-DB.otf',
+  M:  'https://gensai-lab.github.io/eqlive/assets/fonts/FOT-UDKakugo_LargePr6-M.otf'
+};
+const PREPARE_URL = 'https://gensai-lab.github.io/eqlive/assets/image/prepare.png';
+const SWITCHER_PATH = 'broadcast/reporter_switcher';
+const OP_VIDEO_URL = 'https://gensai-lab.github.io/eqlive/assets/video/EQLiveNewsOP.mp4';
+const OP_MATERIAL_ID = 'mat_op_video';
 
-const mainTarget = document.getElementById('main-target');
-const layers = { a: document.getElementById('layer-a'), b: document.getElementById('layer-b') };
-const hlsMap = { a: null, b: null };
-let activeKey = 'a';
-let currentMediaKey = '';
+let broadcast = {};
+let switcher = {};
 let cameras = [];
-
-// ChromaKey Studio（chromakey_studio.html）から配信される映像の受信用state
-const STUDIO_PATH = 'broadcast/studio/webrtc';
-// STUNのみだと、別ネットワーク間（NATを跨ぐ場合）で接続できないことがあるため、
-// 中継用のTURNサーバーも併用する。
-// ※ ここでは無料の公開TURN(openrelay.metered.ca)を暫定的に使用している。
-//    安定運用したい場合は、自前のTURNサーバーや有料サービスへの切り替えを推奨。
-const ICE_SERVERS = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  {
-    urls: [
-      'turn:openrelay.metered.ca:80',
-      'turn:openrelay.metered.ca:443',
-      'turn:openrelay.metered.ca:443?transport=tcp'
-    ],
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  }
-];
-let studioPeerConnection = null;
-let studioStream = null;
-let studioVideoEl = null;
-let studioPlaceholderEl = null;
-
-function clearLayer(key) {
-  if (hlsMap[key]) { try { hlsMap[key].destroy(); } catch (_) {} hlsMap[key] = null; }
-  layers[key].innerHTML = '';
-}
-
-// buildFn(container) がその中にメディアを組み立てる。
-// hls.Hls インスタンスを作った場合は返り値として返すと、フェードアウト後に
-// 自動で破棄される。
-function swapTo(buildFn, isCamera) {
-  const nextKey = activeKey === 'a' ? 'b' : 'a';
-  const prevKey = activeKey;
-
-  clearLayer(nextKey);
-  const hlsInstance = buildFn(layers[nextKey]);
-  if (hlsInstance) hlsMap[nextKey] = hlsInstance;
-  mainTarget.classList.toggle('mode-camera', isCamera);
-
-  // 1フレーム待ってからクラスを切り替えることで、確実にtransitionが発火するようにする
-  requestAnimationFrame(() => {
-    layers[nextKey].classList.add('visible');
-    layers[prevKey].classList.remove('visible');
-  });
-
-  activeKey = nextKey;
-  setTimeout(() => clearLayer(prevKey), FADE_MS + 100);
-}
+let hls = null;
+let activeTab = 'mode';
+let sceneIndex = 0;
+let preloader = null;
+let scheduleTimer = null;
+let preloadedSceneId = null;
+let editingMaterialId = null;
+let editingSceneId = null;
+let currentFolderId = null;
 
 /* =========================================================================
-   カメラ一覧の取得（live-only.html と同じソース・同じフォールバック手順）
+   Small utilities
    ========================================================================= */
-async function fetchKactuifCameras() {
-  const targetUrl = 'https://kactuif.ikunocam.net/data';
-  try {
-    const r = await fetch(targetUrl);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const d = await r.json();
-    return (d.streams || []).map(s => ({ id: s.id, name: s.name, area: '', genre: 'akki', type: s.type || 'youtube', url: s.url }));
-  } catch (e) {
-    try {
-      const r2 = await fetch('https://corsproxy.io/?url=' + encodeURIComponent(targetUrl));
-      if (!r2.ok) throw new Error(`HTTP ${r2.status}`);
-      const d2 = await r2.json();
-      return (d2.streams || []).map(s => ({ id: s.id, name: s.name, area: '', genre: 'akki', type: s.type || 'youtube', url: s.url }));
-    } catch (_) { return []; }
-  }
+const $ = id => document.getElementById(id);
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+}[c]));
+
+const dbSet    = (path, val) => set(ref(db, path), val).catch(e => { console.error(e); alert('Firebaseへの保存に失敗しました。権限・ログイン状態を確認してください。'); });
+const dbUpdate = (path, val) => update(ref(db, path), val).catch(e => { console.error(e); alert('Firebaseの更新に失敗しました。'); });
+const dbRemove = path => remove(ref(db, path)).catch(e => { console.error(e); alert('削除に失敗しました。'); });
+
+function localDateInput(ts) {
+  const d = new Date(ts);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
+function fmt(ts) {
+  if (!ts) return '--';
+  return new Date(ts).toLocaleString('ja-JP', { hour12: false });
+}
+function nowString() {
+  return new Date().toLocaleString('ja-JP', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  });
+}
+function uid(prefix) { return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`; }
+
+function materials() { return Object.entries(switcher.materials || {}).map(([id, v]) => ({ id, ...v })); }
+function scenes()    { return Object.entries(switcher.scenes || {}).map(([id, v]) => ({ id, ...v })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)); }
+function activeCamera()               { return cameras.find(c => c.id === broadcast?.current?.cameraSource); }
+function activeScene()                { return scenes()[sceneIndex] || scenes()[0] || null; }
+function activeMaterialForScene(scene){ return scene?.materialId ? materials().find(m => m.id === scene.materialId) : null; }
+
+/* =========================================================================
+   Tabs
+   ========================================================================= */
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  ['mode', 'scene', 'output', 'materials'].forEach(k => { $('side-' + k).style.display = k === tab ? 'block' : 'none'; });
+  renderAll();
+}
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+$('admin-back').onclick = () => location.href = './admin.html';
+$('refresh-preview').onclick = renderPreview;
+
+/* =========================================================================
+   Camera list loading
+   ========================================================================= */
 async function loadCameras() {
   let kh = [];
   try {
     const r = await fetch('https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json');
     if (r.ok) kh = await r.json();
-  } catch (e) { console.warn('[news-screen] kh-livec.json 取得失敗:', e); }
-  const extra = await fetchKactuifCameras();
+  } catch (e) { console.warn(e); }
+
+  let extra = [];
+  try {
+    const r = await fetch('https://kactuif.ikunocam.net/data');
+    if (r.ok) {
+      const d = await r.json();
+      extra = (d.streams || []).map(s => ({ id: s.id, name: s.name, area: '', genre: 'akki', type: s.type || 'youtube', url: s.url }));
+    }
+  } catch (e) {
+    try {
+      const r = await fetch('https://corsproxy.io/?url=' + encodeURIComponent('https://kactuif.ikunocam.net/data'));
+      if (r.ok) {
+        const d = await r.json();
+        extra = (d.streams || []).map(s => ({ id: s.id, name: s.name, area: '', genre: 'akki', type: s.type || 'youtube', url: s.url }));
+      }
+    } catch (_) { /* optional source */ }
+  }
   cameras = [...kh, ...extra];
 }
 
+/* =========================================================================
+   Seed data / persistence
+   ========================================================================= */
+function ensureSeed() {
+  let changed = false;
+  if (!switcher.scenes || Object.keys(switcher.scenes).length === 0) {
+    const ids = ['scene_op', 'scene_news1', 'scene_news2', 'scene_weather'];
+    const defaults = [
+      ['OP', 'op', 1, OP_MATERIAL_ID],
+      ['ニュース①', 'news', 2, null],
+      ['ニュース②', 'news', 3, null],
+      ['天気予報', 'weather', 4, null]
+    ];
+    const obj = {};
+    defaults.forEach((d, i) => { obj[ids[i]] = { name: d[0], type: d[1], order: d[2], materialId: d[3] }; });
+    switcher.scenes = obj;
+    changed = true;
+  }
+  if (!switcher.materials) { switcher.materials = {}; changed = true; }
+  if (!switcher.materials[OP_MATERIAL_ID]) {
+    switcher.materials[OP_MATERIAL_ID] = { name: 'ニュースOP', type: 'video', url: OP_VIDEO_URL, loop: false, muted: false };
+    changed = true;
+  }
+  // 過去に作成された「OP」タイプのシーンで、素材が紐づいていないものを自動修復する
+  Object.values(switcher.scenes || {}).forEach(sc => {
+    if (sc.type === 'op' && !sc.materialId) { sc.materialId = OP_MATERIAL_ID; changed = true; }
+  });
+  return changed;
+}
+function writeSwitcher() { return dbSet(SWITCHER_PATH, switcher); }
+
+/* =========================================================================
+   Broadcast actions
+   ========================================================================= */
+function setMode(type) {
+  if (type === 'camera') {
+    const cam = activeCamera() || cameras[0];
+    if (!cam) { alert('ライブカメラを読み込めていません。'); return; }
+    dbUpdate('broadcast/current', { mainSource: 'camera', cameraSource: cam.id });
+    setStatus('ライブカメラを送出しました', `broadcast/current → camera:${cam.id}`);
+  } else {
+    const s = activeScene();
+    if (!s) { alert('シーンがありません。'); return; }
+    sendScene(s);
+  }
+}
+function sendScene(scene) {
+  const p = materialToScreenProgram(activeMaterialForScene(scene));
+  dbUpdate('broadcast/current', { mainSource: 'screen' });
+  dbSet('broadcast/screen_program', p);
+  setStatus(`「${scene.name}」を送出しました`, `broadcast/screen_program (${p.type})`);
+  renderPreview();
+}
+function materialToScreenProgram(m) {
+  if (!m) return { type: 'image', url: PREPARE_URL };
+  const p = { type: m.type || 'image', url: m.url || PREPARE_URL };
+  if (m.type === 'video') { p.loop = !!m.loop; p.muted = m.muted !== false; }
+  return p;
+}
+function outputMaterial(m) {
+  const p = materialToScreenProgram(m);
+  dbUpdate('broadcast/current', { mainSource: 'screen' });
+  dbSet('broadcast/screen_program', p);
+  setStatus(`素材「${m?.name || '未選択'}」を送出`, `broadcast/screen_program (${p.type})`);
+}
+function sendPrepare() {
+  dbUpdate('broadcast/current', { mainSource: 'screen' });
+  dbSet('broadcast/screen_program', { type: 'image', url: PREPARE_URL });
+  setStatus('準備中画面を送出', 'broadcast/screen_program → prepare.png');
+}
+function sendBlack() {
+  dbUpdate('broadcast/current', { mainSource: 'screen' });
+  dbSet('broadcast/screen_program', {
+    type: 'image',
+    url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><rect width="1920" height="1080" fill="#000"/></svg>')
+  });
+  setStatus('黒画面を送出', 'broadcast/screen_program → black');
+}
+function setStatus(text, path) { $('status-text').textContent = text; $('status-path').textContent = path; }
+
+/* =========================================================================
+   Title-card SVG builder
+   ========================================================================= */
+function buildTitleSvgData(m) {
+  const title = esc(m.title || '');
+  const sub = esc(m.subtitle || '');
+  const bg = esc(m.background || '#0b1536');
+  const accent = esc(m.accent || '#005AFF');
+  const titleSize = Math.max(42, Math.min(120, Number(m.titleSize) || 86));
+  const subSize = Math.max(20, Math.min(60, Number(m.subtitleSize) || 38));
+  const weight = m.fontWeight === 'B' ? '800' : m.fontWeight === 'M' ? '500' : '700';
+  const fontFamily = 'EQLiveUD, BIZ UDPGothic, sans-serif';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+    <defs>
+      <style>
+        @font-face{font-family:EQLiveUD;src:url('${FONT_URLS.B}') format('opentype');font-weight:800}
+        @font-face{font-family:EQLiveUD;src:url('${FONT_URLS.DB}') format('opentype');font-weight:700}
+        @font-face{font-family:EQLiveUD;src:url('${FONT_URLS.M}') format('opentype');font-weight:500}
+        .t{font-family:${fontFamily};font-weight:${weight}}
+      </style>
+      <linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="${bg}"/><stop offset="1" stop-color="#07090e"/></linearGradient>
+    </defs>
+    <rect width="1920" height="1080" fill="url(#g)"/>
+    <rect x="0" y="0" width="18" height="1080" fill="${accent}"/>
+    <text x="110" y="500" class="t" fill="#fff" font-size="${titleSize}">${title}</text>
+    <text x="110" y="590" class="t" fill="#d9e0ea" font-size="${subSize}">${sub}</text>
+    <rect x="110" y="630" width="420" height="8" rx="4" fill="${accent}"/>
+  </svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
+/* =========================================================================
+   Live preview (stage)
+   ========================================================================= */
+let previewMediaKey = '';
+function renderPreview() {
+  const p = $('preview');
+  const cur = broadcast.current || {};
+  const sp = broadcast.screen_program || {};
+  const cam = activeCamera();
+  const isCamera = cur.mainSource === 'camera';
+
+  $('mode-badge').textContent = isCamera ? 'ライブカメラ' : '報道画面';
+  $('stage-title').textContent = isCamera ? `ライブカメラ：${cam?.name || '未選択'}` : (sp.title || '報道画面プレビュー');
+
+  // 実際に表示するメディアが変わっていない場合は、タブ切り替えや他のFirebase更新
+  // (ticker等)のたびにvideo/iframeを作り直して音や再生位置がリセットされないようにする
+  const key = isCamera ? `camera:${cur.cameraSource || ''}` : `screen:${sp.type || ''}:${sp.url || ''}`;
+  if (key !== previewMediaKey) {
+    previewMediaKey = key;
+    if (hls) { try { hls.destroy(); } catch (_) {} hls = null; }
+    p.innerHTML = '';
+
+    if (isCamera) {
+      if (!cam) {
+        p.innerHTML = '<div class="preview-placeholder small">ライブカメラを選択してください</div>';
+      } else if (cam.type === 'youtube') {
+        const id = extractYoutubeId(cam.url);
+        p.innerHTML = id
+          ? `<iframe src="https://www.youtube.com/embed/${esc(id)}?autoplay=1&mute=1&controls=1&rel=0" allow="autoplay; encrypted-media"></iframe>`
+          : '<div class="preview-placeholder small">YouTube URLを確認してください</div>';
+      } else {
+        const v = document.createElement('video');
+        v.autoplay = true; v.muted = true; v.playsInline = true; v.controls = false;
+        p.appendChild(v);
+        if (window.Hls && Hls.isSupported() && cam.url) {
+          hls = new Hls(); hls.loadSource(cam.url); hls.attachMedia(v);
+        } else if (cam.url) {
+          v.src = cam.url;
+          v.addEventListener('error', () => { p.innerHTML = '<div class="preview-placeholder small">カメラ映像を読み込めませんでした</div>'; });
+        }
+      }
+    } else {
+      const type = sp.type || 'image';
+      if (type === 'youtube') {
+        const id = extractYoutubeId(sp.url);
+        p.innerHTML = id
+          ? `<iframe src="https://www.youtube.com/embed/${esc(id)}?autoplay=1&mute=1&controls=1&rel=0" allow="autoplay; encrypted-media"></iframe>`
+          : '<div class="preview-placeholder small">YouTube URLを確認してください</div>';
+      } else if (type === 'web') {
+        p.innerHTML = sp.url ? `<iframe src="${esc(sp.url)}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>` : '<div class="preview-placeholder">プレビュー画面</div>';
+      } else if (type === 'video') {
+        // 管理画面のプレビューは常にミュートする（実際の送出音声はNews-Screen側で鳴る）
+        p.innerHTML = sp.url ? `<video src="${esc(sp.url)}" autoplay ${sp.loop ? 'loop' : ''} muted playsinline controls></video>` : '<div class="preview-placeholder">プレビュー画面</div>';
+      } else {
+        p.innerHTML = sp.url ? `<img src="${esc(sp.url)}" alt="">` : '<div class="preview-placeholder">プレビュー画面</div>';
+      }
+    }
+  }
+
+  // タイトルオーバーレイは軽い操作なので毎回更新して問題ない
+  const existingOverlay = p.querySelector('.preview-overlay');
+  if (existingOverlay) existingOverlay.remove();
+  if (!isCamera && (cur.mainTitle || cur.subtitle)) {
+    const o = document.createElement('div');
+    o.className = 'preview-overlay';
+    o.innerHTML = `<div class="main-title">${esc(cur.mainTitle || '')}</div><div class="sub">${esc(cur.subtitle || '')}</div>`;
+    p.appendChild(o);
+  }
+}
 function extractYoutubeId(url) {
   if (!url) return '';
   if (url.includes('embed/')) return url.split('embed/')[1].split(/[?&]/)[0];
@@ -167,198 +698,531 @@ function extractYoutubeId(url) {
 }
 
 /* =========================================================================
-   メインコンテンツの描画（カメラ / 画面送出プログラム 共通）
+   Sidebar: モード タブ
    ========================================================================= */
-function renderCamera(camId) {
-  const key = 'camera:' + camId;
-  if (key === currentMediaKey) return;
-  currentMediaKey = key;
+function renderMode() {
+  const s = activeScene();
 
-  const cam = cameras.find(c => c.id === camId);
-  swapTo(container => {
-    if (!cam) { container.innerHTML = '<div class="preview-placeholder">ライブカメラ未選択</div>'; return null; }
+  $('side-mode').innerHTML = `
+    <div class="panel">
+      <h3><i class="material-icons">tune</i>モード選択</h3>
+      <div class="mode-grid">
+        <button class="mode-card ${broadcast.current?.mainSource !== 'screen' ? 'active' : ''}" id="mode-camera">
+          <i class="material-icons">videocam</i><strong>通常・有事モード</strong><span>ライブカメラをメイン送出</span>
+        </button>
+        <button class="mode-card ${broadcast.current?.mainSource === 'screen' ? 'active' : ''}" id="mode-report">
+          <i class="material-icons">newspaper</i><strong>報道モード</strong><span>シーン・見出しを送出</span>
+        </button>
+      </div>
+    </div>
 
-    if (cam.type === 'youtube' || (cam.url || '').includes('youtube.com') || (cam.url || '').includes('youtu.be')) {
-      const id = extractYoutubeId(cam.url);
-      container.innerHTML = id
-        ? `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1&mute=1&controls=0&rel=0&iv_load_policy=3&modestbranding=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>`
-        : '<div class="preview-placeholder">YouTube URLを確認してください</div>';
-      return null;
-    }
-    if (cam.type === 'hls' || (cam.url || '').includes('.m3u8')) {
-      const v = document.createElement('video');
-      v.autoplay = true; v.muted = true; v.playsInline = true;
-      container.appendChild(v);
-      if (window.Hls && Hls.isSupported()) {
-        const h = new Hls(); h.loadSource(cam.url); h.attachMedia(v);
-        return h;
-      } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
-        v.src = cam.url;
-      }
-      return null;
-    }
-    if (cam.type === 'web' || (cam.url || '').match(/\.(jpg|jpeg|png)$/i)) {
-      container.innerHTML = `<img src="${cam.url}">`;
-      return null;
-    }
-    container.innerHTML = `<iframe src="${cam.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-    return null;
-  }, true);
-}
+    <div class="panel">
+      <div class="section-title">
+        タイマー
+        <span class="badge ${switcher.schedule?.enabled ? 'green' : ''}">${switcher.schedule?.enabled ? '予約あり' : '未設定'}</span>
+      </div>
+      <div class="grid2">
+        <div><label class="label">切り替え時刻</label><input type="datetime-local" id="sched-time" value="${switcher.schedule?.triggerAt ? localDateInput(switcher.schedule.triggerAt) : ''}"></div>
+        <div><label class="label">対象シーン</label><select id="sched-scene">${scenes().map(x => `<option value="${esc(x.id)}" ${switcher.schedule?.sceneId === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
+      </div>
+      <div class="switch-row" style="margin:12px 0">
+        <label class="switch"><input id="sched-preload" type="checkbox" ${switcher.schedule?.preload ? 'checked' : ''}><span class="track"></span></label>
+        <span class="switch-label">10秒前からバックグラウンドで読み込む</span>
+      </div>
+      <div class="row"><button class="btn primary" id="sched-save">予約を設定</button><button class="btn red" id="sched-clear">予約解除</button></div>
+      <div class="subtle" id="sched-status" style="margin-top:9px">${switcher.schedule?.enabled ? `次回：${fmt(switcher.schedule.triggerAt)}「${scenes().find(x => x.id === switcher.schedule.sceneId)?.name || ''}」` : '予約を設定すると、このスイッチャーを開いている間、自動送出します。'}</div>
+    </div>
 
-function renderScreenProgram(sp) {
-  const key = 'screen:' + (sp.type || '') + ':' + (sp.url || '');
-  if (key === currentMediaKey) return;
-  currentMediaKey = key;
+    <div class="panel">
+      <h3><i class="material-icons">bolt</i>簡易送出</h3>
+      <div class="grid2"><button class="btn" id="quick-prepare">準備中画面</button><button class="btn" id="quick-black">黒画面</button></div>
+    </div>`;
 
-  swapTo(container => {
-    const type = sp.type || 'image';
-
-    if (type === 'studio') {
-      const placeholder = document.createElement('div');
-      placeholder.className = 'preview-placeholder';
-      placeholder.textContent = 'スタジオ映像 接続中…';
-      const v = document.createElement('video');
-      v.autoplay = true; v.muted = true; v.playsInline = true;
-      v.style.display = 'none';
-      container.appendChild(placeholder);
-      container.appendChild(v);
-      studioVideoEl = v;
-      studioPlaceholderEl = placeholder;
-      if (studioStream) {
-        v.srcObject = studioStream;
-        v.play().catch(() => {});
-        v.style.display = 'block';
-        placeholder.style.display = 'none';
-      }
-      return null;
-    }
-
-    if (!sp.url) { container.innerHTML = '<div class="preview-placeholder">送出準備中</div>'; return null; }
-
-    if (type === 'youtube') {
-      const id = extractYoutubeId(sp.url);
-      container.innerHTML = id
-        ? `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1&mute=1&controls=0&rel=0" allow="autoplay; encrypted-media"></iframe>`
-        : '<div class="preview-placeholder">YouTube URLを確認してください</div>';
-      return null;
-    }
-    if (type === 'web') {
-      container.innerHTML = `<iframe src="${sp.url}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style="background:#fff"></iframe>`;
-      return null;
-    }
-    if (type === 'video') {
-      const v = document.createElement('video');
-      v.autoplay = true; v.muted = sp.muted !== false; v.loop = !!sp.loop; v.playsInline = true;
-      container.appendChild(v);
-      if (sp.url.includes('.m3u8')) {
-        if (window.Hls && Hls.isSupported()) {
-          const h = new Hls(); h.loadSource(sp.url); h.attachMedia(v);
-          return h;
-        }
-        v.src = sp.url;
-      } else {
-        v.src = sp.url;
-      }
-      return null;
-    }
-    container.innerHTML = `<img src="${sp.url}">`;
-    return null;
-  }, false);
+  $('mode-camera').onclick = () => setMode('camera');
+  $('mode-report').onclick = () => sendScene(s || scenes()[0]);
+  $('quick-prepare').onclick = sendPrepare;
+  $('quick-black').onclick = sendBlack;
+  $('sched-save').onclick = () => {
+    const value = $('sched-time').value;
+    if (!value) { alert('時刻を指定してください'); return; }
+    const ts = new Date(value).getTime();
+    if (isNaN(ts) || ts < Date.now()) { alert('未来の時刻を指定してください'); return; }
+    switcher.schedule = { enabled: true, triggerAt: ts, sceneId: $('sched-scene').value, preload: $('sched-preload').checked, preloadSec: 10 };
+    writeSwitcher().then(armSchedule);
+  };
+  $('sched-clear').onclick = () => { switcher.schedule = { enabled: false }; writeSwitcher().then(armSchedule); };
 }
 
 /* =========================================================================
-   broadcast/studio/webrtc — ChromaKey Studio からの映像受信（WebRTC）
-   type=='studio' が選択されているかどうかに関わらず、配信側(offer)の
-   有無を常時監視しておき、切り替わった瞬間に即座に表示できるようにする。
+   Sidebar: シーン タブ
    ========================================================================= */
-function setupStudioReceiver() {
-  let unsubStudioAdminCandidates = null;
+function renderScene() {
+  const ss = scenes();
+  if (sceneIndex >= ss.length) sceneIndex = ss.length - 1;
+  if (sceneIndex < 0) sceneIndex = 0;
+  const s = ss[sceneIndex];
 
-  onValue(ref(db, `${STUDIO_PATH}/offer`), async snap => {
-    const offerData = snap.val();
+  $('side-scene').innerHTML = `
+    <div class="panel">
+      <div class="section-title">シーン順序 <span class="tiny">← → で前後移動</span></div>
+      <div class="scene-line">${ss.map((x, i) => `<div class="scene-node"><button class="btn small ${i === sceneIndex ? 'primary' : ''}" data-si="${i}">${esc(x.name)}</button></div>${i < ss.length - 1 ? '<span class="seq-arrow">→</span>' : ''}`).join('')}</div>
+      <div class="row" style="margin-top:10px"><button class="btn" id="scene-add">＋ シーン追加</button><button class="btn red" id="scene-delete">シーン削除</button></div>
+    </div>
 
-    if (unsubStudioAdminCandidates) { unsubStudioAdminCandidates(); unsubStudioAdminCandidates = null; }
-    if (studioPeerConnection) { try { studioPeerConnection.close(); } catch (_) {} studioPeerConnection = null; }
-    studioStream = null;
-    if (studioVideoEl) { studioVideoEl.style.display = 'none'; studioVideoEl.srcObject = null; }
-    if (studioPlaceholderEl) { studioPlaceholderEl.style.display = 'flex'; studioPlaceholderEl.textContent = 'スタジオ映像 接続中…'; }
+    <div class="panel">
+      <h3><i class="material-icons">visibility</i>現在のシーン</h3>
+      ${s ? `<div class="list-item active"><div class="list-main"><strong>${esc(s.name)}</strong><span>${esc(s.type || 'news')}</span></div><div class="subtle" style="margin-top:6px">${esc(s.title || '')} ${s.subtitle ? ' / ' + esc(s.subtitle) : ''}</div></div>` : '<div class="empty">シーンがありません</div>'}
+    </div>
 
-    if (!offerData) return;
+    <div class="panel">
+      <h3><i class="material-icons">swap_horiz</i>シーン順序の操作</h3>
+      <div class="row"><button class="btn" id="scene-prev">← 前へ</button><button class="btn" id="scene-next">次へ →</button></div>
+      <div class="drag-note">左右矢印キーでも移動します。送出操作は「画面送出」タブから行えます。</div>
+    </div>`;
 
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    studioPeerConnection = pc;
-    let pendingAdminCandidates = []; // setRemoteDescription完了前に届いたcandidateを一時保管する
+  document.querySelectorAll('[data-si]').forEach(b => b.onclick = () => { sceneIndex = Number(b.dataset.si); renderScene(); renderPreview(); });
+  $('scene-add').onclick = openSceneAddModal;
+  $('scene-delete').onclick = deleteScene;
+  $('scene-prev').onclick = () => { if (sceneIndex > 0) { sceneIndex--; renderScene(); renderPreview(); } };
+  $('scene-next').onclick = () => { if (sceneIndex < ss.length - 1) { sceneIndex++; renderScene(); renderPreview(); } };
+}
+const SCENE_TEMPLATES = [
+  { key: 'op', name: 'OP', type: 'op', icon: 'movie', desc: 'ニュースOP動画を自動再生', materialId: OP_MATERIAL_ID },
+  { key: 'news', name: 'ニュース', type: 'news', icon: 'newspaper', desc: '素材は後で「素材送出」タブから設定', materialId: null },
+  { key: 'weather', name: '天気予報', type: 'weather', icon: 'partly_cloudy_day', desc: '素材は後で「素材送出」タブから設定', materialId: null },
+  { key: 'blank', name: '空白のシーン', type: 'other', icon: 'add_box', desc: '名前だけ決めて追加する', materialId: null }
+];
+function openSceneAddModal() { $('scene-add-modal').style.display = 'flex'; }
+function closeSceneAddModal() { $('scene-add-modal').style.display = 'none'; }
+function addSceneFromTemplate(key) {
+  const t = SCENE_TEMPLATES.find(x => x.key === key) || SCENE_TEMPLATES[SCENE_TEMPLATES.length - 1];
+  const ss = scenes();
+  const id = uid('scene');
+  switcher.scenes[id] = { name: t.name, type: t.type, order: ss.length + 1, materialId: t.materialId };
+  sceneIndex = ss.length;
+  writeSwitcher().then(renderAll);
+  closeSceneAddModal();
+}
+function deleteScene() {
+  const s = activeScene();
+  if (!s || !confirm(`「${s.name}」を削除しますか？`)) return;
+  delete switcher.scenes[s.id];
+  const ss = scenes();
+  ss.forEach((x, i) => { x.order = i + 1; switcher.scenes[x.id] = x; });
+  sceneIndex = Math.max(0, sceneIndex - 1);
+  writeSwitcher().then(renderAll);
+}
+function moveScene(dir) {
+  const ss = scenes();
+  const i = sceneIndex, j = i + dir;
+  if (j < 0 || j >= ss.length) return;
+  const a = ss[i], b = ss[j];
+  const temp = a.order; a.order = b.order; b.order = temp;
+  switcher.scenes[a.id] = a; switcher.scenes[b.id] = b;
+  sceneIndex = j;
+  writeSwitcher().then(renderAll);
+}
 
-    pc.oniceconnectionstatechange = () => console.log('[news-screen] Studio ICE connection state:', pc.iceConnectionState);
-    pc.onconnectionstatechange = () => console.log('[news-screen] Studio connection state:', pc.connectionState);
+/* =========================================================================
+   Sidebar: 画面送出 タブ
+   ========================================================================= */
+function renderOutput() {
+  const ss = scenes();
+  const cur = broadcast.current || {}, sp = broadcast.screen_program || {};
+  const ms = materials();
+  const opMaterial = ms.find(x => x.id === 'mat_op_video');
 
-    pc.ontrack = event => {
-      studioStream = event.streams[0];
-      if (studioVideoEl) {
-        studioVideoEl.srcObject = studioStream;
-        studioVideoEl.play().catch(() => {});
-        studioVideoEl.style.display = 'block';
-        if (studioPlaceholderEl) studioPlaceholderEl.style.display = 'none';
-      }
-    };
-    pc.onicecandidate = event => {
-      if (event.candidate) set(ref(db, `${STUDIO_PATH}/candidates/main/${Date.now()}`), event.candidate.toJSON());
-    };
-    unsubStudioAdminCandidates = onValue(ref(db, `${STUDIO_PATH}/candidates/admin`), iceSnap => {
-      iceSnap.forEach(child => {
-        const candidate = new RTCIceCandidate(child.val());
-        if (pc.remoteDescription) {
-          pc.addIceCandidate(candidate).catch(e => console.error('[news-screen] Studio addIceCandidate失敗:', e));
-        } else {
-          pendingAdminCandidates.push(candidate);
-        }
-      });
+  $('side-output').innerHTML = `
+    <div class="panel">
+      <h3><i class="material-icons">cast</i>現在の送出</h3>
+      <div class="list-item active">
+        <div class="list-main"><strong>${cur.mainSource === 'screen' ? '報道画面' : 'ライブカメラ'}</strong><span>${cur.mainSource === 'screen' ? (sp.type || 'image') : (activeCamera()?.name || '未選択')}</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3><i class="material-icons">view_carousel</i>シーン送出</h3>
+      <div class="list">${ss.map((s, i) => `<button class="btn ${i === sceneIndex ? 'primary' : ''}" style="text-align:left" data-send-scene="${esc(s.id)}"><strong>${esc(s.name)}</strong></button>`).join('')}</div>
+    </div>
+
+    ${opMaterial ? `<div class="panel">
+      <h3><i class="material-icons">movie</i>ニュースOP</h3>
+      <button class="btn primary" style="width:100%" id="output-op-send">OP動画を送出</button>
+    </div>` : ''}
+
+    <div class="panel">
+      <div class="subtle"><i class="material-icons" style="font-size:14px;vertical-align:-2px">info</i> 画像・動画素材の送出、および重ね表示（レイヤー）は「素材送出」タブから行えます。</div>
+    </div>`;
+
+  document.querySelectorAll('[data-send-scene]').forEach(b => b.onclick = () => { const s = ss.find(x => x.id === b.dataset.sendScene); if (s) { sceneIndex = ss.indexOf(s); sendScene(s); renderOutput(); } });
+  if (opMaterial) $('output-op-send').onclick = () => outputMaterial(opMaterial);
+}
+
+/* =========================================================================
+   Sidebar: 素材送出 タブ（フォルダ + レイヤーパネル）
+   ========================================================================= */
+function folders() { return Object.entries(switcher.folders || {}).map(([id, v]) => ({ id, ...v })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)); }
+function materialsInFolder(folderId) { return materials().filter(m => (m.folderId || null) === folderId); }
+function overlays() { return Object.entries(broadcast.overlays || {}).map(([id, v]) => ({ id, ...v })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)); }
+
+function renderMaterials() {
+  const currentFolder = currentFolderId ? folders().find(f => f.id === currentFolderId) : null;
+  const foldersHere = currentFolderId ? [] : folders(); // フォルダは1階層のみ（サブフォルダなし）
+  const materialsHere = materialsInFolder(currentFolderId);
+  const layers = overlays();
+  const m = materialsHere.find(x => x.id === editingMaterialId) || null;
+
+  $('side-materials').innerHTML = `
+    <div class="panel">
+      <div class="section-title">レイヤー（重ね順）<span class="tiny">上ほど手前</span></div>
+      ${layers.length === 0 ? '<div class="empty">重ねて表示中の素材はありません</div>' : `
+      <div class="list">
+        ${layers.slice().reverse().map((l, ri) => {
+          const i = layers.length - 1 - ri; // 元の配列インデックス(手前が上に来るよう逆順表示)
+          return `<div class="list-item ${l.visible === false ? '' : 'active'}">
+            <div class="list-main">
+              <strong>${esc(l.name || '素材')}</strong>
+              <span>${esc(l.type || 'image')}</span>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn small" data-layer-up="${esc(l.id)}" ${i === layers.length - 1 ? 'disabled' : ''}><i class="material-icons" style="font-size:14px">arrow_upward</i></button>
+              <button class="btn small" data-layer-down="${esc(l.id)}" ${i === 0 ? 'disabled' : ''}><i class="material-icons" style="font-size:14px">arrow_downward</i></button>
+              <button class="btn small" data-layer-toggle="${esc(l.id)}">${l.visible === false ? '表示する' : '非表示'}</button>
+              <button class="btn small red" data-layer-remove="${esc(l.id)}">解除</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`}
+    </div>
+
+    <div class="panel">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div class="section-title" style="margin:0">
+          ${currentFolder ? `<button class="btn small ghost" id="folder-back"><i class="material-icons" style="font-size:14px">arrow_back</i></button> ${esc(currentFolder.name)}` : 'フォルダ'}
+        </div>
+        ${!currentFolder ? '<button class="btn small" id="folder-add">＋フォルダ</button>' : ''}
+      </div>
+      ${!currentFolder ? `
+      <div class="list" style="margin-top:10px">
+        ${foldersHere.map(f => `<button class="list-item" style="text-align:left;width:100%" data-open-folder="${esc(f.id)}"><div class="list-main"><strong><i class="material-icons" style="font-size:14px;vertical-align:-2px">folder</i> ${esc(f.name)}</strong><span>${materialsInFolder(f.id).length}件</span></div></button>`).join('')}
+        ${foldersHere.length === 0 ? '<div class="tiny" style="padding:4px 2px">フォルダはまだありません</div>' : ''}
+      </div>` : ''}
+    </div>
+
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <div><h3 style="margin:0"><i class="material-icons">perm_media</i>素材${currentFolder ? `（${esc(currentFolder.name)}）` : '（未分類）'}</h3></div>
+        <div class="row">
+          ${currentFolder ? `<button class="btn small red" id="folder-delete">フォルダ削除</button>` : ''}
+          <button class="btn primary small" id="mat-add">＋追加</button>
+        </div>
+      </div>
+      <div class="list" style="margin-top:10px">
+        ${materialsHere.map(x => `<button class="list-item ${x.id === editingMaterialId ? 'active' : ''}" style="text-align:left;width:100%" data-mat="${esc(x.id)}"><div class="list-main"><strong>${esc(x.name)}</strong><span>${esc(x.type || 'image')}</span></div></button>`).join('')}
+        ${materialsHere.length === 0 ? '<div class="empty">素材がありません。「＋追加」から作成してください。</div>' : ''}
+      </div>
+    </div>
+
+    ${m ? `<div class="panel">
+      <div class="detail-title">${esc(m.name)}</div>
+      <div class="detail-sub">素材編集</div>
+
+      <label class="label">名称</label><input id="mat-name" value="${esc(m.name || '')}">
+      <label class="label" style="margin-top:9px">種類</label>
+      <select id="mat-type">
+        <option value="image" ${m.type === 'image' ? 'selected' : ''}>画像</option>
+        <option value="video" ${m.type === 'video' ? 'selected' : ''}>動画</option>
+      </select>
+      <label class="label" style="margin-top:9px">URL</label>
+      <input id="mat-url" value="${esc(m.url || '')}" placeholder="https://...">
+      ${foldersHere.length || currentFolder ? `
+      <label class="label" style="margin-top:9px">フォルダ</label>
+      <select id="mat-folder">
+        <option value="">未分類</option>
+        ${folders().map(f => `<option value="${esc(f.id)}" ${(m.folderId || '') === f.id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
+      </select>` : ''}
+
+      <div class="field-group" style="margin-top:12px" id="mat-video-options" ${m.type === 'video' ? '' : 'style="display:none"'}>
+        <div class="field-group-title">動画オプション</div>
+        <div class="switch-row"><label class="switch"><input id="mat-loop" type="checkbox" ${m.loop ? 'checked' : ''}><span class="track"></span></label><span class="switch-label">動画をループ</span></div>
+        <div class="switch-row" style="margin-top:8px"><label class="switch"><input id="mat-muted" type="checkbox" ${m.muted !== false ? 'checked' : ''}><span class="track"></span></label><span class="switch-label">動画をミュート</span></div>
+      </div>
+
+      <label class="label" style="margin-top:12px">プレビュー</label>
+      <div id="mat-preview" class="material-preview"></div>
+      <div class="row wrap" style="margin-top:10px">
+        <button class="btn primary" id="mat-save">保存</button>
+        <button class="btn" id="mat-send">メインとして送出</button>
+        <button class="btn" id="mat-overlay">重ねて表示</button>
+        <button class="btn red" id="mat-delete">削除</button>
+      </div>
+    </div>` : ''}`;
+
+  // --- レイヤーパネルの操作 ---
+  document.querySelectorAll('[data-layer-up]').forEach(b => b.onclick = () => moveOverlayLayer(b.dataset.layerUp, 1));
+  document.querySelectorAll('[data-layer-down]').forEach(b => b.onclick = () => moveOverlayLayer(b.dataset.layerDown, -1));
+  document.querySelectorAll('[data-layer-toggle]').forEach(b => b.onclick = () => toggleOverlayLayer(b.dataset.layerToggle));
+  document.querySelectorAll('[data-layer-remove]').forEach(b => b.onclick = () => removeOverlayLayer(b.dataset.layerRemove));
+
+  // --- フォルダ操作 ---
+  document.querySelectorAll('[data-open-folder]').forEach(b => b.onclick = () => { currentFolderId = b.dataset.openFolder; editingMaterialId = null; renderMaterials(); });
+  const backBtn = $('folder-back');
+  if (backBtn) backBtn.onclick = () => { currentFolderId = null; editingMaterialId = null; renderMaterials(); };
+  const folderAddBtn = $('folder-add');
+  if (folderAddBtn) folderAddBtn.onclick = () => {
+    const name = prompt('フォルダ名を入力してください');
+    if (!name) return;
+    if (!switcher.folders) switcher.folders = {};
+    const id = uid('folder');
+    switcher.folders[id] = { name: name.trim() || '新規フォルダ', order: folders().length };
+    writeSwitcher().then(renderMaterials);
+  };
+  const folderDeleteBtn = $('folder-delete');
+  if (folderDeleteBtn) folderDeleteBtn.onclick = () => {
+    if (!currentFolder) return;
+    if (!confirm(`「${currentFolder.name}」を削除しますか？（中の素材は「未分類」に移動します）`)) return;
+    materialsInFolder(currentFolder.id).forEach(x => { switcher.materials[x.id].folderId = null; });
+    delete switcher.folders[currentFolder.id];
+    currentFolderId = null;
+    writeSwitcher().then(renderMaterials);
+  };
+
+  // --- 素材一覧の操作 ---
+  $('mat-add').onclick = () => {
+    const id = uid('mat');
+    switcher.materials[id] = { name: '新規素材', type: 'image', url: '', loop: false, muted: true, folderId: currentFolderId };
+    editingMaterialId = id;
+    writeSwitcher().then(renderMaterials);
+  };
+  document.querySelectorAll('[data-mat]').forEach(b => b.onclick = () => { editingMaterialId = b.dataset.mat; renderMaterials(); });
+
+  if (m) {
+    const readMatForm = () => ({
+      ...m,
+      name: $('mat-name').value.trim() || '無題素材',
+      type: $('mat-type').value,
+      url: $('mat-url').value,
+      folderId: $('mat-folder') ? ($('mat-folder').value || null) : (m.folderId || null),
+      loop: $('mat-loop').checked,
+      muted: $('mat-muted').checked
     });
+    const updateM = () => { const v = readMatForm(); Object.assign(m, v); switcher.materials[m.id] = m; };
 
-    try {
-      await pc.setRemoteDescription(new RTCSessionDescription(offerData));
-      const queued = pendingAdminCandidates;
-      pendingAdminCandidates = [];
-      for (const c of queued) {
-        try { await pc.addIceCandidate(c); } catch (e) { console.error('[news-screen] Studio addIceCandidate失敗:', e); }
+    $('mat-save').onclick = () => { updateM(); writeSwitcher().then(renderAll); };
+    $('mat-send').onclick = () => { updateM(); writeSwitcher().then(() => outputMaterial(m)); };
+    $('mat-overlay').onclick = () => { updateM(); writeSwitcher().then(() => addOverlayLayer(m)); };
+    $('mat-delete').onclick = () => {
+      if (confirm(`「${m.name}」を削除しますか？`)) {
+        delete switcher.materials[m.id];
+        editingMaterialId = null;
+        writeSwitcher().then(renderAll);
       }
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      await set(ref(db, `${STUDIO_PATH}/answer`), { type: answer.type, sdp: answer.sdp });
-    } catch (e) {
-      console.error('[news-screen] Studio受信の接続に失敗:', e);
-      if (studioPlaceholderEl) studioPlaceholderEl.textContent = 'スタジオ映像の接続に失敗しました';
-    }
+    };
+    $('mat-type').addEventListener('change', () => {
+      $('mat-video-options').style.display = $('mat-type').value === 'video' ? 'block' : 'none';
+      renderMaterialPreview(readMatForm());
+    });
+    ['mat-name', 'mat-url', 'mat-loop', 'mat-muted'].forEach(id => {
+      $(id)?.addEventListener('input', () => renderMaterialPreview(readMatForm()));
+    });
+    renderMaterialPreview(readMatForm());
+  }
+}
+
+/* -- レイヤー（broadcast/overlays）操作。素材ライブラリとは別の「今、重ねて表示中の実体」-- */
+function addOverlayLayer(m) {
+  const id = uid('layer');
+  const ov = overlays();
+  const path = `broadcast/overlays/${id}`;
+  dbSet(path, {
+    name: m.name, type: m.type, url: m.url,
+    loop: m.type === 'video' ? !!m.loop : null,
+    muted: m.type === 'video' ? m.muted !== false : null,
+    order: ov.length,
+    visible: true
   });
+  setStatus(`「${m.name}」を重ねて表示しました`, path);
+}
+function moveOverlayLayer(id, dir) {
+  const ov = overlays();
+  const i = ov.findIndex(l => l.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= ov.length) return;
+  const a = ov[i], b = ov[j];
+  const updates = {};
+  updates[`broadcast/overlays/${a.id}/order`] = b.order;
+  updates[`broadcast/overlays/${b.id}/order`] = a.order;
+  dbUpdate('/', updates);
+}
+function toggleOverlayLayer(id) {
+  const l = overlays().find(x => x.id === id);
+  if (!l) return;
+  dbUpdate(`broadcast/overlays/${id}`, { visible: l.visible === false });
+}
+function removeOverlayLayer(id) {
+  dbRemove(`broadcast/overlays/${id}`);
+}
+function renderMaterialPreview(m) {
+  const p = $('mat-preview');
+  if (!p) return;
+  p.innerHTML = '';
+  const temp = { ...m };
+  if (temp.type === 'video') {
+    p.innerHTML = temp.url ? `<video src="${esc(temp.url)}" controls muted ${temp.loop ? 'loop' : ''}></video>` : '<div class="preview-placeholder small">VIDEO</div>';
+  } else {
+    p.innerHTML = temp.url ? `<img src="${esc(temp.url)}">` : '<div class="preview-placeholder small">IMAGE</div>';
+  }
 }
 
 /* =========================================================================
-   broadcast/current — メインソース切替のみを見る
+   Clock / scene scheduler
    ========================================================================= */
-let latestScreenProgram = {};
-
-onValue(ref(db, 'broadcast/current'), snap => {
-  const cur = snap.val() || {};
-  if (cur.mainSource === 'camera') {
-    renderCamera(cur.cameraSource);
-  } else {
-    renderScreenProgram(latestScreenProgram);
+function updateClock() { const el = $('program-clock'); if (el) el.textContent = nowString(); }
+function renderAll() { renderMode(); renderScene(); renderOutput(); renderMaterials(); renderPreview(); updateClock(); }
+function armSchedule() {
+  clearTimeout(scheduleTimer);
+  scheduleTimer = null;
+  preloadedSceneId = null;
+  if (!switcher.schedule?.enabled) return;
+  const s = scenes().find(x => x.id === switcher.schedule.sceneId);
+  if (!s) return;
+  const ts = Number(switcher.schedule.triggerAt);
+  if (ts <= Date.now()) return;
+  const prep = ts - (switcher.schedule.preload !== false ? 10000 : 0);
+  if (switcher.schedule.preload !== false) {
+    setTimeout(() => preloadScene(s), Math.max(0, prep - Date.now()));
   }
-});
-
-onValue(ref(db, 'broadcast/screen_program'), snap => {
-  latestScreenProgram = snap.val() || {};
-  if (!mainTarget.classList.contains('mode-camera')) {
-    renderScreenProgram(latestScreenProgram);
+  scheduleTimer = setTimeout(() => {
+    sendScene(s);
+    switcher.schedule.lastTriggeredAt = Date.now();
+    writeSwitcher();
+  }, Math.max(0, ts - Date.now()));
+}
+function preloadScene(scene) {
+  const m = activeMaterialForScene(scene);
+  if (!m) return;
+  preloadedSceneId = scene.id;
+  if (m.type === 'image' || m.type === 'title') {
+    preloader = new Image();
+    preloader.src = m.type === 'title' ? buildTitleSvgData(m) : m.url || '';
+  } else if (m.type === 'video') {
+    preloader = document.createElement('video');
+    preloader.preload = 'auto'; preloader.muted = true; preloader.src = m.url || ''; preloader.load();
   }
-});
+  setStatus(`「${scene.name}」を事前読み込み中`, `schedule preloading → ${scene.id}`);
+}
 
 /* =========================================================================
-   起動
+   Auth
    ========================================================================= */
-loadCameras();
-setupStudioReceiver();
+onAuthStateChanged(auth, async user => {
+  const err = $('login-error');
+  if (user) {
+    $('login').style.display = 'none';
+    $('app').classList.add('visible');
+    $('auth-state').textContent = user.email || '接続中';
+    try {
+      await loadCameras();
+      onValue(ref(db, 'broadcast'), snap => {
+        broadcast = snap.val() || {};
+        try {
+          if (activeTab === 'output' || activeTab === 'mode' || activeTab === 'materials') renderAll(); else renderPreview();
+        } catch (e) {
+          console.error('[EQLive Reporter Switcher] render error:', e);
+          setStatus('画面初期化エラー', e?.message || String(e));
+        }
+      }, error => {
+        console.error('[EQLive Reporter Switcher] broadcast read error:', error);
+        const msg = error?.code === 'PERMISSION_DENIED' ? 'Firebase Realtime Databaseの読み取り権限がありません。Rulesを確認してください。' : `Firebase読み取りエラー: ${error?.message || error}`;
+        setStatus(msg, 'broadcast');
+      });
+      onValue(ref(db, SWITCHER_PATH), snap => {
+        switcher = snap.val() || {};
+        const seedChanged = ensureSeed();
+        if (!snap.exists() || seedChanged) {
+          writeSwitcher();
+        }
+        armSchedule();
+        try { renderAll(); } catch (e) {
+          console.error('[EQLive Reporter Switcher] switcher render error:', e);
+          setStatus('画面初期化エラー', e?.message || String(e));
+        }
+      }, error => {
+        console.error('[EQLive Reporter Switcher] switcher read error:', error);
+        const msg = error?.code === 'PERMISSION_DENIED' ? 'Firebase Realtime Databaseの読み取り権限がありません。broadcast/reporter_switcher のRulesを確認してください。' : `Firebase読み取りエラー: ${error?.message || error}`;
+        setStatus(msg, SWITCHER_PATH);
+      });
+    } catch (e) {
+      console.error('[EQLive Reporter Switcher] startup error:', e);
+      $('auth-state').textContent = '初期化エラー';
+      setStatus('ログインは成功しましたが、初期化に失敗しました', e?.message || String(e));
+    }
+  } else {
+    $('login').style.display = 'flex';
+    $('app').classList.remove('visible');
+    $('auth-state').textContent = '未ログイン';
+  }
+});
+
+$('login-btn').onclick = async () => {
+  const rawId = $('login-id').value.trim();
+  const pw = $('login-pass').value;
+  const err = $('login-error');
+  if (!rawId || !pw) {
+    err.textContent = 'メールアドレス（またはユーザーID）とパスワードを入力してください。';
+    err.style.display = 'block';
+    return;
+  }
+
+  // Firebase Authentication に登録されているメールアドレスをそのまま使用。
+  // 従来のEQLive管理画面と同じ「ユーザーID」形式（@なし）にも対応する。
+  const email = rawId.includes('@') ? rawId : `${rawId}@kactuif.internal`;
+  err.style.display = 'none';
+
+  try {
+    await signInWithEmailAndPassword(auth, email, pw);
+  } catch (e) {
+    console.error('[EQLive Reporter Switcher] Firebase Auth error:', e);
+    const messages = {
+      'auth/invalid-credential': 'メールアドレスまたはパスワードが正しくありません。',
+      'auth/invalid-login-credentials': 'メールアドレスまたはパスワードが正しくありません。',
+      'auth/user-not-found': 'Firebase Authenticationに登録されているユーザーが見つかりません。',
+      'auth/wrong-password': 'パスワードが正しくありません。',
+      'auth/too-many-requests': 'ログイン試行回数が多すぎます。しばらく待ってから再試行してください。',
+      'auth/network-request-failed': 'Firebaseへの接続に失敗しました。ネットワーク接続を確認してください。',
+      'auth/operation-not-allowed': 'Firebase Authenticationの「メール/パスワード」ログインが有効になっていません。',
+      'auth/invalid-email': 'メールアドレスの形式が正しくありません。'
+    };
+    err.textContent = messages[e?.code] || `ログインに失敗しました。(${e?.code || 'unknown-error'})`;
+    err.style.display = 'block';
+  }
+};
+$('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('login-btn').click(); });
+
+/* =========================================================================
+   シーン追加モーダル
+   ========================================================================= */
+document.querySelectorAll('[data-scene-template]').forEach(b => {
+  b.onclick = () => addSceneFromTemplate(b.dataset.sceneTemplate);
+});
+$('scene-add-cancel').onclick = closeSceneAddModal;
+$('scene-add-modal').addEventListener('click', e => { if (e.target.id === 'scene-add-modal') closeSceneAddModal(); });
+
+/* =========================================================================
+   Boot
+   ========================================================================= */
+setInterval(() => { $('program-clock').textContent = nowString(); }, 1000);
+window.addEventListener('keydown', e => {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+  if (activeTab === 'scene') {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); moveScene(-1); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); moveScene(1); }
+  }
+});
+window.addEventListener('beforeunload', () => { if (hls) try { hls.destroy(); } catch (_) {} });
+
+afterStart();
+function afterStart() { switchTab('mode'); $('program-clock').textContent = nowString(); }
 </script>
 </body>
 </html>
