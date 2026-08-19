@@ -342,10 +342,12 @@ textarea{min-height:88px;resize:vertical}
         <button class="tab active" data-tab="mode"><i class="material-icons">tune</i>モード</button>
         <button class="tab" data-tab="scene"><i class="material-icons">view_carousel</i>シーン</button>
         <button class="tab" data-tab="output"><i class="material-icons">cast</i>画面送出</button>
+        <button class="tab" data-tab="materials"><i class="material-icons">perm_media</i>素材送出</button>
       </div>
       <div id="side-mode" class="side-scroll"></div>
       <div id="side-scene" class="side-scroll" style="display:none"></div>
       <div id="side-output" class="side-scroll" style="display:none"></div>
+      <div id="side-materials" class="side-scroll" style="display:none"></div>
     </aside>
 
     <section class="stage">
@@ -374,7 +376,6 @@ textarea{min-height:88px;resize:vertical}
     <p class="subtle" style="margin:-4px 0 14px">テンプレートを選んでください。あとから並び替えや削除ができます。</p>
     <div class="modal-options">
       <button class="modal-option" data-scene-template="op"><i class="material-icons">movie</i><div><strong>OP</strong><span>ニュースOP動画を自動再生</span></div></button>
-      <button class="modal-option" data-scene-template="studio"><i class="material-icons">cast</i><div><strong>スタジオ</strong><span>ChromaKey Studioの映像を表示</span></div></button>
       <button class="modal-option" data-scene-template="news"><i class="material-icons">newspaper</i><div><strong>ニュース</strong><span>素材は後で設定します</span></div></button>
       <button class="modal-option" data-scene-template="weather"><i class="material-icons">partly_cloudy_day</i><div><strong>天気予報</strong><span>素材は後で設定します</span></div></button>
       <button class="modal-option" data-scene-template="blank"><i class="material-icons">add_box</i><div><strong>空白のシーン</strong><span>名前だけ決めて追加する</span></div></button>
@@ -428,6 +429,7 @@ let scheduleTimer = null;
 let preloadedSceneId = null;
 let editingMaterialId = null;
 let editingSceneId = null;
+let currentFolderId = null;
 
 /* =========================================================================
    Small utilities
@@ -471,7 +473,7 @@ function activeMaterialForScene(scene){ return scene?.materialId ? materials().f
 function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  ['mode', 'scene', 'output'].forEach(k => { $('side-' + k).style.display = k === tab ? 'block' : 'none'; });
+  ['mode', 'scene', 'output', 'materials'].forEach(k => { $('side-' + k).style.display = k === tab ? 'block' : 'none'; });
   renderAll();
 }
 document.querySelectorAll('.tab').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
@@ -513,13 +515,12 @@ async function loadCameras() {
 function ensureSeed() {
   let changed = false;
   if (!switcher.scenes || Object.keys(switcher.scenes).length === 0) {
-    const ids = ['scene_op', 'scene_studio', 'scene_news1', 'scene_news2', 'scene_weather'];
+    const ids = ['scene_op', 'scene_news1', 'scene_news2', 'scene_weather'];
     const defaults = [
       ['OP', 'op', 1, OP_MATERIAL_ID],
-      ['スタジオ', 'studio', 2, null],
-      ['ニュース①', 'news', 3, null],
-      ['ニュース②', 'news', 4, null],
-      ['天気予報', 'weather', 5, null]
+      ['ニュース①', 'news', 2, null],
+      ['ニュース②', 'news', 3, null],
+      ['天気予報', 'weather', 4, null]
     ];
     const obj = {};
     defaults.forEach((d, i) => { obj[ids[i]] = { name: d[0], type: d[1], order: d[2], materialId: d[3] }; });
@@ -555,7 +556,7 @@ function setMode(type) {
   }
 }
 function sendScene(scene) {
-  const p = scene.type === 'studio' ? { type: 'studio' } : materialToScreenProgram(activeMaterialForScene(scene));
+  const p = materialToScreenProgram(activeMaterialForScene(scene));
   dbUpdate('broadcast/current', { mainSource: 'screen' });
   dbSet('broadcast/screen_program', p);
   setStatus(`「${scene.name}」を送出しました`, `broadcast/screen_program (${p.type})`);
@@ -662,9 +663,7 @@ function renderPreview() {
       }
     } else {
       const type = sp.type || 'image';
-      if (type === 'studio') {
-        p.innerHTML = '<div class="preview-placeholder small">ChromaKey Studio映像<br><span style="font-size:11px;opacity:.7">実際の映像はNews-Screen側でご確認ください</span></div>';
-      } else if (type === 'youtube') {
+      if (type === 'youtube') {
         const id = extractYoutubeId(sp.url);
         p.innerHTML = id
           ? `<iframe src="https://www.youtube.com/embed/${esc(id)}?autoplay=1&mute=1&controls=1&rel=0" allow="autoplay; encrypted-media"></iframe>`
@@ -789,9 +788,8 @@ function renderScene() {
 }
 const SCENE_TEMPLATES = [
   { key: 'op', name: 'OP', type: 'op', icon: 'movie', desc: 'ニュースOP動画を自動再生', materialId: OP_MATERIAL_ID },
-  { key: 'studio', name: 'スタジオ', type: 'studio', icon: 'cast', desc: 'ChromaKey Studioの映像を表示', materialId: null },
-  { key: 'news', name: 'ニュース', type: 'news', icon: 'newspaper', desc: '素材は後で「画面送出」タブから設定', materialId: null },
-  { key: 'weather', name: '天気予報', type: 'weather', icon: 'partly_cloudy_day', desc: '素材は後で「画面送出」タブから設定', materialId: null },
+  { key: 'news', name: 'ニュース', type: 'news', icon: 'newspaper', desc: '素材は後で「素材送出」タブから設定', materialId: null },
+  { key: 'weather', name: '天気予報', type: 'weather', icon: 'partly_cloudy_day', desc: '素材は後で「素材送出」タブから設定', materialId: null },
   { key: 'blank', name: '空白のシーン', type: 'other', icon: 'add_box', desc: '名前だけ決めて追加する', materialId: null }
 ];
 function openSceneAddModal() { $('scene-add-modal').style.display = 'flex'; }
@@ -829,9 +827,9 @@ function moveScene(dir) {
    Sidebar: 画面送出 タブ
    ========================================================================= */
 function renderOutput() {
-  const ss = scenes(), ms = materials();
+  const ss = scenes();
   const cur = broadcast.current || {}, sp = broadcast.screen_program || {};
-  const m = ms.find(x => x.id === editingMaterialId) || null;
+  const ms = materials();
   const opMaterial = ms.find(x => x.id === 'mat_op_video');
 
   $('side-output').innerHTML = `
@@ -853,19 +851,75 @@ function renderOutput() {
     </div>` : ''}
 
     <div class="panel">
-      <h3><i class="material-icons">cast</i>ChromaKey Studio</h3>
-      <div class="subtle" style="margin-bottom:9px">ChromaKey Studioで配信中のスタジオ映像を送出します（配信側でONにしている必要があります）</div>
-      <button class="btn primary" style="width:100%" id="output-studio-send">スタジオ映像を送出</button>
+      <div class="subtle"><i class="material-icons" style="font-size:14px;vertical-align:-2px">info</i> 画像・動画素材の送出、および重ね表示（レイヤー）は「素材送出」タブから行えます。</div>
+    </div>`;
+
+  document.querySelectorAll('[data-send-scene]').forEach(b => b.onclick = () => { const s = ss.find(x => x.id === b.dataset.sendScene); if (s) { sceneIndex = ss.indexOf(s); sendScene(s); renderOutput(); } });
+  if (opMaterial) $('output-op-send').onclick = () => outputMaterial(opMaterial);
+}
+
+/* =========================================================================
+   Sidebar: 素材送出 タブ（フォルダ + レイヤーパネル）
+   ========================================================================= */
+function folders() { return Object.entries(switcher.folders || {}).map(([id, v]) => ({ id, ...v })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)); }
+function materialsInFolder(folderId) { return materials().filter(m => (m.folderId || null) === folderId); }
+function overlays() { return Object.entries(broadcast.overlays || {}).map(([id, v]) => ({ id, ...v })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)); }
+
+function renderMaterials() {
+  const currentFolder = currentFolderId ? folders().find(f => f.id === currentFolderId) : null;
+  const foldersHere = currentFolderId ? [] : folders(); // フォルダは1階層のみ（サブフォルダなし）
+  const materialsHere = materialsInFolder(currentFolderId);
+  const layers = overlays();
+  const m = materialsHere.find(x => x.id === editingMaterialId) || null;
+
+  $('side-materials').innerHTML = `
+    <div class="panel">
+      <div class="section-title">レイヤー（重ね順）<span class="tiny">上ほど手前</span></div>
+      ${layers.length === 0 ? '<div class="empty">重ねて表示中の素材はありません</div>' : `
+      <div class="list">
+        ${layers.slice().reverse().map((l, ri) => {
+          const i = layers.length - 1 - ri; // 元の配列インデックス(手前が上に来るよう逆順表示)
+          return `<div class="list-item ${l.visible === false ? '' : 'active'}">
+            <div class="list-main">
+              <strong>${esc(l.name || '素材')}</strong>
+              <span>${esc(l.type || 'image')}</span>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn small" data-layer-up="${esc(l.id)}" ${i === layers.length - 1 ? 'disabled' : ''}><i class="material-icons" style="font-size:14px">arrow_upward</i></button>
+              <button class="btn small" data-layer-down="${esc(l.id)}" ${i === 0 ? 'disabled' : ''}><i class="material-icons" style="font-size:14px">arrow_downward</i></button>
+              <button class="btn small" data-layer-toggle="${esc(l.id)}">${l.visible === false ? '表示する' : '非表示'}</button>
+              <button class="btn small red" data-layer-remove="${esc(l.id)}">解除</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`}
+    </div>
+
+    <div class="panel">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div class="section-title" style="margin:0">
+          ${currentFolder ? `<button class="btn small ghost" id="folder-back"><i class="material-icons" style="font-size:14px">arrow_back</i></button> ${esc(currentFolder.name)}` : 'フォルダ'}
+        </div>
+        ${!currentFolder ? '<button class="btn small" id="folder-add">＋フォルダ</button>' : ''}
+      </div>
+      ${!currentFolder ? `
+      <div class="list" style="margin-top:10px">
+        ${foldersHere.map(f => `<button class="list-item" style="text-align:left;width:100%" data-open-folder="${esc(f.id)}"><div class="list-main"><strong><i class="material-icons" style="font-size:14px;vertical-align:-2px">folder</i> ${esc(f.name)}</strong><span>${materialsInFolder(f.id).length}件</span></div></button>`).join('')}
+        ${foldersHere.length === 0 ? '<div class="tiny" style="padding:4px 2px">フォルダはまだありません</div>' : ''}
+      </div>` : ''}
     </div>
 
     <div class="panel">
       <div class="row" style="justify-content:space-between">
-        <div><h3 style="margin:0"><i class="material-icons">perm_media</i>素材（画像・動画）</h3><div class="tiny" style="margin-top:3px">送出する画像・動画を登録しておけます</div></div>
-        <button class="btn primary small" id="mat-add">＋追加</button>
+        <div><h3 style="margin:0"><i class="material-icons">perm_media</i>素材${currentFolder ? `（${esc(currentFolder.name)}）` : '（未分類）'}</h3></div>
+        <div class="row">
+          ${currentFolder ? `<button class="btn small red" id="folder-delete">フォルダ削除</button>` : ''}
+          <button class="btn primary small" id="mat-add">＋追加</button>
+        </div>
       </div>
       <div class="list" style="margin-top:10px">
-        ${ms.map(x => `<button class="list-item ${x.id === editingMaterialId ? 'active' : ''}" style="text-align:left;width:100%" data-mat="${esc(x.id)}"><div class="list-main"><strong>${esc(x.name)}</strong><span>${esc(x.type || 'image')}</span></div></button>`).join('')}
-        ${ms.length === 0 ? '<div class="empty">素材がありません。「＋追加」から作成してください。</div>' : ''}
+        ${materialsHere.map(x => `<button class="list-item ${x.id === editingMaterialId ? 'active' : ''}" style="text-align:left;width:100%" data-mat="${esc(x.id)}"><div class="list-main"><strong>${esc(x.name)}</strong><span>${esc(x.type || 'image')}</span></div></button>`).join('')}
+        ${materialsHere.length === 0 ? '<div class="empty">素材がありません。「＋追加」から作成してください。</div>' : ''}
       </div>
     </div>
 
@@ -881,6 +935,12 @@ function renderOutput() {
       </select>
       <label class="label" style="margin-top:9px">URL</label>
       <input id="mat-url" value="${esc(m.url || '')}" placeholder="https://...">
+      ${foldersHere.length || currentFolder ? `
+      <label class="label" style="margin-top:9px">フォルダ</label>
+      <select id="mat-folder">
+        <option value="">未分類</option>
+        ${folders().map(f => `<option value="${esc(f.id)}" ${(m.folderId || '') === f.id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
+      </select>` : ''}
 
       <div class="field-group" style="margin-top:12px" id="mat-video-options" ${m.type === 'video' ? '' : 'style="display:none"'}>
         <div class="field-group-title">動画オプション</div>
@@ -890,28 +950,51 @@ function renderOutput() {
 
       <label class="label" style="margin-top:12px">プレビュー</label>
       <div id="mat-preview" class="material-preview"></div>
-      <div class="row" style="margin-top:10px">
+      <div class="row wrap" style="margin-top:10px">
         <button class="btn primary" id="mat-save">保存</button>
-        <button class="btn" id="mat-send">この素材を送出</button>
+        <button class="btn" id="mat-send">メインとして送出</button>
+        <button class="btn" id="mat-overlay">重ねて表示</button>
         <button class="btn red" id="mat-delete">削除</button>
       </div>
     </div>` : ''}`;
 
-  document.querySelectorAll('[data-send-scene]').forEach(b => b.onclick = () => { const s = ss.find(x => x.id === b.dataset.sendScene); if (s) { sceneIndex = ss.indexOf(s); sendScene(s); renderOutput(); } });
-  if (opMaterial) $('output-op-send').onclick = () => outputMaterial(opMaterial);
-  $('output-studio-send').onclick = () => {
-    dbUpdate('broadcast/current', { mainSource: 'screen' });
-    dbSet('broadcast/screen_program', { type: 'studio' });
-    setStatus('ChromaKey Studioの映像を送出', 'broadcast/screen_program (studio)');
+  // --- レイヤーパネルの操作 ---
+  document.querySelectorAll('[data-layer-up]').forEach(b => b.onclick = () => moveOverlayLayer(b.dataset.layerUp, 1));
+  document.querySelectorAll('[data-layer-down]').forEach(b => b.onclick = () => moveOverlayLayer(b.dataset.layerDown, -1));
+  document.querySelectorAll('[data-layer-toggle]').forEach(b => b.onclick = () => toggleOverlayLayer(b.dataset.layerToggle));
+  document.querySelectorAll('[data-layer-remove]').forEach(b => b.onclick = () => removeOverlayLayer(b.dataset.layerRemove));
+
+  // --- フォルダ操作 ---
+  document.querySelectorAll('[data-open-folder]').forEach(b => b.onclick = () => { currentFolderId = b.dataset.openFolder; editingMaterialId = null; renderMaterials(); });
+  const backBtn = $('folder-back');
+  if (backBtn) backBtn.onclick = () => { currentFolderId = null; editingMaterialId = null; renderMaterials(); };
+  const folderAddBtn = $('folder-add');
+  if (folderAddBtn) folderAddBtn.onclick = () => {
+    const name = prompt('フォルダ名を入力してください');
+    if (!name) return;
+    if (!switcher.folders) switcher.folders = {};
+    const id = uid('folder');
+    switcher.folders[id] = { name: name.trim() || '新規フォルダ', order: folders().length };
+    writeSwitcher().then(renderMaterials);
+  };
+  const folderDeleteBtn = $('folder-delete');
+  if (folderDeleteBtn) folderDeleteBtn.onclick = () => {
+    if (!currentFolder) return;
+    if (!confirm(`「${currentFolder.name}」を削除しますか？（中の素材は「未分類」に移動します）`)) return;
+    materialsInFolder(currentFolder.id).forEach(x => { switcher.materials[x.id].folderId = null; });
+    delete switcher.folders[currentFolder.id];
+    currentFolderId = null;
+    writeSwitcher().then(renderMaterials);
   };
 
+  // --- 素材一覧の操作 ---
   $('mat-add').onclick = () => {
     const id = uid('mat');
-    switcher.materials[id] = { name: '新規素材', type: 'image', url: '', loop: false, muted: true };
+    switcher.materials[id] = { name: '新規素材', type: 'image', url: '', loop: false, muted: true, folderId: currentFolderId };
     editingMaterialId = id;
-    writeSwitcher().then(renderOutput);
+    writeSwitcher().then(renderMaterials);
   };
-  document.querySelectorAll('[data-mat]').forEach(b => b.onclick = () => { editingMaterialId = b.dataset.mat; renderOutput(); });
+  document.querySelectorAll('[data-mat]').forEach(b => b.onclick = () => { editingMaterialId = b.dataset.mat; renderMaterials(); });
 
   if (m) {
     const readMatForm = () => ({
@@ -919,6 +1002,7 @@ function renderOutput() {
       name: $('mat-name').value.trim() || '無題素材',
       type: $('mat-type').value,
       url: $('mat-url').value,
+      folderId: $('mat-folder') ? ($('mat-folder').value || null) : (m.folderId || null),
       loop: $('mat-loop').checked,
       muted: $('mat-muted').checked
     });
@@ -926,6 +1010,7 @@ function renderOutput() {
 
     $('mat-save').onclick = () => { updateM(); writeSwitcher().then(renderAll); };
     $('mat-send').onclick = () => { updateM(); writeSwitcher().then(() => outputMaterial(m)); };
+    $('mat-overlay').onclick = () => { updateM(); writeSwitcher().then(() => addOverlayLayer(m)); };
     $('mat-delete').onclick = () => {
       if (confirm(`「${m.name}」を削除しますか？`)) {
         delete switcher.materials[m.id];
@@ -943,6 +1028,40 @@ function renderOutput() {
     renderMaterialPreview(readMatForm());
   }
 }
+
+/* -- レイヤー（broadcast/overlays）操作。素材ライブラリとは別の「今、重ねて表示中の実体」-- */
+function addOverlayLayer(m) {
+  const id = uid('layer');
+  const ov = overlays();
+  const path = `broadcast/overlays/${id}`;
+  dbSet(path, {
+    name: m.name, type: m.type, url: m.url,
+    loop: m.type === 'video' ? !!m.loop : null,
+    muted: m.type === 'video' ? m.muted !== false : null,
+    order: ov.length,
+    visible: true
+  });
+  setStatus(`「${m.name}」を重ねて表示しました`, path);
+}
+function moveOverlayLayer(id, dir) {
+  const ov = overlays();
+  const i = ov.findIndex(l => l.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= ov.length) return;
+  const a = ov[i], b = ov[j];
+  const updates = {};
+  updates[`broadcast/overlays/${a.id}/order`] = b.order;
+  updates[`broadcast/overlays/${b.id}/order`] = a.order;
+  dbUpdate('/', updates);
+}
+function toggleOverlayLayer(id) {
+  const l = overlays().find(x => x.id === id);
+  if (!l) return;
+  dbUpdate(`broadcast/overlays/${id}`, { visible: l.visible === false });
+}
+function removeOverlayLayer(id) {
+  dbRemove(`broadcast/overlays/${id}`);
+}
 function renderMaterialPreview(m) {
   const p = $('mat-preview');
   if (!p) return;
@@ -959,7 +1078,7 @@ function renderMaterialPreview(m) {
    Clock / scene scheduler
    ========================================================================= */
 function updateClock() { const el = $('program-clock'); if (el) el.textContent = nowString(); }
-function renderAll() { renderMode(); renderScene(); renderOutput(); renderPreview(); updateClock(); }
+function renderAll() { renderMode(); renderScene(); renderOutput(); renderMaterials(); renderPreview(); updateClock(); }
 function armSchedule() {
   clearTimeout(scheduleTimer);
   scheduleTimer = null;
@@ -1007,7 +1126,7 @@ onAuthStateChanged(auth, async user => {
       onValue(ref(db, 'broadcast'), snap => {
         broadcast = snap.val() || {};
         try {
-          if (activeTab === 'output' || activeTab === 'mode') renderAll(); else renderPreview();
+          if (activeTab === 'output' || activeTab === 'mode' || activeTab === 'materials') renderAll(); else renderPreview();
         } catch (e) {
           console.error('[EQLive Reporter Switcher] render error:', e);
           setStatus('画面初期化エラー', e?.message || String(e));
