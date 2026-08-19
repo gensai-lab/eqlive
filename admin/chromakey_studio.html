@@ -63,11 +63,6 @@
         <span>仮想カメラ化ガイド</span>
       </button>
 
-      <button id="studioBroadcastBtn" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-medium text-sm transition shadow-lg shadow-sky-600/20 active:scale-95">
-        <i data-lucide="cast" class="w-4 h-4"></i>
-        <span id="studioBroadcastText">NewsScreenへ配信</span>
-      </button>
-
       <button id="snapBtn" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition shadow-lg shadow-emerald-600/20 active:scale-95">
         <i data-lucide="camera" class="w-4 h-4"></i>
         <span>撮影</span>
@@ -420,23 +415,7 @@
     </div>
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, set, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-    // Firebase — news-admin.html / news-screen.html と同一プロジェクトを参照する
-    const firebaseConfig = {
-      apiKey: "AIzaSyCGrVjAU91VsGFbsdvhjoP7Dlk8C-Y4ibc",
-      authDomain: "mgl-eqlive.firebaseapp.com",
-      databaseURL: "https://mgl-eqlive-default-rtdb.firebaseio.com",
-      projectId: "mgl-eqlive",
-      storageBucket: "mgl-eqlive.firebasestorage.app",
-      messagingSenderId: "1060231327645",
-      appId: "1:1060231327645:web:642684f4640bbc21d5c974"
-    };
-    const fbApp = initializeApp(firebaseConfig);
-    const db = getDatabase(fbApp);
-
+  <script>
     // Lucide アイコン初期化
     lucide.createIcons();
 
@@ -1217,112 +1196,6 @@
         }
       });
     }
-
-    // ==========================================================================
-    // NewsScreen（報道画面）へのスタジオ映像配信
-    // outputCanvas（合成後の映像）を captureStream() で取得し、WebRTC経由で
-    // news-screen.html（受信側）へ配信する。シグナリングはFirebaseで行う。
-    // ==========================================================================
-    const STUDIO_PATH = 'broadcast/studio/webrtc';
-    // STUNのみだと、別ネットワーク間（NATを跨ぐ場合）で接続できないことがあるため、
-    // 中継用のTURNサーバーも併用する。
-    // ※ ここでは無料の公開TURN(openrelay.metered.ca)を暫定的に使用している。
-    //    安定運用したい場合は、自前のTURNサーバーや有料サービスへの切り替えを推奨。
-    const ICE_SERVERS = [
-      { urls: 'stun:stun.l.google.com:19302' },
-      {
-        urls: [
-          'turn:openrelay.metered.ca:80',
-          'turn:openrelay.metered.ca:443',
-          'turn:openrelay.metered.ca:443?transport=tcp'
-        ],
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-      }
-    ];
-    const studioBroadcastBtn = document.getElementById('studioBroadcastBtn');
-    const studioBroadcastText = document.getElementById('studioBroadcastText');
-    let studioPeerConnection = null;
-    let studioBroadcasting = false;
-    let unsubStudioAnswer = null;
-    let unsubStudioCandidates = null;
-
-    async function startStudioBroadcast() {
-      const stream = canvas.captureStream(30);
-      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-      studioPeerConnection = pc;
-      stream.getTracks().forEach(track => pc.addTrack(track, stream));
-      let pendingMainCandidates = []; // setRemoteDescription完了前に届いたcandidateを一時保管する
-
-      pc.oniceconnectionstatechange = () => console.log('[Studio配信] ICE connection state:', pc.iceConnectionState);
-      pc.onconnectionstatechange = () => console.log('[Studio配信] connection state:', pc.connectionState);
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          set(ref(db, `${STUDIO_PATH}/candidates/admin/${Date.now()}`), event.candidate.toJSON());
-        }
-      };
-
-      // NewsScreen側が作成したanswerを受信する
-      unsubStudioAnswer = onValue(ref(db, `${STUDIO_PATH}/answer`), async (snap) => {
-        const answer = snap.val();
-        if (answer && pc.signalingState === 'have-local-offer') {
-          try {
-            await pc.setRemoteDescription(new RTCSessionDescription(answer));
-            const queued = pendingMainCandidates;
-            pendingMainCandidates = [];
-            for (const c of queued) {
-              try { await pc.addIceCandidate(c); } catch (e) { console.error('[Studio配信] addIceCandidate失敗:', e); }
-            }
-          } catch (e) { console.error('[Studio配信] setRemoteDescription失敗:', e); }
-        }
-      });
-
-      // NewsScreen側のICE candidateを受信する
-      unsubStudioCandidates = onValue(ref(db, `${STUDIO_PATH}/candidates/main`), (snap) => {
-        snap.forEach((child) => {
-          const candidate = new RTCIceCandidate(child.val());
-          if (pc.remoteDescription) {
-            pc.addIceCandidate(candidate).catch(e => console.error('[Studio配信] addIceCandidate失敗:', e));
-          } else {
-            pendingMainCandidates.push(candidate);
-          }
-        });
-      });
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      await set(ref(db, `${STUDIO_PATH}/offer`), { type: offer.type, sdp: offer.sdp, timestamp: Date.now() });
-
-      studioBroadcasting = true;
-      studioBroadcastBtn.classList.remove('bg-sky-600', 'hover:bg-sky-500');
-      studioBroadcastBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'animate-pulse');
-      studioBroadcastText.textContent = '配信中（クリックで停止）';
-      showToast('NewsScreenへの配信を開始しました');
-    }
-
-    async function stopStudioBroadcast() {
-      if (unsubStudioAnswer) { unsubStudioAnswer(); unsubStudioAnswer = null; }
-      if (unsubStudioCandidates) { unsubStudioCandidates(); unsubStudioCandidates = null; }
-      if (studioPeerConnection) { studioPeerConnection.close(); studioPeerConnection = null; }
-      try {
-        await remove(ref(db, `${STUDIO_PATH}/offer`));
-        await remove(ref(db, `${STUDIO_PATH}/candidates`));
-        await remove(ref(db, `${STUDIO_PATH}/answer`));
-      } catch (e) { console.warn('[Studio配信] 停止時のクリーンアップに失敗:', e); }
-
-      studioBroadcasting = false;
-      studioBroadcastBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500', 'animate-pulse');
-      studioBroadcastBtn.classList.add('bg-sky-600', 'hover:bg-sky-500');
-      studioBroadcastText.textContent = 'NewsScreenへ配信';
-      showToast('配信を停止しました');
-    }
-
-    studioBroadcastBtn.addEventListener('click', () => {
-      if (studioBroadcasting) stopStudioBroadcast();
-      else startStudioBroadcast();
-    });
-    window.addEventListener('beforeunload', () => { if (studioBroadcasting) stopStudioBroadcast(); });
 
     window.addEventListener('DOMContentLoaded', init);
   </script>
