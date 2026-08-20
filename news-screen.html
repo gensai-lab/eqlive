@@ -93,6 +93,8 @@ const FADE_MS = 700; // CSSのtransition時間と合わせる
 const mainTarget = document.getElementById('main-target');
 const layers = { a: document.getElementById('layer-a'), b: document.getElementById('layer-b') };
 const hlsMap = { a: null, b: null };
+const layerGeneration = { a: 0, b: 0 }; // 各レイヤーに最後に書き込んだswap呼び出しの世代番号
+let swapGeneration = 0;
 let activeKey = 'a';
 let currentMediaKey = '';
 let cameras = [];
@@ -102,16 +104,31 @@ function clearLayer(key) {
   layers[key].innerHTML = '';
 }
 
+// 「同じ内容がもう一度送出された」場合(例:OP動画を再送出)に、
+// 何も起きないと"切り替えがうまくいかない"ように見えてしまうため、
+// 現在表示中のレイヤーに動画があれば最初から再生し直す。
+function restartActiveVideoIfAny() {
+  const v = layers[activeKey].querySelector('video');
+  if (v) { v.currentTime = 0; v.play().catch(() => {}); }
+}
+
 // buildFn(container) がその中にメディアを組み立てる。
 // hls.Hls インスタンスを作った場合は返り値として返すと、フェードアウト後に
 // 自動で破棄される。
+//
+// 短い間隔で連続してswapToが呼ばれる（＝すばやくシーンを切り替える）と、
+// 古いclearLayerタイマーが「その後別の切り替えで再利用された」レイヤーを
+// 誤って消してしまうことがあったため、世代番号で「自分が書き込んだ内容が
+// その後上書きされていないか」を確認してからクリアするようにしている。
 function swapTo(buildFn, isCamera) {
   const nextKey = activeKey === 'a' ? 'b' : 'a';
   const prevKey = activeKey;
+  const myGen = ++swapGeneration;
 
   clearLayer(nextKey);
   const hlsInstance = buildFn(layers[nextKey]);
   if (hlsInstance) hlsMap[nextKey] = hlsInstance;
+  layerGeneration[nextKey] = myGen;
   mainTarget.classList.toggle('mode-camera', isCamera);
 
   // 1フレーム待ってからクラスを切り替えることで、確実にtransitionが発火するようにする
@@ -121,7 +138,10 @@ function swapTo(buildFn, isCamera) {
   });
 
   activeKey = nextKey;
-  setTimeout(() => clearLayer(prevKey), FADE_MS + 100);
+  setTimeout(() => {
+    // prevKeyが、この呼び出しより後の別の切り替えで再利用されていなければクリアする
+    if (layerGeneration[prevKey] < myGen && prevKey !== activeKey) clearLayer(prevKey);
+  }, FADE_MS + 100);
 }
 
 /* =========================================================================
@@ -166,10 +186,11 @@ function extractYoutubeId(url) {
    ========================================================================= */
 function renderCamera(camId) {
   const key = 'camera:' + camId;
-  if (key === currentMediaKey) return;
+  if (key === currentMediaKey) {
+    restartActiveVideoIfAny();
+    return;
+  }
   currentMediaKey = key;
-
-  const cam = cameras.find(c => c.id === camId);
   swapTo(container => {
     if (!cam) { container.innerHTML = '<div class="preview-placeholder">ライブカメラ未選択</div>'; return null; }
 
@@ -203,7 +224,10 @@ function renderCamera(camId) {
 
 function renderScreenProgram(sp) {
   const key = 'screen:' + (sp.type || '') + ':' + (sp.url || '');
-  if (key === currentMediaKey) return;
+  if (key === currentMediaKey) {
+    restartActiveVideoIfAny();
+    return;
+  }
   currentMediaKey = key;
 
   swapTo(container => {
