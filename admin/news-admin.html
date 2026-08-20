@@ -555,10 +555,15 @@ function setMode(type) {
     sendScene(s);
   }
 }
+// mainSourceとscreen_programを別々に書き込むと、news-screen.html側の2つの
+// リスナーが別タイミングで発火し、ごく短い間だけ古い内容が挟まることが
+// あったため、1回のアトミックな複数パス更新にまとめている。
+function sendToScreen(program) {
+  return dbUpdate('/', { 'broadcast/current/mainSource': 'screen', 'broadcast/screen_program': program });
+}
 function sendScene(scene) {
   const p = materialToScreenProgram(activeMaterialForScene(scene));
-  dbUpdate('broadcast/current', { mainSource: 'screen' });
-  dbSet('broadcast/screen_program', p);
+  sendToScreen(p);
   setStatus(`「${scene.name}」を送出しました`, `broadcast/screen_program (${p.type})`);
   renderPreview();
 }
@@ -570,18 +575,15 @@ function materialToScreenProgram(m) {
 }
 function outputMaterial(m) {
   const p = materialToScreenProgram(m);
-  dbUpdate('broadcast/current', { mainSource: 'screen' });
-  dbSet('broadcast/screen_program', p);
+  sendToScreen(p);
   setStatus(`素材「${m?.name || '未選択'}」を送出`, `broadcast/screen_program (${p.type})`);
 }
 function sendPrepare() {
-  dbUpdate('broadcast/current', { mainSource: 'screen' });
-  dbSet('broadcast/screen_program', { type: 'image', url: PREPARE_URL });
+  sendToScreen({ type: 'image', url: PREPARE_URL });
   setStatus('準備中画面を送出', 'broadcast/screen_program → prepare.png');
 }
 function sendBlack() {
-  dbUpdate('broadcast/current', { mainSource: 'screen' });
-  dbSet('broadcast/screen_program', {
+  sendToScreen({
     type: 'image',
     url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><rect width="1920" height="1080" fill="#000"/></svg>')
   });
