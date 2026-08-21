@@ -57,7 +57,13 @@
             pendingEew = eew;
             return;
         }
-        updateMap(eew);
+        // 親側のvisibility切り替え直後は、iframe内部のレイアウト確定が
+        // 1〜2フレーム遅れることがあるため、念のためここでもrAFを挟む
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                updateMap(eew);
+            });
+        });
     };
 
     function updateMap(eew) {
