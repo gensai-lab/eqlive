@@ -24,7 +24,8 @@
             width: 1300px;
             height: 371px;
             background: transparent;
-            display: none; 
+            visibility: hidden; /* display:none だと内部iframeのレイアウトが確定せず、
+                                    Leafletマップのサイズ計算が狂うため visibility に変更 */
         }
 
         #base-svg {
@@ -50,6 +51,7 @@
             line-height: 1;
             white-space: nowrap;
             font-weight: normal;
+            font-feature-settings: "palt" 1;
         }
 
         #map-frame {
@@ -80,6 +82,7 @@
             -moz-osx-font-smoothing: grayscale;
             text-rendering: optimizeLegibility;
             letter-spacing: 0.01em;
+            font-feature-settings: "palt" 1;
         }
 
         #area-row1 { top: 187px; }
@@ -164,9 +167,9 @@
         const mapFrame = document.getElementById("map-frame");
         const sendData = () => {
             // 先にコンテナを表示してから、レイアウトが確定するのを待って地図を更新する。
-            // （非表示＝display:noneのうちにLeafletのinvalidateSize/fitBoundsを呼ぶと
+            // （非表示のうちにLeafletのinvalidateSize/fitBoundsを呼ぶと
             //   地図のサイズが正しく取得できず、正常に描画されなくなるため）
-            document.getElementById("eew-container").style.display = "block";
+            document.getElementById("eew-container").style.visibility = "visible";
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     mapFrame.contentWindow.updateMapFromParent(eew);
@@ -182,7 +185,7 @@
     }
 
     function hideContainer() {
-        document.getElementById("eew-container").style.display = "none";
+        document.getElementById("eew-container").style.visibility = "hidden";
         expireTime = null;
     }
 
