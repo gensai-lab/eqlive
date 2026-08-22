@@ -379,10 +379,10 @@
             <div id="tab-title" class="tab-content">
                 <h2>タイトル編集</h2>
                 <div class="card">
-                    <label>メインタイトル</label>
-                    <input type="text" id="input-mainTitle">
+                    <label>メインタイトル <span id="title-dirty-badge" style="display:none; color:var(--accent-yellow, #ffb300); font-weight:normal;">● 未保存の変更があります（他の人の更新は一時的に反映されません）</span></label>
+                    <input type="text" id="input-mainTitle" oninput="titleDirty = true; updateDirtyBadge('title-dirty-badge', true);">
                     <label>サブタイトル</label>
-                    <input type="text" id="input-subtitle">
+                    <input type="text" id="input-subtitle" oninput="titleDirty = true; updateDirtyBadge('title-dirty-badge', true);">
                     <div class="btn-group">
                         <button class="primary" onclick="saveTitle()">設定反映</button>
                         <button class="danger" onclick="clearTitle()">タイトルを削除</button>
@@ -391,24 +391,24 @@
             </div>
 
             <div id="tab-ticker" class="tab-content">
-                <h2>Ticker（最新情報）</h2>
+                <h2>Ticker（最新情報） <span id="ticker-dirty-badge" style="display:none; color:var(--accent-yellow, #ffb300); font-weight:normal; font-size:12px;">● 未保存の変更があります</span></h2>
                 <div class="card">
                     <label>ジャンル</label>
-                    <input type="text" id="input-tic-g" placeholder="例：地震速報">
+                    <input type="text" id="input-tic-g" placeholder="例：地震速報" oninput="tickerDirty = true; updateDirtyBadge('ticker-dirty-badge', true);">
                     <label>本文 1行目</label>
-                    <input type="text" id="input-tic-1">
+                    <input type="text" id="input-tic-1" oninput="tickerDirty = true; updateDirtyBadge('ticker-dirty-badge', true);">
                     <label>本文 2行目</label>
-                    <input type="text" id="input-tic-2">
+                    <input type="text" id="input-tic-2" oninput="tickerDirty = true; updateDirtyBadge('ticker-dirty-badge', true);">
                     <button class="primary" style="width:100%" onclick="saveTicker()">Tickerを更新</button>
                 </div>
             </div>
 
             <!-- ⑥ L字設定 タブ (ボタン移動・スムーズアニメーション対応) -->
             <div id="tab-l-shape" class="tab-content">
-                <h2>L字放送・詳細設定</h2>
+                <h2>L字放送・詳細設定 <span id="lshape-dirty-badge" style="display:none; color:var(--accent-yellow, #ffb300); font-weight:normal; font-size:12px;">● 未保存の変更があります</span></h2>
                 <div class="card">
                     <label>左側縦書きテロップ (leftText)</label>
-                    <textarea id="input-l-leftText" style="height:80px;"></textarea>
+                    <textarea id="input-l-leftText" style="height:80px;" oninput="lShapeDirty = true; updateDirtyBadge('lshape-dirty-badge', true);"></textarea>
                 </div>
                 <div id="l-items-container"></div>
                 <button class="secondary" style="width:100%; margin-bottom:10px;" onclick="addLItem()"><i class="material-icons">add</i> カードを追加</button>
@@ -868,13 +868,15 @@
     };
 
     window.saveTitle = () => {
-        secureUpdate(ref(db, 'broadcast/current'), { mainTitle: document.getElementById('input-mainTitle').value, subtitle: document.getElementById('input-subtitle').value });
+        secureUpdate(ref(db, 'broadcast/current'), { mainTitle: document.getElementById('input-mainTitle').value, subtitle: document.getElementById('input-subtitle').value })
+            .then(() => { titleDirty = false; updateDirtyBadge('title-dirty-badge', false); });
     };
 
-    window.clearTitle = () => secureUpdate(ref(db, 'broadcast/current'), { mainTitle: "", subtitle: "" });
+    window.clearTitle = () => secureUpdate(ref(db, 'broadcast/current'), { mainTitle: "", subtitle: "" }).then(() => { titleDirty = false; updateDirtyBadge('title-dirty-badge', false); });
 
     window.saveTicker = () => {
-        secureUpdate(ref(db, 'broadcast/manual_news'), { genre: document.getElementById('input-tic-g').value, line1: document.getElementById('input-tic-1').value, line2: document.getElementById('input-tic-2').value });
+        secureUpdate(ref(db, 'broadcast/manual_news'), { genre: document.getElementById('input-tic-g').value, line1: document.getElementById('input-tic-1').value, line2: document.getElementById('input-tic-2').value })
+            .then(() => { tickerDirty = false; updateDirtyBadge('ticker-dirty-badge', false); });
     };
 
     // --- 自由配置メディア管理ロジック ---
@@ -1185,13 +1187,22 @@
 
     // --- L-Shape Logic ---
     let localLItems = [];
-    window.addLItem = () => { localLItems.push({genre:"", text:""}); renderLItems(); };
-    window.removeLItem = (i) => { localLItems.splice(i,1); renderLItems(); };
-    window.updateLItem = (i, field, val) => { localLItems[i][field] = val; };
+    // 複数人で同時編集した際に、他の人の保存でこちらの未保存の入力が上書きされないようにするフラグ
+    let titleDirty = false;
+    let tickerDirty = false;
+    let lShapeDirty = false;
+    function updateDirtyBadge(id, show) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = show ? 'inline' : 'none';
+    }
+    window.addLItem = () => { localLItems.push({genre:"", text:""}); lShapeDirty = true; updateDirtyBadge('lshape-dirty-badge', true); renderLItems(); };
+    window.removeLItem = (i) => { localLItems.splice(i,1); lShapeDirty = true; updateDirtyBadge('lshape-dirty-badge', true); renderLItems(); };
+    window.updateLItem = (i, field, val) => { localLItems[i][field] = val; lShapeDirty = true; updateDirtyBadge('lshape-dirty-badge', true); };
 
     window.moveLItem = (index, direction) => {
         const targetIndex = index + direction;
         if (targetIndex < 0 || targetIndex >= localLItems.length) return;
+        lShapeDirty = true; updateDirtyBadge('lshape-dirty-badge', true);
         const container = document.getElementById('l-items-container');
         animateCardSwap(container, index, targetIndex, localLItems, renderLItems);
     };
@@ -1238,7 +1249,7 @@
         });
         secureSet(ref(db, 'broadcast/l_shape'), {
             leftText: document.getElementById('input-l-leftText').value || "", topItems: topItemsObj
-        }).then(() => { alert("L字放送設定をFirebaseに保存しました"); });
+        }).then(() => { lShapeDirty = false; updateDirtyBadge('lshape-dirty-badge', false); alert("L字放送設定をFirebaseに保存しました"); });
     };
 
     window.triggerTsu = (dir) => {
@@ -1580,12 +1591,14 @@
             }
 
             const syncInput = (id, val) => { const el = document.getElementById(id); if(el && document.activeElement.id !== id) el.value = val || ""; };
-            syncInput('input-mainTitle', cur.mainTitle);
-            syncInput('input-subtitle', cur.subtitle);
-            if(data.manual_news) { syncInput('input-tic-g', data.manual_news.genre); syncInput('input-tic-1', data.manual_news.line1); syncInput('input-tic-2', data.manual_news.line2); }
+            if (!titleDirty) {
+                syncInput('input-mainTitle', cur.mainTitle);
+                syncInput('input-subtitle', cur.subtitle);
+            }
+            if(data.manual_news && !tickerDirty) { syncInput('input-tic-g', data.manual_news.genre); syncInput('input-tic-1', data.manual_news.line1); syncInput('input-tic-2', data.manual_news.line2); }
 
             const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container'));
-            if(data.l_shape && !isEditingL) {
+            if(data.l_shape && !isEditingL && !lShapeDirty) {
                 syncInput('input-l-leftText', data.l_shape.leftText);
                 const items = data.l_shape.topItems;
                 if(items) {
