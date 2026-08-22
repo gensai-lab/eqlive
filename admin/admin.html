@@ -724,6 +724,9 @@
             loginScreen.style.display = 'none';
             adminApp.style.display = 'flex';
             initCameras();
+            // カメラ一覧（kh-livec.json / kactuif）は起動時の1回だけでなく、
+            // 5分おきに自動で再取得して最新の状態に保つ
+            setInterval(initCameras, 5 * 60 * 1000);
             initPresets();
             renderTextSuperCards();
             renderTextSuperGenreSelector();
