@@ -91,6 +91,24 @@
             pointer-events: auto;
         }
 
+        /* === 🖥️ 画面共有受信レイヤー ===
+           Admin側の「画面共有配信」をWebRTCで受信して表示する。
+           News-Screen(20)より前面、EEW(999)より背面に配置。 */
+        #frame-screenshare {
+            position: absolute;
+            top: 0; left: 0;
+            width: 1920px; height: 1080px;
+            z-index: 30;
+            background: #000;
+            object-fit: contain; /* 共有画面のアスペクト比を保ったまま表示（切り取りたくない場合はcoverに変更） */
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.6s ease;
+        }
+        #frame-screenshare.active {
+            opacity: 1;
+        }
+
         /* === 緊急地震速報（最前面） === */
         #frame-eew {
             position: absolute;
@@ -131,6 +149,7 @@
         <iframe id="frame-l-bg" src="l-screen.html"></iframe>
         <iframe id="frame-sub-switcher" src="sub-switcher.html"></iframe>
         <iframe id="frame-news-screen" src="news-screen.html"></iframe>
+        <video id="frame-screenshare" autoplay playsinline></video>
         <iframe id="frame-eew" src="parts/eew.html"></iframe>
     </div>
 
@@ -158,6 +177,7 @@
     const frameLBg = document.getElementById('frame-l-bg');
     const frameSub = document.getElementById('frame-sub-switcher');
     const frameNewsScreen = document.getElementById('frame-news-screen');
+    const frameScreenshare = document.getElementById('frame-screenshare');
     const eewAudio = document.getElementById('eew-audio');
     const bgmAudio = document.getElementById('bgm-audio');
     const micAudio = document.getElementById('mic-audio');
@@ -169,7 +189,19 @@
     
     // WebRTC用変数
     let peerConnection = null;
-    const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    let screenPeerConnection = null;
+    // Admin側がCloudflare Realtimeで発行した、有効期限付きのTURN接続情報。
+    // 設定されていない・未取得の間はSTUNのみ（同一ネットワーク内での接続は可能）。
+    let currentIceServers = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' }
+    ];
+    onValue(ref(db, 'broadcast/webrtc/iceServers'), (snapshot) => {
+        const val = snapshot.val();
+        if (Array.isArray(val) && val.length > 0) {
+            currentIceServers = val;
+        }
+    });
 
     // 音声アンロック・初期化処理 (クリック時)
     unlockOverlay.addEventListener('click', () => {
@@ -341,7 +373,7 @@
         }
 
         // 新しいオファーを受信したら接続構築
-        peerConnection = new RTCPeerConnection(servers);
+        peerConnection = new RTCPeerConnection({ iceServers: currentIceServers });
 
         // トラック受信時にAudio要素にセット
         peerConnection.ontrack = (event) => {
@@ -380,7 +412,55 @@
         await set(ref(db, 'broadcast/audio/webrtc/answer'), answerData);
     });
 
+    // === 🖥️ 追加: WebRTC 画面共有受信制御 ===
+    onValue(ref(db, 'broadcast/screenshare/webrtc/offer'), async (snapshot) => {
+        const offerData = snapshot.val();
+        if (!offerData) {
+            // Admin側で停止された場合、切断して非表示に戻す
+            if (screenPeerConnection) {
+                screenPeerConnection.close();
+                screenPeerConnection = null;
+            }
+            frameScreenshare.srcObject = null;
+            frameScreenshare.classList.remove('active');
+            return;
+        }
+
+        screenPeerConnection = new RTCPeerConnection({ iceServers: currentIceServers });
+
+        // トラック受信時にvideo要素にセット（画面共有は映像・音声を同じstreamで受け取る）
+        screenPeerConnection.ontrack = (event) => {
+            frameScreenshare.srcObject = event.streams[0];
+            frameScreenshare.classList.add('active');
+        };
+
+        screenPeerConnection.onicecandidate = event => {
+            if (event.candidate) {
+                set(ref(db, `broadcast/screenshare/webrtc/candidates/main/${Date.now()}`), event.candidate.toJSON());
+            }
+        };
+
+        onValue(ref(db, 'broadcast/screenshare/webrtc/candidates/admin'), (iceSnapshot) => {
+            iceSnapshot.forEach((childSnapshot) => {
+                const candidate = new RTCIceCandidate(childSnapshot.val());
+                if (screenPeerConnection && screenPeerConnection.remoteDescription) {
+                    screenPeerConnection.addIceCandidate(candidate).catch(e => console.error(e));
+                }
+            });
+        });
+
+        const offerDescription = new RTCSessionDescription(offerData);
+        await screenPeerConnection.setRemoteDescription(offerDescription);
+
+        const answer = await screenPeerConnection.createAnswer();
+        await screenPeerConnection.setLocalDescription(answer);
+
+        await set(ref(db, 'broadcast/screenshare/webrtc/answer'), {
+            type: answer.type,
+            sdp: answer.sdp
+        });
+    });
+
 </script>
 </body>
 </html>
-x
