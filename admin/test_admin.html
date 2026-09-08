@@ -103,6 +103,21 @@
             background: var(--accent-blue); border-color: var(--accent-blue);
         }
 
+        /* 🔘 トグルスイッチ（ジャンル別効果音ON/OFFなどに使用） */
+        .toggle-switch { position: relative; display: inline-block; width: 38px; height: 21px; cursor: pointer; flex-shrink: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .toggle-slider {
+            position: absolute; inset: 0; background: #444; border-radius: 21px;
+            transition: background-color 0.2s ease; border: 1px solid #555;
+        }
+        .toggle-slider::before {
+            content: ""; position: absolute; height: 15px; width: 15px; left: 2px; top: 2px;
+            background: white; border-radius: 50%; transition: transform 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        .toggle-switch input:checked + .toggle-slider { background: var(--accent-blue); border-color: var(--accent-blue); }
+        .toggle-switch input:checked + .toggle-slider::before { transform: translateX(17px); }
+        .toggle-switch input:focus-visible + .toggle-slider { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+
         /* 巡回設定用スタイル */
         .tour-cam-item {
             display: flex; align-items: center; justify-content: space-between;
@@ -157,6 +172,54 @@
             nav.open { transform: translateX(0); box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
             .nav-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1400; }
             .nav-overlay.active { display: block; }
+
+            .content { padding: 16px; }
+            .tab-content { max-width: 100%; }
+            .card { padding: 16px; }
+            h2 { font-size: 16px; margin-bottom: 14px; }
+        }
+
+        /* 📱 スマートフォン向けの細かい調整（縦持ち想定） */
+        @media (max-width: 560px) {
+            :root { --header-height: 52px; }
+            .content { padding: 12px; }
+            .card { padding: 14px; border-radius: 10px; margin-bottom: 14px; }
+            .header-logo img { height: 22px; }
+            h2 { font-size: 15px; gap: 6px; }
+            label { font-size: 11px; margin-bottom: 6px; }
+            input, select, textarea { padding: 12px; font-size: 15px; margin-bottom: 12px; }
+            button { padding: 12px; font-size: 13px; }
+            .nav-item { padding: 12px 16px; font-size: 13px; }
+            .nav-item i { font-size: 18px; }
+
+            /* ボタン群は横幅が足りない場合、無理に横並びにせず縦積みにする */
+            .btn-group { gap: 8px; }
+            .btn-group button { min-width: 100%; }
+
+            /* 複数の入力欄を横並びにしていた箇所は、幅が足りない画面では縦積みにする */
+            .range-group { flex-wrap: wrap; gap: 8px; }
+            .range-group span { width: auto; }
+
+            .filter-container { padding: 8px; gap: 6px; }
+            .filter-btn { padding: 5px 12px; font-size: 11px; }
+            .rss-tab-btn { padding: 7px 12px; font-size: 12px; }
+
+            /* プレビューモーダルは画面いっぱいまで使えるようにする */
+            .preview-modal { padding: 10px; }
+            .preview-modal-content { max-width: 100%; max-height: 95%; padding: 14px; }
+            .preview-modal-img { max-height: 55vh; }
+
+            .login-card { padding: 22px; }
+        }
+
+        /* 横幅が足りない画面では、flex-wrapしているボタン・入力行を1列に積む
+           （自由配置パネルのURL+ファイル選択行や、地震パネルの複数ボタン行など） */
+        @media (max-width: 480px) {
+            div[style*="display:flex"][style*="flex-wrap:wrap"] > input,
+            div[style*="display: flex"][style*="flex-wrap: wrap"] > input,
+            div[style*="display:flex"][style*="flex-wrap:wrap"] > select {
+                min-width: 100% !important;
+            }
         }
     </style>
 </head>
@@ -217,12 +280,6 @@
                         <div>配信担当: <span id="stat-dist">--</span></div>
                         <div>現在のモード: <span id="stat-mode">--</span></div>
                         <div>カメラソース: <span id="stat-cam">--</span></div>
-                    </div>
-                </div>
-                <div class="card">
-                    <label>プレビュー（EQLive YouTubeライブ自動判定）</label>
-                    <div id="preview-player-container" style="aspect-ratio: 16/9; background:#000; display:flex; align-items:center; justify-content:center; color:#fff; border-radius:8px; overflow:hidden; position:relative;">
-                        YouTube Liveの配信ステータスを確認中...
                     </div>
                 </div>
             </div>
@@ -294,9 +351,21 @@
                             </select>
                         </div>
 
-                        <label>オーバーレイ・タイトル</label>
+                        <div id="screenshare-options" style="display:none; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                            <p style="font-size:12px; color:var(--text-sub); margin-top:0;">
+                                このPC（Adminを開いているPC）の画面を、ブラウザの画面共有機能でそのまま配信画面へ送ります。<br>
+                                <span style="color:#ffb300;">※音声は送れません（映像のみ）。</span>
+                            </p>
+                            <div id="screenshare-status" style="font-size:13px; color:#ffb300; margin-bottom:12px; display:none;">🖥️ 画面共有中...</div>
+                            <div class="btn-group" style="margin:0;">
+                                <button id="btn-screenshare-start" class="primary" onclick="startScreenShare()">画面共有を開始</button>
+                                <button id="btn-screenshare-stop" class="danger" style="display:none;" onclick="stopScreenShare()">画面共有を停止</button>
+                            </div>
+                        </div>
+
+                        <label id="label-screen-title">オーバーレイ・タイトル</label>
                         <input type="text" id="input-screen-title">
-                        <label>URL (画像/映像/YouTube/Web)</label>
+                        <label id="label-screen-url">URL (画像/映像/YouTube/Web)</label>
                         <input type="text" id="input-screen-url" placeholder="https://...">
                         
                         <div class="btn-group" style="margin-top: 10px;">
@@ -310,10 +379,10 @@
             <div id="tab-title" class="tab-content">
                 <h2>タイトル編集</h2>
                 <div class="card">
-                    <label>メインタイトル</label>
-                    <input type="text" id="input-mainTitle">
+                    <label>メインタイトル <span id="title-dirty-badge" style="display:none; color:var(--accent-yellow, #ffb300); font-weight:normal;">● 未保存の変更があります（他の人の更新は一時的に反映されません）</span></label>
+                    <input type="text" id="input-mainTitle" oninput="titleDirty = true; updateDirtyBadge('title-dirty-badge', true);">
                     <label>サブタイトル</label>
-                    <input type="text" id="input-subtitle">
+                    <input type="text" id="input-subtitle" oninput="titleDirty = true; updateDirtyBadge('title-dirty-badge', true);">
                     <div class="btn-group">
                         <button class="primary" onclick="saveTitle()">設定反映</button>
                         <button class="danger" onclick="clearTitle()">タイトルを削除</button>
@@ -322,24 +391,24 @@
             </div>
 
             <div id="tab-ticker" class="tab-content">
-                <h2>Ticker（最新情報）</h2>
+                <h2>Ticker（最新情報） <span id="ticker-dirty-badge" style="display:none; color:var(--accent-yellow, #ffb300); font-weight:normal; font-size:12px;">● 未保存の変更があります</span></h2>
                 <div class="card">
                     <label>ジャンル</label>
-                    <input type="text" id="input-tic-g" placeholder="例：地震速報">
+                    <input type="text" id="input-tic-g" placeholder="例：地震速報" oninput="tickerDirty = true; updateDirtyBadge('ticker-dirty-badge', true);">
                     <label>本文 1行目</label>
-                    <input type="text" id="input-tic-1">
+                    <input type="text" id="input-tic-1" oninput="tickerDirty = true; updateDirtyBadge('ticker-dirty-badge', true);">
                     <label>本文 2行目</label>
-                    <input type="text" id="input-tic-2">
+                    <input type="text" id="input-tic-2" oninput="tickerDirty = true; updateDirtyBadge('ticker-dirty-badge', true);">
                     <button class="primary" style="width:100%" onclick="saveTicker()">Tickerを更新</button>
                 </div>
             </div>
 
             <!-- ⑥ L字設定 タブ (ボタン移動・スムーズアニメーション対応) -->
             <div id="tab-l-shape" class="tab-content">
-                <h2>L字放送・詳細設定</h2>
+                <h2>L字放送・詳細設定 <span id="lshape-dirty-badge" style="display:none; color:var(--accent-yellow, #ffb300); font-weight:normal; font-size:12px;">● 未保存の変更があります</span></h2>
                 <div class="card">
                     <label>左側縦書きテロップ (leftText)</label>
-                    <textarea id="input-l-leftText" style="height:80px;"></textarea>
+                    <textarea id="input-l-leftText" style="height:80px;" oninput="lShapeDirty = true; updateDirtyBadge('lshape-dirty-badge', true);"></textarea>
                 </div>
                 <div id="l-items-container"></div>
                 <button class="secondary" style="width:100%; margin-bottom:10px;" onclick="addLItem()"><i class="material-icons">add</i> カードを追加</button>
@@ -439,44 +508,11 @@
             <div id="tab-audio" class="tab-content">
                 <h2>音声・BGM制御</h2>
                 
-                <div class="card">
+                <div class="card" style="opacity:0.6;">
                     <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">record_voice_over</i> AI音声読み上げ（TTS）</label>
-                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">
-                        入力したテキストをメイン画面でAI音声として読み上げさせます。<br>
-                        <span style="color:#ffb300;">※長文の場合は句読点（。！？）区切りで自動分割して安全に順次処理されます。</span>
-                    </p>
-                    
-                    <textarea id="input-tts-text" style="height:100px;" placeholder="読み上げるテキストを入力..." oninput="updateTTSCharCount()"></textarea>
-                    
-                    <div style="font-size:12px; color:var(--text-sub); margin-top:-10px; margin-bottom:12px; text-align:right;">
-                        文字数: <span id="tts-char-count" style="color:#fff; font-weight:bold;">0</span> 文字
-                    </div>
-                    
-                    <!-- 実行ボタン & クリア・停止ボタン -->
-                    <div class="btn-group" style="margin-bottom: 15px;">
-                        <button class="primary" style="display:flex; justify-content:center; align-items:center; gap:8px;" onclick="sendTTS()">
-                            <i class="material-icons">campaign</i> 読み上げを実行
-                        </button>
-                        <button class="danger" style="display:flex; justify-content:center; align-items:center; gap:8px;" onclick="clearTTS()">
-                            <i class="material-icons">clear</i> クリア・停止
-                        </button>
-                    </div>
-
-                    <!-- TTSステータス・進捗・読み上げ箇所 表示エリア -->
-                    <div id="tts-status-container" style="background: #151515; padding: 15px; border-radius: 8px; border: 1px solid #333;">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px;">
-                            <span id="tts-status-text" style="color:var(--text-sub); font-weight:bold;">待機中</span>
-                            <span id="tts-eta-text" style="color:var(--text-sub);">--</span>
-                        </div>
-                        
-                        <!-- プログレスバー -->
-                        <div style="width:100%; background:#222; border-radius:4px; height:8px; margin-bottom:10px; overflow:hidden;">
-                            <div id="tts-progress-bar" style="width:0%; height:100%; background:var(--accent-blue); transition:width 0.3s ease;"></div>
-                        </div>
-
-                        <!-- 現在読み上げ中のテキスト -->
-                        <div style="font-size:12px; color:#888; margin-bottom:4px;">現在読み上げ中の箇所:</div>
-                        <div id="tts-current-reading" style="font-size:14px; color:#fff; min-height:20px; word-break:break-all; background:#000; padding:8px; border-radius:6px; border:1px solid #222;">...</div>
+                    <div style="display:flex; align-items:center; gap:10px; padding:20px 10px; color:var(--text-sub);">
+                        <i class="material-icons" style="font-size:22px;">build</i>
+                        <span>現在準備中です。しばらくお待ちください。</span>
                     </div>
                 </div>
 
@@ -497,38 +533,12 @@
                     </div>
                 </div>
 
-                <div class="card" style="border-left: 5px solid var(--accent-blue);">
+                <div class="card" style="border-left: 5px solid var(--accent-blue); opacity:0.6;">
                     <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">mic</i> 管理者マイクのリアルタイム配信</label>
-                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">あなたのマイク音声をメイン画面に直接ストリーミングします。（※要マイク許可）</p>
-                    <div id="mic-status" style="font-size:13px; color:#ffb300; margin-bottom:15px; display:none;">🎤 マイク配信中...</div>
-                    <div class="btn-group">
-                        <button id="btn-mic-start" class="primary" onclick="startMicStreaming()">マイク配信を開始</button>
-                        <button id="btn-mic-stop" class="danger" style="display:none;" onclick="stopMicStreaming()">マイク配信を停止</button>
+                    <div style="display:flex; align-items:center; gap:10px; padding:20px 10px; color:var(--text-sub);">
+                        <i class="material-icons" style="font-size:22px;">build</i>
+                        <span>現在準備中です。しばらくお待ちください。</span>
                     </div>
-                </div>
-
-                <div class="card" style="border-left: 5px solid var(--accent-blue);">
-                    <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">screen_share</i> 画面共有配信</label>
-                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">選択した画面・ウィンドウ・タブをメイン画面にリアルタイムで配信します。（※要画面共有許可。タブ共有時のみ音声も含められる場合があります）</p>
-                    <div id="screenshare-status" style="font-size:13px; color:#ffb300; margin-bottom:15px; display:none;">🖥️ 画面共有配信中...</div>
-                    <div class="btn-group">
-                        <button id="btn-screenshare-start" class="primary" onclick="startScreenShare()">画面共有を開始</button>
-                        <button id="btn-screenshare-stop" class="danger" style="display:none;" onclick="stopScreenShare()">画面共有を停止</button>
-                    </div>
-                </div>
-
-                <div class="card" style="border-left: 5px solid #888;">
-                    <label><i class="material-icons" style="font-size:16px; vertical-align:middle;">router</i> リモート受信用 TURNサーバー設定（Cloudflare Realtime）</label>
-                    <p style="font-size:12px; color:var(--text-sub); margin-top:0;">
-                        マイク・画面共有を、Admin画面と別のネットワークにいる受信側（例：リモート拠点のOBS）に届けるにはTURNサーバーが必要です。<br/>
-                        <a href="https://developers.cloudflare.com/realtime/turn/" target="_blank" style="color:var(--accent-blue);">Cloudflareダッシュボード → Realtime → TURN Server</a> でTURN Keyを作成し、<b>Turn Token ID</b>と<b>API Token</b>を発行してください（同一ネットワーク内だけで使う場合は未設定でも動作します）。<br/>
-                        ここで入力したAPI Tokenは管理者のみ閲覧可能なFirebase上に保存され、配信開始のたびに<b>有効期限付きの一時的な接続情報</b>を生成してFirebase経由でメイン画面に渡します。長期有効なAPI Token自体が受信側や外部に渡ることはありません。
-                    </p>
-                    <label>Turn Token ID</label>
-                    <input type="text" id="input-cf-turn-keyid" placeholder="TURN Token IDを入力" style="margin-bottom:8px;">
-                    <label>API Token</label>
-                    <input type="password" id="input-cf-turn-token" placeholder="API Tokenを入力" style="margin-bottom:10px;">
-                    <button class="secondary" style="width:auto; padding:8px 14px; font-size:12px;" onclick="saveCfTurnSettings()">TURN設定を保存</button>
                 </div>
             </div>
 
@@ -580,6 +590,16 @@
                         </div>
                     </div>
 
+                    <!-- 🏷️ ジャンル選択（送出時に表示するロゴ画像の種類） -->
+                    <div class="card" style="background:#111; border:1px solid #333; padding:15px; margin-bottom:15px;">
+                        <label style="margin-bottom:8px;">ジャンル（送出前に表示するロゴ）</label>
+                        <div id="text-super-genre-selector" style="display:flex; gap:14px; flex-wrap:wrap;"></div>
+                        <p style="font-size:11px; color:var(--text-sub); margin:8px 0 0;">
+                            ※「地震」は⚠️地震（P2P地震情報）タブから反映すると自動で選択されます（手動選択不要）。<br>
+                            ※各ボタン下のトグルで、そのジャンルの効果音ON/OFFを切り替えられます（地震の速報音は震度3以上の場合のみで、別途「地震」タブに設定があります）。
+                        </p>
+                    </div>
+
                     <div class="btn-group">
                         <button id="btn-text-super-start" class="primary" style="background:var(--accent-green); display:flex; justify-content:center; align-items:center; gap:8px;" onclick="startTextSuperSequence()">
                             <i class="material-icons">play_arrow</i> ▶ 順次送出を開始
@@ -607,8 +627,8 @@
                     <!-- 3枠切替タブ -->
                     <div style="display:flex; gap:8px; margin-bottom:12px; overflow-x:auto; padding-bottom:4px;">
                         <button id="btn-rss-news" class="rss-tab-btn active" onclick="switchRssCategory('news')">📰 ニュース (NHK速報)</button>
-                        <button id="btn-rss-earthquake" class="rss-tab-btn" onclick="switchRssCategory('earthquake')">⚠️ 地震（DMDATA）</button>
-                        <button id="btn-rss-tsunami" class="rss-tab-btn" onclick="switchRssCategory('tsunami')">🌊 津波 (準備中)</button>
+                        <button id="btn-rss-earthquake" class="rss-tab-btn" onclick="switchRssCategory('earthquake')">⚠️ 地震（P2P地震情報）</button>
+                        <button id="btn-rss-tsunami" class="rss-tab-btn" onclick="switchRssCategory('tsunami')">🌊 津波（P2P地震情報）</button>
                     </div>
 
                     <!-- RSSリスト表示枠 -->
@@ -631,7 +651,7 @@
     </div>
 </div>
 
-<script src="https://www.youtube.com/iframe_api"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -674,18 +694,26 @@
     let textSuperStepTimer = null;
     let textSuperCountdownTimer = null;
     let isTextSuperSending = false;
+    let selectedTextSuperGenre = ""; // "" | "sokuho" | "quake" | "tsunami" | "weather" | "funka"
+    const TEXT_SUPER_GENRE_OPTIONS = [
+        { key: "",        label: "なし" },
+        { key: "sokuho",  label: "🚨 速報" },
+        { key: "tsunami", label: "🌊 津波" },
+        { key: "weather", label: "☔ 気象" },
+        { key: "funka",   label: "🌋 噴火" }
+    ];
 
     // --- 速報ニュース (3枠: news, earthquake, tsunami) ---
     let currentRssCategory = 'news';
     const RSS_URLS = {
         news: "https://news.web.nhk/n-data/conf/na/rss/cat0.xml",
-        earthquake: "", // DMDATA APIで個別取得するため未使用
+        earthquake: "", // P2P地震情報APIで個別取得するため未使用
         tsunami: ""    // 今後追加予定
     };
 
-    // --- 🌏 DMDATA 地震情報（文字スーパー連携）用の状態 ---
-    let dmdataApiKey = "";
-    let dmdataGeneratedCards = [];
+    // --- 🌏 地震情報（文字スーパー連携／P2P地震情報）用の状態 ---
+    let eqGeneratedCards = [];
+    let eqGeneratedMaxIntensity = ""; // 直近に生成した地震カードの最大震度（"3","5-"など）。速報音の震度3以上判定に使用
 
     // --- 🔐 Firebase Authentication ログイン制御ロジック ---
     onAuthStateChanged(auth, (user) => {
@@ -696,12 +724,17 @@
             loginScreen.style.display = 'none';
             adminApp.style.display = 'flex';
             initCameras();
+            // カメラ一覧（kh-livec.json / kactuif）は起動時の1回だけでなく、
+            // 5分おきに自動で再取得して最新の状態に保つ
+            setInterval(initCameras, 5 * 60 * 1000);
             initPresets();
             renderTextSuperCards();
+            renderTextSuperGenreSelector();
             fetchRssNews();
             startFirebaseSync();
-            loadDmdataSettings();
-            loadCfTurnSettings();
+            loadEqSoundSetting();
+            loadGenreSoundSettings();
+            startP2pPolling(); // 手動で「監視を開始」を押さなくても、ログイン時点で自動的に受信を始める
         } else {
             loginScreen.style.display = 'flex';
             adminApp.style.display = 'none';
@@ -782,6 +815,16 @@
     window.toggleVideoOptions = (type) => {
         const vOpts = document.getElementById('video-extra-options');
         if(vOpts) { vOpts.style.display = (type === 'video') ? 'block' : 'none'; }
+
+        const ssOpts = document.getElementById('screenshare-options');
+        if (ssOpts) { ssOpts.style.display = (type === 'screenshare') ? 'block' : 'none'; }
+
+        // 画面共有はURL入力が不要（映像は直接WebRTCで送るため）なので隠す
+        const isScreenshare = (type === 'screenshare');
+        ['label-screen-url', 'input-screen-url'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = isScreenshare ? 'none' : 'block';
+        });
     };
 
     window.saveScreenProgram = () => {
@@ -828,16 +871,35 @@
     };
 
     window.saveTitle = () => {
-        secureUpdate(ref(db, 'broadcast/current'), { mainTitle: document.getElementById('input-mainTitle').value, subtitle: document.getElementById('input-subtitle').value });
+        secureUpdate(ref(db, 'broadcast/current'), { mainTitle: document.getElementById('input-mainTitle').value, subtitle: document.getElementById('input-subtitle').value })
+            .then(() => { titleDirty = false; updateDirtyBadge('title-dirty-badge', false); });
     };
 
-    window.clearTitle = () => secureUpdate(ref(db, 'broadcast/current'), { mainTitle: "", subtitle: "" });
+    window.clearTitle = () => secureUpdate(ref(db, 'broadcast/current'), { mainTitle: "", subtitle: "" }).then(() => { titleDirty = false; updateDirtyBadge('title-dirty-badge', false); });
 
     window.saveTicker = () => {
-        secureUpdate(ref(db, 'broadcast/manual_news'), { genre: document.getElementById('input-tic-g').value, line1: document.getElementById('input-tic-1').value, line2: document.getElementById('input-tic-2').value });
+        secureUpdate(ref(db, 'broadcast/manual_news'), { genre: document.getElementById('input-tic-g').value, line1: document.getElementById('input-tic-1').value, line2: document.getElementById('input-tic-2').value })
+            .then(() => { tickerDirty = false; updateDirtyBadge('ticker-dirty-badge', false); });
     };
 
     // --- 自由配置メディア管理ロジック ---
+    window.selectFreeImageCamera = (id, camId) => {
+        if (!camId) return;
+        const cam = allCameras.find(c => c.id === camId);
+        if (!cam) return;
+        const update = {
+            cameraId: cam.id,
+            cameraName: cam.name,
+            cameraType: cam.type || 'hls',
+            url: cam.url
+        };
+        // YouTubeは画像と違い高さが自動で決まらないため、未設定なら初期値を入れておく
+        if (cam.type === 'youtube') {
+            update.height = 300;
+        }
+        secureUpdate(ref(db, `broadcast/free_images/${id}`), update);
+    };
+
     window.addNewFreeImage = () => {
         const newId = "img_" + Date.now(); 
         const initialConfig = {
@@ -881,17 +943,58 @@
         reader.readAsDataURL(file);
     };
 
-    window.openImagePreviewModal = (title, url, mediaType) => {
+    let previewHlsInstance = null; // プレビュー内で使うhls.jsインスタンス（切り替え時に破棄するため保持）
+
+    window.openImagePreviewModal = (title, url, mediaType, cameraType) => {
         const modal = document.getElementById('image-preview-modal');
         const modalTitle = document.getElementById('preview-modal-title');
         const mediaContainer = document.getElementById('preview-modal-media-container');
         
         if (!modal || !mediaContainer) return;
+
+        if (previewHlsInstance) { previewHlsInstance.destroy(); previewHlsInstance = null; }
         
         modalTitle.innerText = `プレビュー : ${title || '名称未設定'}`;
         mediaContainer.innerHTML = '';
         
-        if (mediaType === 'video') {
+        if (mediaType === 'hls') {
+            const vid = document.createElement('video');
+            vid.className = 'preview-modal-img'; vid.controls = true; vid.autoplay = true; vid.muted = true;
+            mediaContainer.appendChild(vid);
+            if (Hls.isSupported()) {
+                previewHlsInstance = new Hls();
+                previewHlsInstance.loadSource(url);
+                previewHlsInstance.attachMedia(vid);
+            } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+                vid.src = url;
+            }
+        } else if (mediaType === 'camera') {
+            if (cameraType === 'youtube') {
+                let vidId = "";
+                if (url.includes('watch?v=')) vidId = url.split('watch?v=')[1].split('&')[0];
+                else if (url.includes('youtu.be/')) vidId = url.split('youtu.be/')[1].split('?')[0];
+                else if (url.includes('embed/')) vidId = url.split('embed/')[1].split('?')[0];
+                else vidId = url;
+                const iframe = document.createElement('iframe');
+                iframe.src = `https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&controls=1&rel=0`;
+                iframe.className = 'preview-modal-img';
+                iframe.style.border = 'none';
+                iframe.allow = 'autoplay; encrypted-media';
+                mediaContainer.appendChild(iframe);
+            } else {
+                // hls（またはtype不明）はvideo + hls.jsで再生
+                const vid = document.createElement('video');
+                vid.className = 'preview-modal-img'; vid.controls = true; vid.autoplay = true; vid.muted = true;
+                mediaContainer.appendChild(vid);
+                if (Hls.isSupported()) {
+                    previewHlsInstance = new Hls();
+                    previewHlsInstance.loadSource(url);
+                    previewHlsInstance.attachMedia(vid);
+                } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+                    vid.src = url;
+                }
+            }
+        } else if (mediaType === 'video') {
             const vid = document.createElement('video');
             vid.src = url; vid.className = 'preview-modal-img'; vid.controls = true; vid.autoplay = true; vid.loop = true;
             mediaContainer.appendChild(vid);
@@ -909,6 +1012,7 @@
         const modal = document.getElementById('image-preview-modal');
         if (modal) {
             modal.classList.remove('open');
+            if (previewHlsInstance) { previewHlsInstance.destroy(); previewHlsInstance = null; }
             const mediaContainer = document.getElementById('preview-modal-media-container');
             if(mediaContainer) mediaContainer.innerHTML = ''; 
         }
@@ -917,6 +1021,7 @@
     function renderFreeImagesControls(imagesData) {
         const container = document.getElementById('free-images-control-container');
         if (!container) return;
+        try { container.dataset.lastData = JSON.stringify(imagesData || {}); } catch (e) {}
         container.innerHTML = "";
 
         if (!imagesData || Object.keys(imagesData).length === 0) {
@@ -942,7 +1047,7 @@
             const escapedUrl = hasUrl ? conf.url.replace(/'/g, "\\'") : '';
             
             const previewBtnHtml = hasUrl 
-                ? `<button class="secondary" style="width:100%; margin-bottom:15px; background:#333; display:flex; align-items:center; justify-content:center; gap:8px;" onclick="openImagePreviewModal('${escapedName}', '${escapedUrl}', '${currentMediaType}')"><i class="material-icons" style="font-size:18px;">visibility</i>プレビュー</button>`
+                ? `<button class="secondary" style="width:100%; margin-bottom:15px; background:#333; display:flex; align-items:center; justify-content:center; gap:8px;" onclick="openImagePreviewModal('${escapedName}', '${escapedUrl}', '${currentMediaType}', '${conf.cameraType || ''}')"><i class="material-icons" style="font-size:18px;">visibility</i>プレビュー</button>`
                 : `<button class="secondary" style="width:100%; margin-bottom:15px; opacity:0.3; cursor:not-allowed; display:flex; align-items:center; justify-content:center; gap:8px;" disabled><i class="material-icons" style="font-size:18px;">visibility_off</i>プレビュー用メディアがありません</button>`;
 
             card.innerHTML = `
@@ -967,6 +1072,8 @@
                 <select style="margin-bottom: 10px; padding: 10px; background: #000; color: #fff; border: 1px solid #444; border-radius: 6px; width: 100%; font-size: 14px; font-family: inherit;" onchange="updateImageProperty('${id}', 'mediaType', this.value)">
                     <option value="image" ${currentMediaType === 'image' ? 'selected' : ''}>画像 / GIF</option>
                     <option value="video" ${currentMediaType === 'video' ? 'selected' : ''}>動画 (MP4, WebM等)</option>
+                    <option value="hls" ${currentMediaType === 'hls' ? 'selected' : ''}>HLS配信 (m3u8)</option>
+                    <option value="camera" ${currentMediaType === 'camera' ? 'selected' : ''}>ライブカメラ</option>
                 </select>
 
                 <div style="display: ${currentMediaType === 'video' ? 'block' : 'none'}; margin-bottom: 10px;">
@@ -977,12 +1084,27 @@
                     </select>
                 </div>
 
-                <label>メディア直リンクURL（画像/GIF/動画）</label>
+                <div style="display: ${currentMediaType === 'camera' ? 'block' : 'none'}; margin-bottom: 10px;">
+                    <label>配置するライブカメラ</label>
+                    <select style="padding: 10px; background: #000; color: #fff; border: 1px solid #444; border-radius: 6px; width: 100%; font-size: 14px; font-family: inherit;" onchange="selectFreeImageCamera('${id}', this.value)">
+                        <option value="">-- カメラを選択 --</option>
+                        ${allCameras.map(cam => `<option value="${cam.id}" ${conf.cameraId === cam.id ? 'selected' : ''}>${cam.name}${cam.type === 'youtube' ? '（YouTube）' : '（HLS）'}</option>`).join('')}
+                    </select>
+                    <div style="font-size:11px; color:var(--text-sub); margin-top:6px;">
+                        「①ライブカメラ」タブの一覧（kh-livec.json + kactuifデータ）から選べます。選択すると自動的にURLと種別が設定されます。
+                    </div>
+                </div>
+
+                <div style="display: ${currentMediaType === 'camera' ? 'none' : 'block'};">
+                <label>メディア直リンクURL（${currentMediaType === 'hls' ? 'm3u8配信URL' : '画像/GIF/動画'}）</label>
                 <input type="text" id="url-${id}" value="${conf.url && !conf.url.startsWith('data:') ? conf.url : ''}" 
-                       placeholder="https://..." onchange="updateImageProperty('${id}', 'url', this.value)">
+                       placeholder="${currentMediaType === 'hls' ? 'https://example.com/stream/playlist.m3u8' : 'https://...'}" onchange="updateImageProperty('${id}', 'url', this.value)">
                 
+                <div style="display: ${currentMediaType === 'hls' ? 'none' : 'block'};">
                 <label>ローカルファイルをアップロード (※ファイルサイズ注意)</label>
                 <input type="file" accept="image/*,video/*" style="padding:6px; font-size:12px;" onchange="handleImageFileSelect('${id}', event)">
+                </div>
+                </div>
 
                 <div style="margin-top:15px;">
                     <label>X座標 (px) <span style="float:right; color:var(--text-sub);" id="val-${id}-x">${conf.x || 0}px</span></label>
@@ -998,6 +1120,13 @@
                     <label>横幅サイズ (px) <span style="float:right; color:var(--text-sub);" id="val-${id}-w">${conf.width !== undefined ? conf.width : 1920}px</span></label>
                     <div class="range-group">
                         <input type="range" min="50" max="1920" value="${conf.width !== undefined ? conf.width : 1920}" id="range-${id}-w" oninput="document.getElementById('val-${id}-w').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'width', this.value)">
+                    </div>
+
+                    <div style="display: ${(currentMediaType === 'hls' || (currentMediaType === 'camera' && conf.cameraType === 'youtube')) ? 'block' : 'none'};">
+                        <label>縦幅サイズ (px) <span style="color:#888;">※${currentMediaType === 'hls' ? 'HLS動画' : 'YouTube配信'}は画像と違い自動で縦横比が決まらないため、高さも指定してください</span> <span style="float:right; color:var(--text-sub);" id="val-${id}-h">${conf.height !== undefined ? conf.height : 300}px</span></label>
+                        <div class="range-group">
+                            <input type="range" min="50" max="1080" value="${conf.height !== undefined ? conf.height : 300}" id="range-${id}-h" oninput="document.getElementById('val-${id}-h').innerText = this.value + 'px'; syncRangeImageValue('${id}', 'height', this.value)">
+                        </div>
                     </div>
 
                     <label>レイヤー順序 (z-index 1〜10)</label>
@@ -1075,13 +1204,22 @@
 
     // --- L-Shape Logic ---
     let localLItems = [];
-    window.addLItem = () => { localLItems.push({genre:"", text:""}); renderLItems(); };
-    window.removeLItem = (i) => { localLItems.splice(i,1); renderLItems(); };
-    window.updateLItem = (i, field, val) => { localLItems[i][field] = val; };
+    // 複数人で同時編集した際に、他の人の保存でこちらの未保存の入力が上書きされないようにするフラグ
+    let titleDirty = false;
+    let tickerDirty = false;
+    let lShapeDirty = false;
+    function updateDirtyBadge(id, show) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = show ? 'inline' : 'none';
+    }
+    window.addLItem = () => { localLItems.push({genre:"", text:""}); lShapeDirty = true; updateDirtyBadge('lshape-dirty-badge', true); renderLItems(); };
+    window.removeLItem = (i) => { localLItems.splice(i,1); lShapeDirty = true; updateDirtyBadge('lshape-dirty-badge', true); renderLItems(); };
+    window.updateLItem = (i, field, val) => { localLItems[i][field] = val; lShapeDirty = true; updateDirtyBadge('lshape-dirty-badge', true); };
 
     window.moveLItem = (index, direction) => {
         const targetIndex = index + direction;
         if (targetIndex < 0 || targetIndex >= localLItems.length) return;
+        lShapeDirty = true; updateDirtyBadge('lshape-dirty-badge', true);
         const container = document.getElementById('l-items-container');
         animateCardSwap(container, index, targetIndex, localLItems, renderLItems);
     };
@@ -1128,7 +1266,7 @@
         });
         secureSet(ref(db, 'broadcast/l_shape'), {
             leftText: document.getElementById('input-l-leftText').value || "", topItems: topItemsObj
-        }).then(() => { alert("L字放送設定をFirebaseに保存しました"); });
+        }).then(() => { lShapeDirty = false; updateDirtyBadge('lshape-dirty-badge', false); alert("L字放送設定をFirebaseに保存しました"); });
     };
 
     window.triggerTsu = (dir) => {
@@ -1260,6 +1398,7 @@
             else if(genreName === "河川") icon = "🏞️ ";
             else if(genreName === "道路") icon = "🛣️ ";
             else if(genreName === "都市") icon = "🏙️ ";
+            else if(genreName === "akki") icon = "📡 ";
             btn.innerText = `${icon}${genreName}`;
             btn.onclick = () => filterByGenre(genreName, btn);
             container.appendChild(btn);
@@ -1301,10 +1440,12 @@
             const d = document.createElement('div');
             d.style.cssText = "padding:18px; border-bottom:1px solid #222; cursor:pointer;";
             const genreTag = c.genre ? c.genre : '未分類';
+            const typeTag = c.type === 'youtube' ? '<span style="font-size:10px; background:#4A1D1D; color:#FFAB91; padding:2px 8px; border-radius:4px;">YouTube</span>' : '';
             d.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div><div style="font-weight:bold;">${c.name}</div><small style="color:#777;">ID: ${c.id}</small></div>
-                    <div style="display:flex; gap:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <div style="min-width:0; flex:1;"><div style="font-weight:bold; overflow-wrap:break-word;">${c.name}</div><small style="color:#777;">ID: ${c.id}</small></div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        ${typeTag}
                         <span style="font-size:10px; background:#1A365D; color:#90CDF4; padding:2px 8px; border-radius:4px;">${genreTag}</span>
                         <span style="font-size:10px; background:#333; padding:2px 8px; border-radius:4px;">${c.area || '未設定'}</span>
                     </div>
@@ -1317,37 +1458,6 @@
                 updateFB('current/cameraSource', c.id);
             };
             list.appendChild(d);
-        });
-    }
-
-    function updatePreviewPlayer() {
-        const container = document.getElementById('preview-player-container');
-        if (!container) return;
-        container.innerHTML = `
-            <div id="yt-live-check-player" style="width:100%; height:100%; position:absolute; top:0; left:0; visibility:hidden;"></div>
-            <div id="offline-message-layer" style="text-align:center; z-index:10; padding:20px; display:none;">
-                <i class="material-icons" style="font-size:48px; color:var(--text-sub); margin-bottom:10px;">videocam_off</i>
-                <div style="font-weight:bold; font-size:15px; margin-bottom:4px;">現在、YouTubeライブ配信は行われていません</div>
-                <div style="font-size:12px; color:var(--text-sub);">EQLiveプロジェクトが稼働するとここに自動で映像が投影されます</div>
-            </div>
-            <div id="loading-message-layer" style="text-align:center; z-index:5;">
-                <div style="font-size:13px; color:var(--text-sub);">配信ステータスを取得しています...</div>
-            </div>
-        `;
-        new YT.Player('yt-live-check-player', {
-            width: '100%', height: '100%', videoId: '', 
-            playerVars: { 'listType': 'live_stream', 'list': 'UC8nCen_24bQ-Vsp-f1F080w', 'autoplay': 1, 'mute': 1, 'controls': 1, 'rel': 0 },
-            events: {
-                'onReady': () => {
-                    document.getElementById('loading-message-layer').style.display = 'none';
-                    document.getElementById('yt-live-check-player').style.visibility = 'visible';
-                },
-                'onError': () => {
-                    document.getElementById('loading-message-layer').style.display = 'none';
-                    document.getElementById('yt-live-check-player').style.display = 'none';
-                    document.getElementById('offline-message-layer').style.display = 'block';
-                }
-            }
         });
     }
 
@@ -1369,1108 +1479,267 @@
         } catch(e) { console.error(e); }
     }
 
+    // kactuif.ikunocam.net/data を取得する。直接fetchがCORS等で失敗した場合は
+    // 複数の公開CORSプロキシを順番に試す（1つが不安定でも他で補う）
+    async function fetchKactuifCameras() {
+        const targetUrl = "https://kactuif.ikunocam.net/data";
+        const attempts = [
+            { label: "直接", url: targetUrl, parse: (t) => JSON.parse(t) },
+            { label: "corsproxy.io経由", url: "https://corsproxy.io/?url=" + encodeURIComponent(targetUrl), parse: (t) => JSON.parse(t) },
+            { label: "allorigins.win経由", url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl), parse: (t) => JSON.parse(t) },
+            { label: "thingproxy経由", url: "https://thingproxy.freeboard.io/fetch/" + targetUrl, parse: (t) => JSON.parse(t) }
+        ];
+
+        let kactuifData = null;
+        for (const attempt of attempts) {
+            try {
+                const res = await fetch(attempt.url);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const text = await res.text();
+                kactuifData = attempt.parse(text);
+                if (kactuifData && typeof kactuifData === 'object') break;
+            } catch (e) { console.warn(`kactuifData (${attempt.label}) 取得失敗:`, e); }
+        }
+        return kactuifData;
+    }
+
     async function initCameras() {
         try {
-            const res = await fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json");
-            allCameras = await res.json();
+            const [khRes, kactuifData] = await Promise.all([
+                fetch("https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json").then(r => r.json()).catch(() => []),
+                fetchKactuifCameras()
+            ]);
+
+            const baseCameras = Array.isArray(khRes) ? khRes : [];
+            const kactuifCameras = [];
+
+            if (kactuifData && typeof kactuifData === 'object') {
+                Object.keys(kactuifData).forEach(key => {
+                    const item = kactuifData[key];
+                    if (item && item.name && item.url) {
+                        kactuifCameras.push({
+                            id: item.id || `kactuif_${key}`,
+                            name: item.name,
+                            url: item.url,
+                            type: item.type || 'hls',
+                            genre: item.genre || 'akki',
+                            area: item.area || '関東'
+                        });
+                    }
+                });
+            }
+
+            const camMap = new Map();
+            baseCameras.forEach(c => camMap.set(c.id, c));
+            kactuifCameras.forEach(c => camMap.set(c.id, c));
+
+            allCameras = Array.from(camMap.values());
             buildGenreFilterButtons(allCameras);
             applyCombinedFilter();
-            buildTourCameraSelector(); 
-            updatePreviewPlayer();
+            buildTourCameraSelector();
         } catch(e) { console.error(e); }
     }
 
-    let isInitialLoad = true;
-
     function startFirebaseSync() {
-        onValue(ref(db, 'broadcast'), (snapshot) => {
-            const data = snapshot.val();
-            if(!data) return;
-
-            const cur = data.current || {};
-            const tsu = data.tsunami_config || {};
-            const tourConf = data.tour_config || {};
-            const audioConf = data.audio || {};
-            const textSuperSeq = data.text_super_sequence || {};
-            currentTourConfig = tourConf;
+        onValue(ref(db, 'broadcast/current'), (snapshot) => {
+            const data = snapshot.val(); if (!data) return;
+            document.getElementById('stat-dist').innerText = data.distributor === 'bot' ? '🤖 自動 (Bot)' : '👤 有人 (人間)';
+            document.getElementById('stat-mode').innerText = data.layoutMode === 'emergency' ? '有事放送' : '通常放送';
             
-            const freeImagesData = data.free_images || {};
-            const activeEl = document.activeElement;
-            const isEditingFreeImage = activeEl && (activeEl.id.startsWith('range-') || activeEl.id.startsWith('num-') || activeEl.id.startsWith('url-') || activeEl.type === 'file');
-            if(!isEditingFreeImage){ renderFreeImagesControls(freeImagesData); }
+            currentCameraSourceId = data.cameraSource || "";
+            const currentCamObj = allCameras.find(c => c.id === currentCameraSourceId);
+            document.getElementById('stat-cam').innerText = currentCamObj ? `${currentCamObj.name} (${currentCamObj.id})` : (currentCameraSourceId || '--');
 
-            const statDist = document.getElementById('stat-dist');
-            const statMode = document.getElementById('stat-mode');
-            const statCam = document.getElementById('stat-cam');
-            if(statDist) statDist.innerText = `${cur.distributor === 'bot' ? '🤖 自動 (Bot)' : '👤 有人'} (${cur.operator || '--'})`;
-            if(statMode) statMode.innerText = cur.layoutMode === 'emergency' ? '🚨 有事放送' : '🏠 通常放送';
-            if(statCam) statCam.innerText = cur.cameraSource || '--';
-
-            if (cur.cameraSource && cur.cameraSource !== currentCameraSourceId) currentCameraSourceId = cur.cameraSource;
-
-            const alertArea = document.getElementById('status-alert-area');
-            if(alertArea) alertArea.innerHTML = data.current_mode === 'l-screen' ? '<div class="card alert"><i class="material-icons" style="vertical-align:bottom; color:var(--accent-red)">warning</i> L字放送が実行中です</div>' : '';
-
-            const syncSelect = (id, val) => { const el = document.getElementById(id); if(el && document.activeElement.id !== id) el.value = val || ""; };
-            syncSelect('input-distributor', cur.distributor);
-            toggleNingen();
-
-            const setBtn = (id, cond) => { const el = document.getElementById(id); if(el) el.className = cond ? "primary" : "secondary"; };
-            setBtn('btn-lay-live', cur.layoutMode === 'live');
-            setBtn('btn-lay-emer', cur.layoutMode === 'emergency');
-            setBtn('btn-m-sub', data.current_mode === 'sub-switcher');
-            setBtn('btn-m-l', data.current_mode === 'l-screen');
-            setBtn('btn-time-show', cur.timeVisible !== false);
-            setBtn('btn-time-hide', cur.timeVisible === false);
+            document.getElementById('input-distributor').value = data.distributor || 'bot';
+            document.getElementById('input-mainSource').value = data.mainSource || 'camera';
             
-            const linkToL = document.getElementById('link-to-l');
-            if(linkToL) linkToL.style.display = data.current_mode === 'l-screen' ? 'block' : 'none';
+            // 未保存の入力中でなければFirebaseの最新値でフォームを同期する
+            if (!titleDirty) {
+                document.getElementById('input-mainTitle').value = data.mainTitle || '';
+                document.getElementById('input-subtitle').value = data.subtitle || '';
+            }
 
-            syncSelect('input-mainSource', cur.mainSource);
+            const btnLayLive = document.getElementById('btn-lay-live');
+            const btnLayEmer = document.getElementById('btn-lay-emer');
+            if (data.layoutMode === 'emergency') {
+                btnLayLive.className = "secondary"; btnLayEmer.className = "primary";
+            } else {
+                btnLayLive.className = "primary"; btnLayEmer.className = "secondary";
+            }
+
+            const btnTimeShow = document.getElementById('btn-time-show');
+            const btnTimeHide = document.getElementById('btn-time-hide');
+            if (data.timeVisible !== false) {
+                btnTimeShow.className = "primary"; btnTimeHide.className = "secondary";
+            } else {
+                btnTimeShow.className = "secondary"; btnTimeHide.className = "primary";
+            }
+
             const screenOpts = document.getElementById('screen-options');
-            if(screenOpts) screenOpts.style.display = cur.mainSource === 'screen' ? 'block' : 'none';
-            
-            if(data.screen_program) {
-                syncSelect('input-screen-type', data.screen_program.type);
-                toggleVideoOptions(data.screen_program.type);
-                const syncInputOrValue = (id, val) => { const el = document.getElementById(id); if(el && document.activeElement.id !== id) el.value = String(val !== undefined ? val : ""); };
-                syncInputOrValue('input-screen-title', data.screen_program.title);
-                syncInputOrValue('input-screen-url', data.screen_program.url);
-                syncSelect('input-screen-loop', data.screen_program.loop !== undefined ? String(data.screen_program.loop) : 'true');
-                syncSelect('input-screen-muted', data.screen_program.muted !== undefined ? String(data.screen_program.muted) : 'false');
+            screenOpts.style.display = (data.mainSource === 'screen') ? 'block' : 'none';
+        });
+
+        onValue(ref(db, 'broadcast/current_mode'), (snapshot) => {
+            const mode = snapshot.val();
+            const btnMSub = document.getElementById('btn-m-sub');
+            const btnML = document.getElementById('btn-m-l');
+            const linkToL = document.getElementById('link-to-l');
+            if (mode === 'l-screen') {
+                btnMSub.className = "secondary"; btnML.className = "primary";
+                if(linkToL) linkToL.style.display = "block";
+            } else {
+                btnMSub.className = "primary"; btnML.className = "secondary";
+                if(linkToL) linkToL.style.display = "none";
             }
+        });
 
-            const syncInput = (id, val) => { const el = document.getElementById(id); if(el && document.activeElement.id !== id) el.value = val || ""; };
-            syncInput('input-mainTitle', cur.mainTitle);
-            syncInput('input-subtitle', cur.subtitle);
-            if(data.manual_news) { syncInput('input-tic-g', data.manual_news.genre); syncInput('input-tic-1', data.manual_news.line1); syncInput('input-tic-2', data.manual_news.line2); }
+        onValue(ref(db, 'broadcast/manual_news'), (snapshot) => {
+            const news = snapshot.val(); if (!news) return;
+            if (!tickerDirty) {
+                document.getElementById('input-tic-g').value = news.genre || '';
+                document.getElementById('input-tic-1').value = news.line1 || '';
+                document.getElementById('input-tic-2').value = news.line2 || '';
+            }
+        });
 
-            const isEditingL = activeEl && (activeEl.id.startsWith('input-l-') || activeEl.closest('#l-items-container'));
-            if(data.l_shape && !isEditingL) {
-                syncInput('input-l-leftText', data.l_shape.leftText);
-                const items = data.l_shape.topItems;
-                if(items) {
-                    const keys = Object.keys(items).sort((a,b) => parseInt(a) - parseInt(b));
-                    const newItems = keys.map(key => ({ genre: items[key].genre || "", text: items[key].text || "" }));
-                    if(isInitialLoad || localLItems.length !== newItems.length) { localLItems = newItems; renderLItems(); }
+        onValue(ref(db, 'broadcast/screen_program'), (snapshot) => {
+            const prog = snapshot.val(); if (!prog) return;
+            document.getElementById('input-screen-type').value = prog.type || 'image';
+            document.getElementById('input-screen-title').value = prog.title || '';
+            document.getElementById('input-screen-url').value = prog.url || '';
+            if (prog.loop !== undefined) document.getElementById('input-screen-loop').value = prog.loop ? 'true' : 'false';
+            if (prog.muted !== undefined) document.getElementById('input-screen-muted').value = prog.muted ? 'true' : 'false';
+            toggleVideoOptions(prog.type || 'image');
+        });
+
+        onValue(ref(db, 'broadcast/l_shape'), (snapshot) => {
+            const ldata = snapshot.val(); if (!ldata) return;
+            if (!lShapeDirty) {
+                document.getElementById('input-l-leftText').value = ldata.leftText || '';
+                localLItems = [];
+                if (ldata.topItems) {
+                    const keys = Object.keys(ldata.topItems).sort((a,b) => parseInt(a) - parseInt(b));
+                    keys.forEach(k => localLItems.push(ldata.topItems[k]));
                 }
+                renderLItems();
             }
-            
-            setBtn('btn-tsu-auto', tsu.autoPage === true);
-            setBtn('btn-tsu-manual', tsu.autoPage === false);
-            const tsuCtrl = document.getElementById('tsu-manual-ctrl');
-            if(tsuCtrl) tsuCtrl.style.display = tsu.autoPage === false ? 'block' : 'none';
+        });
 
-            // --- Tour Sync ---
-            const btnTourOn = document.getElementById('btn-tour-on');
-            const btnTourOff = document.getElementById('btn-tour-off');
-            const tourDetailsArea = document.getElementById('tour-details-area');
-            const intervalEl = document.getElementById('input-tour-interval');
-            const unitEl = document.getElementById('select-tour-unit');
+        onValue(ref(db, 'broadcast/tsunami_config'), (snapshot) => {
+            const tsu = snapshot.val(); if(!tsu) return;
+            const btnAuto = document.getElementById('btn-tsu-auto');
+            const btnManual = document.getElementById('btn-tsu-manual');
+            const manualCtrl = document.getElementById('tsu-manual-ctrl');
+            if (tsu.autoPage) {
+                btnAuto.className = "primary"; btnManual.className = "secondary"; manualCtrl.style.display = "none";
+            } else {
+                btnAuto.className = "secondary"; btnManual.className = "primary"; manualCtrl.style.display = "block";
+            }
+        });
+
+        onValue(ref(db, 'broadcast/free_images'), (snapshot) => {
+            renderFreeImagesControls(snapshot.val());
+        });
+
+        onValue(ref(db, 'broadcast/tour_config'), (snapshot) => {
+            const tourConf = snapshot.val();
+            currentTourConfig = tourConf;
+            if (!tourConf) return;
+
+            const btnOn = document.getElementById('btn-tour-on');
+            const btnOff = document.getElementById('btn-tour-off');
+            const detailsArea = document.getElementById('tour-details-area');
 
             if (tourConf.enabled) {
-                btnTourOn.className = "primary"; btnTourOff.className = "secondary"; if(tourDetailsArea) tourDetailsArea.style.display = "block";
+                btnOn.className = "primary"; btnOff.className = "secondary"; detailsArea.style.display = "block";
             } else {
-                btnTourOn.className = "secondary"; btnTourOff.className = "primary"; if(tourDetailsArea) tourDetailsArea.style.display = "none";
+                btnOn.className = "secondary"; btnOff.className = "primary"; detailsArea.style.display = "none";
             }
 
-            if (intervalEl && document.activeElement.id !== 'input-tour-interval') intervalEl.value = tourConf.interval || 30;
-            if (unitEl && document.activeElement.id !== 'select-tour-unit') unitEl.value = tourConf.unit || 60;
-            if (tourConf.selectedIds && Array.isArray(tourConf.selectedIds)) { selectedTourIds = tourConf.selectedIds; buildTourCameraSelector(); }
+            if (tourConf.interval) document.getElementById('input-tour-interval').value = tourConf.interval;
+            if (tourConf.unit) document.getElementById('select-tour-unit').value = tourConf.unit;
+            if (tourConf.selectedIds && Array.isArray(tourConf.selectedIds)) {
+                selectedTourIds = tourConf.selectedIds;
+                buildTourCameraSelector();
+            }
 
-            if (tourConf.running && tourConf.enabled) {
-                const totalSec = (tourConf.interval || 30) * (tourConf.unit || 60);
-                if (!tourActiveLocal) startLocalTourLoop(totalSec);
+            let totalSeconds = (tourConf.interval || 30) * (tourConf.unit || 60);
+
+            if (tourConf.enabled && tourConf.running) {
+                if (!tourActiveLocal) startLocalTourLoop(totalSeconds);
             } else {
                 if (tourActiveLocal) stopLocalTourTimer();
             }
+        });
+    }
 
-            // --- Audio BGM Sync ---
-            const btnBgmPlay = document.getElementById('btn-bgm-play');
-            const btnBgmStop = document.getElementById('btn-bgm-stop');
-            const bgmUrl = document.getElementById('input-bgm-url');
+    // --- ✨ ⑪文字スーパー タブ Logic ---
+    window.renderTextSuperCards = () => {
+        const container = document.getElementById('text-super-cards-container');
+        if (!container) return;
+
+        const activeIdBefore = document.activeElement ? document.activeElement.id : null;
+        container.innerHTML = "";
+
+        localTextSuperCards.forEach((cardData, i) => {
+            const cardEl = document.createElement('div');
+            cardEl.className = "card";
+            cardEl.style.background = "#222";
+            cardEl.style.borderLeft = (textSuperActiveSequenceIndex === i) ? "5px solid var(--accent-green)" : "5px solid var(--accent-blue)";
             
-            if (audioConf.bgm) {
-                if (audioConf.bgm.isPlaying) {
-                    btnBgmPlay.className = "secondary"; btnBgmPlay.style.background = "#333";
-                    btnBgmStop.className = "primary"; btnBgmStop.style.background = "var(--accent-red)";
-                } else {
-                    btnBgmPlay.className = "primary"; btnBgmPlay.style.background = "var(--accent-green)";
-                    btnBgmStop.className = "danger";
-                }
-                if(bgmUrl && document.activeElement.id !== 'input-bgm-url') bgmUrl.value = audioConf.bgm.url || "";
-            }
+            const isFirst = i === 0;
+            const isLast = i === localTextSuperCards.length - 1;
 
-            // --- TTSステータス Sync ---
-            if (audioConf.tts && audioConf.tts.text && audioConf.tts.action !== 'cancel') {
-                const ttsInput = document.getElementById('input-tts-text');
-                if (ttsInput && document.activeElement.id !== 'input-tts-text') {
-                    ttsInput.value = audioConf.tts.text;
-                    updateTTSCharCount();
-                }
-            }
-
-            const ttsStatus = audioConf.tts_status || {};
-            const statusTextEl = document.getElementById('tts-status-text');
-            const etaTextEl = document.getElementById('tts-eta-text');
-            const progressBarEl = document.getElementById('tts-progress-bar');
-            const currentReadingEl = document.getElementById('tts-current-reading');
-
-            if (ttsStatus.status === 'generating') {
-                statusTextEl.innerText = "⏳ 音声生成中...";
-                statusTextEl.style.color = "#ffb300";
-                etaTextEl.innerText = ttsStatus.eta ? `残り約${ttsStatus.eta}秒 (${ttsStatus.progress || 0}%)` : `${ttsStatus.progress || 0}%`;
-                progressBarEl.style.width = `${ttsStatus.progress || 0}%`;
-                progressBarEl.style.background = "#ffb300";
-                currentReadingEl.innerText = "生成中のため待機中...";
-            } else if (ttsStatus.status === 'playing') {
-                statusTextEl.innerText = "🔊 読み上げ中...";
-                statusTextEl.style.color = "var(--accent-green)";
-                etaTextEl.innerText = ttsStatus.eta ? `残り約${ttsStatus.eta}秒 (${ttsStatus.progress || 0}%)` : `${ttsStatus.progress || 0}%`;
-                progressBarEl.style.width = `${ttsStatus.progress || 0}%`;
-                progressBarEl.style.background = "var(--accent-green)";
-                currentReadingEl.innerText = ttsStatus.currentText || "読み上げ中...";
-            } else {
-                statusTextEl.innerText = "待機中";
-                statusTextEl.style.color = "var(--text-sub)";
-                etaTextEl.innerText = "--";
-                progressBarEl.style.width = "0%";
-                progressBarEl.style.background = "var(--accent-blue)";
-                currentReadingEl.innerText = "...";
-            }
-
-            // --- 文字スーパー バックエンド同期 ---
-            handleTextSuperSequenceSync(textSuperSeq);
-
-            isInitialLoad = false;
-        });
-    }
-
-    // --- 🔊 音声・BGM・マイク制御 ---
-
-    // 文字数カウンター更新関数
-    window.updateTTSCharCount = () => {
-        const text = document.getElementById('input-tts-text').value;
-        const countEl = document.getElementById('tts-char-count');
-        if (countEl) countEl.innerText = text.length;
-    };
-
-    // 長文を句読点や最大文字数（約120文字）ごとに分割するヘルパー関数
-    function splitTextForTTS(text, maxLength = 120) {
-        if (!text) return [];
-        const sentences = text.match(/[^。！？\n]+[。！？\n]?/g) || [text];
-        const chunks = [];
-        let currentChunk = "";
-
-        for (const sentence of sentences) {
-            if ((currentChunk + sentence).length > maxLength && currentChunk.length > 0) {
-                chunks.push(currentChunk.trim());
-                currentChunk = sentence;
-            } else {
-                currentChunk += sentence;
-            }
-        }
-        if (currentChunk.trim().length > 0) {
-            chunks.push(currentChunk.trim());
-        }
-        return chunks;
-    }
-
-    // 1. AI音声読み上げ（TTS）送信（長文分割対応）
-    window.sendTTS = () => {
-        const text = document.getElementById('input-tts-text').value.trim();
-        if(!text) { alert("テキストを入力してください。"); return; }
-        
-        const chunks = splitTextForTTS(text, 120);
-
-        secureSet(ref(db, 'broadcast/audio/tts'), {
-            text: text,
-            chunks: chunks,
-            action: 'speak',
-            timestamp: Date.now()
-        });
-    };
-
-    // AI音声読み上げ（TTS）クリア・停止
-    window.clearTTS = () => {
-        document.getElementById('input-tts-text').value = "";
-        updateTTSCharCount();
-        
-        secureSet(ref(db, 'broadcast/audio/tts'), {
-            text: "",
-            chunks: [],
-            action: "cancel",
-            timestamp: Date.now()
-        });
-        
-        secureSet(ref(db, 'broadcast/audio/tts_status'), {
-            status: 'idle',
-            progress: 0,
-            eta: 0,
-            currentText: '待機中'
-        });
-    };
-
-    // 2. BGM再生制御
-    window.toggleBGM = (play) => {
-        const url = document.getElementById('input-bgm-url').value.trim();
-        const vol = parseFloat(document.getElementById('range-bgm-vol').value) || 0.5;
-        
-        secureUpdate(ref(db, 'broadcast/audio/bgm'), {
-            url: url,
-            isPlaying: play,
-            volume: vol
-        });
-    };
-
-    window.changeBGMVolume = (val) => {
-        secureUpdate(ref(db, 'broadcast/audio/bgm'), { volume: parseFloat(val) });
-    };
-
-    // 3. マイクリアルタイム配信 & 画面共有配信 (WebRTC)
-    let localStream = null;
-    let peerConnection = null;
-    let screenStream = null;
-    let screenPeerConnection = null;
-    let cfTurnKeyId = "";
-    let cfTurnApiToken = "";
-
-    function loadCfTurnSettings() {
-        onValue(ref(db, 'settings/cfTurnKeyId'), (snap) => {
-            cfTurnKeyId = snap.val() || "";
-            const input = document.getElementById('input-cf-turn-keyid');
-            if (input && !input.value) input.placeholder = cfTurnKeyId ? cfTurnKeyId : "TURN Token IDを入力";
-        });
-        onValue(ref(db, 'settings/cfTurnApiToken'), (snap) => {
-            cfTurnApiToken = snap.val() || "";
-            const input = document.getElementById('input-cf-turn-token');
-            if (input) input.placeholder = cfTurnApiToken ? "•••••••• (設定済み・変更する場合のみ入力)" : "API Tokenを入力";
-        });
-    }
-
-    window.saveCfTurnSettings = () => {
-        const keyIdInput = document.getElementById('input-cf-turn-keyid');
-        const tokenInput = document.getElementById('input-cf-turn-token');
-        const keyIdVal = keyIdInput ? keyIdInput.value.trim() : "";
-        const tokenVal = tokenInput ? tokenInput.value.trim() : "";
-        if (!keyIdVal && !tokenVal) {
-            alert("Turn Token IDまたはAPI Tokenを入力してください。");
-            return;
-        }
-        const updates = {};
-        if (keyIdVal) updates.cfTurnKeyId = keyIdVal;
-        if (tokenVal) updates.cfTurnApiToken = tokenVal;
-        secureSet(ref(db, 'settings/cfTurnKeyId'), keyIdVal || cfTurnKeyId).then(() => {
-            if (tokenVal) {
-                return secureSet(ref(db, 'settings/cfTurnApiToken'), tokenVal);
-            }
-        }).then(() => {
-            if (keyIdVal) cfTurnKeyId = keyIdVal;
-            if (tokenVal) cfTurnApiToken = tokenVal;
-            if (keyIdInput) keyIdInput.value = "";
-            if (tokenInput) { tokenInput.value = ""; tokenInput.placeholder = "•••••••• (設定済み・変更する場合のみ入力)"; }
-            alert("TURN設定を保存しました。");
-        });
-    };
-
-    // Cloudflare Realtime TURNの一時的な接続情報(有効期限付き)を発行し、Firebase経由でメイン画面に渡す。
-    // 長期有効なAPI Token自体はここ(Admin/ログイン済み管理者のブラウザ)にしか存在しない。
-    async function refreshCfIceServers() {
-        const baseStun = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }];
-        if (!cfTurnKeyId || !cfTurnApiToken) {
-            console.warn("[TURN] Cloudflare TURNが未設定です。同一ネットワーク内でのみ動作します。");
-            await set(ref(db, 'broadcast/webrtc/iceServers'), baseStun).catch(() => {});
-            return baseStun;
-        }
-        try {
-            const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${cfTurnKeyId}/credentials/generate-ice-servers`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${cfTurnApiToken}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ttl: 86400 })
-            });
-            const data = await res.json();
-            if (!data.iceServers) throw new Error("iceServersが取得できませんでした");
-            const combined = [...baseStun, ...(Array.isArray(data.iceServers) ? data.iceServers : [data.iceServers])];
-            await secureSet(ref(db, 'broadcast/webrtc/iceServers'), combined);
-            return combined;
-        } catch (err) {
-            console.error("[TURN] 認証情報の取得に失敗しました:", err);
-            await set(ref(db, 'broadcast/webrtc/iceServers'), baseStun).catch(() => {});
-            return baseStun;
-        }
-    }
-
-    window.startMicStreaming = async () => {
-        try {
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            document.getElementById('btn-mic-start').style.display = 'none';
-            document.getElementById('btn-mic-stop').style.display = 'block';
-            document.getElementById('mic-status').style.display = 'block';
-            document.getElementById('mic-status').textContent = "🎤 接続準備中...";
-
-            const iceServers = await refreshCfIceServers();
-            peerConnection = new RTCPeerConnection({ iceServers });
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-            peerConnection.onicecandidate = event => {
-                if(event.candidate) {
-                    set(ref(db, `broadcast/audio/webrtc/candidates/admin/${Date.now()}`), event.candidate.toJSON());
-                }
-            };
-
-            onValue(ref(db, 'broadcast/audio/webrtc/candidates/main'), (snapshot) => {
-                snapshot.forEach((childSnapshot) => {
-                    const candidate = new RTCIceCandidate(childSnapshot.val());
-                    peerConnection.addIceCandidate(candidate);
-                });
-            });
-
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-
-            await remove(ref(db, 'broadcast/audio/webrtc/offer'));
-            await remove(ref(db, 'broadcast/audio/webrtc/answer'));
-            await remove(ref(db, 'broadcast/audio/webrtc/candidates'));
-            await secureSet(ref(db, 'broadcast/audio/webrtc/offer'), {
-                type: offer.type,
-                sdp: offer.sdp,
-                timestamp: Date.now() 
-            });
-
-            onValue(ref(db, 'broadcast/audio/webrtc/answer'), (snapshot) => {
-                const data = snapshot.val();
-                if(data && !peerConnection.currentRemoteDescription) {
-                    const answerDescription = new RTCSessionDescription(data);
-                    peerConnection.setRemoteDescription(answerDescription);
-                }
-            });
-
-            document.getElementById('mic-status').textContent = "🎤 マイク配信中...";
-        } catch (error) {
-            console.error("マイクの起動に失敗しました: ", error);
-            alert("マイクのアクセスが許可されていないか、利用できません。");
-            document.getElementById('btn-mic-start').style.display = 'block';
-            document.getElementById('btn-mic-stop').style.display = 'none';
-            document.getElementById('mic-status').style.display = 'none';
-        }
-    };
-
-    window.stopMicStreaming = () => {
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            localStream = null;
-        }
-        if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-        }
-
-        remove(ref(db, 'broadcast/audio/webrtc'));
-
-        const startBtn = document.getElementById('btn-mic-start');
-        const stopBtn = document.getElementById('btn-mic-stop');
-        const statusEl = document.getElementById('mic-status');
-        if (startBtn) startBtn.style.display = 'block';
-        if (stopBtn) stopBtn.style.display = 'none';
-        if (statusEl) statusEl.style.display = 'none';
-    };
-
-    // --- 🖥️ 画面共有配信 (WebRTC) ---
-    window.startScreenShare = async () => {
-        try {
-            screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-            document.getElementById('btn-screenshare-start').style.display = 'none';
-            document.getElementById('btn-screenshare-stop').style.display = 'block';
-            document.getElementById('screenshare-status').style.display = 'block';
-            document.getElementById('screenshare-status').textContent = "🖥️ 接続準備中...";
-
-            // ブラウザ標準の「共有を停止」ボタンが押された場合の後始末
-            screenStream.getVideoTracks()[0].addEventListener('ended', () => {
-                stopScreenShare();
-            });
-
-            const iceServers = await refreshCfIceServers();
-            screenPeerConnection = new RTCPeerConnection({ iceServers });
-            screenStream.getTracks().forEach(track => screenPeerConnection.addTrack(track, screenStream));
-
-            screenPeerConnection.onicecandidate = event => {
-                if (event.candidate) {
-                    set(ref(db, `broadcast/screenshare/webrtc/candidates/admin/${Date.now()}`), event.candidate.toJSON());
-                }
-            };
-
-            onValue(ref(db, 'broadcast/screenshare/webrtc/candidates/main'), (snapshot) => {
-                snapshot.forEach((childSnapshot) => {
-                    const candidate = new RTCIceCandidate(childSnapshot.val());
-                    screenPeerConnection.addIceCandidate(candidate);
-                });
-            });
-
-            const offer = await screenPeerConnection.createOffer();
-            await screenPeerConnection.setLocalDescription(offer);
-
-            await remove(ref(db, 'broadcast/screenshare/webrtc/offer'));
-            await remove(ref(db, 'broadcast/screenshare/webrtc/answer'));
-            await remove(ref(db, 'broadcast/screenshare/webrtc/candidates'));
-            await secureSet(ref(db, 'broadcast/screenshare/webrtc/offer'), {
-                type: offer.type,
-                sdp: offer.sdp,
-                timestamp: Date.now()
-            });
-
-            onValue(ref(db, 'broadcast/screenshare/webrtc/answer'), (snapshot) => {
-                const data = snapshot.val();
-                if (data && screenPeerConnection && !screenPeerConnection.currentRemoteDescription) {
-                    const answerDescription = new RTCSessionDescription(data);
-                    screenPeerConnection.setRemoteDescription(answerDescription);
-                }
-            });
-
-            document.getElementById('screenshare-status').textContent = "🖥️ 画面共有配信中...";
-        } catch (error) {
-            console.error("画面共有の起動に失敗しました: ", error);
-            if (error.name !== 'NotAllowedError') {
-                alert("画面共有を開始できませんでした。");
-            }
-            document.getElementById('btn-screenshare-start').style.display = 'block';
-            document.getElementById('btn-screenshare-stop').style.display = 'none';
-            document.getElementById('screenshare-status').style.display = 'none';
-        }
-    };
-
-    window.stopScreenShare = () => {
-        if (screenStream) {
-            screenStream.getTracks().forEach(track => track.stop());
-            screenStream = null;
-        }
-        if (screenPeerConnection) {
-            screenPeerConnection.close();
-            screenPeerConnection = null;
-        }
-
-        remove(ref(db, 'broadcast/screenshare/webrtc'));
-
-        const startBtn = document.getElementById('btn-screenshare-start');
-        const stopBtn = document.getElementById('btn-screenshare-stop');
-        const statusEl = document.getElementById('screenshare-status');
-        if (startBtn) startBtn.style.display = 'block';
-        if (stopBtn) stopBtn.style.display = 'none';
-        if (statusEl) statusEl.style.display = 'none';
-    };
-
-    // --- 📰 速報ニュース取得 & 挿入ロジック (3枠対応) ---
-    window.switchRssCategory = (cat) => {
-        currentRssCategory = cat;
-        document.querySelectorAll('.rss-tab-btn').forEach(btn => btn.classList.remove('active'));
-        const activeBtn = document.getElementById(`btn-rss-${cat}`);
-        if(activeBtn) activeBtn.classList.add('active');
-        fetchRssNews();
-    };
-
-    window.fetchRssNews = async () => {
-        const listContainer = document.getElementById('rss-news-list');
-        if (!listContainer) return;
-
-        if (currentRssCategory === 'earthquake') {
-            renderEarthquakePanel(listContainer);
-            return;
-        }
-
-        const url = RSS_URLS[currentRssCategory];
-        if (!url) {
-            listContainer.innerHTML = `<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">この枠の情報配信元は今後追加予定です。</div>`;
-            return;
-        }
-
-        listContainer.innerHTML = `<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">速報データを取得中...</div>`;
-
-        try {
-            let res;
-            try {
-                res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-            } catch(e) {
-                res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-            }
-
-            if (!res.ok) throw new Error("取得エラー");
-
-            const xmlText = await res.text();
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-            const items = xmlDoc.querySelectorAll("item");
-
-            if (!items || items.length === 0) {
-                listContainer.innerHTML = `<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">現在発表されている速報情報はありません</div>`;
-                return;
-            }
-
-            listContainer.innerHTML = "";
-            items.forEach((item) => {
-                const title = item.querySelector("title")?.textContent || "";
-                const desc = item.querySelector("description")?.textContent || "";
-                const pubDate = item.querySelector("pubDate")?.textContent || "";
-
-                const row = document.createElement('div');
-                row.style.cssText = "padding:10px 12px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; gap:10px;";
-                
-                const cleanTitle = title.replace(/'/g, "\\'").replace(/"/g, "&quot;");
-                
-                row.innerHTML = `
-                    <div style="flex:1; min-width:0;">
-                        <div style="font-size:13px; font-weight:bold; color:#fff; word-break:break-all;">${title}</div>
-                        ${desc ? `<div style="font-size:11px; color:var(--text-sub); margin-top:2px; word-break:break-all;">${desc}</div>` : ''}
-                        ${pubDate ? `<div style="font-size:10px; color:#666; margin-top:2px;">${pubDate}</div>` : ''}
+            cardEl.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <div style="font-size:13px; font-weight:bold; color:var(--text-main);">
+                        字幕カード #${i + 1} ${textSuperActiveSequenceIndex === i ? '<span style="color:var(--accent-green); margin-left:8px; font-size:11px;">● 送出中</span>' : ''}
                     </div>
-                    <button class="primary" style="padding:6px 12px; font-size:12px; width:auto; flex:none;" onclick="insertNewsToActiveCard('${cleanTitle}')">
-                        入力
-                    </button>
-                `;
-                listContainer.appendChild(row);
-            });
-        } catch (error) {
-            console.error("RSS fetch error:", error);
-            listContainer.innerHTML = `<div style="padding:15px; color:var(--accent-red); text-align:center; font-size:13px;">速報ニュースの取得に失敗しました。</div>`;
-        }
-    };
-
-    // --- 🌏 DMDATA APIキー設定 ---
-    function loadDmdataSettings() {
-        onValue(ref(db, 'settings/dmdataApiKey'), (snap) => {
-            dmdataApiKey = snap.val() || "";
-            const input = document.getElementById('input-dmdata-apikey');
-            if (input) {
-                input.placeholder = dmdataApiKey ? "•••••••• (設定済み・変更する場合のみ入力)" : "DMDATAのAPIキーを入力";
-            }
-        });
-    }
-
-    window.saveDmdataApiKey = () => {
-        const input = document.getElementById('input-dmdata-apikey');
-        if (!input) return;
-        const val = input.value.trim();
-        if (!val) {
-            alert("APIキーを入力してください。");
-            return;
-        }
-        secureSet(ref(db, 'settings/dmdataApiKey'), val).then(() => {
-            dmdataApiKey = val;
-            input.value = "";
-            input.placeholder = "•••••••• (設定済み・変更する場合のみ入力)";
-            alert("DMDATA APIキーを保存しました。");
-        });
-    };
-
-    // --- 🌏 DMDATA 地震情報パネル（文字スーパータブ内・地震タブ／WebSocketでリアルタイム受信） ---
-    let dmdataSocket = null;
-    let dmdataEventCache = {}; // eventId -> { VXSE51, VXSE52, VXSE53, lastReceived }
-    let dmdataEventOrder = []; // 受信順（新しい順）のeventId一覧
-
-    function renderEarthquakePanel(container) {
-        container.style.background = 'transparent';
-        container.style.border = 'none';
-        const connected = !!dmdataSocket;
-        container.innerHTML = `
-            <div style="background:#000; border:1px solid #333; border-radius:8px; padding:14px;">
-                <label style="margin-top:0; font-size:13px;">DMDATA APIキー</label>
-                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
-                    <input type="password" id="input-dmdata-apikey" placeholder="${dmdataApiKey ? '•••••••• (設定済み・変更する場合のみ入力)' : 'DMDATAのAPIキーを入力'}" style="flex:1; min-width:180px; margin:0;">
-                    <button class="secondary" style="width:auto; padding:8px 14px; font-size:12px; flex:none;" onclick="saveDmdataApiKey()">キーを保存</button>
-                </div>
-                <div style="font-size:11px; color:var(--text-sub); margin-bottom:14px;">
-                    APIキーはログイン中の管理者のみ閲覧できるFirebase上に保存され、外部には公開されません。<br/>
-                    <a href="https://manager.dmdata.jp/control/dev/credentials" target="_blank" style="color:var(--accent-blue);">DMDATAコントロールパネルでAPIキーを発行</a>
-                    （スコープで <b>socket.start</b> と <b>telegram.get.earthquake</b> を有効にし、地震・津波関連区分(telegram.earthquake)の契約が必要です）
-                </div>
-
-                <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
-                    <button id="btn-eq-connect" class="primary" style="width:auto; padding:8px 14px; font-size:13px; flex:none; ${connected ? 'background:var(--accent-red, #d33);' : ''}" onclick="${connected ? 'stopDmdataWebSocket()' : 'startDmdataWebSocket()'}">
-                        <i class="material-icons" style="font-size:16px; vertical-align:middle;">${connected ? 'stop' : 'sensors'}</i> ${connected ? 'WebSocket受信を停止' : 'WebSocket受信を開始'}
-                    </button>
-                    <label style="font-size:12px; color:var(--text-sub); display:flex; align-items:center; gap:5px; margin:0;">
-                        <input type="checkbox" id="chk-eq-include-places" checked style="width:auto; margin:0;"> 市区町村・地域別の震度カードも含める
-                    </label>
-                </div>
-
-                <div id="eq-status" style="font-size:12px; color:var(--text-sub); margin-bottom:8px;">${connected ? '接続中。地震情報の受信を待機しています…' : '未接続です。「WebSocket受信を開始」を押してください。'}</div>
-
-                <div id="eq-log" style="margin-bottom:10px;"></div>
-
-                <div id="eq-preview" style="background:#111; border:1px solid #333; border-radius:8px; max-height:260px; overflow-y:auto; display:none;"></div>
-                <div id="eq-actions" style="margin-top:10px; display:none;">
-                    <button class="primary" style="background:var(--accent-green); width:auto; padding:8px 14px; font-size:13px;" onclick="applyEarthquakeCardsToTextSuper()">
-                        <i class="material-icons" style="font-size:16px; vertical-align:middle;">playlist_add</i> 字幕カードに反映（既存カードを置き換え）
-                    </button>
-                </div>
-            </div>
-        `;
-        renderEqLog();
-    }
-
-    function renderEqLog() {
-        const logEl = document.getElementById('eq-log');
-        if (!logEl) return;
-        if (dmdataEventOrder.length === 0) {
-            logEl.innerHTML = "";
-            return;
-        }
-        logEl.innerHTML = `<div style="font-size:12px; color:var(--text-sub); margin-bottom:6px;">受信した地震情報（新しい順）</div>` +
-            dmdataEventOrder.slice(0, 10).map(eid => {
-                const ev = dmdataEventCache[eid];
-                const types = ['VXSE53', 'VXSE52', 'VXSE51'].filter(t => ev[t]).join(' / ');
-                const headline = (ev.VXSE53 && ev.VXSE53.headline) || (ev.VXSE52 && ev.VXSE52.headline) || (ev.VXSE51 && ev.VXSE51.headline) || eid;
-                return `
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:#111; border:1px solid #333; border-radius:6px; margin-bottom:6px;">
-                        <div style="font-size:12px; color:#ddd; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${headline.replace(/</g, '&lt;')}<br/><span style="color:#777; font-size:10px;">${types}</span></div>
-                        <button class="secondary" style="width:auto; padding:6px 10px; font-size:11px; flex:none;" onclick="buildAndPreviewFromEvent('${eid}')">カードを作成</button>
+                    <div class="btn-group" style="margin:0; gap:5px;">
+                        <button class="secondary" style="padding:4px 10px; font-size:12px;" onclick="moveTextSuperCard(${i}, -1)" ${isFirst ? 'disabled' : ''}>▲ 上へ</button>
+                        <button class="secondary" style="padding:4px 10px; font-size:12px;" onclick="moveTextSuperCard(${i}, 1)" ${isLast ? 'disabled' : ''}>▼ 下へ</button>
+                        <button class="danger" style="padding:4px 10px; font-size:12px;" onclick="removeTextSuperCard('${cardData.id}')" ${localTextSuperCards.length <= 1 ? 'disabled' : ''}>
+                            <i class="material-icons" style="font-size:14px; vertical-align:middle;">delete</i>
+                        </button>
                     </div>
-                `;
-            }).join('');
-    }
-
-    window.startDmdataWebSocket = async () => {
-        const statusEl = document.getElementById('eq-status');
-        if (!dmdataApiKey) {
-            alert("先にDMDATA APIキーを設定してください。");
-            return;
-        }
-        if (dmdataSocket) return;
-        if (typeof DecompressionStream === 'undefined') {
-            alert("このブラウザはgzip展開(DecompressionStream)に対応していないため、DMDATA WebSocket受信が利用できません。Google Chrome等の最新ブラウザをご利用ください。");
-            return;
-        }
-        if (statusEl) statusEl.textContent = "Socket Start APIに接続中...";
-
-        try {
-            const authHeader = 'Basic ' + btoa(dmdataApiKey + ':');
-            const startRes = await fetch('https://api.dmdata.jp/v2/socket', {
-                method: 'POST',
-                headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    classifications: ["telegram.earthquake"],
-                    types: ["VXSE51", "VXSE52", "VXSE53"],
-                    test: "no",
-                    formatMode: "json",
-                    appName: "EQLive"
-                })
-            });
-            const startData = await startRes.json();
-            console.log("[DMDATA] socket.start response:", startData);
-            if (startData.status !== 'ok') {
-                throw new Error((startData.error && startData.error.message) || 'Socket Startに失敗しました。');
-            }
-
-            const ws = new WebSocket(startData.websocket.url, ['dmdata.v2']);
-            dmdataSocket = ws;
-
-            ws.addEventListener('open', () => {
-                const s = document.getElementById('eq-status');
-                if (s) s.textContent = "接続完了。地震情報の受信を待機しています…";
-                renderEarthquakePanel(document.getElementById('rss-news-list'));
-            });
-
-            ws.addEventListener('close', (ev) => {
-                console.log("[DMDATA] WebSocket closed:", ev.code, ev.reason);
-                dmdataSocket = null;
-                const s = document.getElementById('eq-status');
-                if (s) s.textContent = `切断されました (code: ${ev.code}${ev.reason ? ', ' + ev.reason : ''})`;
-                const container = document.getElementById('rss-news-list');
-                if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
-            });
-
-            ws.addEventListener('error', (ev) => {
-                console.error("[DMDATA] WebSocket error:", ev);
-            });
-
-            ws.addEventListener('message', async (ev) => {
-                let msg;
-                try { msg = JSON.parse(ev.data); } catch (e) { return; }
-
-                if (msg.type === 'ping') {
-                    ws.send(JSON.stringify({ type: 'pong', pingId: msg.pingId }));
-                    return;
-                }
-                if (msg.type === 'error') {
-                    console.error("[DMDATA] error message:", msg);
-                    const s = document.getElementById('eq-status');
-                    if (s) s.textContent = `エラー: ${msg.error} (code: ${msg.code})`;
-                    if (msg.close) dmdataSocket = null;
-                    return;
-                }
-                if (msg.type === 'data') {
-                    await handleDmdataMessage(msg);
-                }
-            });
-        } catch (err) {
-            console.error("[DMDATA] connect error:", err);
-            dmdataSocket = null;
-            if (statusEl) statusEl.textContent = `接続に失敗しました: ${err.message}`;
-        }
-    };
-
-    window.stopDmdataWebSocket = () => {
-        if (dmdataSocket) {
-            dmdataSocket.close(1000, "manual close");
-            dmdataSocket = null;
-        }
-        const container = document.getElementById('rss-news-list');
-        if (container && currentRssCategory === 'earthquake') renderEarthquakePanel(container);
-    };
-
-    // base64 + gzip(またはzip)で圧縮された body を展開してJSONにする
-    async function decodeDmdataBody(msg) {
-        const binary = atob(msg.body);
-        let bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-
-        if (msg.compression === 'gzip') {
-            const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-            const buf = await new Response(stream).arrayBuffer();
-            bytes = new Uint8Array(buf);
-        } else if (msg.compression === 'zip') {
-            throw new Error('zip圧縮のデータには対応していません');
-        }
-        const text = new TextDecoder('utf-8').decode(bytes);
-        return JSON.parse(text);
-    }
-
-    async function handleDmdataMessage(msg) {
-        const type = msg.head && msg.head.type;
-        if (!['VXSE51', 'VXSE52', 'VXSE53'].includes(type)) return;
-        if (msg.head && msg.head.test) return;
-        if (msg.format !== 'json') {
-            console.warn("[DMDATA] 想定外のformat（jsonではありません）:", msg.format, msg);
-            return;
-        }
-
-        let json;
-        try {
-            json = await decodeDmdataBody(msg);
-        } catch (e) {
-            console.error("[DMDATA] body decode error:", e);
-            return;
-        }
-        console.log(`[DMDATA] received ${type}:`, json);
-
-        const eid = json.eventId;
-        if (!eid) return;
-
-        if (!dmdataEventCache[eid]) dmdataEventCache[eid] = {};
-        dmdataEventCache[eid][type] = json;
-        dmdataEventCache[eid].lastReceived = Date.now();
-
-        dmdataEventOrder = dmdataEventOrder.filter(x => x !== eid);
-        dmdataEventOrder.unshift(eid);
-        if (dmdataEventOrder.length > 20) {
-            const removed = dmdataEventOrder.splice(20);
-            removed.forEach(x => delete dmdataEventCache[x]);
-        }
-
-        renderEqLog();
-        buildAndPreviewFromEvent(eid);
-    }
-
-    window.buildAndPreviewFromEvent = (eventId) => {
-        const ev = dmdataEventCache[eventId];
-        const statusEl = document.getElementById('eq-status');
-        const previewEl = document.getElementById('eq-preview');
-        const actionsEl = document.getElementById('eq-actions');
-        if (!ev) return;
-
-        const includePlaces = document.getElementById('chk-eq-include-places')?.checked ?? true;
-        const json51 = ev.VXSE51 || null;
-        const json52 = ev.VXSE52 || null;
-        const json53 = ev.VXSE53 || null;
-
-        let cards = [];
-        let sourceLabel = "";
-        if (json53) {
-            cards = buildVxse53Cards(json53, includePlaces);
-            sourceLabel = "震源・震度に関する情報 (VXSE53)";
-        } else if (json52) {
-            cards = buildVxse52Cards(json52, json51, includePlaces);
-            sourceLabel = "震源に関する情報 (VXSE52)" + (json51 ? " + 震度速報 (VXSE51)" : "");
-        } else if (json51) {
-            cards = buildVxse51Cards(json51, includePlaces);
-            sourceLabel = "震度速報 (VXSE51)";
-        } else {
-            return;
-        }
-
-        dmdataGeneratedCards = cards;
-        if (statusEl) statusEl.textContent = `カード生成: ${sourceLabel}（${cards.length}枚）`;
-
-        if (previewEl) {
-            previewEl.innerHTML = cards.map((c, i) => `
-                <div style="padding:10px 12px; border-bottom:1px solid #222;">
-                    <div style="font-size:10px; color:#666; margin-bottom:3px;">カード${i + 1}</div>
-                    <div style="font-size:13px; white-space:pre-wrap; color:#fff;">${c.replace(/</g, '&lt;')}</div>
                 </div>
-            `).join('');
-            previewEl.style.display = 'block';
+                <textarea id="text-super-input-${cardData.id}" 
+                          placeholder="字幕テキストを入力... (全角18文字×2行程度)" 
+                          style="height:70px; margin-bottom:5px; font-size:15px; border:1px solid #444;"
+                          onfocus="setActiveCardInputId('text-super-input-${cardData.id}')"
+                          oninput="updateTextSuperCardText('${cardData.id}', this.value)">${cardData.text || ''}</textarea>
+            `;
+            container.appendChild(cardEl);
+        });
+
+        if (activeIdBefore && document.getElementById(activeIdBefore)) {
+            document.getElementById(activeIdBefore).focus();
         }
-        if (actionsEl) actionsEl.style.display = 'block';
     };
 
-    window.applyEarthquakeCardsToTextSuper = () => {
-        if (!dmdataGeneratedCards || dmdataGeneratedCards.length === 0) return;
-        if (!confirm(`現在の字幕カード（${localTextSuperCards.length}枚）を、取得した地震情報カード（${dmdataGeneratedCards.length}枚）に置き換えます。よろしいですか？`)) return;
-        localTextSuperCards = dmdataGeneratedCards.map(text => ({
-            id: "card_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
-            text
-        }));
+    window.addTextSuperCard = (initialText = "") => {
+        const newCard = { id: "card_" + Date.now() + "_" + Math.floor(Math.random()*1000), text: initialText };
+        localTextSuperCards.push(newCard);
         renderTextSuperCards();
-        switchTab('text-super');
-        alert("字幕カードに反映しました。内容を確認のうえ送出してください。");
+        setTimeout(() => {
+            const input = document.getElementById(`text-super-input-${newCard.id}`);
+            if (input) { input.focus(); setActiveCardInputId(`text-super-input-${newCard.id}`); }
+        }, 50);
     };
 
-    // --- 🌏 DMDATA 電文 → 字幕カード変換ロジック ---
-
-    const EQ_PREF_CHIHOU = {
-        "01": "北海道地方",
-        "02": "東北地方", "03": "東北地方", "04": "東北地方", "05": "東北地方", "06": "東北地方", "07": "東北地方",
-        "08": "関東甲信地方", "09": "関東甲信地方", "10": "関東甲信地方", "11": "関東甲信地方", "12": "関東甲信地方",
-        "13": "関東甲信地方", "14": "関東甲信地方", "19": "関東甲信地方", "20": "関東甲信地方",
-        "15": "北陸地方", "16": "北陸地方", "17": "北陸地方", "18": "北陸地方",
-        "21": "東海地方", "22": "東海地方", "23": "東海地方", "24": "東海地方",
-        "25": "近畿地方", "26": "近畿地方", "27": "近畿地方", "28": "近畿地方", "29": "近畿地方", "30": "近畿地方",
-        "31": "中国地方", "32": "中国地方", "33": "中国地方", "34": "中国地方", "35": "中国地方",
-        "36": "四国地方", "37": "四国地方", "38": "四国地方", "39": "四国地方",
-        "40": "九州地方", "41": "九州地方", "42": "九州地方", "43": "九州地方", "44": "九州地方", "45": "九州地方", "46": "九州地方",
-        "47": "沖縄地方"
-    };
-    const EQ_PREF_NAMES = {
-        "01": "北海道", "02": "青森県", "03": "岩手県", "04": "宮城県", "05": "秋田県", "06": "山形県", "07": "福島県",
-        "08": "茨城県", "09": "栃木県", "10": "群馬県", "11": "埼玉県", "12": "千葉県", "13": "東京都", "14": "神奈川県",
-        "15": "新潟県", "16": "富山県", "17": "石川県", "18": "福井県", "19": "山梨県", "20": "長野県",
-        "21": "岐阜県", "22": "静岡県", "23": "愛知県", "24": "三重県",
-        "25": "滋賀県", "26": "京都府", "27": "大阪府", "28": "兵庫県", "29": "奈良県", "30": "和歌山県",
-        "31": "鳥取県", "32": "島根県", "33": "岡山県", "34": "広島県", "35": "山口県",
-        "36": "徳島県", "37": "香川県", "38": "愛媛県", "39": "高知県",
-        "40": "福岡県", "41": "佐賀県", "42": "長崎県", "43": "熊本県", "44": "大分県", "45": "宮崎県", "46": "鹿児島県",
-        "47": "沖縄県"
-    };
-    const EQ_INT_ORDER = ["1", "2", "3", "4", "5-", "!5-", "5+", "6-", "6+", "7"];
-    const EQ_INT_LABEL = { "1": "1", "2": "2", "3": "3", "4": "4", "5-": "5弱", "5+": "5強", "6-": "6弱", "6+": "6強", "7": "7", "!5-": "5弱以上" };
-
-    function eqIntRank(v) {
-        const i = EQ_INT_ORDER.indexOf(v);
-        return i;
-    }
-
-    function eqStrengthModifier(maxInt) {
-        if (["5-", "5+", "6-", "6+", "7", "!5-"].includes(maxInt)) return "強い";
-        if (maxInt === "4") return "やや強い";
-        return "";
-    }
-
-    function eqFmtHourMinute(isoDt) {
-        const m = /T(\d{2}):(\d{2}):/.exec(isoDt);
-        if (!m) return "";
-        const hh = parseInt(m[1], 10);
-        const mm = parseInt(m[2], 10);
-        let ampm, h12;
-        if (hh === 0) { ampm = "午前"; h12 = 0; }
-        else if (hh < 12) { ampm = "午前"; h12 = hh; }
-        else if (hh === 12) { ampm = "午後"; h12 = 0; }
-        else { ampm = "午後"; h12 = hh - 12; }
-        return `${ampm}${h12}時${mm}分ごろ`;
-    }
-
-    function eqRegionFromHypocenter(name) {
-        if (!name) return null;
-        for (const code in EQ_PREF_NAMES) {
-            if (name.includes(EQ_PREF_NAMES[code])) return EQ_PREF_CHIHOU[code];
-        }
-        return null;
-    }
-
-    function eqRegionFromIntensity(intensity) {
-        const prefs = (intensity && intensity.prefectures) || [];
-        if (prefs.length === 0) return null;
-        let best = null;
-        prefs.forEach(p => {
-            if (!best || eqIntRank(p.maxInt) > eqIntRank(best.maxInt)) best = p;
-        });
-        return best ? EQ_PREF_CHIHOU[best.code] : null;
-    }
-
-    // 震度ごとにグループ化（高い震度順）
-    function eqGroupPlaces(places) {
-        const valid = (places || []).filter(p => p.maxInt);
-        valid.sort((a, b) => eqIntRank(b.maxInt) - eqIntRank(a.maxInt));
-        const groups = [];
-        let curLevel = null, curList = [];
-        valid.forEach(p => {
-            if (p.maxInt !== curLevel) {
-                if (curList.length) groups.push([curLevel, curList]);
-                curLevel = p.maxInt;
-                curList = [];
-            }
-            curList.push(p.name);
-        });
-        if (curList.length) groups.push([curLevel, curList]);
-        return groups;
-    }
-
-    // グループを「震度X　〇〇　〇〇　〇〇 / 　　　　〇〇　〇〇　〇〇」形式のカードに変換（6件ごと・1行3件）
-    function eqCardsFromGroups(groups) {
-        const cards = [];
-        groups.forEach(([level, names]) => {
-            const label = EQ_INT_LABEL[level] || level;
-            for (let i = 0; i < names.length; i += 6) {
-                const chunk = names.slice(i, i + 6);
-                const row1 = chunk.slice(0, 3);
-                const row2 = chunk.slice(3, 6);
-                const prefix1 = (i === 0) ? `震度${label}　` : "　　　　";
-                const lines = [prefix1 + row1.join("　")];
-                if (row2.length) lines.push("　　　　" + row2.join("　"));
-                cards.push(lines.join("\n"));
-            }
-        });
-        return cards;
-    }
-
-    // 津波に関するカード3の文言判定（付加文コメントのキーワードに基づく簡易判定）
-    function eqTsunamiCard(comments) {
-        const text = (comments && comments.forecast && comments.forecast.text) || "";
-        if (/(大津波警報|津波警報|津波注意報)/.test(text)) {
-            return "この地震で津波情報が発表されています";
-        }
-        return "この地震による津波の心配はありません";
-    }
-
-    function buildVxse51Cards(d, includePlaces) {
-        const body = d.body;
-        const intensity = body.intensity;
-        const region = eqRegionFromIntensity(intensity) || "";
-        const dt = eqFmtHourMinute(d.targetDateTime);
-        const modifier = eqStrengthModifier(intensity.maxInt);
-        const card1 = `${dt}${region}で\n${modifier}地震がありました`;
-        const card2 = "強い・長い揺れを感じた沿岸部では\n念のため津波に注意してください";
-        const cards = [card1, card2];
-        if (includePlaces) {
-            const groups = eqGroupPlaces(intensity.regions);
-            cards.push(...eqCardsFromGroups(groups));
-        }
-        return cards;
-    }
-
-    function buildVxse52Cards(d, vxse51Companion, includePlaces) {
-        const body = d.body;
-        const eq = body.earthquake;
-        let region = eqRegionFromHypocenter(eq.hypocenter.name);
-        if (!region && vxse51Companion) region = eqRegionFromIntensity(vxse51Companion.body.intensity);
-        region = region || "";
-        const dt = eqFmtHourMinute(eq.originTime);
-        const card1 = `${dt}${region}で\n地震がありました`;
-
-        const depth = eq.hypocenter.depth.value;
-        const depthTxt = (String(depth) === "0") ? "ごく浅い" : `${depth}キロ`;
-        const card2 = `震源は${eq.hypocenter.name}　深さ${depthTxt}\nマグニチュード${eq.magnitude.value}`;
-
-        const card3 = eqTsunamiCard(body.comments);
-
-        const cards = [card1, card2, card3];
-        // VXSE52には震度情報が含まれないため、震度速報(VXSE51)のデータを使用する
-        if (includePlaces && vxse51Companion) {
-            const groups = eqGroupPlaces(vxse51Companion.body.intensity.regions);
-            cards.push(...eqCardsFromGroups(groups));
-        }
-        return cards;
-    }
-
-    function buildVxse53Cards(d, includePlaces) {
-        const body = d.body;
-        const eq = body.earthquake;
-        const intensity = body.intensity;
-        const region = eqRegionFromHypocenter(eq.hypocenter.name) || eqRegionFromIntensity(intensity) || "";
-        const dt = eqFmtHourMinute(eq.originTime);
-        const modifier = eqStrengthModifier(intensity.maxInt);
-        const card1 = `${dt}${region}で\n${modifier}地震がありました`;
-
-        const depth = eq.hypocenter.depth.value;
-        const depthTxt = (String(depth) === "0") ? "ごく浅い" : `${depth}キロ`;
-        const card2 = `震源は${eq.hypocenter.name}　深さ${depthTxt}\nマグニチュード${eq.magnitude.value}`;
-
-        const card3 = eqTsunamiCard(body.comments);
-
-        const cards = [card1, card2, card3];
-        if (includePlaces) {
-            const places = (intensity.cities && intensity.cities.length) ? intensity.cities : intensity.regions;
-            const groups = eqGroupPlaces(places);
-            cards.push(...eqCardsFromGroups(groups));
-        }
-        return cards;
-    }
-
-    window.insertNewsToActiveCard = (newsText) => {
-        if (!activeCardInputId || !localTextSuperCards.find(c => c.id === activeCardInputId)) {
-            if (localTextSuperCards.length > 0) {
-                activeCardInputId = localTextSuperCards[0].id;
-            } else {
-                addTextSuperCard();
-                activeCardInputId = localTextSuperCards[0].id;
-            }
-        }
-
-        const targetCard = localTextSuperCards.find(c => c.id === activeCardInputId);
-        if (targetCard) {
-            targetCard.text = newsText;
-            const textarea = document.getElementById(`textarea-${activeCardInputId}`);
-            if (textarea) textarea.value = newsText;
-            updateTextSuperCardUI(activeCardInputId);
-        }
-    };
-
-    // --- ✨ ⑪文字スーパー 複数カード＆Firebaseバックエンド同期ロジック ---
-
-    // 全角＝1、半角＝0.5換算の文字数計算関数（HTMLタグ除去）
-    function getZenKakuCount(str) {
-        if(!str) return 0;
-        const temp = document.createElement('div');
-        temp.innerHTML = str;
-        const cleanText = temp.textContent || temp.innerText || '';
-        let count = 0;
-        for (let i = 0; i < cleanText.length; i++) {
-            const c = cleanText.charCodeAt(i);
-            if ((c >= 0x0000 && c <= 0x007e) || (c >= 0xff61 && c <= 0xff9f)) {
-                count += 0.5;
-            } else {
-                count += 1.0;
-            }
-        }
-        return Math.ceil(count);
-    }
-
-    // カード追加
-    window.addTextSuperCard = () => {
-        localTextSuperCards.push({ id: "card_" + Date.now(), text: "" });
-        renderTextSuperCards();
-    };
-
-    // カード削除
     window.removeTextSuperCard = (id) => {
-        if(localTextSuperCards.length <= 1) {
-            alert("最低1枚の字幕カードが必要です。");
-            return;
-        }
+        if (localTextSuperCards.length <= 1) return;
         localTextSuperCards = localTextSuperCards.filter(c => c.id !== id);
         renderTextSuperCards();
     };
 
-    // 🧹 オールクリア (全カード内容削除＆1カード化)
     window.clearAllTextSuperCards = () => {
-        if (confirm("速報スーパーの内容をすべて消去しますか？\n（複数カードがある場合は1枚にリセットされます）")) {
-            localTextSuperCards = [
-                { id: "card_" + Date.now(), text: "" }
-            ];
-            activeCardInputId = localTextSuperCards[0].id;
-            renderTextSuperCards();
-            stopTextSuperSequence();
-        }
+        if (!confirm("全ての字幕カードを消去して初期状態に戻しますか？")) return;
+        localTextSuperCards = [{ id: "card_" + Date.now(), text: "" }];
+        textSuperActiveSequenceIndex = -1;
+        renderTextSuperCards();
     };
 
-    // 順序変更（上へ / 下へ - アニメーション付き）
     window.moveTextSuperCard = (index, direction) => {
         const targetIndex = index + direction;
         if (targetIndex < 0 || targetIndex >= localTextSuperCards.length) return;
@@ -2478,193 +1747,435 @@
         animateCardSwap(container, index, targetIndex, localTextSuperCards, renderTextSuperCards);
     };
 
-    // テキスト変更時の保存 & カウント/プレビュー更新
-    window.updateTextSuperCardText = (id, val) => {
+    window.updateTextSuperCardText = (id, text) => {
         const card = localTextSuperCards.find(c => c.id === id);
-        if (card) {
-            card.text = val;
-            updateTextSuperCardUI(id);
-        }
+        if (card) card.text = text;
     };
 
-    // テキストエリアのフォーカス保持（カラーパレット適用対象判定用）
-    window.handleTextSuperFocus = (id) => {
-        activeCardInputId = id;
-    };
-
-    // 2行を超えて改行できないようにブロック
-    window.handleTextSuperKeyDown = (e, id) => {
-        const textarea = document.getElementById(`textarea-${id}`);
-        if (!textarea) return;
-        
-        if (e.key === 'Enter') {
-            const lines = textarea.value.split(/\r\n|\r|\n/);
-            if (lines.length >= 2) {
-                e.preventDefault();
-            }
-        }
-    };
-
-    // UI個別更新（文字数カウント & プレビュー）
-    function updateTextSuperCardUI(id) {
-        const card = localTextSuperCards.find(c => c.id === id);
-        if(!card) return;
-
-        const textarea = document.getElementById(`textarea-${id}`);
-        const previewBox = document.getElementById(`preview-${id}`);
-        if(!textarea || !previewBox) return;
-
-        let lines = textarea.value.split(/\r\n|\r|\n/);
-        if (lines.length > 2) {
-            textarea.value = lines.slice(0, 2).join('\n');
-            lines = textarea.value.split(/\r\n|\r|\n/);
-            card.text = textarea.value;
-        }
-
-        const count1 = getZenKakuCount(lines[0] || '');
-        const count2 = getZenKakuCount(lines[1] || '');
-
-        const el1 = document.getElementById(`count1-${id}`);
-        const el2 = document.getElementById(`count2-${id}`);
-        if(el1) el1.innerText = count1;
-        if(el2) el2.innerText = count2;
-
-        if (previewBox) {
-            previewBox.innerHTML = textarea.value.replace(/\n/g, '<br>') || '<span style="color:#666;">（プレビュー表示）</span>';
-        }
-    }
-
-    function renderTextSuperCards() {
-        const container = document.getElementById('text-super-cards-container');
-        if(!container) return;
-
-        const activeIdBefore = document.activeElement ? document.activeElement.id : null;
-        container.innerHTML = "";
-
-        localTextSuperCards.forEach((card, i) => {
-            const div = document.createElement('div');
-            div.className = "card";
-            div.style.background = "#222";
-            div.style.marginBottom = "15px";
-            div.style.border = activeCardInputId === card.id ? "1px solid var(--accent-blue)" : "1px solid #333";
-
-            const lines = (card.text || "").split(/\r\n|\r|\n/);
-            const count1 = getZenKakuCount(lines[0] || '');
-            const count2 = getZenKakuCount(lines[1] || '');
-
-            div.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <div style="font-size:12px; font-weight:bold; color:var(--accent-blue);">
-                        字幕カード #${i + 1}
-                    </div>
-                    <div class="btn-group" style="margin:0; gap:5px;">
-                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveTextSuperCard(${i}, -1)" ${i === 0 ? 'disabled' : ''}>▲ 上へ</button>
-                        <button class="secondary" style="padding:4px 8px; font-size:12px;" onclick="moveTextSuperCard(${i}, 1)" ${i === localTextSuperCards.length - 1 ? 'disabled' : ''}>▼ 下へ</button>
-                        <button class="danger" style="padding:4px 8px; font-size:12px;" onclick="removeTextSuperCard('${card.id}')"><i class="material-icons" style="font-size:14px; vertical-align:middle;">delete</i> 削除</button>
-                    </div>
-                </div>
-
-                <textarea id="textarea-${card.id}" style="height:70px; margin-bottom:8px; font-size:15px;" placeholder="字幕テキストを入力..." 
-                    onfocus="handleTextSuperFocus('${card.id}')"
-                    oninput="updateTextSuperCardText('${card.id}', this.value)"
-                    onkeydown="handleTextSuperKeyDown(event, '${card.id}')">${card.text || ''}</textarea>
-
-                <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-sub); margin-bottom:10px;">
-                    <div>1行目: <span id="count1-${card.id}" style="color:#fff; font-weight:bold;">${count1}</span> / 18文字 | 2行目: <span id="count2-${card.id}" style="color:#fff; font-weight:bold;">${count2}</span> / 18文字</div>
-                </div>
-
-                <div style="font-size:11px; color:var(--text-sub); margin-bottom:4px;">プレビュー:</div>
-                <div id="preview-${card.id}" style="background:#000; padding:10px; border-radius:6px; font-size:14px; min-height:45px; border:1px solid #333; word-break:break-all;">
-                    ${card.text ? card.text.replace(/\n/g, '<br>') : '<span style="color:#666;">（プレビュー表示）</span>'}
-                </div>
-            `;
-            container.appendChild(div);
-        });
-
-        if (activeIdBefore && document.getElementById(activeIdBefore)) {
-            document.getElementById(activeIdBefore).focus();
-        }
-    }
+    window.setActiveCardInputId = (inputId) => { activeCardInputId = inputId; };
 
     window.insertColorTagToActive = (colorHex) => {
         if (!activeCardInputId) {
-            if (localTextSuperCards.length > 0) activeCardInputId = localTextSuperCards[0].id;
+            if (localTextSuperCards.length > 0) activeCardInputId = `text-super-input-${localTextSuperCards[0].id}`;
             else return;
         }
-
-        const textarea = document.getElementById(`textarea-${activeCardInputId}`);
+        const textarea = document.getElementById(activeCardInputId);
         if (!textarea) return;
 
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
         const val = textarea.value;
+        const selectedText = val.substring(start, end);
 
-        if (start !== end) {
-            const selectedText = val.substring(start, end);
-            const replacement = `<font color="${colorHex}">${selectedText}</font>`;
-            textarea.value = val.substring(0, start) + replacement + val.substring(end);
-            textarea.selectionStart = start;
-            textarea.selectionEnd = start + replacement.length;
-        } else {
-            const tag = `<font color="${colorHex}">テキスト</font>`;
-            textarea.value = val.substring(0, start) + tag + val.substring(end);
-            textarea.selectionStart = start + `<font color="${colorHex}">`.length;
-            textarea.selectionEnd = textarea.selectionStart + 4;
-        }
+        if (!selectedText) { alert("テキストエリア内の色を変えたい文字列を選択してからパレットを押してください。"); return; }
+
+        const taggedText = `<font color="${colorHex}">${selectedText}</font>`;
+        textarea.value = val.substring(0, start) + taggedText + val.substring(end);
+        
+        const cardId = activeCardInputId.replace('text-super-input-', '');
+        updateTextSuperCardText(cardId, textarea.value);
 
         textarea.focus();
-        updateTextSuperCardText(activeCardInputId, textarea.value);
+        textarea.setSelectionRange(start, start + taggedText.length);
+    };
+
+    window.renderTextSuperGenreSelector = () => {
+        const container = document.getElementById('text-super-genre-selector');
+        if (!container) return;
+        container.innerHTML = "";
+
+        TEXT_SUPER_GENRE_OPTIONS.forEach(opt => {
+            const isSelected = selectedTextSuperGenre === opt.key;
+            const soundEnabled = isGenreSoundEnabled(opt.key);
+            const wrap = document.createElement('div');
+            wrap.style.cssText = "display:flex; flex-direction:column; align-items:center; gap:6px;";
+
+            const btn = document.createElement('button');
+            btn.type = "button";
+            btn.className = isSelected ? "primary" : "secondary";
+            btn.style.cssText = "padding:8px 14px; font-size:13px; font-weight:normal; min-width:80px; width:auto; border-radius:6px;";
+            btn.innerText = opt.label;
+            btn.onclick = () => { selectedTextSuperGenre = opt.key; renderTextSuperGenreSelector(); };
+
+            wrap.appendChild(btn);
+
+            if (opt.key !== "") {
+                const toggleRow = document.createElement('div');
+                toggleRow.style.cssText = "display:flex; align-items:center; gap:4px; font-size:10px; color:var(--text-sub);";
+                toggleRow.innerHTML = `
+                    <span>音</span>
+                    <label class="toggle-switch" title="${opt.label} 送出時の効果音">
+                        <input type="checkbox" ${soundEnabled ? 'checked' : ''} onchange="setGenreSoundEnabled('${opt.key}', this.checked)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                `;
+                wrap.appendChild(toggleRow);
+            }
+
+            container.appendChild(wrap);
+        });
+    };
+
+    // --- 🔊 効果音ON/OFF永続化（localStorage） ---
+    function isGenreSoundEnabled(key) {
+        if (!key) return false;
+        const stored = localStorage.getItem(`textsuper_sound_${key}`);
+        return stored === null ? true : stored === 'true';
+    }
+    window.setGenreSoundEnabled = (key, enabled) => {
+        if (!key) return;
+        localStorage.setItem(`textsuper_sound_${key}`, enabled ? 'true' : 'false');
     };
 
     window.startTextSuperSequence = () => {
-        const validCards = localTextSuperCards.filter(c => c.text && c.text.trim() !== "");
-        if (validCards.length === 0) {
-            alert("送出するテキストが入力されていません。");
+        const validCards = localTextSuperCards.filter(c => c.text.trim() !== "");
+        if (validCards.length === 0) { alert("字幕テキストが入力されているカードがありません。"); return; }
+
+        localTextSuperCards = validCards;
+        renderTextSuperCards();
+
+        isTextSuperSending = true;
+        textSuperActiveSequenceIndex = 0;
+        sendTextSuperCardIndex(0);
+    };
+
+    function sendTextSuperCardIndex(index) {
+        if (!isTextSuperSending || index >= localTextSuperCards.length) {
+            stopTextSuperSequence();
             return;
         }
 
-        secureSet(ref(db, 'broadcast/text_super_sequence'), {
-            cards: validCards,
-            currentIndex: 0,
-            interval: TEXT_SUPER_INTERVAL_SEC,
-            status: 'playing',
+        textSuperActiveSequenceIndex = index;
+        renderTextSuperCards();
+
+        const currentCard = localTextSuperCards[index];
+        const statusEl = document.getElementById('text-super-status');
+        const numEl = document.getElementById('text-super-current-card-num');
+        const totalEl = document.getElementById('text-super-total-cards');
+        const countEl = document.getElementById('text-super-countdown');
+
+        if (statusEl) statusEl.style.display = 'block';
+        if (numEl) numEl.innerText = (index + 1);
+        if (totalEl) totalEl.innerText = localTextSuperCards.length;
+
+        const isFirstCard = (index === 0);
+        const activeGenre = selectedTextSuperGenre || "";
+        const soundEffect = (isFirstCard && activeGenre !== "" && isGenreSoundEnabled(activeGenre));
+
+        secureSet(ref(db, 'broadcast/text_super'), {
+            visible: true,
+            text: currentCard.text,
+            genre: activeGenre,
+            soundEffect: soundEffect,
             timestamp: Date.now()
         });
-    };
+
+        let remainingSec = TEXT_SUPER_INTERVAL_SEC;
+        if (countEl) countEl.innerText = remainingSec;
+
+        if (textSuperCountdownTimer) clearInterval(textSuperCountdownTimer);
+        textSuperCountdownTimer = setInterval(() => {
+            remainingSec--;
+            if (countEl) countEl.innerText = Math.max(0, remainingSec);
+            if (remainingSec <= 0) clearInterval(textSuperCountdownTimer);
+        }, 1000);
+
+        if (textSuperStepTimer) clearTimeout(textSuperStepTimer);
+        textSuperStepTimer = setTimeout(() => {
+            sendTextSuperCardIndex(index + 1);
+        }, TEXT_SUPER_INTERVAL_SEC * 1000);
+    }
 
     window.stopTextSuperSequence = () => {
         stopTextSuperTimers();
-        secureSet(ref(db, 'broadcast/text_super_sequence'), {
-            cards: [],
-            currentIndex: -1,
-            interval: TEXT_SUPER_INTERVAL_SEC,
-            status: 'stopped',
-            timestamp: Date.now()
+        isTextSuperSending = false;
+        textSuperActiveSequenceIndex = -1;
+        renderTextSuperCards();
+
+        secureSet(ref(db, 'broadcast/text_super'), {
+            visible: false, text: "", genre: "", soundEffect: false, timestamp: Date.now()
         });
+
+        const statusEl = document.getElementById('text-super-status');
+        if (statusEl) statusEl.style.display = 'none';
     };
 
     function stopTextSuperTimers() {
-        isTextSuperSending = false;
         if (textSuperStepTimer) { clearTimeout(textSuperStepTimer); textSuperStepTimer = null; }
         if (textSuperCountdownTimer) { clearInterval(textSuperCountdownTimer); textSuperCountdownTimer = null; }
-        const statusEl = document.getElementById('text-super-status');
-        if (statusEl) statusEl.style.display = 'none';
     }
 
-    function handleTextSuperSequenceSync(seq) {
-        if (!seq || seq.status !== 'playing' || !seq.cards || seq.cards.length === 0) {
-            stopTextSuperTimers();
+    // --- 📰 速報ニュース・防災情報 (NHK RSS & P2P地震情報 API) ---
+    window.switchRssCategory = (cat) => {
+        currentRssCategory = cat;
+        ['news', 'earthquake', 'tsunami'].forEach(c => {
+            const btn = document.getElementById(`btn-rss-${c}`);
+            if (btn) {
+                if (c === cat) btn.classList.add('active'); else btn.classList.remove('active');
+            }
+        });
+        fetchRssNews();
+    };
+
+    window.fetchRssNews = async () => {
+        const listContainer = document.getElementById('rss-news-list');
+        if (!listContainer) return;
+        listContainer.innerHTML = `<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">速報データを取得中...</div>`;
+
+        if (currentRssCategory === 'earthquake') {
+            await fetchP2pEarthquakeData();
             return;
         }
 
-        const statusEl = document.getElementById('text-super-status');
-        const cardNumEl = document.getElementById('text-super-current-card-num');
-        const totalCardsEl = document.getElementById('text-super-total-cards');
+        if (currentRssCategory === 'tsunami') {
+            await fetchP2pTsunamiData();
+            return;
+        }
 
-        if (statusEl) statusEl.style.display = 'block';
-        if (cardNumEl) cardNumEl.innerText = (seq.currentIndex || 0) + 1;
-        if (totalCardsEl) totalCardsEl.innerText = seq.cards.length;
+        const targetUrl = RSS_URLS.news;
+        const attempts = [
+            { label: "corsproxy.io", url: "https://corsproxy.io/?" + encodeURIComponent(targetUrl) },
+            { label: "allorigins.win", url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl) },
+            { label: "thingproxy", url: "https://thingproxy.freeboard.io/fetch/" + targetUrl }
+        ];
+
+        let xmlText = null;
+        for (const attempt of attempts) {
+            try {
+                const res = await fetch(attempt.url);
+                if (res.ok) {
+                    const text = await res.text();
+                    if (text && text.includes('<item>')) { xmlText = text; break; }
+                }
+            } catch (e) { console.warn(`RSS fetch (${attempt.label}) failed:`, e); }
+        }
+
+        if (!xmlText) {
+            listContainer.innerHTML = `<div style="padding:15px; color:var(--accent-red); text-align:center; font-size:13px;">ニュース速報データの取得に失敗しました。</div>`;
+            return;
+        }
+
+        try {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+            const items = xmlDoc.querySelectorAll("item");
+
+            if (items.length === 0) {
+                listContainer.innerHTML = `<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">現在表示できるニュース速報はありません。</div>`;
+                return;
+            }
+
+            listContainer.innerHTML = "";
+            let count = 0;
+            items.forEach(item => {
+                if (count >= 10) return;
+                const title = item.querySelector("title")?.textContent || "";
+                const pubDate = item.querySelector("pubDate")?.textContent || "";
+                
+                let timeStr = "";
+                if (pubDate) {
+                    try {
+                        const d = new Date(pubDate);
+                        timeStr = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+                    } catch(e) {}
+                }
+
+                const row = document.createElement('div');
+                row.style.cssText = "padding:10px 12px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; gap:10px;";
+                row.innerHTML = `
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:13px; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${title}</div>
+                        <div style="font-size:10px; color:var(--text-sub); margin-top:2px;">${timeStr ? timeStr + ' 発表' : ''}</div>
+                    </div>
+                    <button class="secondary" style="padding:5px 10px; font-size:11px; flex:none; width:auto; background:var(--accent-blue);" onclick="reflectNewsToTextSuper('${escapeJsString(title)}')">
+                        字幕に反映
+                    </button>
+                `;
+                listContainer.appendChild(row);
+                count++;
+            });
+        } catch(e) {
+            console.error(e);
+            listContainer.innerHTML = `<div style="padding:15px; color:var(--accent-red); text-align:center; font-size:13px;">ニュースデータの解析に失敗しました。</div>`;
+        }
+    };
+
+    // P2P地震情報 API (JMA 551 地震情報) を取得する関数
+    async function fetchP2pEarthquakeData() {
+        const listContainer = document.getElementById('rss-news-list');
+        if (!listContainer) return;
+
+        try {
+            const res = await fetch("https://api.p2pquake.net/v2/history?codes=551&limit=5");
+            if (!res.ok) throw new Error("API error");
+            const data = await res.json();
+
+            if (!Array.isArray(data) || data.length === 0) {
+                listContainer.innerHTML = `<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">最新の地震情報はありません。</div>`;
+                return;
+            }
+
+            listContainer.innerHTML = "";
+            data.forEach(item => {
+                const timeStr = item.time || "";
+                const hypotcenterName = item.earthquake?.hypocenter?.name || "不明";
+                const maxScaleNum = item.earthquake?.maxScale || 0;
+                const maxScaleStr = formatP2pScale(maxScaleNum);
+                const magnitude = item.earthquake?.hypocenter?.magnitude;
+                const mStr = (magnitude !== undefined && magnitude > 0) ? `M${magnitude.toFixed(1)}` : "";
+
+                const summaryTitle = `【地震情報】${timeStr.split(' ')[1] || ''}頃 震源:${hypotcenterName} 最大震度:${maxScaleStr} ${mStr}`;
+
+                const row = document.createElement('div');
+                row.style.cssText = "padding:10px 12px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; gap:10px;";
+                row.innerHTML = `
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:13px; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${summaryTitle}</div>
+                        <div style="font-size:10px; color:var(--text-sub); margin-top:2px;">${timeStr}</div>
+                    </div>
+                    <button class="secondary" style="padding:5px 10px; font-size:11px; flex:none; width:auto; background:var(--accent-blue);" onclick="reflectP2pEarthquakeToTextSuper(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                        字幕に反映
+                    </button>
+                `;
+                listContainer.appendChild(row);
+            });
+        } catch(e) {
+            console.error(e);
+            listContainer.innerHTML = `<div style="padding:15px; color:var(--accent-red); text-align:center; font-size:13px;">地震情報の取得に失敗しました。</div>`;
+        }
     }
+
+    // P2P地震情報 API (JMA 552 津波情報) を取得する関数
+    async function fetchP2pTsunamiData() {
+        const listContainer = document.getElementById('rss-news-list');
+        if (!listContainer) return;
+
+        try {
+            const res = await fetch("https://api.p2pquake.net/v2/history?codes=552&limit=3");
+            if (!res.ok) throw new Error("API error");
+            const data = await res.json();
+
+            if (!Array.isArray(data) || data.length === 0) {
+                listContainer.innerHTML = `<div style="padding:15px; color:var(--text-sub); text-align:center; font-size:13px;">現在発表中の津波情報はありません。</div>`;
+                return;
+            }
+
+            listContainer.innerHTML = "";
+            data.forEach(item => {
+                const timeStr = item.time || "";
+                const cancelled = item.cancelled;
+                const titleStr = cancelled ? "【津波情報】津波予報・警報は解除されました" : "【津波情報】津波警報・注意報が発表されています";
+
+                const row = document.createElement('div');
+                row.style.cssText = "padding:10px 12px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; gap:10px;";
+                row.innerHTML = `
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:13px; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${titleStr}</div>
+                        <div style="font-size:10px; color:var(--text-sub); margin-top:2px;">${timeStr}</div>
+                    </div>
+                    <button class="secondary" style="padding:5px 10px; font-size:11px; flex:none; width:auto; background:var(--accent-blue);" onclick="reflectNewsToTextSuper('${escapeJsString(titleStr)}')">
+                        字幕に反映
+                    </button>
+                `;
+                listContainer.appendChild(row);
+            });
+        } catch(e) {
+            console.error(e);
+            listContainer.innerHTML = `<div style="padding:15px; color:var(--accent-red); text-align:center; font-size:13px;">津波情報の取得に失敗しました。</div>`;
+        }
+    }
+
+    function formatP2pScale(scaleNum) {
+        switch(scaleNum) {
+            case 10: return "1"; case 20: return "2"; case 30: return "3"; case 40: return "4";
+            case 45: return "5弱"; case 50: return "5強"; case 55: return "6弱"; case 60: return "6強"; case 70: return "7";
+            default: return "不明";
+        }
+    }
+
+    function escapeJsString(str) {
+        return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+    }
+
+    // ニューステキストを字幕カードに反映し、ジャンル「速報」を自動セット
+    window.reflectNewsToTextSuper = (newsText) => {
+        localTextSuperCards = [
+            { id: "card_" + Date.now(), text: newsText }
+        ];
+        selectedTextSuperGenre = "sokuho";
+        renderTextSuperCards();
+        renderTextSuperGenreSelector();
+        switchTab('text-super');
+    };
+
+    // P2P地震情報を詳細な複数カードに分解して字幕カードへ反映し、ジャンル「地震」を自動セット
+    window.reflectP2pEarthquakeToTextSuper = (p2pObj) => {
+        if (!p2pObj || !p2pObj.earthquake) return;
+
+        const eq = p2pObj.earthquake;
+        const timeStr = p2pObj.time || "";
+        const hypoName = eq.hypocenter?.name || "不明";
+        const depth = eq.hypocenter?.depth;
+        const depthStr = (depth !== undefined && depth >= 0) ? (depth === 0 ? "ごく浅い" : `約${depth}km`) : "不明";
+        const mag = eq.hypocenter?.magnitude;
+        const magStr = (mag !== undefined && mag > 0) ? `M${mag.toFixed(1)}` : "不明";
+        const maxScaleStr = formatP2pScale(eq.maxScale);
+
+        const newCards = [];
+
+        // カード1: 概要
+        newCards.push({
+            id: "card_eq_1_" + Date.now(),
+            text: `【地震情報】${timeStr.split(' ')[1] || ''}頃 地震がありました\n震源地: <font color="#ffff00">${hypoName}</font> 最大震度: <font color="#ff0000">${maxScaleStr}</font>`
+        });
+
+        // カード2: 詳細（深さ・マグニチュード・津波の心配）
+        const domesticTsunami = eq.domesticTsunami || "Unknown";
+        let tsunamiText = "津波の心配はありません。";
+        if (domesticTsunami === "Warning") tsunamiText = "津波警報が発表されています！海岸から離れてください！";
+        else if (domesticTsunami === "Watch") tsunamiText = "津波注意報が発表されています。";
+        else if (domesticTsunami === "Checking") tsunamiText = "津波の影響を調査中です。";
+
+        newCards.push({
+            id: "card_eq_2_" + Date.now(),
+            text: `震源の深さ: ${depthStr} マグニチュード: ${magStr}\n${tsunamiText}`
+        });
+
+        // 各地域の震度情報をまとめる（pointsがあれば）
+        if (Array.isArray(p2pObj.points) && p2pObj.points.length > 0) {
+            const scaleGrouped = {};
+            p2pObj.points.forEach(pt => {
+                const sStr = formatP2pScale(pt.scale);
+                if (!scaleGrouped[sStr]) scaleGrouped[sStr] = [];
+                scaleGrouped[sStr].push(pt.addr);
+            });
+
+            // 震度が高い順に並べてカード化
+            const order = ["7", "6強", "6弱", "5強", "5弱", "4", "3"];
+            order.forEach(sKey => {
+                if (scaleGrouped[sKey] && scaleGrouped[sKey].length > 0) {
+                    const addrs = scaleGrouped[sKey].join(' ');
+                    newCards.push({
+                        id: `card_eq_scale_${sKey}_` + Date.now(),
+                        text: `<font color="#ff0000">■震度 ${sKey}</font>\n${addrs}`
+                    });
+                }
+            });
+        }
+
+        localTextSuperCards = newCards;
+        selectedTextSuperGenre = "quake";
+        renderTextSuperCards();
+        renderTextSuperGenreSelector();
+        switchTab('text-super');
+    };
+
+    // 空関数プレースホルダー（将来機能拡張用）
+    function loadEqSoundSetting() {}
+    function loadGenreSoundSettings() {}
+    function startP2pPolling() {}
+    function stopMicStreaming() {}
+    function stopScreenShare() {}
 </script>
 </body>
 </html>
