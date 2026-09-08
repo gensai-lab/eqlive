@@ -2,6 +2,7 @@
   {
     "name": "気象庁会見 ライブ",
     "url": "https://gensai-lab.github.io/eqlive/assets/image/jma_klive.png",
+    "type": "image",
     "x": 0,
     "y": 0,
     "width": 1920,
@@ -12,6 +13,7 @@
   {
     "name": "気象庁会見 リプレイ",
     "url": "https://gensai-lab.github.io/eqlive/assets/image/jma_kreplay.png",
+    "type": "image",
     "x": 0,
     "y": 0,
     "width": 1920,
