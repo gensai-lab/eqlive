@@ -181,6 +181,7 @@
     let currentCameraId = "";
     let hls = null;
     let imageRefreshInterval = null;
+    let isSyncStarted = false;
 
     // kactuif.ikunocam.net/data を取得する。直接fetchがCORS等で失敗した場合は
     // 公開CORSプロキシ経由で再試行する
@@ -189,13 +190,13 @@
         let kactuifData = null;
 
         try {
-            const res = await fetch(targetUrl);
+            const res = await fetch(`${targetUrl}?_t=${Date.now()}`);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             kactuifData = await res.json();
         } catch (e) {
             console.warn("[camera] kactuif直接取得に失敗（CORS等の可能性）。プロキシ経由で再試行します:", e);
             try {
-                const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl);
+                const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(`${targetUrl}?_t=${Date.now()}`);
                 const res2 = await fetch(proxyUrl);
                 if (!res2.ok) throw new Error(`HTTP ${res2.status}`);
                 kactuifData = await res2.json();
@@ -219,9 +220,9 @@
     async function loadConfig() {
         let khLivecCams = [];
 
-        // ① 既存データ（kh-livec.json / HLS配信）
+        // ① 既存データ（kh-livec.json / HLS配信） - キャッシュ回避のタイムスタンプを追加
         try {
-            const response = await fetch('https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json');
+            const response = await fetch(`https://gensai-lab.github.io/eqlive/assets/json/kh-livec.json?_t=${Date.now()}`);
             khLivecCams = await response.json();
         } catch (e) {
             console.error("[camera] kh-livec.jsonの取得に失敗しました:", e);
@@ -231,7 +232,22 @@
         const kactuifCams = await fetchKactuifCameras();
 
         cameraList = [...khLivecCams, ...kactuifCams];
-        startSync();
+
+        // 初回のみFirebase同期リスナーを開始
+        if (!isSyncStarted) {
+            isSyncStarted = true;
+            startSync();
+        } else if (currentCameraId) {
+            // 定期更新時に現在表示中のカメラデータ内容（URLやタイプ等）が変わった場合は映像を再反映
+            const currentCam = cameraList.find(c => c.id === currentCameraId);
+            if (currentCam) {
+                // 名前などのテロップ情報だけは即時更新
+                document.getElementById('target-location-name').innerText = currentCam.name;
+            } else {
+                // カメラ自体がリストから消えた場合は表示を更新（クリア）
+                updateCamera(currentCameraId);
+            }
+        }
     }
 
     function startSync() {
@@ -344,7 +360,11 @@
         }
     }
 
-    window.onload = loadConfig;
+    window.onload = () => {
+        loadConfig();
+        // 5分（300,000ミリ秒）ごとにファイル・APIから最新リストを取得する
+        setInterval(loadConfig, 5 * 60 * 1000);
+    };
 </script>
 
 </body>
