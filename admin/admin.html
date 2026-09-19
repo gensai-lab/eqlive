@@ -148,6 +148,9 @@
             max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 6px;
             background: #000; border: 1px solid #222; margin-top: 15px;
         }
+        .preview-modal-iframe {
+            width: min(90vw, 1200px); height: min(70vh, 700px); border: 1px solid #222; border-radius: 6px; background: #000; margin-top: 15px;
+        }
 
         /* 文字スーパー パレット用スタイル */
         .color-palette-btn {
@@ -220,6 +223,278 @@
             div[style*="display:flex"][style*="flex-wrap:wrap"] > select {
                 min-width: 100% !important;
             }
+        }
+
+        /* =========================================================
+           UIリファイン（既存機能には影響しない見た目のみの調整）
+           ========================================================= */
+        :root {
+            --bg-color: #080b10;
+            --sidebar-bg: #0e1219;
+            --card-bg: #151a22;
+            --card-bg-soft: #11161e;
+            --border-color: #29313d;
+            --border-soft: rgba(255,255,255,.08);
+            --accent-blue: #1769ff;
+            --accent-blue-soft: rgba(23,105,255,.13);
+            --accent-red: #e0444a;
+            --accent-green: #20a464;
+            --text-main: #f5f7fa;
+            --text-sub: #9aa5b3;
+            --text-muted: #6f7a89;
+            --header-height: 60px;
+            --nav-width: 248px;
+            --radius: 12px;
+        }
+
+        html { background: var(--bg-color); }
+        body {
+            background:
+                radial-gradient(circle at 85% -10%, rgba(23,105,255,.10), transparent 30%),
+                linear-gradient(180deg, #080b10 0%, #0a0d12 100%);
+            color: var(--text-main);
+            letter-spacing: .01em;
+        }
+
+        /* スクロールバー */
+        * { scrollbar-width: thin; scrollbar-color: #3a4350 transparent; }
+        *::-webkit-scrollbar { width: 8px; height: 8px; }
+        *::-webkit-scrollbar-track { background: transparent; }
+        *::-webkit-scrollbar-thumb { background: #343d4a; border-radius: 99px; }
+        *::-webkit-scrollbar-thumb:hover { background: #465160; }
+
+        header {
+            height: var(--header-height);
+            background: rgba(7,10,15,.94);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 18px;
+            box-shadow: 0 1px 0 rgba(255,255,255,.02), 0 8px 24px rgba(0,0,0,.16);
+            backdrop-filter: blur(14px);
+        }
+        .header-logo { display: flex; align-items: center; min-width: 0; }
+        .header-logo img { height: 27px; display: block; }
+        .menu-toggle {
+            width: 40px; height: 40px; padding: 0; border-radius: 10px;
+            align-items: center; justify-content: center;
+        }
+        .menu-toggle:hover { background: rgba(255,255,255,.08); }
+
+        nav {
+            width: var(--nav-width);
+            background: rgba(14,18,25,.97);
+            border-right: 1px solid var(--border-color);
+            padding: 10px 8px;
+            gap: 3px;
+        }
+        .nav-item {
+            position: relative;
+            border: 0;
+            border-radius: 9px;
+            border-left: 0;
+            padding: 11px 13px;
+            color: #8f9aa9;
+            font-size: 13px;
+            gap: 11px;
+            line-height: 1.35;
+        }
+        .nav-item i { font-size: 19px; color: #7f8a99; transition: color .2s ease, transform .2s ease; }
+        .nav-item:hover {
+            background: rgba(255,255,255,.055);
+            color: #e8edf3;
+        }
+        .nav-item:hover i { color: #b7c2d0; transform: translateX(1px); }
+        .nav-item.active {
+            background: var(--accent-blue-soft);
+            color: #fff;
+            border-left: 0;
+            box-shadow: inset 0 0 0 1px rgba(23,105,255,.16);
+        }
+        .nav-item.active::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 8px;
+            bottom: 8px;
+            width: 3px;
+            border-radius: 0 4px 4px 0;
+            background: var(--accent-blue);
+            box-shadow: 0 0 12px rgba(23,105,255,.45);
+        }
+        .nav-item.active i { color: #6ea0ff; }
+
+        .content {
+            padding: 28px 30px 42px;
+            background: transparent;
+        }
+        .tab-content { max-width: 1080px; }
+        .tab-content > h2 {
+            margin-bottom: 20px;
+            color: #f4f7fb;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: .02em;
+        }
+        .tab-content > h2 i { color: #6d9eff; }
+
+        .card {
+            background: linear-gradient(180deg, rgba(22,27,36,.98), rgba(18,23,31,.98));
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 22px;
+            margin-bottom: 18px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.14);
+        }
+        .card:hover { border-color: #344050; }
+        .card.alert {
+            border-left: 4px solid var(--accent-red);
+            background: linear-gradient(180deg, rgba(32,24,27,.98), rgba(22,20,24,.98));
+        }
+        h2 {
+            color: #eaf0f7;
+            font-size: 17px;
+            margin-bottom: 16px;
+        }
+        h2 .material-icons { color: #6d9eff; font-size: 21px; }
+        label {
+            color: #aab4c1;
+            font-size: 11px;
+            letter-spacing: .03em;
+            text-transform: none;
+        }
+
+        input, select, textarea {
+            background: #0b0f15;
+            border: 1px solid #303947;
+            color: #f5f7fa;
+            border-radius: 9px;
+            padding: 12px 13px;
+            box-shadow: inset 0 1px 1px rgba(0,0,0,.2);
+            transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+        }
+        input:hover, select:hover, textarea:hover { border-color: #424d5c; }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #4d82ff;
+            background: #0d121a;
+            box-shadow: 0 0 0 3px rgba(23,105,255,.14);
+        }
+        input::placeholder, textarea::placeholder { color: #596575; }
+
+        button {
+            border-radius: 9px;
+            min-height: 42px;
+            padding: 11px 15px;
+            border: 1px solid transparent;
+            transition: transform .16s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease;
+        }
+        button:not(:disabled):hover { transform: translateY(-1px); }
+        button:not(:disabled):active { transform: translateY(0); }
+        button.primary {
+            background: linear-gradient(180deg, #2373ff, #1258dc);
+            box-shadow: 0 5px 14px rgba(23,105,255,.18);
+        }
+        button.primary:hover { background: linear-gradient(180deg, #347eff, #1762ed); }
+        button.secondary {
+            background: #252c36;
+            border-color: #343e4b;
+            color: #e8edf3;
+        }
+        button.secondary:hover { background: #2c3541; border-color: #465262; }
+        button.danger {
+            background: #9f2e35;
+            border-color: #b23a40;
+        }
+        button.danger:hover { background: #b7373e; }
+        button:focus-visible, .filter-btn:focus-visible, .rss-tab-btn:focus-visible {
+            outline: 2px solid #6d9eff;
+            outline-offset: 2px;
+        }
+
+        .btn-group { gap: 8px; margin-bottom: 12px; }
+        .btn-group button { min-height: 42px; }
+
+        .filter-container {
+            background: rgba(13,17,23,.88);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 8px;
+            gap: 6px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 14px rgba(0,0,0,.12);
+        }
+        .filter-btn {
+            background: #202731;
+            color: #aeb8c5;
+            border: 1px solid #303946;
+            padding: 7px 13px;
+            border-radius: 999px;
+        }
+        .filter-btn:hover { background: #2a333f; color: #fff; }
+        .filter-btn.active {
+            background: #185fdc;
+            border-color: #3c7bff;
+            color: #fff;
+            box-shadow: 0 3px 10px rgba(23,105,255,.18);
+        }
+
+        .rss-tab-btn {
+            background: #202731;
+            border-color: #303946;
+            color: #aeb8c5;
+        }
+        .rss-tab-btn:hover { background: #2a333f; color: #fff; }
+        .rss-tab-btn.active { background: #185fdc; border-color: #3c7bff; }
+
+        .range-group span { color: #8f9aa9; }
+        .range-group input[type="range"] { accent-color: var(--accent-blue); }
+        input[type="checkbox"], input[type="radio"] { accent-color: var(--accent-blue); }
+
+        .tour-cam-item {
+            background: rgba(255,255,255,.015);
+            border-bottom-color: var(--border-soft);
+            padding: 11px 12px;
+            border-radius: 7px;
+        }
+        .tour-cam-item:hover { background: rgba(255,255,255,.035); }
+
+        .preview-modal { backdrop-filter: blur(7px); }
+        .preview-modal-content {
+            background: #141922;
+            border-color: #3a4452;
+            border-radius: 14px;
+            box-shadow: 0 20px 70px rgba(0,0,0,.65);
+        }
+        .preview-modal-close {
+            background: #242c37;
+            border: 1px solid #394452;
+        }
+
+        .login-card {
+            background: linear-gradient(180deg, #171c25, #12171f);
+            border-color: #303946;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 24px 80px rgba(0,0,0,.45);
+        }
+        .login-card input { margin-bottom: 16px; }
+        #btn-execute-login { min-height: 46px; font-size: 14px; }
+
+        /* 動的に生成される一覧・パネルにも共通の見た目を適用 */
+        .card table { border-color: var(--border-color) !important; }
+        .card tr { border-color: var(--border-soft) !important; }
+        .card tr:hover { background: rgba(255,255,255,.025); }
+        .card a { color: #78a6ff; }
+        .card hr { border: 0; border-top: 1px solid var(--border-color); }
+
+        @media (max-width: 900px) {
+            .content { padding: 20px 18px 32px; }
+            nav { padding: 10px 8px; }
+        }
+        @media (max-width: 560px) {
+            .content { padding: 14px 12px 26px; }
+            .card { padding: 16px; }
+            .tab-content > h2 { font-size: 17px; margin-bottom: 15px; }
+            header { padding: 0 12px; }
         }
     </style>
 </head>
@@ -460,6 +735,11 @@
                     <button class="filter-btn" onclick="filterByArea('九州', this)">九州</button>
                     <button class="filter-btn" onclick="filterByArea('沖縄', this)">沖縄</button>
                 </div>
+                <div style="display:flex; justify-content:flex-end; margin-top:8px; padding:0 10px;">
+                    <button id="btn-refresh-camera-list" class="secondary" style="width:auto; flex:none; padding:8px 14px; font-size:12px; display:flex; align-items:center; gap:5px;" onclick="refreshCameraList()">
+                        <i class="material-icons" style="font-size:16px;">refresh</i> リストを再取得
+                    </button>
+                </div>
                 <div class="filter-container" id="genre-filter-container" style="border-top:none; background:#1c1c1c;"></div>
                 
                 <div class="card" style="padding:0; overflow:hidden;">
@@ -676,7 +956,9 @@
     let imagePresets = []; 
     let currentSelectedArea = "すべて";
     let currentSelectedGenre = "すべて";
-    let currentCameraSourceId = ""; 
+    let currentCameraSourceId = "";
+    let cameraRefreshTimer = null;
+    let freeImageRefreshTimers = {};
 
     let tourActiveLocal = false;
     let tourTimer = null;
@@ -726,7 +1008,8 @@
             initCameras();
             // カメラ一覧（kh-livec.json / kactuif）は起動時の1回だけでなく、
             // 5分おきに自動で再取得して最新の状態に保つ
-            setInterval(initCameras, 5 * 60 * 1000);
+            if (cameraRefreshTimer) clearInterval(cameraRefreshTimer);
+            cameraRefreshTimer = setInterval(initCameras, 5 * 60 * 1000);
             initPresets();
             renderTextSuperCards();
             renderTextSuperGenreSelector();
@@ -903,7 +1186,7 @@
     window.addNewFreeImage = () => {
         const newId = "img_" + Date.now(); 
         const initialConfig = {
-            name: "新規配置", url: "", x: 0, y: 0, width: 1920, zIndex: 1, opacity: 1.0, visible: true, mediaType: "image", loop: true
+            name: "新規配置", url: "", x: 0, y: 0, width: 1920, zIndex: 1, opacity: 1.0, visible: true, mediaType: "image", loop: true, autoRefresh: false, refreshInterval: 60
         };
         secureSet(ref(db, `broadcast/free_images/${newId}`), initialConfig);
     };
@@ -917,7 +1200,9 @@
             x: preset.x !== undefined ? preset.x : 0, y: preset.y !== undefined ? preset.y : 0,
             width: preset.width !== undefined ? preset.width : 1920, zIndex: preset.zIndex !== undefined ? preset.zIndex : 1,
             opacity: preset.opacity !== undefined ? preset.opacity : 1.0, visible: preset.visible !== undefined ? preset.visible : true,
-            mediaType: preset.mediaType || "image", loop: preset.loop !== undefined ? preset.loop : true
+            mediaType: preset.mediaType || "image", loop: preset.loop !== undefined ? preset.loop : true,
+            autoRefresh: preset.autoRefresh !== undefined ? preset.autoRefresh : false,
+            refreshInterval: preset.refreshInterval !== undefined ? preset.refreshInterval : 60
         };
         secureSet(ref(db, `broadcast/free_images/${newId}`), config);
     };
@@ -987,6 +1272,14 @@
             const vid = document.createElement('video');
             vid.src = url; vid.className = 'preview-modal-img'; vid.controls = true; vid.autoplay = true; vid.loop = true;
             mediaContainer.appendChild(vid);
+        } else if (mediaType === 'iframe') {
+            const iframe = document.createElement('iframe');
+            iframe.src = url; iframe.className = 'preview-modal-iframe';
+            iframe.title = 'ブラウザソースプレビュー';
+            iframe.allow = 'autoplay; fullscreen; picture-in-picture';
+            iframe.allowFullscreen = true;
+            iframe.referrerPolicy = 'no-referrer-when-downgrade';
+            mediaContainer.appendChild(iframe);
         } else {
             const img = document.createElement('img');
             img.src = url; img.className = 'preview-modal-img'; img.alt = '拡大プレビュー';
@@ -1005,6 +1298,38 @@
             const mediaContainer = document.getElementById('preview-modal-media-container');
             if(mediaContainer) mediaContainer.innerHTML = ''; 
         }
+    };
+
+    function clearFreeImageRefreshTimer(id) {
+        if (freeImageRefreshTimers[id]) { clearInterval(freeImageRefreshTimers[id]); delete freeImageRefreshTimers[id]; }
+    }
+
+    function buildCacheBustedImageUrl(url) {
+        if (!url || url.startsWith('data:')) return url;
+        try { const u = new URL(url, window.location.href); u.searchParams.set('eqlive_refresh', Date.now().toString()); return u.toString(); }
+        catch (e) { return url + (url.includes('?') ? '&' : '?') + 'eqlive_refresh=' + Date.now(); }
+    }
+
+    function setupFreeImageRefreshTimer(id, conf) {
+        clearFreeImageRefreshTimer(id);
+        if (!conf || conf.mediaType !== 'image' || !conf.autoRefresh || !conf.url || conf.url.startsWith('data:')) return;
+        const seconds = Math.max(5, parseInt(conf.refreshInterval, 10) || 60);
+        freeImageRefreshTimers[id] = setInterval(() => {
+            secureUpdate(ref(db, `broadcast/free_images/${id}`), { url: buildCacheBustedImageUrl(conf.url), lastRefreshedAt: Date.now() });
+        }, seconds * 1000);
+    }
+
+    function syncFreeImageRefreshTimers(imagesData) {
+        const ids = new Set(Object.keys(imagesData || {}));
+        Object.keys(freeImageRefreshTimers).forEach(id => { if (!ids.has(id)) clearFreeImageRefreshTimer(id); });
+        Object.keys(imagesData || {}).forEach(id => setupFreeImageRefreshTimer(id, imagesData[id]));
+    }
+
+    window.refreshFreeImageNow = (id) => {
+        const input = document.getElementById(`url-${id}`);
+        const url = input ? input.value.trim() : '';
+        if (!url || url.startsWith('data:')) { alert('画像のURLを入力してください。'); return; }
+        secureUpdate(ref(db, `broadcast/free_images/${id}`), { url: buildCacheBustedImageUrl(url), lastRefreshedAt: Date.now() });
     };
 
     function renderFreeImagesControls(imagesData) {
@@ -1061,6 +1386,7 @@
                 <select style="margin-bottom: 10px; padding: 10px; background: #000; color: #fff; border: 1px solid #444; border-radius: 6px; width: 100%; font-size: 14px; font-family: inherit;" onchange="updateImageProperty('${id}', 'mediaType', this.value)">
                     <option value="image" ${currentMediaType === 'image' ? 'selected' : ''}>画像 / GIF</option>
                     <option value="video" ${currentMediaType === 'video' ? 'selected' : ''}>動画 (MP4, WebM等)</option>
+                    <option value="iframe" ${currentMediaType === 'iframe' ? 'selected' : ''}>ブラウザソース (iframe / Web)</option>
                     <option value="camera" ${currentMediaType === 'camera' ? 'selected' : ''}>ライブカメラ</option>
                 </select>
 
@@ -1084,12 +1410,27 @@
                 </div>
 
                 <div style="display: ${currentMediaType === 'camera' ? 'none' : 'block'};">
-                <label>メディア直リンクURL（画像/GIF/動画）</label>
+                <label>${currentMediaType === 'iframe' ? 'ブラウザソースURL（iframeで表示）' : 'メディア直リンクURL（画像/GIF/動画）'}</label>
                 <input type="text" id="url-${id}" value="${conf.url && !conf.url.startsWith('data:') ? conf.url : ''}" 
                        placeholder="https://..." onchange="updateImageProperty('${id}', 'url', this.value)">
-                
+                ${currentMediaType === 'iframe' ? `<div style="font-size:11px; color:var(--text-sub); margin:-5px 0 12px;">※iframe埋め込みを許可しているWebサイトのみ表示できます。X-Frame-Options / CSP等で拒否されるサイトは表示できません。</div>` : ''}
+                ${currentMediaType === 'image' ? `
+                <div style="background:#151515; border:1px solid #333; border-radius:8px; padding:12px; margin-bottom:12px;">
+                    <label style="margin-bottom:8px;">画像の自動更新</label>
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <label style="display:flex; align-items:center; gap:8px; margin:0; color:white; font-weight:normal; font-size:13px;">
+                            <input type="checkbox" style="width:auto; margin:0;" ${conf.autoRefresh ? 'checked' : ''} onchange="updateImageProperty('${id}', 'autoRefresh', this.checked)">
+                            自動更新を有効にする
+                        </label>
+                        <input type="number" min="5" max="86400" value="${conf.refreshInterval !== undefined ? conf.refreshInterval : 60}" style="width:110px; margin:0; padding:8px; font-size:13px;" onchange="updateImageProperty('${id}', 'refreshInterval', Math.max(5, parseInt(this.value) || 60))">
+                        <span style="font-size:12px; color:var(--text-sub);">秒ごと</span>
+                        <button class="secondary" style="width:auto; flex:none; padding:8px 12px; font-size:12px;" onclick="refreshFreeImageNow('${id}')"><i class="material-icons" style="font-size:15px; vertical-align:middle;">refresh</i> 今すぐ更新</button>
+                    </div>
+                    <div style="font-size:11px; color:var(--text-sub); margin-top:8px;">URLのキャッシュを回避して画像を再取得します。data: URL（ローカルアップロード画像）は対象外です。</div>
+                </div>` : ''}
+                ${currentMediaType !== 'iframe' ? `
                 <label>ローカルファイルをアップロード (※ファイルサイズ注意)</label>
-                <input type="file" accept="image/*,video/*" style="padding:6px; font-size:12px;" onchange="handleImageFileSelect('${id}', event)">
+                <input type="file" accept="image/*,video/*" style="padding:6px; font-size:12px;" onchange="handleImageFileSelect('${id}', event)">` : ''}
                 </div>
 
                 <div style="margin-top:15px;">
@@ -1129,6 +1470,7 @@
             `;
             container.appendChild(card);
         });
+        syncFreeImageRefreshTimers(imagesData);
     }
 
     // --- ✨ カード順序入れ替え時「シュンっ」と滑らかに動くアニメーション共通関数 ---
@@ -1465,6 +1807,36 @@
         } catch(e) { console.error(e); }
     }
 
+    // akki / kactuif の Region は英語表記の場合があるため、既存の地方フィルターで使う日本語名へ正規化する。
+    function normalizeCameraRegion(region) {
+        if (region === undefined || region === null) return '';
+        const raw = String(region).trim();
+        if (!raw) return '';
+        const key = raw.toLowerCase().replace(/[\s_-]+/g, '');
+        const map = {
+            '北海道':'北海道','hokkaido':'北海道','hokkaidoregion':'北海道','東北':'東北','tohoku':'東北','tohokuregion':'東北',
+            '関東':'関東','kanto':'関東','kantoregion':'関東','東海':'東海','tokai':'東海','tokairegion':'東海',
+            '北陸':'北陸','hokuriku':'北陸','hokurikuregion':'北陸','中部':'中部','chubu':'中部','chuburegion':'中部',
+            '近畿':'近畿','kinki':'近畿','kansai':'近畿','kinkiregion':'近畿','kansairegion':'近畿','中国':'中国','chugoku':'中国','chugokuregion':'中国',
+            '四国':'四国','shikoku':'四国','shikokuregion':'四国','九州':'九州','kyushu':'九州','kyushuregion':'九州',
+            '沖縄':'沖縄','okinawa':'沖縄','okinawaregion':'沖縄'
+        };
+        return map[key] || raw;
+    }
+
+    function buildAreaFilterButtons(cams) {
+        const container = document.getElementById('area-filter-container');
+        if (!container) return;
+        const existing = ['北海道','東北','関東','東海','北陸','近畿','中国','四国','九州','沖縄'];
+        const discovered = [];
+        (cams || []).forEach(c => { const area = normalizeCameraRegion(c.area || c.region); if (area && !existing.includes(area) && !discovered.includes(area)) discovered.push(area); });
+        discovered.sort((a,b) => a.localeCompare(b, 'ja'));
+        discovered.forEach(area => {
+            if ([...container.querySelectorAll('.filter-btn')].some(btn => btn.textContent.trim() === area)) return;
+            const btn = document.createElement('button'); btn.className='filter-btn'; btn.dataset.area=area; btn.textContent=area; btn.onclick=()=>filterByArea(area,btn); container.appendChild(btn);
+        });
+    }
+
     // kactuif.ikunocam.net/data を取得する。直接fetchがCORS等で失敗した場合は
     // 複数の公開CORSプロキシを順番に試す（1つが不安定でも他で補う）
     async function fetchKactuifCameras() {
@@ -1499,7 +1871,8 @@
         return streams.map(s => ({
             id: s.id,
             name: s.name,
-            area: "", // このデータソースには都道府県情報が無いため未設定
+            region: s.Region || s.region || s.regionName || s.region_name || "",
+            area: normalizeCameraRegion(s.Region || s.region || s.regionName || s.region_name || ""),
             genre: "akki",
             type: s.type || "youtube",
             url: s.url
@@ -1521,7 +1894,8 @@
         // こちらはgenre・areaが無いため、genreは「akki」として補完する
         const kactuifCams = await fetchKactuifCameras();
 
-        allCameras = [...khLivecCams, ...kactuifCams];
+        allCameras = [...khLivecCams, ...kactuifCams].map(c => ({ ...c, area: normalizeCameraRegion(c.area || c.region) }));
+        buildAreaFilterButtons(allCameras);
         buildGenreFilterButtons(allCameras);
         applyCombinedFilter();
         buildTourCameraSelector();
@@ -1532,6 +1906,14 @@
             try { renderFreeImagesControls(JSON.parse(freeImagesContainer.dataset.lastData)); } catch (e) {}
         }
     }
+
+    window.refreshCameraList = async () => {
+        const btn = document.getElementById('btn-refresh-camera-list');
+        if (btn) { btn.disabled=true; btn.innerHTML='<i class="material-icons" style="font-size:16px;">sync</i> 再取得中…'; }
+        try { await initCameras(); if (btn) btn.innerHTML='<i class="material-icons" style="font-size:16px;">check</i> 再取得完了'; }
+        catch(e) { console.error(e); if (btn) btn.innerHTML='<i class="material-icons" style="font-size:16px;">error</i> 再取得失敗'; }
+        finally { setTimeout(()=>{ if(btn){btn.disabled=false;btn.innerHTML='<i class="material-icons" style="font-size:16px;">refresh</i> リストを再取得';}},1200); }
+    };
 
     let isInitialLoad = true;
 
